@@ -1,5 +1,5 @@
 import { generateTsid } from '@flowcatalyst/sdk';
-import { ScopeStore } from '../scope/scope-store.js';
+import { ScopeStore } from '@flowcatalyst-apps/app-framework';
 import { metrics } from '../measurements/prometheus.js';
 import type { Notice, CreateNotice } from './notice.js';
 import type { NoticeRepository } from './notice-repository.js';

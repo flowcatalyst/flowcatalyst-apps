@@ -18,6 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@flowcatalyst-apps/app-framework": "workspace:*",
     "@flowcatalyst/sdk": "file:../../../../flowcatalyst-rust/clients/typescript-sdk",
     "fastify-plugin": "^5.0.0",
     "prom-client": "^15.0.0"

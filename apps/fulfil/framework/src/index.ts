@@ -1,5 +1,14 @@
-// Scope
-export { Scope, ScopeStore } from './scope/index.js';
+// Scope, ScopeStore, RequestToken, contexts, JobDescriptor, runJob, AuditLog,
+// createContextLogger, ScopeAwareDrizzleLogger are re-exported from the shared
+// `@flowcatalyst-apps/app-framework` package — single source of truth across
+// all apps in this monorepo.
+export {
+  Scope,
+  ScopeStore,
+  createContextLogger,
+  runJob,
+  ScopeAwareDrizzleLogger,
+} from '@flowcatalyst-apps/app-framework';
 export type {
   RequestToken,
   RequestScopeOptions,
@@ -9,7 +18,10 @@ export type {
   MeasurementContext,
   CapturedQuery,
   SqlAuditContext,
-} from './scope/index.js';
+  AuditLog,
+  CreateAuditLogData,
+  JobDescriptor,
+} from '@flowcatalyst-apps/app-framework';
 
 // Use-case primitives — re-exported from @flowcatalyst/sdk's Effect surface.
 // Single source of truth is the SDK; framework re-exports so consumers can keep
@@ -38,16 +50,6 @@ export type {
   DomainEventBase,
 } from '@flowcatalyst/sdk/effect/usecase';
 
-// Audit log
-export type { AuditLog, CreateAuditLogData } from './audit/audit-log.js';
-
-// Logging
-export { createContextLogger } from './logging/logger.js';
-
-// Jobs
-export type { JobDescriptor } from './jobs/job-descriptor.js';
-export { runJob } from './jobs/run-job.js';
-
 // Cache
 export type { CacheStore, TaggedCacheStore, CacheManager } from './cache/index.js';
 export { createCacheManager, createArrayStore, createRedisStore } from './cache/index.js';
@@ -57,7 +59,6 @@ export type { RedisStoreConfig, RedisClient } from './cache/index.js';
 export type { RouteSlaDef, SlaTracker } from './measurements/sla-tracker.js';
 export { createSlaTracker } from './measurements/sla-tracker.js';
 export type { SlaSample, SlaSampleRepository } from './measurements/sla-sample.js';
-export { ScopeAwareDrizzleLogger } from './measurements/drizzle-logger.js';
 export { metrics, getMetricsRegistry } from './measurements/prometheus.js';
 
 // Notices

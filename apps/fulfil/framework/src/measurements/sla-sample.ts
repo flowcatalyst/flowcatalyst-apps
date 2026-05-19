@@ -1,4 +1,4 @@
-import type { CapturedQuery } from '../scope/contexts/sql-audit-context.js';
+import type { CapturedQuery } from '@flowcatalyst-apps/app-framework';
 
 export interface SlaSample {
   readonly route: string;

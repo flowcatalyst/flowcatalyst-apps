@@ -1,4 +1,4 @@
-import type { Scope } from '../scope/scope.js';
+import type { Scope } from '@flowcatalyst-apps/app-framework';
 import type { SlaSample } from './sla-sample.js';
 
 export interface RouteSlaDef {

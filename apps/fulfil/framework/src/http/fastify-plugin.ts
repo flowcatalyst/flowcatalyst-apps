@@ -1,11 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
-import { Scope } from '../scope/scope.js';
-import { ScopeStore } from '../scope/scope-store.js';
+import { Scope, ScopeStore, type RequestToken } from '@flowcatalyst-apps/app-framework';
 import { metrics, getMetricsRegistry } from '../measurements/prometheus.js';
 import type { SlaTracker } from '../measurements/sla-tracker.js';
 import type { SlaSampleRepository } from '../measurements/sla-sample.js';
-import type { RequestToken } from '../scope/scope.js';
 import './route-sla.js';
 
 export interface FrameworkPluginOptions {
