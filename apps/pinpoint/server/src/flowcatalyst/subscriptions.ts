@@ -3,7 +3,7 @@
  * each listening to multiple event types via `eventTypes[]`. Populated as
  * cross-aggregate process slices land.
  */
-import { sync } from '@flowcatalyst/sdk';
+import type { sync } from '@flowcatalyst/sdk';
 
 export interface BuildPinpointSubscriptionsConfig {
   readonly publicBaseUrl: string;

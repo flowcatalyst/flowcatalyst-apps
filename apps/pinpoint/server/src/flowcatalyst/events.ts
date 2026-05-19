@@ -6,6 +6,6 @@
  *
  * Sync'd to the platform via `pnpm flowcatalyst:sync`.
  */
-import { sync } from '@flowcatalyst/sdk';
+import type { sync } from '@flowcatalyst/sdk';
 
 export const pinpointEventTypes: readonly sync.EventTypeDefinition[] = [];

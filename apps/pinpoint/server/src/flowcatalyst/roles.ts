@@ -7,6 +7,6 @@
  * names — real authz binding (token → role → permission check) lands in a
  * later slice.
  */
-import { sync } from '@flowcatalyst/sdk';
+import type { sync } from '@flowcatalyst/sdk';
 
 export const pinpointRoles: readonly sync.RoleDefinition[] = [];

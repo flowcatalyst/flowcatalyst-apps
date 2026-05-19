@@ -5,6 +5,8 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Scope, ScopeStore, type RequestToken } from '@pinpoint/framework';
 import { db } from './infrastructure/db.js';
 import { createAppContext } from './app-context.js';
+import { registerMeRoute } from './api/routes/auth/me.route.js';
+import { registerCountriesRoute } from './api/routes/reference/countries.route.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -19,9 +21,9 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 
 function extractRequestToken(req: FastifyRequest): RequestToken | null {
-  // TODO(auth): wire the real OIDC extractor in Slice 1. Dev fallback:
-  // honor `x-user-id` like fulfil's TODO bypass so authenticated routes
-  // can be exercised end-to-end without a real IdP.
+  // TODO(auth): real OIDC extractor replaces this in a later slice. Dev
+  // fallback honors `x-user-id` so authenticated routes can be exercised
+  // end-to-end without a real IdP, matching fulfil's pattern.
   const sub = req.headers['x-user-id'];
   if (typeof sub !== 'string') return null;
   return { sub };
@@ -70,7 +72,11 @@ async function buildServer() {
           'Address resolution, spatial matching, and partition management. ' +
           'Port of the Rust pinpoint service — see apps/pinpoint/docs/MIGRATION_PLAN.md.',
       },
-      tags: [],
+      tags: [
+        { name: 'System', description: 'Health + ops endpoints' },
+        { name: 'Auth', description: 'Principal identity + session' },
+        { name: 'Reference', description: 'Reference data (countries, …)' },
+      ],
     },
   });
 
@@ -89,8 +95,8 @@ async function buildServer() {
     service: 'pinpoint',
   }));
 
-  // Reserved for app-context wiring as use-case slices land.
-  void appContext;
+  registerMeRoute(server, appContext);
+  registerCountriesRoute(server, appContext);
 
   return server;
 }

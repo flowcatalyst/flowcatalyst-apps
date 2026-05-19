@@ -1,4 +1,4 @@
-import { sync } from '@flowcatalyst/sdk';
+import type { sync } from '@flowcatalyst/sdk';
 
 export interface BuildPinpointDispatchPoolsConfig {
   readonly dispatchPoolCode: string;

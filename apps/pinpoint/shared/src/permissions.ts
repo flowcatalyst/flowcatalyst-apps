@@ -7,11 +7,12 @@
  * names sync'd via `flowcatalyst/roles.ts` are separate strings (intentionally).
  *
  * Real authz binding (token → role → permission check) lands in a later
- * slice; for now these constants exist so use cases can declare their
+ * slice; the constants exist now so use cases can declare their
  * `static readonly requiredPermission` field consistently with fulfil.
  */
 export const PinpointPermission = {
-  // populated as slices land — see MIGRATION_PLAN.md
+  AuthPrincipalRead: 'pinpoint:auth:principal:read',
+  ReferenceCountryRead: 'pinpoint:reference:country:read',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];

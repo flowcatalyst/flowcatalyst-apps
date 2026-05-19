@@ -1,4 +1,4 @@
-import { sync } from '@flowcatalyst/sdk';
+import type { sync } from '@flowcatalyst/sdk';
 import { pinpointEventTypes } from './events.js';
 import { buildPinpointSubscriptions } from './subscriptions.js';
 import { buildPinpointDispatchPools } from './dispatch-pools.js';

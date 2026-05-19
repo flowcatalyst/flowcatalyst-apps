@@ -15,12 +15,16 @@ import {
   type TransactionManager,
 } from '@pinpoint/framework';
 import type { UnitOfWork, UseCaseError } from '@pinpoint/framework';
+import { createDrizzlePrincipalRepository } from './infrastructure/principal-repository.js';
+import { createDrizzleCountryRepository } from './infrastructure/country-repository.js';
+import type { PrincipalRepository } from './domain/auth/principal.repository.js';
+import type { CountryRepository } from './domain/reference/country.repository.js';
 
 /**
- * Composition root for the pinpoint server. Wires the (initially empty)
- * repository graph, the `UnitOfWork` / `DispatchJobBroker` / `AggregateRegistry`
- * Layers, and the `runWrite` boundary runner that opens a Drizzle tx, binds it
- * on ALS, and drains the Effect.
+ * Composition root for the pinpoint server. Wires the repository graph, the
+ * `UnitOfWork` / `DispatchJobBroker` / `AggregateRegistry` Layers, and the
+ * `runWrite` boundary runner that opens a Drizzle tx, binds it on ALS, and
+ * drains the Effect.
  *
  * One `OutboxManager` is built here and shared by both UoW and DispatchJobBroker
  * so events, audit logs, and dispatch jobs all ride the same `TransactionStore`-
@@ -29,11 +33,16 @@ import type { UnitOfWork, UseCaseError } from '@pinpoint/framework';
  *
  * Keep this file dumb — wiring only, no business logic.
  */
+export interface AppContextRepositories {
+  readonly principals: PrincipalRepository;
+  readonly countries: CountryRepository;
+}
+
 export interface AppContext {
   readonly db: PostgresJsDatabase;
   readonly transactionManager: TransactionManager;
   readonly aggregateRegistry: AggregateRegistryImpl;
-  readonly repositories: Record<string, never>;
+  readonly repositories: AppContextRepositories;
   readonly useCases: Record<string, never>;
   /**
    * Run a use-case Effect inside a Drizzle transaction. Provides
@@ -66,8 +75,12 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const transactionManager = createTransactionManager(db);
 
   // Empty prefix map until the first aggregate slice lands. Slice 2 (Clients
-  // + Partitions) will populate this with their id prefixes.
+  // + Partitions) will populate this with their id prefixes. Principals carry
+  // an OIDC-shaped id (no TSID prefix), so they don't register here.
   const aggregateRegistry = createAggregateRegistry({});
+
+  const principalRepo = createDrizzlePrincipalRepository(db);
+  const countryRepo = createDrizzleCountryRepository(db);
 
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
@@ -93,7 +106,10 @@ export function createAppContext(config: AppContextConfig): AppContext {
     db,
     transactionManager,
     aggregateRegistry,
-    repositories: {},
+    repositories: {
+      principals: principalRepo,
+      countries: countryRepo,
+    },
     useCases: {},
     runWrite,
   };
