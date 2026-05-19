@@ -24,12 +24,16 @@
     "@flowcatalyst-apps/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-orm": "1.0.0-rc.1",
+    "effect": "catalog:",
     "fastify": "^5.0.0",
+    "postgres": "^3.4.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
     "drizzle-orm": "1.0.0-rc.1",
-    "fastify": "^5.0.0"
+    "effect": "catalog:",
+    "fastify": "^5.0.0",
+    "postgres": "^3.0.0"
   }
 }

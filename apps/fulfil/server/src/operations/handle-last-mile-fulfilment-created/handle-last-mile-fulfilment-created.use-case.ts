@@ -14,7 +14,7 @@ import {
   AggregateRegistry,
   commitAggregate,
   DispatchJobBroker,
-} from '../../infrastructure/unit-of-work.js';
+} from '@flowcatalyst-apps/app-framework';
 import { asLastMileFulfilmentId, asTenantId } from '../../domain/lastmile/ids.js';
 import { LastMileFulfilment } from '../../domain/lastmile/last-mile-fulfilment.js';
 import type { LastMileFulfilmentRepository } from '../../domain/lastmile/last-mile-fulfilment.repository.js';

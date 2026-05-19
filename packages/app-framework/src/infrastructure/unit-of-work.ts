@@ -31,16 +31,16 @@ import {
   type DomainEvent,
   type Sealed,
   type ConcurrencyError,
-} from '@fulfil/framework';
+} from '@flowcatalyst/sdk/effect/usecase';
 import type { AggregateRegistry as AggregateRegistryImpl } from './aggregate-registry.js';
 import { DrizzleOutboxDriver } from './outbox-driver.js';
 import { TransactionStore } from './transaction-store.js';
-import { auditLogs, type NewAuditLog } from './schema/audit-logs.js';
+import { auditLogs, type NewAuditLog } from '../schema/audit-logs.js';
 import type { TransactionContext } from './transaction.js';
 
 /** Effect Tag exposing the aggregate-type → repository dispatch registry. */
 export class AggregateRegistry extends Context.Service<AggregateRegistry, AggregateRegistryImpl>()(
-  '@fulfil/AggregateRegistry',
+  '@flowcatalyst-apps/app-framework/AggregateRegistry',
 ) {}
 
 /**
@@ -58,7 +58,7 @@ export class DispatchJobBroker extends Context.Service<
       jobs: readonly CreateDispatchJobDto[],
     ) => Effect.Effect<readonly string[], InfrastructureError>;
   }
->()('@fulfil/DispatchJobBroker') {}
+>()('@flowcatalyst-apps/app-framework/DispatchJobBroker') {}
 
 export interface OutboxManagerConfig {
   /** FlowCatalyst client ID for outbox message routing. */

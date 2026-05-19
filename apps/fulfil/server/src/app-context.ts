@@ -3,19 +3,18 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { type Scope, type UseCaseError, type UnitOfWork } from '@fulfil/framework';
 
 import {
-  createAggregateRegistry,
-  type AggregateRegistry as AggregateRegistryImpl,
-} from './infrastructure/aggregate-registry.js';
-import { createTransactionManager, type TransactionManager } from './infrastructure/transaction.js';
-import { TransactionStore } from './infrastructure/transaction-store.js';
-import {
   AggregateRegistry,
   aggregateRegistryLayer,
   buildOutboxManager,
+  createAggregateRegistry,
+  createTransactionManager,
   DispatchJobBroker,
   dispatchJobBrokerLayer,
+  TransactionStore,
   unitOfWorkLayer,
-} from './infrastructure/unit-of-work.js';
+  type AggregateRegistryImpl,
+  type TransactionManager,
+} from '@flowcatalyst-apps/app-framework';
 import { createDrizzleLastMileFulfilmentRepository } from './infrastructure/last-mile-fulfilment-repository.js';
 import { createDrizzleLastMileShipmentRepository } from './infrastructure/last-mile-shipment-repository.js';
 import { registerLastMileFulfilment } from './infrastructure/register-last-mile-fulfilment.js';

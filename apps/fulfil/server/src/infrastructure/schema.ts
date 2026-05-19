@@ -1,8 +1,21 @@
-// Drizzle table definitions — re-exports from schema modules
-export { baseEntityColumns, tsidColumn, rawTsidColumn, timestampColumn } from './schema/common.js';
-export type { BaseEntity, NewEntity } from './schema/common.js';
-export { auditLogs } from './schema/audit-logs.js';
-export type { NewAuditLog, AuditLogRow } from './schema/audit-logs.js';
+// Drizzle table definitions — re-exports from schema modules.
+//
+// Shared base-entity column primitives and the local `audit_logs` table live
+// in `@flowcatalyst-apps/app-framework` so every app in the monorepo uses the
+// same definitions; Fulfil's app-specific tables stay local.
+export {
+  baseEntityColumns,
+  tsidColumn,
+  rawTsidColumn,
+  timestampColumn,
+  auditLogs,
+} from '@flowcatalyst-apps/app-framework';
+export type {
+  BaseEntity,
+  NewEntity,
+  NewAuditLog,
+  AuditLogRow,
+} from '@flowcatalyst-apps/app-framework';
 export { notices } from './schema/notices.js';
 export type { NewNotice, NoticeRow } from './schema/notices.js';
 export { slaSamples } from './schema/sla-samples.js';

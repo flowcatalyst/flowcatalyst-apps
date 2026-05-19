@@ -6,7 +6,7 @@
  */
 
 import { pgTable, varchar, integer, jsonb } from 'drizzle-orm/pg-core';
-import { rawTsidColumn, timestampColumn } from './common.js';
+import { rawTsidColumn, timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 export const slaSamples = pgTable('sla_samples', {
   id: rawTsidColumn('id').primaryKey(),

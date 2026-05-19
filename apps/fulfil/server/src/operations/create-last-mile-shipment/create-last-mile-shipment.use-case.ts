@@ -11,7 +11,7 @@ import {
 } from '@fulfil/framework';
 import { LastMilePermission } from '@fulfil/shared';
 
-import { AggregateRegistry, commitAggregate } from '../../infrastructure/unit-of-work.js';
+import { AggregateRegistry, commitAggregate } from '@flowcatalyst-apps/app-framework';
 import {
   asLastMileFulfilmentId,
   asShipmentId,

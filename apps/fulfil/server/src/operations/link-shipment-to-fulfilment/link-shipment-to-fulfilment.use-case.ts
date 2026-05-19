@@ -8,7 +8,7 @@ import {
   type UseCaseError,
 } from '@fulfil/framework';
 
-import { AggregateRegistry, commitAggregate } from '../../infrastructure/unit-of-work.js';
+import { AggregateRegistry, commitAggregate } from '@flowcatalyst-apps/app-framework';
 import {
   asLastMileFulfilmentId,
   asParcelId,

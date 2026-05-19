@@ -3,7 +3,7 @@ import {
   type LastMileShipment,
 } from '../domain/lastmile/last-mile-shipment.js';
 import type { LastMileShipmentRepository } from '../domain/lastmile/last-mile-shipment.repository.js';
-import type { AggregateRegistry } from './aggregate-registry.js';
+import type { AggregateRegistryImpl as AggregateRegistry } from '@flowcatalyst-apps/app-framework';
 
 /**
  * Wire the LastMileShipment aggregate into the shared AggregateRegistry.

@@ -1,4 +1,4 @@
-import type { TransactionContext } from '../../infrastructure/transaction.js';
+import type { TransactionContext } from '@flowcatalyst-apps/app-framework';
 import type { LastMileFulfilmentId, TenantId } from './ids.js';
 import type { LastMileFulfilment } from './last-mile-fulfilment.js';
 

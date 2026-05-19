@@ -14,7 +14,7 @@ import type {
   LinkedShipment,
   ReactionBookkeeping,
 } from '../../domain/lastmile/state.js';
-import { timestampColumn, tsidColumn } from './common.js';
+import { timestampColumn, tsidColumn } from '@flowcatalyst-apps/app-framework';
 
 export const lastMileFulfilments = pgTable(
   'last_mile_fulfilments',

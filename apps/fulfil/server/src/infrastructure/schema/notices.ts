@@ -6,7 +6,7 @@
  */
 
 import { pgTable, varchar, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { rawTsidColumn, timestampColumn } from './common.js';
+import { rawTsidColumn, timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 export const notices = pgTable('notices', {
   id: rawTsidColumn('id').primaryKey(),

@@ -1,7 +1,7 @@
 import type { LastMileFulfilment } from '../domain/lastmile/last-mile-fulfilment.js';
 import { LAST_MILE_FULFILMENT_TYPE } from '../domain/lastmile/last-mile-fulfilment.js';
 import type { LastMileFulfilmentRepository } from '../domain/lastmile/last-mile-fulfilment.repository.js';
-import type { AggregateRegistry } from './aggregate-registry.js';
+import type { AggregateRegistryImpl as AggregateRegistry } from '@flowcatalyst-apps/app-framework';
 
 /**
  * Wire the LastMileFulfilment aggregate into the shared AggregateRegistry.

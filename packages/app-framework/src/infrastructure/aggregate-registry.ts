@@ -5,7 +5,7 @@
  * Maps aggregate types to their respective repository operations.
  */
 
-import type { BaseEntity, NewEntity } from './schema/common.js';
+import type { BaseEntity, NewEntity } from '../schema/common.js';
 import type { TransactionContext } from './transaction.js';
 
 export interface AggregateHandler<T extends BaseEntity = BaseEntity> {

@@ -9,7 +9,7 @@ import {
 } from '@fulfil/framework';
 import type { LinkShipmentToFulfilmentCommand } from '@fulfil/shared';
 
-import { DispatchJobBroker } from '../../infrastructure/unit-of-work.js';
+import { DispatchJobBroker } from '@flowcatalyst-apps/app-framework';
 import { asLastMileFulfilmentId, asShipmentId, asTenantId } from '../../domain/lastmile/ids.js';
 import { LastMileFulfilmentShipmentLinkDispatched } from '../../domain/lastmile/events/last-mile-fulfilment-shipment-link-dispatched.event.js';
 

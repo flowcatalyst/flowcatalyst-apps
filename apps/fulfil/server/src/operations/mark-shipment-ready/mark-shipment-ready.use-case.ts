@@ -10,7 +10,7 @@ import {
 } from '@fulfil/framework';
 import { LastMilePermission, ShipmentStatus } from '@fulfil/shared';
 
-import { AggregateRegistry, commitAggregate } from '../../infrastructure/unit-of-work.js';
+import { AggregateRegistry, commitAggregate } from '@flowcatalyst-apps/app-framework';
 import { asShipmentId, asTenantId } from '../../domain/lastmile/ids.js';
 import { LastMileShipment } from '../../domain/lastmile/last-mile-shipment.js';
 import type { LastMileShipmentRepository } from '../../domain/lastmile/last-mile-shipment.repository.js';

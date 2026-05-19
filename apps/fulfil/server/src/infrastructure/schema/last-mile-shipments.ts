@@ -9,7 +9,7 @@ import type {
   Parcel,
   PromisedLine,
 } from '@fulfil/shared';
-import { timestampColumn, tsidColumn } from './common.js';
+import { timestampColumn, tsidColumn } from '@flowcatalyst-apps/app-framework';
 
 export const lastMileShipments = pgTable(
   'last_mile_shipments',
