@@ -1,0 +1,28 @@
+{
+  "name": "@flowcatalyst-apps/root",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "test": "vp test",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "lint": "vp check --no-fmt",
+    "format": "vp check --no-lint --fix",
+    "format:check": "vp check --no-lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "run": "vp run",
+    "clean": "pnpm -r exec rm -rf dist .turbo .vite .vite-plus"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "packageManager": "pnpm@11.1.2"
+}

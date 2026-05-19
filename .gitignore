@@ -1,0 +1,18 @@
+node_modules
+dist
+.turbo
+.vite
+.vite-plus
+coverage
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

@@ -1,0 +1,8 @@
+{
+  "extends": "@flowcatalyst-apps/tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "noEmit": true
+  },
+  "include": ["src"]
+}

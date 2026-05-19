@@ -1,0 +1,27 @@
+packages:
+  - 'apps/*'
+  - 'apps/*/*'
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true
+
+# Centralised dependency versions. Reference with `"effect": "catalog:"` etc.
+# Bump here once instead of in every package.
+catalog:
+  typescript: ^6.0.3
+  vite-plus: ^0.1.21
+  vitest: ^4.1.6
+  effect: 4.0.0-beta.67
+  '@types/node': ^24.0.0
+
+# Lets you opt different apps onto different versions during migrations.
+# Reference with `"effect": "catalog:legacy"`.
+catalogs:
+  legacy:
+    effect: 4.0.0-beta.66
+
+onlyBuiltDependencies:
+  - esbuild
+  - '@swc/core'
