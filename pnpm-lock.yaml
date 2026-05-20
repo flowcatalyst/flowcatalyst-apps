@@ -82,8 +82,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
-        specifier: file:../../../../flowcatalyst-rust/clients/typescript-sdk
-        version: file:../flowcatalyst-rust/clients/typescript-sdk(effect@4.0.0-beta.67)
+        specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -175,8 +175,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
-        specifier: file:../../../../flowcatalyst-rust/clients/typescript-sdk
-        version: file:../flowcatalyst-rust/clients/typescript-sdk(effect@4.0.0-beta.67)
+        specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
       '@fulfil/framework':
         specifier: workspace:*
         version: link:../framework
@@ -243,8 +243,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
-        specifier: file:../../../../flowcatalyst-rust/clients/typescript-sdk
-        version: file:../flowcatalyst-rust/clients/typescript-sdk(effect@4.0.0-beta.67)
+        specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -283,8 +283,8 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
-        specifier: file:../../../../flowcatalyst-rust/clients/typescript-sdk
-        version: file:../flowcatalyst-rust/clients/typescript-sdk(effect@4.0.0-beta.67)
+        specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
       '@pinpoint/framework':
         specifier: workspace:*
         version: link:../framework
@@ -345,8 +345,8 @@ importers:
   packages/app-framework:
     dependencies:
       '@flowcatalyst/sdk':
-        specifier: file:../../../flowcatalyst-rust/clients/typescript-sdk
-        version: file:../flowcatalyst-rust/clients/typescript-sdk(effect@4.0.0-beta.67)
+        specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -782,8 +782,9 @@ packages:
     peerDependencies:
       typebox: ^1.0.13
 
-  '@flowcatalyst/sdk@file:../flowcatalyst-rust/clients/typescript-sdk':
-    resolution: {directory: ../flowcatalyst-rust/clients/typescript-sdk, type: directory}
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405':
+    resolution: {gitHosted: true, integrity: sha512-+Ujlavi5q3O2XFdGabi1Wstg5EkEV4OSO1rsiAhDzdTSlq+Ge11U4rWdxp1JRNAxCU8sRfgNPDAhjlYIJAxnDQ==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405}
+    version: 0.3.2
     engines: {node: '>=18.0.0'}
     peerDependencies:
       effect: ^4.0.0-beta.68
@@ -3139,7 +3140,7 @@ snapshots:
     dependencies:
       typebox: 1.1.38
 
-  '@flowcatalyst/sdk@file:../flowcatalyst-rust/clients/typescript-sdk(effect@4.0.0-beta.67)':
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)':
     dependencies:
       neverthrow: 8.2.0
     optionalDependencies:

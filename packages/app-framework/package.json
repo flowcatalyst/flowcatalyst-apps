@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@flowcatalyst/sdk": "file:../../../flowcatalyst-rust/clients/typescript-sdk"
+    "@flowcatalyst/sdk": "github:flowcatalyst/typescript-sdk#semver:>=0.6.7"
   },
   "devDependencies": {
     "@flowcatalyst-apps/tsconfig": "workspace:*",

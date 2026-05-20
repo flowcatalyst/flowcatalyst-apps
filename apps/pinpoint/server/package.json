@@ -23,7 +23,7 @@
     "@fastify/swagger-ui": "^5.2.0",
     "@fastify/type-provider-typebox": "^6.1.0",
     "@flowcatalyst-apps/app-framework": "workspace:*",
-    "@flowcatalyst/sdk": "file:../../../../flowcatalyst-rust/clients/typescript-sdk",
+    "@flowcatalyst/sdk": "github:flowcatalyst/typescript-sdk#semver:>=0.6.7",
     "@pinpoint/framework": "workspace:*",
     "@pinpoint/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.49",

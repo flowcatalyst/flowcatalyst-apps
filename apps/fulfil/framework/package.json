@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@flowcatalyst-apps/app-framework": "workspace:*",
-    "@flowcatalyst/sdk": "file:../../../../flowcatalyst-rust/clients/typescript-sdk",
+    "@flowcatalyst/sdk": "github:flowcatalyst/typescript-sdk#semver:>=0.6.7",
     "fastify-plugin": "^5.0.0",
     "prom-client": "^15.0.0"
   },

@@ -84,7 +84,9 @@ In order:
 
 ## Gotchas
 
-**SDK refresh after rebuild.** The `@flowcatalyst/sdk` is path-linked at `file:../../../flowcatalyst-rust/clients/typescript-sdk`. If the SDK is rebuilt, downstream consumers need `rm -rf node_modules && pnpm install` to actually pick up the new dist — `pnpm install --force` says "Already up to date" and lies. The SDK's tsconfig was recently switched to `moduleResolution: "NodeNext"` (was `"bundler"`).
+**SDK is git-tag tracked, not path-linked.** As of 2026-05-20, all five workspaces that consume `@flowcatalyst/sdk` use `github:flowcatalyst/typescript-sdk#semver:>=0.6.7`. The git tag list is the resolution source (pnpm strips a leading `v` and matches against the spec); the package.json `version` field on the tag is stale and unreliable (v0.6.7 still claims 0.3.2). The previous `file:../../../flowcatalyst-rust/clients/typescript-sdk` path link was retired because it went stale silently between SDK rebuilds and required `rm -rf node_modules && pnpm install` to refresh (`pnpm install --force` lies and says "Already up to date").
+
+**Standing rule: run `pnpm update @flowcatalyst/sdk -r` at the start of every new task** before doing anything else. The semver range floats but pnpm only re-resolves on explicit update. The dev SDK ships out-of-band, often weekly. If the update bumps the locked commit, run `pnpm -r --if-present typecheck` immediately so any SDK-induced breakage is attributed to the bump and not to whatever task you're about to start.
 
 **Effect 4 is beta.** Pinned at `4.0.0-beta.67`. Don't bump without checking the renames documented in `apps/fulfil/CLAUDE.md` (Either→Result, Context.Tag→Context.Service, etc.).
 
