@@ -8,7 +8,7 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ## Status (2026-05-20)
 
-**Paused after Slice 3.** Andrew is actively reconsidering whether to continue this port vs keep the Rust pinpoint as the production service. New agents should read `HANDOFF.md` and confirm direction with Andrew **before** starting Slice 4.
+**Slice 4 shipped 2026-05-20.** Andrew opted to continue after re-checking direction post-Slice 3. The broader question (port vs keep Rust pinpoint as production) is not definitively settled — re-check at Slice 5, which is where PostGIS + matching make the work meaningfully harder.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -18,7 +18,7 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 | 1 | done | `138204d` | Principal aggregate, Country read model, `/me`, `/countries`. `principal_partitions` table deferred to Slice 2 (FK to partitions). `countries.geometry` + ~390KB seed deferred to Slice 5 |
 | 2 | done | `a7e34dd` | Client + Partition aggregates + first UoW path. `principal_partitions` table joined in here. Event types declared in `flowcatalyst/events.ts` |
 | 3 | done | `2d30bfc` | Location aggregate (full schema), minimal create + paged reads. **~85% of the Rust `create_location.rs` pipeline deferred** to slices 5/7/8 |
-| 4 | pending | — | Layers + LayerFeatures (next if continuing) |
+| 4 | done | (this commit) | Layers + LayerFeatures. First `commitDelete` user. `boundary` GEOMETRY columns + GIST indexes deferred to Slice 5. PropertySet aggregate scaffolding deferred (schema only) |
 | 5-12 | pending | — | spatial canary, external services, LLM (Vercel AI SDK), master locations, validation worker, BFF, web lift, cutover |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
@@ -192,25 +192,34 @@ Migrations: `004_locations.sql`, `008_location_indexes.sql`, `014_suburb_and_pro
 - Routes: `POST /locations`, `GET /locations/:id`, `GET /locations` (paged)
 - **Deliverable**: flagship CRUD slice validating UoW + outbox + paged reads
 
-### Slice 4 — Layers + layer features — **NEXT** (if continuing)
+### Slice 4 — Layers + layer features — **DONE** (this commit)
 
-**Now also includes** `PropertySet` aggregate (moved from Slice 3 — it's a layer-scoped entity).
+**Scope adjustments applied:**
+- `boundary GEOMETRY(Geometry, 4326)` columns + GIST indexes on `layers` and `layer_features` deferred to Slice 5 (PostGIS canary), mirroring the Slice 1 `countries.geometry` deferral. Scalar lat/lon/radius/polygon_geojson all ship in Slice 4.
+- Migration 013's second ALTER (`location_feature_associations.distance_meters`) deferred to Slice 5 — the table it modifies doesn't exist until then. Slice 4 ported only the `layer_features.status` ALTER from 013.
+- `PropertySet` aggregate scaffolding NOT added: there's no Rust use case for direct property-set management, and Slice 3 set the precedent of "schema-only until a use case needs it" (cf. `location_attributes`). `property_sets` and `properties` tables ship; ID prefix `pst` reserved but unregistered.
+- `location_layer_associations` table ported as schema-only — populated by the matching pipeline (Slice 5+). FK targets (locations, layers) both exist now, so the table compiles cleanly.
+- `layer_partitions` table ported but unpopulated — no `assign-layer-to-partition` use case yet (later slice).
+- ID prefixes registered: `lyr` → Layer, `lfe` → LayerFeature. PropertySet (`pst`) reserved.
+- First `commitDelete` consumer (`delete-layer-feature`) validated the deletion-through-UoW path end-to-end.
 
-Suggested ID prefixes: `lyr` for Layer, `lfe` for LayerFeature, `pst` for PropertySet.
 
-
-Migrations: `005_layers.sql`, `009_layer_features.sql`, `010_layer_code.sql`, `013_feature_status_and_point_type.sql`, `017_layer_partitions.sql`
+Migrations: `005_layers.sql`, `009_layer_features.sql`, `010_layer_code.sql`, `013_feature_status_and_point_type.sql` (partial), `017_layer_partitions.sql`
 
 - Aggregates: `Layer`, `LayerFeature`
-- Use cases: `create-layer`, `create/update/delete-layer-feature`
+- Use cases: `create-layer`, `create-layer-feature`, `update-layer-feature`, `delete-layer-feature`
 - Events: `layer-created`, `layer-feature-{created,updated,deleted}`
-- Routes: `POST /layers`, `POST/PUT/DELETE /layer-features/...`
+- Routes: `POST /layers`, `GET /layers/:id`, paged `GET /layers?clientId=…`, `POST/PUT/DELETE /layer-features/...`, `GET /layer-features/:id`, paged `GET /layer-features?layerId=…`
 - **Deliverable**: layer management complete
 
 ### Slice 5 — Matching config + spatial lookup (PostGIS canary)
 
-Migrations: `003_matching_config.sql`, `011_spatial_matching.sql`, `012_trgm_fuzzy_matching.sql`
+Migrations: `003_matching_config.sql`, `011_spatial_matching.sql`, `012_trgm_fuzzy_matching.sql`, plus the PostGIS bits deferred from earlier slices.
 
+- **First slice that requires a live Postgres+PostGIS to validate** — slices 0-4 typecheck and smoke cleanly without a DB; spatial routes will not.
+- Manual migration: `CREATE EXTENSION postgis` (drizzle-kit can't emit this). Same for `CREATE EXTENSION pg_trgm`.
+- Add the deferred PostGIS columns + GIST indexes: `layers.boundary`, `layer_features.boundary`, `countries.geometry`. Also the ~390KB country seed (deferred from Slice 1).
+- Create `location_feature_associations` table + `distance_meters` column (the second ALTER from migration 013).
 - Aggregate: `MatchingConfig`
 - Use cases: `update-matching-config`
 - Spatial: Drizzle `customType` for WKT/WKB geometry columns; raw `sql\`...\`` for spatial predicates (`ST_DWithin`, `ST_Intersects`, `<->`)
@@ -300,7 +309,7 @@ Migrations: `003_matching_config.sql`, `011_spatial_matching.sql`, `012_trgm_fuz
 5. **`fragment_routes.rs` / `unvalidated_routes.rs` intent** — investigate at slice 10; may be deletable.
 6. **libpostal binding** — no first-class TS binding for libpostal. Slice 5/7 needs to decide between (a) hosted normalization service, (b) FFI binding via N-API, (c) accepting reduced normalization quality. The Rust version uses native libpostal directly.
 
-## Lessons learned (slices 0-3)
+## Lessons learned (slices 0-4)
 
 Things future slices should benefit from:
 

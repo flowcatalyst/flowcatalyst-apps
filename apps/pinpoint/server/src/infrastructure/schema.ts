@@ -44,3 +44,24 @@ export type {
   NewLocationAttribute,
   LocationAttributeRow,
 } from './schema/location-attributes.js';
+
+export { layers } from './schema/layers.js';
+export type { NewLayer, LayerRow } from './schema/layers.js';
+
+export { layerFeatures } from './schema/layer-features.js';
+export type { NewLayerFeature, LayerFeatureRow } from './schema/layer-features.js';
+
+export { propertySets } from './schema/property-sets.js';
+export type { NewPropertySet, PropertySetRow } from './schema/property-sets.js';
+
+export { properties } from './schema/properties.js';
+export type { NewProperty, PropertyRow } from './schema/properties.js';
+
+export { layerPartitions } from './schema/layer-partitions.js';
+export type { NewLayerPartition, LayerPartitionRow } from './schema/layer-partitions.js';
+
+export { locationLayerAssociations } from './schema/location-layer-associations.js';
+export type {
+  NewLocationLayerAssociation,
+  LocationLayerAssociationRow,
+} from './schema/location-layer-associations.js';

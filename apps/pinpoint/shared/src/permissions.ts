@@ -19,6 +19,12 @@ export const PinpointPermission = {
   TenancyPartitionRead: 'pinpoint:tenancy:partition:read',
   LocationsLocationCreate: 'pinpoint:locations:location:create',
   LocationsLocationRead: 'pinpoint:locations:location:read',
+  LayersLayerCreate: 'pinpoint:layers:layer:create',
+  LayersLayerRead: 'pinpoint:layers:layer:read',
+  LayersFeatureCreate: 'pinpoint:layers:feature:create',
+  LayersFeatureUpdate: 'pinpoint:layers:feature:update',
+  LayersFeatureDelete: 'pinpoint:layers:feature:delete',
+  LayersFeatureRead: 'pinpoint:layers:feature:read',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];

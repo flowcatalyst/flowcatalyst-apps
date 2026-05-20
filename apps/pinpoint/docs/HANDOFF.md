@@ -4,18 +4,18 @@
 
 ## Status (2026-05-20)
 
-- **HEAD:** `2d30bfc` Slice 3 (locations core)
-- **Slices done:** 0, 1, 2, 3 + PRE-0a + PRE-0b (6 functional commits + 2 chores + baseline = 11 commits)
-- **Slices remaining:** 4 → 12 (~85% of the work)
+- **HEAD:** Slice 4 (layers + layer-features)
+- **Slices done:** 0, 1, 2, 3, 4 + PRE-0a + PRE-0b (7 functional commits + 2 chores + baseline + handoff doc = 13 commits)
+- **Slices remaining:** 5 → 12 (~70% of the work)
 - **Workspaces:** 12, all `pnpm -r typecheck` clean
-- **Smoke:** server boots on port 3199 with 9 routes; no DB has been involved
+- **Smoke:** server boots on port 3199 with 13 routes; no DB has been involved
 - **Drizzle migrations:** none generated yet — run `pnpm -F @pinpoint/server db:generate` against a live Postgres when ready
 
-## ⚠️ Decision pending — do not auto-continue
+## ⚠️ Larger decision still open — confirm before resuming
 
-Andrew is **actively reconsidering** whether to keep porting or stop and keep the Rust pinpoint at `~/Developer/tangent/pinpoint` as the production service. The Rust version is feature-complete; only ~15% of its domain code has been ported here.
+Andrew opted to continue with Slice 4 on 2026-05-20; the broader question of whether to keep porting vs keep the Rust pinpoint at `~/Developer/tangent/pinpoint` as production is **not** definitively settled. Slice 5 is where the work gets meaningfully harder (PostGIS canary + fuzzy matching) — that's the right moment to re-check the direction.
 
-Before doing anything in `apps/pinpoint/`, **ask Andrew which way to go**. Don't blindly resume Slice 4.
+Before starting Slice 5, **ask Andrew which way to go**. Don't blindly continue.
 
 The decision factors that came out of the analysis:
 - Supply chain: Rust is meaningfully stronger (fewer deps, less npm churn, no beta lock-in)
@@ -35,6 +35,7 @@ The decision factors that came out of the analysis:
 | 1 | `138204d` | Reference + auth: Principal aggregate (no PartitionMembership FK yet), Country read-model, `GET /me`, `GET /countries` |
 | 2 | `a7e34dd` | Tenancy spine: Client + Partition aggregates + UoW path, `principal_partitions` table joined in, `POST/GET /clients` and `/partitions` |
 | 3 | `2d30bfc` | Locations core: `Location` aggregate (full schema, minimal create), `POST /locations`, `GET /locations/:id`, paged `GET /locations?clientId=…` |
+| 4 | (this commit) | Layers + layer-features: `Layer` + `LayerFeature` aggregates, first `commitDelete` user, `POST /layers` + `POST/PUT/DELETE/GET /layer-features`, paged reads. `property_sets`/`properties`/`layer_partitions`/`location_layer_associations` ship as schema-only |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -43,12 +44,17 @@ Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 Tracked across slices so far. The next agent must NOT forget these:
 
 - **`countries.geometry` column + PostGIS extension + ~390KB seed** → Slice 5 (PostGIS canary)
+- **`layers.boundary` + `layer_features.boundary` GEOMETRY columns + GIST indexes** → Slice 5 (PostGIS canary). Scalar lat/lon/radius + polygon_geojson text shipped in Slice 4 already.
+- **`location_feature_associations` table + `distance_meters` ALTER from migration 013** → Slice 5 (creates the table alongside spatial work). Slice 4 only ported the `layer_features.status` ALTER from 013.
 - **`master_locations` table** → Slice 8. `locations.master_location_id` is a nullable text column today with NO FK reference. Slice 8 adds both the table AND the FK in one migration.
 - **`processing_log` table** → Slice 8
+- **PropertySet + Property aggregate scaffolding** → later slice (no Rust use case exists for direct property-set management; tables ported as schema-only in Slice 4, mirroring how `location_attributes` was treated in Slice 3). `pst` prefix reserved but unregistered.
+- **`location_layer_associations` population** → Slice 5+ (table ported as schema-only in Slice 4; the matching pipeline populates it).
+- **`layer_partitions` population** → later slice. Table ports in Slice 4; no `assign-layer-to-partition` use case yet.
 - **Address normalization (libpostal in Rust)** → Slice 5+ (port via a `AddressNormalizer` service Tag; no libpostal binding for TS, so decide between a hosted service, a port, or accepting reduced normalization quality)
 - **pg_trgm fuzzy matching** → Slice 5
 - **LLM services (Rust `rig-core` → TS Vercel AI SDK)** → Slice 7. Three services: `AddressNormalizer`, `AddressMatcher`, `AddressVerifier`. Hidden behind Effect Tag interfaces so swapping to Mastra later is local.
-- **Layer feature spatial lookup inside `create-location`** → Slice 4/5
+- **Layer feature spatial lookup inside `create-location`** → Slice 5
 - **`LocationValidated` event emission** → Slice 8 (when master_locations + validation transitions land)
 - **Full Rust `create_location.rs` pipeline (~600 lines: normalize → hash + fuzzy → LLM verify → master association → log)** → split across slices 5/7/8. The Slice 3 use case is the "minimal PENDING create" subset only.
 - **OIDC auth** → out of scope until cutover. `extractRequestToken` in `server.ts` has the `x-user-id` dev fallback marked TODO.
@@ -61,18 +67,21 @@ In order:
 3. This file
 4. `MEMORY.md` — auto-loaded; gives broader context
 
-## Slice 4 spec (if continuing)
+## Slice 5 spec (if continuing)
 
-**Layers + LayerFeatures.** Migrations 005, 009, 010, 013, 017.
+**Matching config + spatial lookup (PostGIS canary).** Migrations 003, 011, 012, plus the PostGIS bits from 001/005/009/015/016 that were deferred to here.
 
-- Aggregates: `Layer`, `LayerFeature`
-- Use cases: `create-layer`, `create-layer-feature`, `update-layer-feature`, `delete-layer-feature` (the latter exercises `commitDelete` for the first time)
-- Events: `layer-created`, `layer-feature-{created,updated,deleted}`
-- Routes: `POST /layers`, `POST/PUT/DELETE /layer-features/...`, plus read endpoints
+- Add the `CREATE EXTENSION postgis` migration (the only manual SQL — drizzle-kit can't emit it).
+- Add `boundary GEOMETRY(Geometry, 4326)` columns + GIST indexes to `layers`, `layer_features`. Add `geometry` + GIST index to `countries`. Add the ~390KB country seed.
+- Aggregate: `MatchingConfig`
+- Use cases: `update-matching-config`
+- Drizzle `customType` for WKT/WKB geometry; raw `sql\`...\`` for spatial predicates (`ST_DWithin`, `ST_Intersects`, `<->`)
+- Routes: `PUT /matching-config`, `POST /spatial-lookup`
+- Create `location_feature_associations` table + `distance_meters` column (the second ALTER from migration 013).
+- Doc: `docs/spatial-queries.md` capturing the Drizzle + PostGIS pattern.
+- pg_trgm fuzzy matching (`CREATE EXTENSION pg_trgm` + trgm indexes per migration 012).
 
-Pattern is identical to Slice 2 (Client/Partition). Use those as the reference. Add new aggregate registrations to `app-context.ts`'s prefix-map (suggested prefixes: `lyr` for Layer, `lfe` for LayerFeature).
-
-Slice 5 is where the work gets meaningfully harder (PostGIS + matching). Slice 4 should be roughly the same size and shape as Slice 2.
+This is the *first* slice that needs a live Postgres+PostGIS to validate end-to-end. Smoke commands that worked DB-less for slices 0-4 will not work for spatial routes.
 
 ## Gotchas
 

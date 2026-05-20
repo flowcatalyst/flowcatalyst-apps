@@ -10,6 +10,8 @@ import { registerCountriesRoute } from './api/routes/reference/countries.route.j
 import { registerClientRoutes } from './api/routes/tenancy/clients/index.js';
 import { registerPartitionRoutes } from './api/routes/tenancy/partitions/index.js';
 import { registerLocationRoutes } from './api/routes/locations/index.js';
+import { registerLayerRoutes } from './api/routes/layers/index.js';
+import { registerLayerFeatureRoutes } from './api/routes/layer-features/index.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -81,6 +83,7 @@ async function buildServer() {
         { name: 'Reference', description: 'Reference data (countries, …)' },
         { name: 'Tenancy', description: 'Clients + partitions — the tenancy spine' },
         { name: 'Locations', description: 'Raw addresses + matching pipeline' },
+        { name: 'Layers', description: 'Layers, features, and per-feature properties' },
       ],
     },
   });
@@ -105,6 +108,8 @@ async function buildServer() {
   registerClientRoutes(server, appContext);
   registerPartitionRoutes(server, appContext);
   registerLocationRoutes(server, appContext);
+  registerLayerRoutes(server, appContext);
+  registerLayerFeatureRoutes(server, appContext);
 
   return server;
 }

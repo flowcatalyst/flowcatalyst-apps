@@ -20,22 +20,35 @@ import { createDrizzleCountryRepository } from './infrastructure/country-reposit
 import { createDrizzleClientRepository } from './infrastructure/client-repository.js';
 import { createDrizzlePartitionRepository } from './infrastructure/partition-repository.js';
 import { createDrizzleLocationRepository } from './infrastructure/location-repository.js';
+import { createDrizzleLayerRepository } from './infrastructure/layer-repository.js';
+import { createDrizzleLayerFeatureRepository } from './infrastructure/layer-feature-repository.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
+import { registerLayer } from './infrastructure/register-layer.js';
+import { registerLayerFeature } from './infrastructure/register-layer-feature.js';
 import { CLIENT_ID_PREFIX, PARTITION_ID_PREFIX } from './domain/tenancy/ids.js';
 import { CLIENT_TYPE } from './domain/tenancy/client.js';
 import { PARTITION_TYPE } from './domain/tenancy/partition.js';
 import { LOCATION_ID_PREFIX } from './domain/locations/ids.js';
 import { LOCATION_TYPE } from './domain/locations/location.js';
+import { LAYER_ID_PREFIX, LAYER_FEATURE_ID_PREFIX } from './domain/layers/ids.js';
+import { LAYER_TYPE } from './domain/layers/layer.js';
+import { LAYER_FEATURE_TYPE } from './domain/layers/layer-feature.js';
 import type { PrincipalRepository } from './domain/auth/principal.repository.js';
 import type { CountryRepository } from './domain/reference/country.repository.js';
 import type { ClientRepository } from './domain/tenancy/client.repository.js';
 import type { PartitionRepository } from './domain/tenancy/partition.repository.js';
 import type { LocationRepository } from './domain/locations/location.repository.js';
+import type { LayerRepository } from './domain/layers/layer.repository.js';
+import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
+import { CreateLayerUseCase } from './operations/create-layer/create-layer.use-case.js';
+import { CreateLayerFeatureUseCase } from './operations/create-layer-feature/create-layer-feature.use-case.js';
+import { UpdateLayerFeatureUseCase } from './operations/update-layer-feature/update-layer-feature.use-case.js';
+import { DeleteLayerFeatureUseCase } from './operations/delete-layer-feature/delete-layer-feature.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, the
@@ -56,12 +69,18 @@ export interface AppContextRepositories {
   readonly clients: ClientRepository;
   readonly partitions: PartitionRepository;
   readonly locations: LocationRepository;
+  readonly layers: LayerRepository;
+  readonly layerFeatures: LayerFeatureRepository;
 }
 
 export interface AppContextUseCases {
   readonly createClient: CreateClientUseCase;
   readonly createPartition: CreatePartitionUseCase;
   readonly createLocation: CreateLocationUseCase;
+  readonly createLayer: CreateLayerUseCase;
+  readonly createLayerFeature: CreateLayerFeatureUseCase;
+  readonly updateLayerFeature: UpdateLayerFeatureUseCase;
+  readonly deleteLayerFeature: DeleteLayerFeatureUseCase;
 }
 
 export interface AppContext {
@@ -107,6 +126,8 @@ export function createAppContext(config: AppContextConfig): AppContext {
     [CLIENT_ID_PREFIX]: CLIENT_TYPE,
     [PARTITION_ID_PREFIX]: PARTITION_TYPE,
     [LOCATION_ID_PREFIX]: LOCATION_TYPE,
+    [LAYER_ID_PREFIX]: LAYER_TYPE,
+    [LAYER_FEATURE_ID_PREFIX]: LAYER_FEATURE_TYPE,
   });
 
   const principalRepo = createDrizzlePrincipalRepository(db);
@@ -114,9 +135,13 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const clientRepo = createDrizzleClientRepository(db);
   const partitionRepo = createDrizzlePartitionRepository(db);
   const locationRepo = createDrizzleLocationRepository(db);
+  const layerRepo = createDrizzleLayerRepository(db);
+  const layerFeatureRepo = createDrizzleLayerFeatureRepository(db);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
   registerLocation(aggregateRegistry, locationRepo);
+  registerLayer(aggregateRegistry, layerRepo);
+  registerLayerFeature(aggregateRegistry, layerFeatureRepo);
 
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
@@ -148,11 +173,17 @@ export function createAppContext(config: AppContextConfig): AppContext {
       clients: clientRepo,
       partitions: partitionRepo,
       locations: locationRepo,
+      layers: layerRepo,
+      layerFeatures: layerFeatureRepo,
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),
       createPartition: new CreatePartitionUseCase(clientRepo, partitionRepo),
       createLocation: new CreateLocationUseCase(clientRepo, partitionRepo, locationRepo),
+      createLayer: new CreateLayerUseCase(clientRepo, layerRepo),
+      createLayerFeature: new CreateLayerFeatureUseCase(layerRepo, layerFeatureRepo),
+      updateLayerFeature: new UpdateLayerFeatureUseCase(layerFeatureRepo),
+      deleteLayerFeature: new DeleteLayerFeatureUseCase(layerFeatureRepo),
     },
     runWrite,
   };
