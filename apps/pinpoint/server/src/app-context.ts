@@ -19,17 +19,23 @@ import { createDrizzlePrincipalRepository } from './infrastructure/principal-rep
 import { createDrizzleCountryRepository } from './infrastructure/country-repository.js';
 import { createDrizzleClientRepository } from './infrastructure/client-repository.js';
 import { createDrizzlePartitionRepository } from './infrastructure/partition-repository.js';
+import { createDrizzleLocationRepository } from './infrastructure/location-repository.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
+import { registerLocation } from './infrastructure/register-location.js';
 import { CLIENT_ID_PREFIX, PARTITION_ID_PREFIX } from './domain/tenancy/ids.js';
 import { CLIENT_TYPE } from './domain/tenancy/client.js';
 import { PARTITION_TYPE } from './domain/tenancy/partition.js';
+import { LOCATION_ID_PREFIX } from './domain/locations/ids.js';
+import { LOCATION_TYPE } from './domain/locations/location.js';
 import type { PrincipalRepository } from './domain/auth/principal.repository.js';
 import type { CountryRepository } from './domain/reference/country.repository.js';
 import type { ClientRepository } from './domain/tenancy/client.repository.js';
 import type { PartitionRepository } from './domain/tenancy/partition.repository.js';
+import type { LocationRepository } from './domain/locations/location.repository.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
+import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, the
@@ -49,11 +55,13 @@ export interface AppContextRepositories {
   readonly countries: CountryRepository;
   readonly clients: ClientRepository;
   readonly partitions: PartitionRepository;
+  readonly locations: LocationRepository;
 }
 
 export interface AppContextUseCases {
   readonly createClient: CreateClientUseCase;
   readonly createPartition: CreatePartitionUseCase;
+  readonly createLocation: CreateLocationUseCase;
 }
 
 export interface AppContext {
@@ -98,14 +106,17 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const aggregateRegistry = createAggregateRegistry({
     [CLIENT_ID_PREFIX]: CLIENT_TYPE,
     [PARTITION_ID_PREFIX]: PARTITION_TYPE,
+    [LOCATION_ID_PREFIX]: LOCATION_TYPE,
   });
 
   const principalRepo = createDrizzlePrincipalRepository(db);
   const countryRepo = createDrizzleCountryRepository(db);
   const clientRepo = createDrizzleClientRepository(db);
   const partitionRepo = createDrizzlePartitionRepository(db);
+  const locationRepo = createDrizzleLocationRepository(db);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
+  registerLocation(aggregateRegistry, locationRepo);
 
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
@@ -136,10 +147,12 @@ export function createAppContext(config: AppContextConfig): AppContext {
       countries: countryRepo,
       clients: clientRepo,
       partitions: partitionRepo,
+      locations: locationRepo,
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),
       createPartition: new CreatePartitionUseCase(clientRepo, partitionRepo),
+      createLocation: new CreateLocationUseCase(clientRepo, partitionRepo, locationRepo),
     },
     runWrite,
   };

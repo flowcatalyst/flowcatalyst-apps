@@ -9,6 +9,7 @@ import { registerMeRoute } from './api/routes/auth/me.route.js';
 import { registerCountriesRoute } from './api/routes/reference/countries.route.js';
 import { registerClientRoutes } from './api/routes/tenancy/clients/index.js';
 import { registerPartitionRoutes } from './api/routes/tenancy/partitions/index.js';
+import { registerLocationRoutes } from './api/routes/locations/index.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -79,6 +80,7 @@ async function buildServer() {
         { name: 'Auth', description: 'Principal identity + session' },
         { name: 'Reference', description: 'Reference data (countries, …)' },
         { name: 'Tenancy', description: 'Clients + partitions — the tenancy spine' },
+        { name: 'Locations', description: 'Raw addresses + matching pipeline' },
       ],
     },
   });
@@ -102,6 +104,7 @@ async function buildServer() {
   registerCountriesRoute(server, appContext);
   registerClientRoutes(server, appContext);
   registerPartitionRoutes(server, appContext);
+  registerLocationRoutes(server, appContext);
 
   return server;
 }

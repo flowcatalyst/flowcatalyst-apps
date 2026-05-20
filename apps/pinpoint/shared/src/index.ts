@@ -8,3 +8,7 @@ export {
   CreatePartitionCommandSchema,
   type CreatePartitionCommand,
 } from './contracts/tenancy/partition-contracts.js';
+export {
+  CreateLocationCommandSchema,
+  type CreateLocationCommand,
+} from './contracts/locations/location-contracts.js';

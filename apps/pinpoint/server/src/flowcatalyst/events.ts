@@ -19,4 +19,9 @@ export const pinpointEventTypes: readonly sync.EventTypeDefinition[] = [
     name: 'Partition Created',
     description: 'A partition was created under a tenancy client.',
   },
+  {
+    code: 'pinpoint:locations:location:created',
+    name: 'Location Created',
+    description: 'A raw-address location was captured (pending matching).',
+  },
 ];

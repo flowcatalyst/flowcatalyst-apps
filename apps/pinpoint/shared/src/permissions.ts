@@ -17,6 +17,8 @@ export const PinpointPermission = {
   TenancyClientRead: 'pinpoint:tenancy:client:read',
   TenancyPartitionCreate: 'pinpoint:tenancy:partition:create',
   TenancyPartitionRead: 'pinpoint:tenancy:partition:read',
+  LocationsLocationCreate: 'pinpoint:locations:location:create',
+  LocationsLocationRead: 'pinpoint:locations:location:read',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];

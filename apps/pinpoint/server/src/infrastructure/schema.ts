@@ -35,3 +35,12 @@ export type {
   NewPrincipalPartition,
   PrincipalPartitionRow,
 } from './schema/principal-partitions.js';
+
+export { locations } from './schema/locations.js';
+export type { NewLocation, LocationRow } from './schema/locations.js';
+
+export { locationAttributes } from './schema/location-attributes.js';
+export type {
+  NewLocationAttribute,
+  LocationAttributeRow,
+} from './schema/location-attributes.js';
