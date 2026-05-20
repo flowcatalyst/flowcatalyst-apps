@@ -19,6 +19,7 @@
     "flowcatalyst:sync": "tsx scripts/sync-flowcatalyst.ts"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^4.0.107",
     "@fastify/swagger": "^9.4.0",
     "@fastify/swagger-ui": "^5.2.0",
     "@fastify/type-provider-typebox": "^6.1.0",
@@ -27,11 +28,12 @@
     "@pinpoint/framework": "workspace:*",
     "@pinpoint/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.49",
+    "ai": "^6.0.185",
     "drizzle-orm": "1.0.0-rc.1",
     "effect": "catalog:",
     "fastify": "^5.2.0",
     "postgres": "^3.4.0",
-    "zod": "^3.24.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@flowcatalyst-apps/tsconfig": "workspace:*",

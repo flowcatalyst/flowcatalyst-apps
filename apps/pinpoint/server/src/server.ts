@@ -15,6 +15,8 @@ import { registerLayerFeatureRoutes } from './api/routes/layer-features/index.js
 import { registerMatchingConfigRoutes } from './api/routes/matching-config/index.js';
 import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
 import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
+import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
+import type { AddressVerifierConfig } from './app-context.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -29,6 +31,40 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
+
+/**
+ * LLM provider selection mirrors the Rust pinpoint's `LLM_PROVIDER` /
+ * `LLM_MODEL` / `OLLAMA_URL` env shape:
+ *
+ *   PINPOINT_LLM_PROVIDER=none|bedrock|ollama   (default: none)
+ *   PINPOINT_LLM_MODEL=<model-id>               (provider-specific default)
+ *   PINPOINT_OLLAMA_URL=http://...              (ollama only, default localhost)
+ *   AWS_REGION=...                              (bedrock only, default us-east-1)
+ *
+ * Defaults match Rust verbatim: gemma3 for Ollama, claude-3-haiku-20240307
+ * for Bedrock. Bumping either default risks invalidating tuning the Rust
+ * pinpoint did against those exact models — keep changes deliberate.
+ */
+function buildAddressVerifierConfig(): AddressVerifierConfig {
+  const provider = (process.env['PINPOINT_LLM_PROVIDER'] ?? 'none').toLowerCase();
+  const model = process.env['PINPOINT_LLM_MODEL'];
+
+  if (provider === 'bedrock') {
+    return {
+      provider: 'bedrock',
+      model: model && model.length > 0 ? model : 'anthropic.claude-3-haiku-20240307-v1:0',
+      ...(process.env['AWS_REGION'] ? { region: process.env['AWS_REGION'] } : {}),
+    };
+  }
+  if (provider === 'ollama') {
+    return {
+      provider: 'ollama',
+      baseUrl: process.env['PINPOINT_OLLAMA_URL'] ?? 'http://localhost:11434',
+      model: model && model.length > 0 ? model : 'gemma3',
+    };
+  }
+  return { provider: 'none' };
+}
 
 function extractRequestToken(req: FastifyRequest): RequestToken | null {
   // TODO(auth): real OIDC extractor replaces this in a later slice. Dev
@@ -91,6 +127,7 @@ async function buildServer() {
         { name: 'Layers', description: 'Layers, features, and per-feature properties' },
         { name: 'Matching', description: 'Matching configs + spatial lookup' },
         { name: 'Geocode', description: 'Forward + reverse geocoding (Photon-backed, rate-limited)' },
+        { name: 'Verify', description: 'LLM-backed address-match verification (Bedrock / Ollama / Noop)' },
       ],
     },
   });
@@ -104,6 +141,7 @@ async function buildServer() {
     dispatchPoolCode: DISPATCH_POOL_CODE,
     geocodingApiUrl: GEOCODING_API_URL,
     geocodingRateLimit: GEOCODING_RATE_LIMIT,
+    addressVerifier: buildAddressVerifierConfig(),
   });
 
   // Smoke endpoint — confirms the server boots and reaches steady state.
@@ -122,6 +160,7 @@ async function buildServer() {
   registerMatchingConfigRoutes(server, appContext);
   registerSpatialLookupRoutes(server, appContext);
   registerGeocodeRoutes(server, appContext);
+  registerVerifyMatchRoutes(server, appContext);
 
   return server;
 }

@@ -4,11 +4,11 @@
 
 ## Status (2026-05-20)
 
-- **HEAD:** Slice 6 (external services + rate limiter) — this commit
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6 + PRE-0a + PRE-0b
-- **Slices remaining:** 7 → 12 (~50% of the work)
+- **HEAD:** Slice 7 (LLM address verifier — Vercel AI SDK + Bedrock + Ollama + Noop) — this commit
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7 + PRE-0a + PRE-0b
+- **Slices remaining:** 8 → 12 (~42% of the work)
 - **Workspaces:** 12, all `pnpm -r typecheck` clean
-- **Smoke:** server boots on port 3199; `PUT /matching-config`, `GET /matching-config`, `POST /spatial-lookup` all green against a live PostGIS-enabled Postgres
+- **Smoke:** `POST /verify-match` against local Ollama+gemma4 returned sensible verdicts on three test pairs (same place / different house numbers / different cities); 40 tests passing (`pnpm -F @pinpoint/server test`)
 - **Drizzle migrations:** **TWO** now generated under `apps/pinpoint/server/drizzle/`:
   - `20260520171747_futuristic_zaladane` — schema (all Slice 0-5 tables, audit_logs from app-framework, geometry columns + GIST indexes)
   - `20260520171804_seed_globals` — `mcf_GLOBAL_DEFAULT` matching config + ~177-country geometry seed (verbatim port of Rust migration 016, with `ON CONFLICT (id) DO NOTHING` for re-runs)
@@ -16,7 +16,9 @@
 
 ## Decision factors (kept here for next re-check, Slice 6+)
 
-The Slice 4 → Slice 5 decision point passed on 2026-05-20; Andrew opted to continue with the port. Re-evaluate again only if either of these change:
+The Slice 4 → Slice 5 → Slice 7 decision points all passed on 2026-05-20; Andrew opted to continue. Slice 7 was the named "AI SDK vs rig-core" re-check — Vercel AI SDK's `generateObject` + Ollama's native JSON-schema `format` field both produced clean structured output on gemma4 with the Rust-ported prompts, so no rig-core regression observed.
+
+Re-evaluate again only if either of these change:
 - AI ecosystem gap — Slice 7 brings the Vercel AI SDK in; if `ai`@v6 + Bedrock turns out to be meaningfully worse than the Rust `rig-core` path on the actual prompts, that would be a strong "go back" signal.
 - Supply chain pain — Effect 4 is still beta-pinned. If a major Effect 4 rename lands before Slice 7 finishes, it's worth re-asking.
 
@@ -40,7 +42,8 @@ The original decision factors stay relevant context:
 | 3 | `2d30bfc` | Locations core: `Location` aggregate (full schema, minimal create), `POST /locations`, `GET /locations/:id`, paged `GET /locations?clientId=…` |
 | 4 | `13cc964` | Layers + layer-features: `Layer` + `LayerFeature` aggregates, first `commitDelete` user, `POST /layers` + `POST/PUT/DELETE/GET /layer-features`, paged reads. `property_sets`/`properties`/`layer_partitions`/`location_layer_associations` ship as schema-only |
 | 5 | `dac0b43` | PostGIS canary: `MatchingConfig` aggregate + repo + `update-matching-config` use case, `GET/PUT /matching-config`, `POST /spatial-lookup`. Geometry `customType` (with `codec: 'text'` opt-out), GIST indexes on layers/layer_features/countries, country geometry seed (~177 rows). First two Drizzle migrations generated + applied. `docs/spatial-queries.md` captures the pattern |
-| 6 | (this commit) | External services: Photon `GeocoderService` + Effect 4 `RateLimiter`-backed decorator, `POST /geocode/forward` + `POST /geocode/reverse`, `NormalizedAddress` data type, 25 tests (first in the codebase) covering Photon parsing/error paths/User-Agent/query string + rate-limiter wall-clock behavior + trigram-key stability |
+| 6 | `5323e76` | External services: Photon `GeocoderService` + Effect 4 `RateLimiter`-backed decorator, `POST /geocode/forward` + `POST /geocode/reverse`, `NormalizedAddress` data type, 25 tests (first in the codebase) covering Photon parsing/error paths/User-Agent/query string + rate-limiter wall-clock behavior + trigram-key stability |
+| 7 | (this commit) | LLM `AddressVerifier`: Bedrock (Vercel AI SDK `generateObject`) + Ollama (native `/api/chat` with JSON-schema `format`) + Noop. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER` / `_MODEL` / `_OLLAMA_URL`). 15 new tests; smoke against local Ollama+gemma4 green |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -57,11 +60,12 @@ Tracked across slices so far. The next agent must NOT forget these:
 - **PropertySet + Property aggregate scaffolding** → later slice (no Rust use case exists for direct property-set management; tables ported as schema-only in Slice 4, mirroring how `location_attributes` was treated in Slice 3). `pst` prefix reserved but unregistered.
 - **`location_layer_associations` population** → still pending. Table exists; population is what the matching pipeline does (next: when `create-location` grows the spatial-lookup step in Slice 5b or as part of the geocoder slice).
 - **`layer_partitions` population** → later slice. Table ports in Slice 4; no `assign-layer-to-partition` use case yet.
-- **Address normalization (libpostal in Rust)** → Slice 6/7 (port via a `AddressNormalizer` service Tag; no libpostal binding for TS, so decide between a hosted service, a port, or accepting reduced normalization quality)
-- **LLM services (Rust `rig-core` → TS Vercel AI SDK)** → Slice 7. Three services: `AddressNormalizer`, `AddressMatcher`, `AddressVerifier`. Hidden behind Effect Tag interfaces so swapping to Mastra later is local.
-- **Layer feature spatial lookup inside `create-location`** → next: the `POST /spatial-lookup` route + `LayerFeatureRepository.spatialLookup` exist, but `create-location.use-case.ts` doesn't call it. Wire it in as part of the geocoder/matching slice (6 or alongside master-locations in 8).
+- **Address normalization (libpostal in Rust)** → Slice 8. The Rust `LibPostalNormalizer` talks HTTP to a `pelias/libpostal-service` sidecar — NOT an LLM service, contrary to what the migration plan implied. Three paths: (a) docker-compose in the pelias/libpostal-service sidecar (matches Rust verbatim, ~3GB container), (b) hosted normalization API, (c) accept reduced normalization quality.
+- **`AddressMatcher`** → Slice 8. The Rust `AddressMatcher` is NOT LLM-based either — it's a pure Jaro-Winkler + substitution-dictionary algorithm with thresholds from `MatchingConfig`. Belongs with the master-locations slice where it's actually called.
+- ~~**LLM verifier (Rust `rig-core` → TS Vercel AI SDK)**~~ → **Slice 7 — landed.** `AddressVerifier` interface + Bedrock/Ollama/Noop impls. Default Noop keeps the matching pipeline cred-free.
+- **Layer feature spatial lookup inside `create-location`** → next: the `POST /spatial-lookup` route + `LayerFeatureRepository.spatialLookup` exist, but `create-location.use-case.ts` doesn't call it. Wire it in as part of the matching slice (Slice 8).
 - **`LocationValidated` event emission** → Slice 8 (when master_locations + validation transitions land)
-- **Full Rust `create_location.rs` pipeline (~600 lines: normalize → hash + fuzzy → LLM verify → master association → log)** → split across slices 6/7/8. The Slice 3 use case is the "minimal PENDING create" subset only.
+- **Full Rust `create_location.rs` pipeline (~600 lines: normalize → hash + fuzzy → LLM verify → master association → log)** → consolidates in Slice 8. Slice 7 provided the LLM verifier; Slice 8 chains everything together.
 - **OIDC auth** → out of scope until cutover. `extractRequestToken` in `server.ts` has the `x-user-id` dev fallback marked TODO.
 
 ## What the next agent needs to read
@@ -72,15 +76,23 @@ In order:
 3. This file
 4. `MEMORY.md` — auto-loaded; gives broader context
 
-## Slice 7 spec (if continuing)
+## Slice 8 spec (if continuing)
 
-**LLM services (Vercel AI SDK + Bedrock).** This is the named re-check point — if `ai`@v6 + `@ai-sdk/amazon-bedrock` turns out to be meaningfully weaker than Rust `rig-core` on the actual prompts (and they're ported from rig-core's annotated structs, so the comparison is direct), that's the strongest "go back to Rust" signal we'll get.
+**Master locations + the full matching pipeline.** This is the big one — it consolidates everything slices 3-7 set up.
 
-- Three Effect Tags in `domain/services/`: `AddressNormalizer` (the libpostal-style normalizer whose data type already shipped in Slice 6), `AddressMatcher`, `AddressVerifier`.
-- Bedrock impls via `@ai-sdk/amazon-bedrock` + `generateObject` with Zod output schemas. Prompts ported verbatim from Rust `pinpoint-domain/src/services/{address_normalizer,address_matcher,address_verifier}.rs` annotated structs.
-- Tests: mock the Vercel AI client and assert on prompt shape + schema usage. Recorded-response integration tests against a real Bedrock endpoint are nice-to-have but optional — the prompt-shape unit tests carry the load.
-- Libpostal decision: still open. Three paths (hosted normalization service, FFI binding via N-API, accept reduced normalization quality). Decide here or defer to Slice 8 when master-locations needs it for matching.
-- Deliverable: address services callable end-to-end; Bedrock smoke green; tests green.
+- `MasterLocation` aggregate + Drizzle table. The `locations.master_location_id` column has been waiting for this FK since Slice 3; Slice 8 adds the table AND the FK in one migration.
+- `master_locations.point GEOMETRY(Point, 4326)` + GIST index. Backfill migration from Rust 011 (`UPDATE master_locations SET point = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)`) is documented in `docs/spatial-queries.md`.
+- `processing_log` table — port verbatim from Rust 014.
+- Trgm GIN index on `master_locations.normalized_address_line` (the trgm extension was enabled in Slice 5 via `pnpm db:init`).
+- `AddressMatcher` — port the pure Jaro-Winkler + substitution-dictionary algorithm from Rust `address_matcher.rs`. Pure module, no service tag. The 80-entry SUBSTITUTIONS table ships verbatim (Afrikaans → English street types, ZA city aliases, country variants).
+- `AddressNormalizer` — port the `LibPostalNormalizer` (HTTP client for `pelias/libpostal-service`). Decision still open on whether to add the sidecar to `compose.yaml` (matches Rust verbatim, ~3GB container) or use a hosted normalization API. The orphan `pinpoint-libpostal-1` container we saw earlier is from a prior pelias setup — same image, recyclable.
+- Use cases: `confirm-master-location`, `validate-master-location` (calls the `AddressVerifier` from Slice 7), and the chained `create_location` pipeline (normalize → hash + fuzzy → LLM verify → master association → log).
+- Events: `master-location-{confirmed,validated}`, `LocationValidated`.
+- Routes: `POST /master-locations/confirm`, `POST /master-locations/validate`.
+- Wire `POST /spatial-lookup` into `create-location` so a new location auto-populates `location_feature_associations` from the resolved coordinate.
+- Deliverable: end-to-end matching pipeline runnable.
+
+This is the slice where Slice 3's "~85% of the Rust create_location.rs pipeline deferred" finally lands. Expect it to be bigger than slices 4-7 individually.
 
 ## Gotchas
 
@@ -101,6 +113,12 @@ In order:
 **Drizzle-kit `--custom` is how seeds land.** Migration journals don't include hand-dropped `.sql` files. To add a seed, run `pnpm exec drizzle-kit generate --custom --name <slug>` — it scaffolds the file AND updates `meta/_journal.json` so `drizzle-kit migrate` picks it up. The countries seed (`20260520171804_seed_globals`) is the precedent.
 
 **Vitest 4 removed `it(name, fn, options)`.** Use `it(name, options, fn)` — the options object goes before the function. Vitest 4.1+ throws "Signature ... was deprecated in Vitest 3 and removed in Vitest 4" if you get the order wrong. Pattern set in `rate-limited-geocoder.test.ts` (Slice 6).
+
+**Ollama provider deliberately bypassed.** The canonical `ollama-ai-provider-v2` peers on `zod ^4` while the rest of the workspace is on `zod ^3`. Slice 7's `ollama-verifier.ts` hits Ollama's `/api/chat` directly via global `fetch` and uses the native `format` field (a JSON Schema object) for structured output — same end result, one less dep. If the workspace ever moves to zod 4, the Ollama provider can replace the hand-written client.
+
+**LLM verifier swallows errors and returns null.** A provider failure (timeout, schema mismatch, model misbehavior) returns `null` — the matching pipeline treats this as "no verification opinion" and falls back to the algorithmic verdict. Routes surface `null` as 204 No Content. Don't add throwing fallback paths without thinking through the failure semantics for the matching pipeline.
+
+**Slice 7 corrected the LLM scope.** The original spec named three LLM services (`AddressNormalizer`, `AddressMatcher`, `AddressVerifier`); only `AddressVerifier` is actually LLM-based in Rust. The other two land with Slice 8: `AddressMatcher` is pure Jaro-Winkler + substitution dictionary, `AddressNormalizer` is the libpostal HTTP sidecar (Pelias). See updated Slice 8 spec.
 
 **The rate-limited geocoder test does wall-clock timing.** It fires 8 calls at 4 rps and asserts `elapsed >= 750ms`. Token-bucket refill timing varies a bit; if this turns out flaky in CI, widen the lower bound or split into "no-delay first burst" + "delay after burst" pairs against a tighter clock. Don't replace with fake timers — Effect 4's `RateLimiter` doesn't respect vitest's `vi.useFakeTimers`.
 
@@ -139,6 +157,15 @@ curl -s -X POST -H 'content-type: application/json' -H 'x-user-id: alice' \
   -d '{"latitude":37.7899932,"longitude":-122.4008494}' \
   http://localhost:3199/geocode/reverse | jq
 
-# vitest suite (Slice 6 added the first tests in the codebase)
+# vitest suite (Slice 6 added the first tests in the codebase; Slice 7 brings the count to 40)
 pnpm -F @pinpoint/server test
+
+# verify-match (Slice 7): defaults to Noop → 204 No Content
+curl -s -X POST -H 'content-type: application/json' -H 'x-user-id: alice' \
+  -d '{"inputAddress":"548 Market St, SF","candidateAddress":"548 Market Street, San Francisco"}' \
+  -w '\nstatus=%{http_code}\n' http://localhost:3199/verify-match
+
+# verify-match against local Ollama: boot the server with the provider env vars
+PINPOINT_LLM_PROVIDER=ollama PINPOINT_LLM_MODEL=gemma4 PORT=3199 pnpm tsx src/server.ts
+# then re-run the curl above → 200 with {matchConfirmed, confidence, reasoning}
 ```

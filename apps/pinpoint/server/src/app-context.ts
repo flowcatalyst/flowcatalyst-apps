@@ -25,6 +25,9 @@ import { createDrizzleLayerFeatureRepository } from './infrastructure/layer-feat
 import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
 import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
+import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
+import { createBedrockVerifier } from './infrastructure/services/bedrock-verifier.js';
+import { createOllamaVerifier } from './infrastructure/services/ollama-verifier.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
@@ -50,6 +53,7 @@ import type { LayerRepository } from './domain/layers/layer.repository.js';
 import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
 import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
 import type { GeocoderService } from './domain/services/geocoder.js';
+import type { AddressVerifier } from './domain/services/address-verifier.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
@@ -85,7 +89,31 @@ export interface AppContextRepositories {
 
 export interface AppContextServices {
   readonly geocoder: GeocoderService;
+  readonly addressVerifier: AddressVerifier;
 }
+
+/**
+ * LLM provider config for the address verifier. Mirrors the Rust
+ * `llm_provider`/`ollama_url`/`llm_model` env vars; defaults to `'none'`
+ * (Noop) so the matching pipeline runs without Bedrock creds or a local
+ * Ollama instance.
+ */
+export type AddressVerifierConfig =
+  | { readonly provider: 'none' }
+  | {
+      readonly provider: 'bedrock';
+      /** Bedrock model id, e.g. `anthropic.claude-3-haiku-20240307-v1:0`. */
+      readonly model: string;
+      /** AWS region. Falls back to AWS_REGION env, then us-east-1. */
+      readonly region?: string;
+    }
+  | {
+      readonly provider: 'ollama';
+      /** Base URL of the Ollama server, e.g. `http://localhost:11434`. */
+      readonly baseUrl: string;
+      /** Model tag, e.g. `gemma3` (Rust default). */
+      readonly model: string;
+    };
 
 export interface AppContextUseCases {
   readonly createClient: CreateClientUseCase;
@@ -132,6 +160,8 @@ export interface AppContextConfig {
   readonly geocodingApiUrl: string;
   /** Sustained geocoder request rate (requests / second) — used by the rate-limited decorator. */
   readonly geocodingRateLimit: number;
+  /** LLM-backed address-verifier configuration. Default Noop keeps the matching pipeline cred-free. */
+  readonly addressVerifier: AddressVerifierConfig;
 }
 
 export function createAppContext(config: AppContextConfig): AppContext {
@@ -164,6 +194,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const geocoder = createRateLimitedGeocoder(rawGeocoder, {
     requestsPerSecond: config.geocodingRateLimit,
   });
+  const addressVerifier = buildAddressVerifier(config.addressVerifier);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
   registerLocation(aggregateRegistry, locationRepo);
@@ -207,6 +238,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
     },
     services: {
       geocoder,
+      addressVerifier,
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),
@@ -224,4 +256,41 @@ export function createAppContext(config: AppContextConfig): AppContext {
     },
     runWrite,
   };
+}
+
+/**
+ * Pick + construct the configured address verifier. Logging is at the
+ * info level so a fresh boot tells you which provider you're talking to
+ * (or that you're running Noop) — matches the Rust state.rs log lines.
+ */
+function buildAddressVerifier(config: AddressVerifierConfig): AddressVerifier {
+  const onError = (err: unknown): void => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[address-verifier] verification failed: ${message}`);
+  };
+
+  switch (config.provider) {
+    case 'bedrock':
+      console.info(
+        `[address-verifier] provider=bedrock model=${config.model} region=${config.region ?? process.env['AWS_REGION'] ?? 'us-east-1'}`,
+      );
+      return createBedrockVerifier({
+        model: config.model,
+        ...(config.region ? { region: config.region } : {}),
+        onError,
+      });
+    case 'ollama':
+      console.info(
+        `[address-verifier] provider=ollama model=${config.model} baseUrl=${config.baseUrl}`,
+      );
+      return createOllamaVerifier({
+        baseUrl: config.baseUrl,
+        model: config.model,
+        onError,
+      });
+    case 'none':
+    default:
+      console.info('[address-verifier] provider=none (verification disabled)');
+      return createNoopVerifier();
+  }
 }
