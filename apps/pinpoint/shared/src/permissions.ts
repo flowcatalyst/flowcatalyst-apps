@@ -13,6 +13,10 @@
 export const PinpointPermission = {
   AuthPrincipalRead: 'pinpoint:auth:principal:read',
   ReferenceCountryRead: 'pinpoint:reference:country:read',
+  TenancyClientCreate: 'pinpoint:tenancy:client:create',
+  TenancyClientRead: 'pinpoint:tenancy:client:read',
+  TenancyPartitionCreate: 'pinpoint:tenancy:partition:create',
+  TenancyPartitionRead: 'pinpoint:tenancy:partition:read',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];

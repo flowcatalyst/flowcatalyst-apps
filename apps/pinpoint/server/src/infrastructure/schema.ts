@@ -23,3 +23,15 @@ export type { NewPrincipal, PrincipalRow } from './schema/principals.js';
 
 export { countries } from './schema/countries.js';
 export type { NewCountry, CountryRow } from './schema/countries.js';
+
+export { clients } from './schema/clients.js';
+export type { NewClient, ClientRow } from './schema/clients.js';
+
+export { partitions } from './schema/partitions.js';
+export type { NewPartition, PartitionRow } from './schema/partitions.js';
+
+export { principalPartitions } from './schema/principal-partitions.js';
+export type {
+  NewPrincipalPartition,
+  PrincipalPartitionRow,
+} from './schema/principal-partitions.js';

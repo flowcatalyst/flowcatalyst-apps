@@ -7,6 +7,8 @@ import { db } from './infrastructure/db.js';
 import { createAppContext } from './app-context.js';
 import { registerMeRoute } from './api/routes/auth/me.route.js';
 import { registerCountriesRoute } from './api/routes/reference/countries.route.js';
+import { registerClientRoutes } from './api/routes/tenancy/clients/index.js';
+import { registerPartitionRoutes } from './api/routes/tenancy/partitions/index.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -76,6 +78,7 @@ async function buildServer() {
         { name: 'System', description: 'Health + ops endpoints' },
         { name: 'Auth', description: 'Principal identity + session' },
         { name: 'Reference', description: 'Reference data (countries, …)' },
+        { name: 'Tenancy', description: 'Clients + partitions — the tenancy spine' },
       ],
     },
   });
@@ -97,6 +100,8 @@ async function buildServer() {
 
   registerMeRoute(server, appContext);
   registerCountriesRoute(server, appContext);
+  registerClientRoutes(server, appContext);
+  registerPartitionRoutes(server, appContext);
 
   return server;
 }

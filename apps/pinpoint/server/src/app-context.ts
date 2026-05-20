@@ -17,8 +17,19 @@ import {
 import type { UnitOfWork, UseCaseError } from '@pinpoint/framework';
 import { createDrizzlePrincipalRepository } from './infrastructure/principal-repository.js';
 import { createDrizzleCountryRepository } from './infrastructure/country-repository.js';
+import { createDrizzleClientRepository } from './infrastructure/client-repository.js';
+import { createDrizzlePartitionRepository } from './infrastructure/partition-repository.js';
+import { registerClient } from './infrastructure/register-client.js';
+import { registerPartition } from './infrastructure/register-partition.js';
+import { CLIENT_ID_PREFIX, PARTITION_ID_PREFIX } from './domain/tenancy/ids.js';
+import { CLIENT_TYPE } from './domain/tenancy/client.js';
+import { PARTITION_TYPE } from './domain/tenancy/partition.js';
 import type { PrincipalRepository } from './domain/auth/principal.repository.js';
 import type { CountryRepository } from './domain/reference/country.repository.js';
+import type { ClientRepository } from './domain/tenancy/client.repository.js';
+import type { PartitionRepository } from './domain/tenancy/partition.repository.js';
+import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
+import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, the
@@ -36,6 +47,13 @@ import type { CountryRepository } from './domain/reference/country.repository.js
 export interface AppContextRepositories {
   readonly principals: PrincipalRepository;
   readonly countries: CountryRepository;
+  readonly clients: ClientRepository;
+  readonly partitions: PartitionRepository;
+}
+
+export interface AppContextUseCases {
+  readonly createClient: CreateClientUseCase;
+  readonly createPartition: CreatePartitionUseCase;
 }
 
 export interface AppContext {
@@ -43,7 +61,7 @@ export interface AppContext {
   readonly transactionManager: TransactionManager;
   readonly aggregateRegistry: AggregateRegistryImpl;
   readonly repositories: AppContextRepositories;
-  readonly useCases: Record<string, never>;
+  readonly useCases: AppContextUseCases;
   /**
    * Run a use-case Effect inside a Drizzle transaction. Provides
    * `UnitOfWork`, `DispatchJobBroker`, and `AggregateRegistry` Layers,
@@ -74,13 +92,20 @@ export function createAppContext(config: AppContextConfig): AppContext {
 
   const transactionManager = createTransactionManager(db);
 
-  // Empty prefix map until the first aggregate slice lands. Slice 2 (Clients
-  // + Partitions) will populate this with their id prefixes. Principals carry
-  // an OIDC-shaped id (no TSID prefix), so they don't register here.
-  const aggregateRegistry = createAggregateRegistry({});
+  // Prefix-map lets plain-object aggregates resolve to the correct repository
+  // handler at persist time. Principals carry an OIDC-shaped id (no TSID
+  // prefix), so they don't register here.
+  const aggregateRegistry = createAggregateRegistry({
+    [CLIENT_ID_PREFIX]: CLIENT_TYPE,
+    [PARTITION_ID_PREFIX]: PARTITION_TYPE,
+  });
 
   const principalRepo = createDrizzlePrincipalRepository(db);
   const countryRepo = createDrizzleCountryRepository(db);
+  const clientRepo = createDrizzleClientRepository(db);
+  const partitionRepo = createDrizzlePartitionRepository(db);
+  registerClient(aggregateRegistry, clientRepo);
+  registerPartition(aggregateRegistry, partitionRepo);
 
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
@@ -109,8 +134,13 @@ export function createAppContext(config: AppContextConfig): AppContext {
     repositories: {
       principals: principalRepo,
       countries: countryRepo,
+      clients: clientRepo,
+      partitions: partitionRepo,
     },
-    useCases: {},
+    useCases: {
+      createClient: new CreateClientUseCase(clientRepo),
+      createPartition: new CreatePartitionUseCase(clientRepo, partitionRepo),
+    },
     runWrite,
   };
 }
