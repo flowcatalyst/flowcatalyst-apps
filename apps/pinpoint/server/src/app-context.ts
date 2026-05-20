@@ -23,6 +23,8 @@ import { createDrizzleLocationRepository } from './infrastructure/location-repos
 import { createDrizzleLayerRepository } from './infrastructure/layer-repository.js';
 import { createDrizzleLayerFeatureRepository } from './infrastructure/layer-feature-repository.js';
 import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
+import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
+import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
@@ -47,6 +49,7 @@ import type { LocationRepository } from './domain/locations/location.repository.
 import type { LayerRepository } from './domain/layers/layer.repository.js';
 import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
 import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
+import type { GeocoderService } from './domain/services/geocoder.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
@@ -80,6 +83,10 @@ export interface AppContextRepositories {
   readonly matchingConfigs: MatchingConfigRepository;
 }
 
+export interface AppContextServices {
+  readonly geocoder: GeocoderService;
+}
+
 export interface AppContextUseCases {
   readonly createClient: CreateClientUseCase;
   readonly createPartition: CreatePartitionUseCase;
@@ -96,6 +103,7 @@ export interface AppContext {
   readonly transactionManager: TransactionManager;
   readonly aggregateRegistry: AggregateRegistryImpl;
   readonly repositories: AppContextRepositories;
+  readonly services: AppContextServices;
   readonly useCases: AppContextUseCases;
   /**
    * Run a use-case Effect inside a Drizzle transaction. Provides
@@ -120,6 +128,10 @@ export interface AppContextConfig {
   readonly publicBaseUrl: string;
   /** Dispatch-pool code used by pinpoint-emitted dispatch jobs. */
   readonly dispatchPoolCode: string;
+  /** Geocoder base URL (e.g. `https://photon.komoot.io`). Photon-compatible. */
+  readonly geocodingApiUrl: string;
+  /** Sustained geocoder request rate (requests / second) — used by the rate-limited decorator. */
+  readonly geocodingRateLimit: number;
 }
 
 export function createAppContext(config: AppContextConfig): AppContext {
@@ -147,6 +159,11 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const layerRepo = createDrizzleLayerRepository(db);
   const layerFeatureRepo = createDrizzleLayerFeatureRepository(db);
   const matchingConfigRepo = createDrizzleMatchingConfigRepository(db);
+
+  const rawGeocoder = createPhotonGeocoder({ baseUrl: config.geocodingApiUrl });
+  const geocoder = createRateLimitedGeocoder(rawGeocoder, {
+    requestsPerSecond: config.geocodingRateLimit,
+  });
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
   registerLocation(aggregateRegistry, locationRepo);
@@ -187,6 +204,9 @@ export function createAppContext(config: AppContextConfig): AppContext {
       layers: layerRepo,
       layerFeatures: layerFeatureRepo,
       matchingConfigs: matchingConfigRepo,
+    },
+    services: {
+      geocoder,
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),

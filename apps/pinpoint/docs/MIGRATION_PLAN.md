@@ -233,12 +233,24 @@ Migrations: `003_matching_config.sql`, `011_spatial_matching.sql` (partial — b
 - Routes: `GET /matching-config`, `PUT /matching-config`, `POST /spatial-lookup`
 - **Deliverable**: spatial lookups end-to-end; pattern documented in `docs/spatial-queries.md`
 
-### Slice 6 — External services + rate limiter
+### Slice 6 — External services + rate limiter — **DONE** (this commit)
 
-- Tag: `Geocoder`
-- Infra: HTTP geocoder client (confirm provider from Rust — Google/Mapbox/Nominatim), rate limiter (port of `governor` → Effect semaphore or `bottleneck`)
-- Routes: `POST /geocode`
-- **Deliverable**: external geocoding callable + rate-limited
+**Scope adjustments applied:**
+- Geocoder is a plain async interface (`GeocoderService`), not an Effect Tag — matches the repository pattern. Composed at the AppContext composition root and read via `appContext.services.geocoder`.
+- Provider confirmed from Rust: **Photon** (`https://photon.komoot.io`), the same OSM/Komoot search service the Rust pinpoint uses. The TS impl is a byte-for-byte port of `geocoding_client.rs` — same query construction order, same User-Agent default, same confidence weights (0.20 + 0.25 + 0.25 + 0.20 + 0.10), same error message strings. Self-hosted Photon configurable via `PINPOINT_GEOCODING_API_URL`.
+- Rate limiter is the Effect 4 `RateLimiter` from `effect/unstable/persistence` (token-bucket, `onExceeded: 'delay'`). The store layer is `RateLimiter.layerStoreMemory` today; swapping to a Redis store is a one-line layer change later. The `governor` port path was skipped — Effect 4's built-in primitive gives us the same semantics for less code.
+- Decorator pattern: `createRateLimitedGeocoder(inner, config)` wraps any `GeocoderService`. Consumers always get a throttled instance from the composition root.
+- Two routes ship instead of one: `POST /geocode/forward` and `POST /geocode/reverse`. The Rust pinpoint doesn't expose forward geocoding via API (it's only called internally), but the TS port adds it as a Slice 6 affordance so the integration can be exercised end-to-end before the master-locations slice wires it into `create-location`.
+- `NormalizedAddress` data type lands here (the input shape for forward + the output shape for reverse). The full `AddressNormalizer` service Tag (with libpostal-style normalization) stays deferred to Slice 7 alongside the LLM services.
+- First tests in the codebase: 25 vitest tests across `photon-geocoder.test.ts` (fetch mocking via `vi.spyOn(globalThis, 'fetch')`), `rate-limited-geocoder.test.ts` (pass-through + wall-clock rate-limit assertion), and `address-normalizer.test.ts` (`toAddressLine` stability, the trigram index key).
+- Vitest 4 gotcha: the legacy `it(name, fn, options)` signature was removed; use `it(name, options, fn)` instead.
+- Wiring `POST /spatial-lookup` into `create-location` deferred — noted in HANDOFF, lands with the master-locations slice (or geocoder-driven enrichment, whichever comes first).
+
+
+- Tag: `GeocoderService` (plain async interface, not an Effect Tag)
+- Infra: Photon-backed HTTP client via Node 24 global `fetch`; rate-limited decorator via Effect 4's `RateLimiter` primitive
+- Routes: `POST /geocode/forward`, `POST /geocode/reverse`
+- **Deliverable**: external geocoding callable + rate-limited; 25 tests + live smoke against `photon.komoot.io` both green
 
 ### Slice 7 — LLM services (Vercel AI SDK)
 

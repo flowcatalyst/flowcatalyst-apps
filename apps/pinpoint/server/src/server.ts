@@ -14,6 +14,7 @@ import { registerLayerRoutes } from './api/routes/layers/index.js';
 import { registerLayerFeatureRoutes } from './api/routes/layer-features/index.js';
 import { registerMatchingConfigRoutes } from './api/routes/matching-config/index.js';
 import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
+import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -26,6 +27,8 @@ const HOST = process.env['HOST'] ?? '0.0.0.0';
 const CLIENT_ID = process.env['FLOWCATALYST_CLIENT_ID'] ?? 'pinpoint';
 const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://localhost:${PORT}`;
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
+const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
+const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
 
 function extractRequestToken(req: FastifyRequest): RequestToken | null {
   // TODO(auth): real OIDC extractor replaces this in a later slice. Dev
@@ -87,6 +90,7 @@ async function buildServer() {
         { name: 'Locations', description: 'Raw addresses + matching pipeline' },
         { name: 'Layers', description: 'Layers, features, and per-feature properties' },
         { name: 'Matching', description: 'Matching configs + spatial lookup' },
+        { name: 'Geocode', description: 'Forward + reverse geocoding (Photon-backed, rate-limited)' },
       ],
     },
   });
@@ -98,6 +102,8 @@ async function buildServer() {
     clientId: CLIENT_ID,
     publicBaseUrl: PUBLIC_BASE_URL,
     dispatchPoolCode: DISPATCH_POOL_CODE,
+    geocodingApiUrl: GEOCODING_API_URL,
+    geocodingRateLimit: GEOCODING_RATE_LIMIT,
   });
 
   // Smoke endpoint — confirms the server boots and reaches steady state.
@@ -115,6 +121,7 @@ async function buildServer() {
   registerLayerFeatureRoutes(server, appContext);
   registerMatchingConfigRoutes(server, appContext);
   registerSpatialLookupRoutes(server, appContext);
+  registerGeocodeRoutes(server, appContext);
 
   return server;
 }
