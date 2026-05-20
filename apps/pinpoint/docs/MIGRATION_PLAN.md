@@ -6,6 +6,27 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ---
 
+## Status (2026-05-20)
+
+**Paused after Slice 3.** Andrew is actively reconsidering whether to continue this port vs keep the Rust pinpoint as the production service. New agents should read `HANDOFF.md` and confirm direction with Andrew **before** starting Slice 4.
+
+| Slice | Status | Commit | Notes |
+|---|---|---|---|
+| PRE-0a | done | `6f2349c` + `c46b00e` (fixup) | framework-extraction. The fixup commit landed the in-place import retargeting that PRE-0a missed |
+| PRE-0b | done | `5357bdf` | UoW infra extraction (TransactionStore, DrizzleOutboxDriver, AggregateRegistry, commitAggregate, audit_logs schema) into `@flowcatalyst-apps/app-framework` |
+| 0 | done | `a588006` | scaffold + Fastify + Drizzle + `/health` + `/docs`. Migration `0001_init.sql` (PostGIS CREATE EXTENSION) **NOT** ported — deferred to Slice 5 where it's first needed |
+| 1 | done | `138204d` | Principal aggregate, Country read model, `/me`, `/countries`. `principal_partitions` table deferred to Slice 2 (FK to partitions). `countries.geometry` + ~390KB seed deferred to Slice 5 |
+| 2 | done | `a7e34dd` | Client + Partition aggregates + first UoW path. `principal_partitions` table joined in here. Event types declared in `flowcatalyst/events.ts` |
+| 3 | done | `2d30bfc` | Location aggregate (full schema), minimal create + paged reads. **~85% of the Rust `create_location.rs` pipeline deferred** to slices 5/7/8 |
+| 4 | pending | — | Layers + LayerFeatures (next if continuing) |
+| 5-12 | pending | — | spatial canary, external services, LLM (Vercel AI SDK), master locations, validation worker, BFF, web lift, cutover |
+
+Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
+
+**Cumulative deferrals to track across remaining slices** — see `HANDOFF.md` for the full list.
+
+---
+
 ## Stack (matches `apps/fulfil/`)
 
 - **Runtime**: Node 24 LTS, pnpm 11, TypeScript 6.0.3
@@ -77,9 +98,11 @@ apps/pinpoint/
 
 ## Slices
 
-### PRE-0: Extract `@flowcatalyst-apps/app-framework`
+### PRE-0: Extract `@flowcatalyst-apps/app-framework` — **DONE** (`6f2349c` + `c46b00e` + `5357bdf`)
 
 Promote shared app infra out of `@fulfil/framework` into a new monorepo package so fulfil and pinpoint both consume it.
+
+**Landed as PRE-0a (Scope/jobs/logging) + fixup + PRE-0b (UoW infra).** PRE-0a's first commit shipped the moved files + new package but missed the retargeted internal imports in the files that stayed in fulfil/framework — the fixup commit landed those. Don't squash the two locally without making sure tests still pass at the squashed revision.
 
 **Move into `packages/app-framework`**: `Scope` (generic shape with base 5 fields + extras via generic param), `ScopeStore`, `TransactionStore`, `TransactionManager`, `DrizzleOutboxDriver`, `AggregateRegistry` (Tag + impl), `commitAggregate`, `commitDelete`, `buildOutboxManager`, `unitOfWorkLayer`, `dispatchJobBrokerLayer`, `frameworkFastifyPlugin`, `runJob`, `Scope.fromRequest` / `forScheduledTask` / `fromParentEvent`, `ScopeAwareDrizzleLogger`, `flowcatalystWebhookAuthHook`, `sendUseCaseError`, app-agnostic `metrics`.
 
@@ -87,7 +110,12 @@ Promote shared app infra out of `@fulfil/framework` into a new monorepo package 
 
 **Deliverable**: `pnpm -r typecheck && pnpm -r test` green for fulfil after extraction.
 
-### Slice 0 — Pinpoint foundation
+### Slice 0 — Pinpoint foundation — **DONE** (`a588006`)
+
+**Scope adjustments applied:**
+- `drizzle/0001_init.sql` (PostGIS CREATE EXTENSION) was NOT ported. Drizzle-kit owns migration generation; the first generated migration will pull `audit_logs` from app-framework. PostGIS lands in Slice 5 alongside the spatial work that needs it.
+- pnpm-workspace.yaml catalog updates were NOT applied — fulfil's pattern was to keep most versions inline in each `package.json` rather than catalog-ed. Pinpoint mirrored that. Re-catalog later if duplication grows.
+
 
 - `apps/pinpoint/{shared,framework,server,web,docs}` dirs
 - `package.json` + `tsconfig.json` per sub-package (mirror fulfil)
@@ -108,7 +136,15 @@ Promote shared app infra out of `@fulfil/framework` into a new monorepo package 
 - Catalog updates in root `pnpm-workspace.yaml`
 - **Smoke**: `pnpm -F @pinpoint/server dev` boots, `GET /health` returns 200, `/docs` renders empty OpenAPI
 
-### Slice 1 — Reference data + auth
+### Slice 1 — Reference data + auth — **DONE** (`138204d`)
+
+**Scope adjustments applied:**
+- `principal_partitions` table deferred to Slice 2 — it FK-references `partitions` which doesn't exist until then.
+- `countries.geometry` column + GIST index deferred to Slice 5 (PostGIS canary).
+- ~390KB country seed (016) deferred to Slice 5; `/countries` returns empty until seeded.
+- Real OIDC deferred; `extractRequestToken` in `server.ts` honours `x-user-id` header as dev fallback (TODO marker in place).
+- `/me` upserts on read in dev mode (so `x-user-id: alice` works end-to-end without a separate provisioning step). Real OIDC slice will move the upsert into the callback.
+
 
 Migrations: `006_principals.sql`, `015_countries.sql`, `016_countries_seed.sql`
 
@@ -119,7 +155,13 @@ Migrations: `006_principals.sql`, `015_countries.sql`, `016_countries_seed.sql`
 - Permissions: `pinpoint:auth:principal:read`
 - **Deliverable**: authenticated request resolves a Principal; countries listable
 
-### Slice 2 — Tenancy spine (Clients + Partitions)
+### Slice 2 — Tenancy spine (Clients + Partitions) — **DONE** (`a7e34dd`)
+
+**Scope adjustments applied:**
+- `principal_partitions` table from Slice 1 deferral was joined here (schema only — no API surface yet; future authz slice will expose grant/revoke).
+- ID prefixes registered: `cli` → Client, `par` → Partition. Use these going forward for IDs of these aggregates.
+- First UoW path validated. `commitAggregate(aggregate, event, command)` compiles cleanly; `Sealed<E>` guarantee holds.
+
 
 Migrations: `002_clients_partitions.sql`, `007_partition_code.sql`
 
@@ -130,7 +172,17 @@ Migrations: `002_clients_partitions.sql`, `007_partition_code.sql`
 - Permissions: `pinpoint:tenancy:{client,partition}:{create,read}`
 - **Deliverable**: tenancy parents creatable; events emit via outbox
 
-### Slice 3 — Locations core
+### Slice 3 — Locations core — **DONE** (`2d30bfc`)
+
+**Scope adjustments applied — significant:**
+- The Rust `create_location.rs` (~600 lines: libpostal normalization → hash + pg_trgm fuzzy candidate search → LLM verification → master_location association → layer feature spatial lookup → processing-log appending → LocationValidated emission) was **NOT** ported. Only the "minimal PENDING create" subset landed. The full pipeline splits across slices 5 (PostGIS + fuzzy), 7 (LLM services), and 8 (master locations + LocationValidated).
+- `master_locations` table deferred to Slice 8. `locations.master_location_id` is a nullable text column today with **NO FK reference**. Slice 8 adds both the table and the FK in one migration.
+- `processing_log` table deferred to Slice 8.
+- `location_attributes` table shipped (schema only — no domain types, no use cases). Attribute CRUD comes with Location update use cases in a later slice.
+- `PropertySet` aggregate from the original plan moved to **Slice 4** — it belongs to layers (Rust `pinpoint-domain/src/entities/property_set.rs` references `layer_id`), not locations.
+- Get/list operations are **direct repository calls from routes**, not use cases. Mirrors fulfil's pattern (use cases = writes only; reads bypass UoW). The original plan listed three use cases for Slice 3; only `create-location` is a use case.
+- ID prefix registered: `loc` → Location. `mlo` reserved for master locations (Slice 8) but not yet registered.
+
 
 Migrations: `004_locations.sql`, `008_location_indexes.sql`, `014_suburb_and_processing_log.sql`
 
@@ -140,7 +192,12 @@ Migrations: `004_locations.sql`, `008_location_indexes.sql`, `014_suburb_and_pro
 - Routes: `POST /locations`, `GET /locations/:id`, `GET /locations` (paged)
 - **Deliverable**: flagship CRUD slice validating UoW + outbox + paged reads
 
-### Slice 4 — Layers + layer features
+### Slice 4 — Layers + layer features — **NEXT** (if continuing)
+
+**Now also includes** `PropertySet` aggregate (moved from Slice 3 — it's a layer-scoped entity).
+
+Suggested ID prefixes: `lyr` for Layer, `lfe` for LayerFeature, `pst` for PropertySet.
+
 
 Migrations: `005_layers.sql`, `009_layer_features.sql`, `010_layer_code.sql`, `013_feature_status_and_point_type.sql`, `017_layer_partitions.sql`
 
@@ -237,13 +294,28 @@ Migrations: `003_matching_config.sql`, `011_spatial_matching.sql`, `012_trgm_fuz
 ## Known risks
 
 1. **PostGIS in Drizzle 1.0** — no native geometry types; use `customType` + raw `sql` tag. Slice 5 surfaces.
-2. **`rig-core` → Vercel AI SDK prompt translation** — rig has its own conventions; prompts may need rework. Slice 7 surfaces.
+2. **`rig-core` → Vercel AI SDK prompt translation** — rig has its own conventions; prompts may need rework. Slice 7 surfaces. NOTE: rig is genuinely capable for focused use; don't underestimate it when deciding whether the port is worth it.
 3. **Outbox + Drizzle 1.0 RC transaction context** — fulfil validates the pattern; confirm `DrizzleOutboxDriver` reads tx from `TransactionStore` correctly under pinpoint's flows.
 4. **OIDC integration** — pinpoint will need real auth before production; out of scope until cutover.
 5. **`fragment_routes.rs` / `unvalidated_routes.rs` intent** — investigate at slice 10; may be deletable.
+6. **libpostal binding** — no first-class TS binding for libpostal. Slice 5/7 needs to decide between (a) hosted normalization service, (b) FFI binding via N-API, (c) accepting reduced normalization quality. The Rust version uses native libpostal directly.
+
+## Lessons learned (slices 0-3)
+
+Things future slices should benefit from:
+
+- **`as never` cast on Scope in event constructors is correct.** The SDK's `BaseDomainEvent` expects a structurally-narrower `ExecutionContext`; pinpoint's `Scope` is a structural superset. The cast satisfies the brand. Don't "fix" it.
+- **Fastify route response schemas must declare every status code the handler emits.** Fastify + TypeBox typechecks reply codes against the schema's `response` keys. Standard `ErrorResponseSchema` is in `tenancy/clients/create-client.route.ts` and `locations/create-location.route.ts` — reuse it.
+- **`import type { sync } from '@flowcatalyst/sdk'` for namespace types only.** Value imports of the SDK namespace previously tripped an ESM-extension issue (since fixed via NodeNext switch, but `import type` is still the lighter choice when only types are needed).
+- **pnpm caches `file:`-linked packages aggressively.** After rebuilding the SDK, `pnpm install --force` says "Already up to date" and lies. Use `rm -rf node_modules && pnpm install` to actually refresh.
+- **DB-touching paths typecheck without a live database.** `postgres-js` connects lazily on first query. Smoke tests for `/health`, `/docs`, schema validation, and unauth/no-auth paths all work without a DB. The DB only matters for actual CRUD.
+- **No drizzle migrations have been generated yet.** When you're ready to exercise the full path, `pnpm -F @pinpoint/server db:generate` against a live PG produces the first migration including `audit_logs` (from app-framework) + all the slice 1-3 tables. PostGIS extension needs a manual migration before that one.
+- **The SDK's `sync.DefinitionSet` requires `applicationCode`.** Pinpoint's is `'pinpoint'`, set in `flowcatalyst/index.ts`.
+- **Scheduled jobs are NOT part of `sync.DefinitionSet`.** The SDK manages them via the runtime resource API (`CreateScheduledJobRequest`). Slice 9 will create the first one.
 
 ## References
 
 - Rust source: `~/Developer/tangent/pinpoint`
 - Canonical TS pattern: `apps/fulfil/CLAUDE.md`
 - SDK source: `~/Developer/flowcatalyst-rust/clients/typescript-sdk`
+- Active pickup state: `apps/pinpoint/docs/HANDOFF.md`
