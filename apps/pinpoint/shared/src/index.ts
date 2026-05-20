@@ -26,3 +26,7 @@ export {
   type UpdateLayerFeatureCommand,
   type DeleteLayerFeatureCommand,
 } from './contracts/layers/layer-feature-contracts.js';
+export {
+  UpdateMatchingConfigCommandSchema,
+  type UpdateMatchingConfigCommand,
+} from './contracts/matching/matching-config-contracts.js';

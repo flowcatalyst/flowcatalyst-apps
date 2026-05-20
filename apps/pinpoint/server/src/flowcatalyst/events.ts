@@ -24,4 +24,9 @@ export const pinpointEventTypes: readonly sync.EventTypeDefinition[] = [
     name: 'Location Created',
     description: 'A raw-address location was captured (pending matching).',
   },
+  {
+    code: 'pinpoint:matching:config:updated',
+    name: 'Matching Config Updated',
+    description: 'A scoped matching config (client / partition) had its thresholds updated.',
+  },
 ];

@@ -22,11 +22,13 @@ import { createDrizzlePartitionRepository } from './infrastructure/partition-rep
 import { createDrizzleLocationRepository } from './infrastructure/location-repository.js';
 import { createDrizzleLayerRepository } from './infrastructure/layer-repository.js';
 import { createDrizzleLayerFeatureRepository } from './infrastructure/layer-feature-repository.js';
+import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
 import { registerLayer } from './infrastructure/register-layer.js';
 import { registerLayerFeature } from './infrastructure/register-layer-feature.js';
+import { registerMatchingConfig } from './infrastructure/register-matching-config.js';
 import { CLIENT_ID_PREFIX, PARTITION_ID_PREFIX } from './domain/tenancy/ids.js';
 import { CLIENT_TYPE } from './domain/tenancy/client.js';
 import { PARTITION_TYPE } from './domain/tenancy/partition.js';
@@ -35,6 +37,8 @@ import { LOCATION_TYPE } from './domain/locations/location.js';
 import { LAYER_ID_PREFIX, LAYER_FEATURE_ID_PREFIX } from './domain/layers/ids.js';
 import { LAYER_TYPE } from './domain/layers/layer.js';
 import { LAYER_FEATURE_TYPE } from './domain/layers/layer-feature.js';
+import { MATCHING_CONFIG_ID_PREFIX } from './domain/matching/ids.js';
+import { MATCHING_CONFIG_TYPE } from './domain/matching/matching-config.js';
 import type { PrincipalRepository } from './domain/auth/principal.repository.js';
 import type { CountryRepository } from './domain/reference/country.repository.js';
 import type { ClientRepository } from './domain/tenancy/client.repository.js';
@@ -42,6 +46,7 @@ import type { PartitionRepository } from './domain/tenancy/partition.repository.
 import type { LocationRepository } from './domain/locations/location.repository.js';
 import type { LayerRepository } from './domain/layers/layer.repository.js';
 import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
+import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
@@ -49,6 +54,7 @@ import { CreateLayerUseCase } from './operations/create-layer/create-layer.use-c
 import { CreateLayerFeatureUseCase } from './operations/create-layer-feature/create-layer-feature.use-case.js';
 import { UpdateLayerFeatureUseCase } from './operations/update-layer-feature/update-layer-feature.use-case.js';
 import { DeleteLayerFeatureUseCase } from './operations/delete-layer-feature/delete-layer-feature.use-case.js';
+import { UpdateMatchingConfigUseCase } from './operations/update-matching-config/update-matching-config.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, the
@@ -71,6 +77,7 @@ export interface AppContextRepositories {
   readonly locations: LocationRepository;
   readonly layers: LayerRepository;
   readonly layerFeatures: LayerFeatureRepository;
+  readonly matchingConfigs: MatchingConfigRepository;
 }
 
 export interface AppContextUseCases {
@@ -81,6 +88,7 @@ export interface AppContextUseCases {
   readonly createLayerFeature: CreateLayerFeatureUseCase;
   readonly updateLayerFeature: UpdateLayerFeatureUseCase;
   readonly deleteLayerFeature: DeleteLayerFeatureUseCase;
+  readonly updateMatchingConfig: UpdateMatchingConfigUseCase;
 }
 
 export interface AppContext {
@@ -128,6 +136,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
     [LOCATION_ID_PREFIX]: LOCATION_TYPE,
     [LAYER_ID_PREFIX]: LAYER_TYPE,
     [LAYER_FEATURE_ID_PREFIX]: LAYER_FEATURE_TYPE,
+    [MATCHING_CONFIG_ID_PREFIX]: MATCHING_CONFIG_TYPE,
   });
 
   const principalRepo = createDrizzlePrincipalRepository(db);
@@ -137,11 +146,13 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const locationRepo = createDrizzleLocationRepository(db);
   const layerRepo = createDrizzleLayerRepository(db);
   const layerFeatureRepo = createDrizzleLayerFeatureRepository(db);
+  const matchingConfigRepo = createDrizzleMatchingConfigRepository(db);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
   registerLocation(aggregateRegistry, locationRepo);
   registerLayer(aggregateRegistry, layerRepo);
   registerLayerFeature(aggregateRegistry, layerFeatureRepo);
+  registerMatchingConfig(aggregateRegistry, matchingConfigRepo);
 
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
@@ -175,6 +186,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
       locations: locationRepo,
       layers: layerRepo,
       layerFeatures: layerFeatureRepo,
+      matchingConfigs: matchingConfigRepo,
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),
@@ -184,6 +196,11 @@ export function createAppContext(config: AppContextConfig): AppContext {
       createLayerFeature: new CreateLayerFeatureUseCase(layerRepo, layerFeatureRepo),
       updateLayerFeature: new UpdateLayerFeatureUseCase(layerFeatureRepo),
       deleteLayerFeature: new DeleteLayerFeatureUseCase(layerFeatureRepo),
+      updateMatchingConfig: new UpdateMatchingConfigUseCase(
+        clientRepo,
+        partitionRepo,
+        matchingConfigRepo,
+      ),
     },
     runWrite,
   };

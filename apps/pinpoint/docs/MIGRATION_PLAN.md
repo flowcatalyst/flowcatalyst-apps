@@ -8,7 +8,7 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ## Status (2026-05-20)
 
-**Slice 4 shipped 2026-05-20.** Andrew opted to continue after re-checking direction post-Slice 3. The broader question (port vs keep Rust pinpoint as production) is not definitively settled — re-check at Slice 5, which is where PostGIS + matching make the work meaningfully harder.
+**Slice 5 shipped 2026-05-20.** PostGIS canary landed: matching configs, spatial lookup over `layer_features.boundary`, country geometry seed, first two Drizzle migrations applied against a live PostGIS-enabled Postgres. The port-vs-Rust decision passes for now; re-check at Slice 7 if the Vercel AI SDK turns out to be meaningfully weaker than `rig-core` on the actual prompts.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -17,9 +17,10 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 | 0 | done | `a588006` | scaffold + Fastify + Drizzle + `/health` + `/docs`. Migration `0001_init.sql` (PostGIS CREATE EXTENSION) **NOT** ported — deferred to Slice 5 where it's first needed |
 | 1 | done | `138204d` | Principal aggregate, Country read model, `/me`, `/countries`. `principal_partitions` table deferred to Slice 2 (FK to partitions). `countries.geometry` + ~390KB seed deferred to Slice 5 |
 | 2 | done | `a7e34dd` | Client + Partition aggregates + first UoW path. `principal_partitions` table joined in here. Event types declared in `flowcatalyst/events.ts` |
-| 3 | done | `2d30bfc` | Location aggregate (full schema), minimal create + paged reads. **~85% of the Rust `create_location.rs` pipeline deferred** to slices 5/7/8 |
-| 4 | done | (this commit) | Layers + LayerFeatures. First `commitDelete` user. `boundary` GEOMETRY columns + GIST indexes deferred to Slice 5. PropertySet aggregate scaffolding deferred (schema only) |
-| 5-12 | pending | — | spatial canary, external services, LLM (Vercel AI SDK), master locations, validation worker, BFF, web lift, cutover |
+| 3 | done | `2d30bfc` | Location aggregate (full schema), minimal create + paged reads. **~85% of the Rust `create_location.rs` pipeline deferred** to slices 6/7/8 |
+| 4 | done | `13cc964` | Layers + LayerFeatures. First `commitDelete` user. `boundary` GEOMETRY columns + GIST indexes deferred to Slice 5. PropertySet aggregate scaffolding deferred (schema only) |
+| 5 | done | (this commit) | PostGIS canary. `MatchingConfig` aggregate + `update-matching-config`, `GET/PUT /matching-config`, `POST /spatial-lookup`. Drizzle geometry `customType` (with `codec: 'text'` opt-out around the built-in POINT-only codec), GIST indexes on `layers`/`layer_features`/`countries`, country geometry seed verbatim from Rust 016, first two Drizzle migrations generated + applied |
+| 6-12 | pending | — | external services + geocoder, LLM (Vercel AI SDK), master locations, validation worker, BFF, web lift, cutover |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -212,20 +213,25 @@ Migrations: `005_layers.sql`, `009_layer_features.sql`, `010_layer_code.sql`, `0
 - Routes: `POST /layers`, `GET /layers/:id`, paged `GET /layers?clientId=…`, `POST/PUT/DELETE /layer-features/...`, `GET /layer-features/:id`, paged `GET /layer-features?layerId=…`
 - **Deliverable**: layer management complete
 
-### Slice 5 — Matching config + spatial lookup (PostGIS canary)
+### Slice 5 — Matching config + spatial lookup (PostGIS canary) — **DONE** (this commit)
 
-Migrations: `003_matching_config.sql`, `011_spatial_matching.sql`, `012_trgm_fuzzy_matching.sql`, plus the PostGIS bits deferred from earlier slices.
+**Scope adjustments applied:**
+- `pg_trgm` extension was installed (via `pnpm db:init`) but the trgm indexes from Rust migration 012 were **NOT** ported — they all reference `master_locations` which doesn't exist until Slice 8. Trgm indexes move to Slice 8.
+- The boundary backfill UPDATEs from Rust migration 011 (`UPDATE layers SET boundary = ST_Buffer(...)`) were NOT ported as a Drizzle migration — they're only meaningful against rows that were created BEFORE the boundary column existed, and pinpoint has no such rows (it's a fresh DB). Documented as a manual one-liner in `docs/spatial-queries.md` if it ever needs running.
+- `master_locations.point` backfill (also in Rust 011) — deferred to Slice 8 alongside the table.
+- Drizzle geometry customType required `codec: 'text'` to opt out of Drizzle 1.0's built-in POINT-only geometry codec. Without it, every read against a table holding a non-POINT boundary blows up with `Unsupported geometry type` — see `docs/spatial-queries.md` and HANDOFF gotchas.
+- Seeds (`mcf_GLOBAL_DEFAULT` matching config + country geometries) ship as a `drizzle-kit generate --custom` migration (`20260520171804_seed_globals`), with `ON CONFLICT (id) DO NOTHING` per INSERT so the migration is safe to re-apply against a partially-seeded DB.
+- ID prefix registered: `mcf` → MatchingConfig. Fixed-id seed row `mcf_GLOBAL_DEFAULT` is the bottom of the (client, partition) → (client, NULL) → (NULL, NULL) cascade.
 
-- **First slice that requires a live Postgres+PostGIS to validate** — slices 0-4 typecheck and smoke cleanly without a DB; spatial routes will not.
-- Manual migration: `CREATE EXTENSION postgis` (drizzle-kit can't emit this). Same for `CREATE EXTENSION pg_trgm`.
-- Add the deferred PostGIS columns + GIST indexes: `layers.boundary`, `layer_features.boundary`, `countries.geometry`. Also the ~390KB country seed (deferred from Slice 1).
-- Create `location_feature_associations` table + `distance_meters` column (the second ALTER from migration 013).
-- Aggregate: `MatchingConfig`
-- Use cases: `update-matching-config`
-- Spatial: Drizzle `customType` for WKT/WKB geometry columns; raw `sql\`...\`` for spatial predicates (`ST_DWithin`, `ST_Intersects`, `<->`)
-- Routes: `PUT /matching-config`, `POST /spatial-lookup`
-- **Doc**: `docs/spatial-queries.md` capturing the Drizzle + PostGIS pattern
-- **Deliverable**: spatial lookups end-to-end; pattern documented
+
+Migrations: `003_matching_config.sql`, `011_spatial_matching.sql` (partial — boundary columns + `location_feature_associations` table only), `015_countries.sql` (geometry column added), `016_countries_seed.sql` (verbatim).
+
+- Aggregates: `MatchingConfig`
+- Use cases: `update-matching-config` (lazy-promotes scoped row from global default + applies threshold overrides; deletion deferred — no Rust use case)
+- Events: `matching-config-updated`
+- Spatial: Drizzle `customType` for geometry columns (with `codec: 'text'` opt-out); raw `sql\`...\`` for `ST_Intersects` / `ST_Distance` predicates; reads of the column always project via `ST_AsText`/`ST_AsGeoJSON`.
+- Routes: `GET /matching-config`, `PUT /matching-config`, `POST /spatial-lookup`
+- **Deliverable**: spatial lookups end-to-end; pattern documented in `docs/spatial-queries.md`
 
 ### Slice 6 — External services + rate limiter
 

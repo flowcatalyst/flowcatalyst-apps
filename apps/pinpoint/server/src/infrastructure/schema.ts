@@ -65,3 +65,12 @@ export type {
   NewLocationLayerAssociation,
   LocationLayerAssociationRow,
 } from './schema/location-layer-associations.js';
+
+export { matchingConfigs } from './schema/matching-configs.js';
+export type { NewMatchingConfig, MatchingConfigRow } from './schema/matching-configs.js';
+
+export { locationFeatureAssociations } from './schema/location-feature-associations.js';
+export type {
+  NewLocationFeatureAssociation,
+  LocationFeatureAssociationRow,
+} from './schema/location-feature-associations.js';

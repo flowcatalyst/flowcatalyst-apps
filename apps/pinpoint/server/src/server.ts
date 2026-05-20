@@ -12,6 +12,8 @@ import { registerPartitionRoutes } from './api/routes/tenancy/partitions/index.j
 import { registerLocationRoutes } from './api/routes/locations/index.js';
 import { registerLayerRoutes } from './api/routes/layers/index.js';
 import { registerLayerFeatureRoutes } from './api/routes/layer-features/index.js';
+import { registerMatchingConfigRoutes } from './api/routes/matching-config/index.js';
+import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -84,6 +86,7 @@ async function buildServer() {
         { name: 'Tenancy', description: 'Clients + partitions — the tenancy spine' },
         { name: 'Locations', description: 'Raw addresses + matching pipeline' },
         { name: 'Layers', description: 'Layers, features, and per-feature properties' },
+        { name: 'Matching', description: 'Matching configs + spatial lookup' },
       ],
     },
   });
@@ -110,6 +113,8 @@ async function buildServer() {
   registerLocationRoutes(server, appContext);
   registerLayerRoutes(server, appContext);
   registerLayerFeatureRoutes(server, appContext);
+  registerMatchingConfigRoutes(server, appContext);
+  registerSpatialLookupRoutes(server, appContext);
 
   return server;
 }

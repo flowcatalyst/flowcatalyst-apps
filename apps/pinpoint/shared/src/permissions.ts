@@ -25,6 +25,9 @@ export const PinpointPermission = {
   LayersFeatureUpdate: 'pinpoint:layers:feature:update',
   LayersFeatureDelete: 'pinpoint:layers:feature:delete',
   LayersFeatureRead: 'pinpoint:layers:feature:read',
+  MatchingConfigRead: 'pinpoint:matching:config:read',
+  MatchingConfigManage: 'pinpoint:matching:config:manage',
+  MatchingSpatialLookup: 'pinpoint:matching:spatial:lookup',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];
