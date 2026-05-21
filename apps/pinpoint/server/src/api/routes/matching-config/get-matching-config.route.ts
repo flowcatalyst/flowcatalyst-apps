@@ -4,8 +4,11 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asClientId, asPartitionId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
 
-const QuerySchema = Type.Object({
+const ParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
+});
+
+const QuerySchema = Type.Object({
   partitionId: Type.Optional(Type.String()),
 });
 
@@ -33,10 +36,11 @@ export function registerGetMatchingConfigRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/matching-config',
+    '/clients/:clientId/matching-config',
     {
       schema: {
         tags: ['Matching'],
+        params: ParamsSchema,
         querystring: QuerySchema,
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
       },
@@ -49,10 +53,8 @@ export function registerGetMatchingConfigRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const { clientId, partitionId } = request.query as {
-        clientId: string;
-        partitionId?: string;
-      };
+      const { clientId } = request.params as { clientId: string };
+      const { partitionId } = request.query as { partitionId?: string };
 
       const config = await appContext.repositories.matchingConfigs.resolve(
         asClientId(clientId),

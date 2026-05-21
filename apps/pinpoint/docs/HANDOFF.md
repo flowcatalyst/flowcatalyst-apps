@@ -47,7 +47,8 @@ The original decision factors stay relevant context:
 | 8 | `72b812d` + `b4981c6` | Master locations + the full matching pipeline. `MasterLocation` aggregate (PENDING/GEOCODED/VALIDATED/REJECTED) + repo + processing_log table. `AddressMatcher` pure module (Jaro-Winkler + 80-entry SUBSTITUTIONS) + `AddressNormalizer` (libpostal HTTP via `pelias/libpostal-service` sidecar, added to `compose.yaml`). Rewritten `create-location` use case running the full Rust pipeline (normalize → hash + fuzzy + matcher → LLM verify → master association OR creation → spatial lookup for VALIDATED-master case → LocationValidated). Two new use cases: `validate-master-location` (geocode) and `confirm-master-location` (canonicalize + cascade). 4 new routes under `/master-locations`. 28 new tests including the Rust matcher unit-test trio. End-to-end smoke green: PENDING → GEOCODED → VALIDATED with EXACT_HASH match on second submission of same address. |
 
 | schema-sync | `5f4685e` | Event-data interfaces → TypeBox + `addSchemaVersion` push from `scripts/sync-flowcatalyst.ts`. All 12 events now carry payload JSON Schemas to the platform |
-| 9 | (this commit) | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 minutes via a platform-fired webhook (`POST /jobs/validate-master-locations`), draining the GEOCODED backlog 100 masters at a time and calling `confirm-master-location` on each. HMAC verification via ported `flowcatalystWebhookAuthHook`. `runJob` wraps the batch in `SystemIdentity.SCHEDULER` scope. ScheduledJobDefinition wired into the DefinitionSet, sync-able via `pnpm flowcatalyst:sync`. 15 new tests (HMAC + batch orchestration) |
+| 9 | `2726201` | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 minutes via a platform-fired webhook (`POST /jobs/validate-master-locations`), draining the GEOCODED backlog 100 masters at a time and calling `confirm-master-location` on each. HMAC verification via ported `flowcatalystWebhookAuthHook`. `runJob` wraps the batch in `SystemIdentity.SCHEDULER` scope. ScheduledJobDefinition wired into the DefinitionSet, sync-able via `pnpm flowcatalyst:sync`. 15 new tests (HMAC + batch orchestration) |
+| 10a | (this commit) | Path-scope rewrite. All flat routes (`/locations`, `/layers`, `/partitions`, `/matching-config`, `/spatial-lookup`, `/master-locations/*`) moved under `/clients/:clientId/...` to match the Rust API shape. Layer features nest further as `/clients/:cid/layers/:lid/features/*`. `/me`, `/countries`, `/health`, `/geocode/*`, `/verify-match`, `/jobs/*` stay flat (no client scope). New `docs/route-triage.md` catalogues every Rust route file + its TS-side status, including the deferred CRUD ops for 10b and the BFF surface for 10c |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -80,16 +81,30 @@ In order:
 3. This file
 4. `MEMORY.md` — auto-loaded; gives broader context
 
-## Slice 10 spec (if continuing)
+## Slice 10b spec (if continuing)
 
-**BFF + fragments + unvalidated routes triage.**
+**Missing CRUD operations** the BFF surface depends on. See
+`docs/route-triage.md` for the full list — ~18 use cases across Client,
+Partition, Layer, MasterLocation, PropertySet, Property, LocationAttribute,
+PrincipalPartition. Expect 2-3 commits split by aggregate group:
 
-- `routes/bff/partitions` — UI partition listing (joined with principal_partitions).
-- `routes/bff/principal_partitions` — user's memberships.
-- `routes/bff/spatial_lookup` — consolidate with Slice 5's `/spatial-lookup`. (Maybe a no-op — same logic, just under `/bff/...` for UI scoping.)
-- `fragment_routes` — investigate Rust intent. Likely deletable once the Vue SPA (Slice 11) owns the UI.
-- `unvalidated_routes` — investigate Rust intent. Identify any public endpoints; document why each is unauthenticated; consider gating behind a header / token.
-- Deliverable: UI-shaped endpoints ready for the Vue lift; legacy Rust routes triaged.
+- 10b.1: client + partition + layer update/delete (uses existing aggregates)
+- 10b.2: master-location update/reject + location-attribute CRUD
+- 10b.3: property-set + property + principal-partition CRUD (three new aggregate
+  scaffoldings — these were schema-only in earlier slices)
+
+## Slice 10c spec (after 10b)
+
+**BFF surface mount** under `/bff/clients/:cid/...`. Each endpoint
+delegates to existing use cases (writes) or repositories (reads) with
+`{items, total}` UI-shaped responses. Includes:
+
+- `GET /bff/dashboard/stats`
+- `GET /bff/countries`
+- `GET /bff/clients/:cid` + the 11 nested BFF route files (see triage doc)
+- `/master-locations/unvalidated` (from `routes/unvalidated_routes.rs`)
+- BFF auth: continues to use the `x-user-id` dev fallback for now;
+  real OIDC + cookie sessions land in Slice 12.
 
 ## Gotchas
 

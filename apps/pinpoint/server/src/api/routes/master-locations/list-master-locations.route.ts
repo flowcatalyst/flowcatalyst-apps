@@ -36,7 +36,6 @@ const ListResponseSchema = Type.Object({
 });
 
 const ListQuerySchema = Type.Object({
-  clientId: Type.String({ minLength: 1 }),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
   offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
 });
@@ -46,20 +45,18 @@ export function registerListMasterLocationsRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/master-locations',
+    '/clients/:clientId/master-locations',
     {
       schema: {
         tags: ['MasterLocations'],
+        params: Type.Object({ clientId: Type.String() }),
         querystring: ListQuerySchema,
         response: { 200: ListResponseSchema },
       },
     },
     async (request) => {
-      const { clientId, limit = 50, offset = 0 } = request.query as {
-        clientId: string;
-        limit?: number;
-        offset?: number;
-      };
+      const { clientId } = request.params as { clientId: string };
+      const { limit = 50, offset = 0 } = request.query as { limit?: number; offset?: number };
       const result = await appContext.repositories.masterLocations.listByClient({
         clientId: asClientId(clientId),
         limit,

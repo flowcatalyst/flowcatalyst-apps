@@ -23,11 +23,15 @@ export function registerDeleteLayerFeatureRoute(
   appContext: AppContext,
 ): void {
   fastify.delete(
-    '/layer-features/:id',
+    '/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
         tags: ['Layers'],
-        params: Type.Object({ id: Type.String({ minLength: 1 }) }),
+        params: Type.Object({
+          clientId: Type.String({ minLength: 1 }),
+          layerId: Type.String({ minLength: 1 }),
+          featureId: Type.String({ minLength: 1 }),
+        }),
         response: {
           200: DeleteLayerFeatureResponseSchema,
           401: ErrorResponseSchema,
@@ -38,7 +42,11 @@ export function registerDeleteLayerFeatureRoute(
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { featureId } = request.params as {
+        clientId: string;
+        layerId: string;
+        featureId: string;
+      };
 
       const scope = ScopeStore.get();
       if (!scope) {
@@ -46,7 +54,7 @@ export function registerDeleteLayerFeatureRoute(
       }
 
       const result = await appContext.runWrite(
-        appContext.useCases.deleteLayerFeature.execute({ featureId: id }),
+        appContext.useCases.deleteLayerFeature.execute({ featureId }),
         scope,
       );
 

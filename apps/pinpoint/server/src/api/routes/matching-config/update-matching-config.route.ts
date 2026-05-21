@@ -8,8 +8,11 @@ import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
 const ThresholdSchema = Type.Number({ minimum: 0, maximum: 1 });
 
-const UpdateMatchingConfigBodySchema = Type.Object({
+const ParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
+});
+
+const UpdateMatchingConfigBodySchema = Type.Object({
   partitionId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   streetThreshold: Type.Optional(ThresholdSchema),
   houseNumberThreshold: Type.Optional(ThresholdSchema),
@@ -39,10 +42,11 @@ export function registerUpdateMatchingConfigRoute(
   appContext: AppContext,
 ): void {
   fastify.put(
-    '/matching-config',
+    '/clients/:clientId/matching-config',
     {
       schema: {
         tags: ['Matching'],
+        params: ParamsSchema,
         body: UpdateMatchingConfigBodySchema,
         response: {
           200: UpdateMatchingConfigResponseSchema,
@@ -55,7 +59,11 @@ export function registerUpdateMatchingConfigRoute(
       },
     },
     async (request, reply) => {
-      const parsed = UpdateMatchingConfigCommandSchema.safeParse(request.body);
+      const { clientId } = request.params as { clientId: string };
+      const parsed = UpdateMatchingConfigCommandSchema.safeParse({
+        ...(request.body as object),
+        clientId,
+      });
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }

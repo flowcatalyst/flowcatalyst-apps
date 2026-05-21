@@ -28,7 +28,6 @@ const ListLayerFeaturesResponseSchema = Type.Object({
 });
 
 const ListLayerFeaturesQuerySchema = Type.Object({
-  layerId: Type.String({ minLength: 1 }),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
   offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
 });
@@ -38,20 +37,21 @@ export function registerListLayerFeaturesRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/layer-features',
+    '/clients/:clientId/layers/:layerId/features',
     {
       schema: {
         tags: ['Layers'],
+        params: Type.Object({
+          clientId: Type.String(),
+          layerId: Type.String(),
+        }),
         querystring: ListLayerFeaturesQuerySchema,
         response: { 200: ListLayerFeaturesResponseSchema },
       },
     },
     async (request) => {
-      const { layerId, limit = 50, offset = 0 } = request.query as {
-        layerId: string;
-        limit?: number;
-        offset?: number;
-      };
+      const { layerId } = request.params as { clientId: string; layerId: string };
+      const { limit = 50, offset = 0 } = request.query as { limit?: number; offset?: number };
       const result = await appContext.repositories.layerFeatures.listByLayer({
         layerId: asLayerId(layerId),
         limit,

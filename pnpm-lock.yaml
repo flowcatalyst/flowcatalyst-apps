@@ -83,7 +83,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76(effect@4.0.0-beta.67)
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -176,7 +176,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76(effect@4.0.0-beta.67)
       '@fulfil/framework':
         specifier: workspace:*
         version: link:../framework
@@ -244,7 +244,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76(effect@4.0.0-beta.67)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -287,7 +287,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76(effect@4.0.0-beta.67)
       '@pinpoint/framework':
         specifier: workspace:*
         version: link:../framework
@@ -352,7 +352,7 @@ importers:
     dependencies:
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76(effect@4.0.0-beta.67)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -827,9 +827,9 @@ packages:
     peerDependencies:
       typebox: ^1.0.13
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405}
-    version: 0.3.2
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76':
+    resolution: {gitHosted: true, integrity: sha512-6q8WWlVmHL5yMEbB89hb7badHKC6jWPbx8AEyXKLe2V8YNXCxEGoifr5+13MRZXn3ATzy83FKk7Anol6xjeWyA==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76}
+    version: 0.6.8
     engines: {node: '>=18.0.0'}
     peerDependencies:
       effect: ^4.0.0-beta.68
@@ -3288,7 +3288,7 @@ snapshots:
     dependencies:
       typebox: 1.1.38
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3b8ac0394dfc7d14fb00cf80b7dd96e8bdb76405(effect@4.0.0-beta.67)':
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76(effect@4.0.0-beta.67)':
     dependencies:
       neverthrow: 8.2.0
     optionalDependencies:

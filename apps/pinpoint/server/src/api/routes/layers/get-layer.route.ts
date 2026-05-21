@@ -33,21 +33,24 @@ const NotFoundSchema = Type.Object({
 
 export function registerGetLayerRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
-    '/layers/:id',
+    '/clients/:clientId/layers/:layerId',
     {
       schema: {
         tags: ['Layers'],
-        params: Type.Object({ id: Type.String() }),
+        params: Type.Object({
+          clientId: Type.String(),
+          layerId: Type.String(),
+        }),
         response: { 200: LayerResponseSchema, 404: NotFoundSchema },
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const layer = await appContext.repositories.layers.findById(asLayerId(id));
+      const { layerId } = request.params as { clientId: string; layerId: string };
+      const layer = await appContext.repositories.layers.findById(asLayerId(layerId));
       if (!layer) {
         return reply
           .code(404)
-          .send({ error: 'NotFound' as const, message: `Layer '${id}' not found.` });
+          .send({ error: 'NotFound' as const, message: `Layer '${layerId}' not found.` });
       }
       return {
         ...layer,

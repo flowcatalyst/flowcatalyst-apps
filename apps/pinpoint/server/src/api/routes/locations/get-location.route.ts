@@ -45,21 +45,24 @@ export function registerGetLocationRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/locations/:id',
+    '/clients/:clientId/locations/:locationId',
     {
       schema: {
         tags: ['Locations'],
-        params: Type.Object({ id: Type.String() }),
+        params: Type.Object({
+          clientId: Type.String(),
+          locationId: Type.String(),
+        }),
         response: { 200: LocationResponseSchema, 404: NotFoundSchema },
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const loc = await appContext.repositories.locations.findById(asLocationId(id));
+      const { locationId } = request.params as { clientId: string; locationId: string };
+      const loc = await appContext.repositories.locations.findById(asLocationId(locationId));
       if (!loc) {
         return reply
           .code(404)
-          .send({ error: 'NotFound' as const, message: `Location '${id}' not found.` });
+          .send({ error: 'NotFound' as const, message: `Location '${locationId}' not found.` });
       }
       return {
         ...loc,

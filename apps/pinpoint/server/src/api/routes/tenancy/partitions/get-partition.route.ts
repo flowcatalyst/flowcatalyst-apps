@@ -23,21 +23,27 @@ export function registerGetPartitionRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/partitions/:id',
+    '/clients/:clientId/partitions/:partitionId',
     {
       schema: {
         tags: ['Tenancy'],
-        params: Type.Object({ id: Type.String() }),
+        params: Type.Object({
+          clientId: Type.String(),
+          partitionId: Type.String(),
+        }),
         response: { 200: PartitionResponseSchema, 404: NotFoundSchema },
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const partition = await appContext.repositories.partitions.findById(asPartitionId(id));
+      const { partitionId } = request.params as { clientId: string; partitionId: string };
+      const partition = await appContext.repositories.partitions.findById(
+        asPartitionId(partitionId),
+      );
       if (!partition) {
-        return reply
-          .code(404)
-          .send({ error: 'NotFound' as const, message: `Partition '${id}' not found.` });
+        return reply.code(404).send({
+          error: 'NotFound' as const,
+          message: `Partition '${partitionId}' not found.`,
+        });
       }
       return {
         id: partition.id,

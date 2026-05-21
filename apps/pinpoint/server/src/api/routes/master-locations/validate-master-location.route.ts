@@ -1,5 +1,6 @@
 /**
- * POST /master-locations/:id/validate — geocode a PENDING master location.
+ * POST /clients/:clientId/master-locations/:masterLocationId/validate
+ * — geocode a PENDING master location.
  *
  * Despite the verb, this is the geocoding step (PENDING → GEOCODED).
  * `confirm-master-location` handles the actual canonical-validation step.
@@ -35,11 +36,14 @@ export function registerValidateMasterLocationRoute(
   appContext: AppContext,
 ): void {
   fastify.post(
-    '/master-locations/:id/validate',
+    '/clients/:clientId/master-locations/:masterLocationId/validate',
     {
       schema: {
         tags: ['MasterLocations'],
-        params: Type.Object({ id: Type.String({ minLength: 1 }) }),
+        params: Type.Object({
+          clientId: Type.String({ minLength: 1 }),
+          masterLocationId: Type.String({ minLength: 1 }),
+        }),
         response: {
           200: ValidateResponseSchema,
           400: ErrorResponseSchema,
@@ -53,8 +57,11 @@ export function registerValidateMasterLocationRoute(
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const parsed = ValidateMasterLocationCommandSchema.safeParse({ masterLocationId: id });
+      const { masterLocationId } = request.params as {
+        clientId: string;
+        masterLocationId: string;
+      };
+      const parsed = ValidateMasterLocationCommandSchema.safeParse({ masterLocationId });
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }

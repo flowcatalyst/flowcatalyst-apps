@@ -6,8 +6,11 @@ import { CreateLayerCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
-const CreateLayerBodySchema = Type.Object({
+const CreateLayerParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
+});
+
+const CreateLayerBodySchema = Type.Object({
   code: Type.String({ minLength: 1 }),
   name: Type.String({ minLength: 1 }),
   description: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -40,10 +43,11 @@ export function registerCreateLayerRoute(
   appContext: AppContext,
 ): void {
   fastify.post(
-    '/layers',
+    '/clients/:clientId/layers',
     {
       schema: {
         tags: ['Layers'],
+        params: CreateLayerParamsSchema,
         body: CreateLayerBodySchema,
         response: {
           201: CreateLayerResponseSchema,
@@ -57,7 +61,11 @@ export function registerCreateLayerRoute(
       },
     },
     async (request, reply) => {
-      const parsed = CreateLayerCommandSchema.safeParse(request.body);
+      const { clientId } = request.params as { clientId: string };
+      const parsed = CreateLayerCommandSchema.safeParse({
+        ...(request.body as object),
+        clientId,
+      });
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }

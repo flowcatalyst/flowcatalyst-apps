@@ -30,21 +30,32 @@ export function registerGetLayerFeatureRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/layer-features/:id',
+    '/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
         tags: ['Layers'],
-        params: Type.Object({ id: Type.String() }),
+        params: Type.Object({
+          clientId: Type.String(),
+          layerId: Type.String(),
+          featureId: Type.String(),
+        }),
         response: { 200: LayerFeatureResponseSchema, 404: NotFoundSchema },
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const feature = await appContext.repositories.layerFeatures.findById(asLayerFeatureId(id));
+      const { featureId } = request.params as {
+        clientId: string;
+        layerId: string;
+        featureId: string;
+      };
+      const feature = await appContext.repositories.layerFeatures.findById(
+        asLayerFeatureId(featureId),
+      );
       if (!feature) {
-        return reply
-          .code(404)
-          .send({ error: 'NotFound' as const, message: `Layer feature '${id}' not found.` });
+        return reply.code(404).send({
+          error: 'NotFound' as const,
+          message: `Layer feature '${featureId}' not found.`,
+        });
       }
       return {
         ...feature,

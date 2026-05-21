@@ -8,7 +8,7 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ## Status (2026-05-21)
 
-**Slice 9 shipped 2026-05-21.** FlowCatalyst-scheduled validation worker. `POST /jobs/validate-master-locations` (HMAC-verified) drains the GEOCODED master_locations backlog 100 at a time via `runJob` + `confirm-master-location`. ScheduledJobDefinition (`*/5 * * * *`) is part of the DefinitionSet sync.
+**Slice 10a shipped 2026-05-21.** Path-scope rewrite — all flat routes moved under `/clients/:clientId/...` to match the Rust shape. Layer features nest as `/clients/:cid/layers/:lid/features/*`. New `docs/route-triage.md` catalogues every Rust route file + the TS port status, including the ~18 deferred CRUD ops for 10b and the 11 BFF route files for 10c.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -24,8 +24,11 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 | 7 | done | `b4f6620` | LLM `AddressVerifier` — Vercel AI SDK + `@ai-sdk/amazon-bedrock` Bedrock impl, native-fetch Ollama impl (sidesteps the `ollama-ai-provider-v2`'s zod-4 peer requirement), Noop default. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER`). 15 new tests; smoke against local Ollama+gemma4 green |
 | 8 | done | `72b812d` + `b4981c6` | Master locations + the full matching pipeline. `MasterLocation` aggregate (PENDING/GEOCODED/VALIDATED/REJECTED), `AddressMatcher` pure module + 80-entry SUBSTITUTIONS, libpostal `AddressNormalizer` + pelias/libpostal-service sidecar, `processing_log`, rewritten `create-location` running the full Rust pipeline. `validate-master-location` (geocode) + `confirm-master-location` (canonicalize + cascade). 4 new master-location routes. End-to-end smoke green |
 | schema-sync | done | `5f4685e` | Event-data interfaces → TypeBox; `scripts/sync-flowcatalyst.ts` pushes payload JSON Schemas via `addSchemaVersion`. All 12 events now carry schemas to the platform |
-| 9 | done | (this commit) | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 min, POST `/jobs/validate-master-locations` HMAC-verified, drains the GEOCODED batch. ScheduledJobDefinition in the DefinitionSet sync. 15 new tests |
-| 10-12 | pending | — | BFF + fragment route triage, web lift, cutover |
+| 9 | done | `2726201` | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 min, POST `/jobs/validate-master-locations` HMAC-verified, drains the GEOCODED batch. ScheduledJobDefinition in the DefinitionSet sync. 15 new tests |
+| 10a | done | (this commit) | Path-scope rewrite. 19 route files moved from flat to `/clients/:clientId/...`. Layer features under `/clients/:cid/layers/:lid/features/*`. `/me`, `/countries`, `/health`, `/geocode/*`, `/verify-match`, `/jobs/*` stay flat. New `docs/route-triage.md` catalogues the full Rust surface + ports status |
+| 10b | pending | — | ~18 missing CRUD use cases (Client/Partition/Layer update/delete + MasterLocation update/reject + PropertySet/Property/LocationAttribute/PrincipalPartition CRUD). Split into 2-3 commits |
+| 10c | pending | — | BFF mount at `/bff/clients/:cid/...` (11 route files) + `master-locations/unvalidated` (from Rust `unvalidated_routes.rs`) |
+| 11-12 | pending | — | Web lift (pinpoint-web → apps/pinpoint/web/) + cutover (Docker compose, README, OIDC) |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 

@@ -34,27 +34,24 @@ const ListLayersResponseSchema = Type.Object({
 });
 
 const ListLayersQuerySchema = Type.Object({
-  clientId: Type.String({ minLength: 1 }),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
   offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
 });
 
 export function registerListLayersRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
-    '/layers',
+    '/clients/:clientId/layers',
     {
       schema: {
         tags: ['Layers'],
+        params: Type.Object({ clientId: Type.String() }),
         querystring: ListLayersQuerySchema,
         response: { 200: ListLayersResponseSchema },
       },
     },
     async (request) => {
-      const { clientId, limit = 50, offset = 0 } = request.query as {
-        clientId: string;
-        limit?: number;
-        offset?: number;
-      };
+      const { clientId } = request.params as { clientId: string };
+      const { limit = 50, offset = 0 } = request.query as { limit?: number; offset?: number };
       const result = await appContext.repositories.layers.listByClient({
         clientId: asClientId(clientId),
         limit,

@@ -19,19 +19,21 @@ const NotFoundSchema = Type.Object({
 
 export function registerGetClientRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
-    '/clients/:id',
+    '/clients/:clientId',
     {
       schema: {
         tags: ['Tenancy'],
-        params: Type.Object({ id: Type.String() }),
+        params: Type.Object({ clientId: Type.String() }),
         response: { 200: ClientResponseSchema, 404: NotFoundSchema },
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const client = await appContext.repositories.clients.findById(asClientId(id));
+      const { clientId } = request.params as { clientId: string };
+      const client = await appContext.repositories.clients.findById(asClientId(clientId));
       if (!client) {
-        return reply.code(404).send({ error: 'NotFound' as const, message: `Client '${id}' not found.` });
+        return reply
+          .code(404)
+          .send({ error: 'NotFound' as const, message: `Client '${clientId}' not found.` });
       }
       return {
         id: client.id,

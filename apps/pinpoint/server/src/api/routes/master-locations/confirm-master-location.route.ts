@@ -1,8 +1,8 @@
 /**
- * POST /master-locations/:id/confirm — mark a GEOCODED master_location
- * as VALIDATED. Cascades LocationValidated to every non-validated child
- * `locations` row + writes per-child `location_feature_associations`
- * from the master's coordinate.
+ * POST /clients/:clientId/master-locations/:masterLocationId/confirm — mark
+ * a GEOCODED master_location as VALIDATED. Cascades LocationValidated
+ * to every non-validated child `locations` row + writes per-child
+ * `location_feature_associations` from the master's coordinate.
  */
 import { Type } from '@sinclair/typebox';
 import { Result } from 'effect';
@@ -11,10 +11,6 @@ import { ScopeStore } from '@pinpoint/framework';
 import { ConfirmMasterLocationCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
-
-const ConfirmBodySchema = Type.Object({
-  clientId: Type.String({ minLength: 1 }),
-});
 
 const ConfirmResponseSchema = Type.Object({
   masterLocationId: Type.String(),
@@ -36,12 +32,15 @@ export function registerConfirmMasterLocationRoute(
   appContext: AppContext,
 ): void {
   fastify.post(
-    '/master-locations/:id/confirm',
+    '/clients/:clientId/master-locations/:masterLocationId/confirm',
     {
       schema: {
         tags: ['MasterLocations'],
-        params: Type.Object({ id: Type.String({ minLength: 1 }) }),
-        body: ConfirmBodySchema,
+        params: Type.Object({
+          clientId: Type.String({ minLength: 1 }),
+          masterLocationId: Type.String({ minLength: 1 }),
+        }),
+        // No body — clientId is in the path now.
         response: {
           200: ConfirmResponseSchema,
           400: ErrorResponseSchema,
@@ -54,10 +53,13 @@ export function registerConfirmMasterLocationRoute(
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { clientId, masterLocationId } = request.params as {
+        clientId: string;
+        masterLocationId: string;
+      };
       const parsed = ConfirmMasterLocationCommandSchema.safeParse({
-        ...(request.body as object),
-        masterLocationId: id,
+        clientId,
+        masterLocationId,
       });
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });

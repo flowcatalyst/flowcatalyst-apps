@@ -4,8 +4,11 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asClientId, asPartitionId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
 
-const SpatialLookupBodySchema = Type.Object({
+const ParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
+});
+
+const SpatialLookupBodySchema = Type.Object({
   latitude: Type.Number({ minimum: -90, maximum: 90 }),
   longitude: Type.Number({ minimum: -180, maximum: 180 }),
   partitionId: Type.Optional(Type.String()),
@@ -47,10 +50,11 @@ export function registerSpatialLookupRoute(
   appContext: AppContext,
 ): void {
   fastify.post(
-    '/spatial-lookup',
+    '/clients/:clientId/spatial-lookup',
     {
       schema: {
         tags: ['Matching'],
+        params: ParamsSchema,
         body: SpatialLookupBodySchema,
         response: {
           200: SpatialLookupResponseSchema,
@@ -68,8 +72,8 @@ export function registerSpatialLookupRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
+      const { clientId } = request.params as { clientId: string };
       const body = request.body as {
-        clientId: string;
         latitude: number;
         longitude: number;
         partitionId?: string;
@@ -77,7 +81,7 @@ export function registerSpatialLookupRoute(
       };
 
       const results = await appContext.repositories.layerFeatures.spatialLookup({
-        clientId: asClientId(body.clientId),
+        clientId: asClientId(clientId),
         partitionId:
           body.partitionId && body.partitionId.length > 0
             ? asPartitionId(body.partitionId)

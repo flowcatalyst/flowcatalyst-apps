@@ -43,23 +43,30 @@ export function registerGetMasterLocationRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/master-locations/:id',
+    '/clients/:clientId/master-locations/:masterLocationId',
     {
       schema: {
         tags: ['MasterLocations'],
-        params: Type.Object({ id: Type.String() }),
+        params: Type.Object({
+          clientId: Type.String(),
+          masterLocationId: Type.String(),
+        }),
         response: { 200: MasterLocationResponseSchema, 404: NotFoundSchema },
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { masterLocationId } = request.params as {
+        clientId: string;
+        masterLocationId: string;
+      };
       const master = await appContext.repositories.masterLocations.findById(
-        asMasterLocationId(id),
+        asMasterLocationId(masterLocationId),
       );
       if (!master) {
-        return reply
-          .code(404)
-          .send({ error: 'NotFound' as const, message: `Master location '${id}' not found.` });
+        return reply.code(404).send({
+          error: 'NotFound' as const,
+          message: `Master location '${masterLocationId}' not found.`,
+        });
       }
       return {
         ...master,

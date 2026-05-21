@@ -33,11 +33,15 @@ export function registerUpdateLayerFeatureRoute(
   appContext: AppContext,
 ): void {
   fastify.put(
-    '/layer-features/:id',
+    '/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
         tags: ['Layers'],
-        params: Type.Object({ id: Type.String({ minLength: 1 }) }),
+        params: Type.Object({
+          clientId: Type.String({ minLength: 1 }),
+          layerId: Type.String({ minLength: 1 }),
+          featureId: Type.String({ minLength: 1 }),
+        }),
         body: UpdateLayerFeatureBodySchema,
         response: {
           200: UpdateLayerFeatureResponseSchema,
@@ -50,8 +54,15 @@ export function registerUpdateLayerFeatureRoute(
       },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const parsed = UpdateLayerFeatureCommandSchema.safeParse({ ...(request.body as object), featureId: id });
+      const { featureId } = request.params as {
+        clientId: string;
+        layerId: string;
+        featureId: string;
+      };
+      const parsed = UpdateLayerFeatureCommandSchema.safeParse({
+        ...(request.body as object),
+        featureId,
+      });
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }

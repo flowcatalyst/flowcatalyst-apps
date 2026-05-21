@@ -43,7 +43,6 @@ const ListLocationsResponseSchema = Type.Object({
 });
 
 const ListLocationsQuerySchema = Type.Object({
-  clientId: Type.String({ minLength: 1 }),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
   offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
 });
@@ -53,17 +52,18 @@ export function registerListLocationsRoute(
   appContext: AppContext,
 ): void {
   fastify.get(
-    '/locations',
+    '/clients/:clientId/locations',
     {
       schema: {
         tags: ['Locations'],
+        params: Type.Object({ clientId: Type.String() }),
         querystring: ListLocationsQuerySchema,
         response: { 200: ListLocationsResponseSchema },
       },
     },
     async (request) => {
-      const { clientId, limit = 50, offset = 0 } = request.query as {
-        clientId: string;
+      const { clientId } = request.params as { clientId: string };
+      const { limit = 50, offset = 0 } = request.query as {
         limit?: number;
         offset?: number;
       };

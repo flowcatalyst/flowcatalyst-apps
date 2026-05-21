@@ -8,6 +8,10 @@ import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
 const NullableString = Type.Optional(Type.Union([Type.String(), Type.Null()]));
 
+const CreateLocationParamsSchema = Type.Object({
+  clientId: Type.String({ minLength: 1 }),
+});
+
 /**
  * Slice 8 shape: free-form `address` plus an optional ISO-A3 `countryCode`
  * retry hint. The libpostal sidecar (see compose.yaml) parses the address
@@ -15,7 +19,6 @@ const NullableString = Type.Optional(Type.Union([Type.String(), Type.Null()]));
  * components, not from caller-structured fields. The Slice 3 shape is gone.
  */
 const CreateLocationBodySchema = Type.Object({
-  clientId: Type.String({ minLength: 1 }),
   partitionId: NullableString,
   externalId: NullableString,
   name: NullableString,
@@ -44,10 +47,11 @@ export function registerCreateLocationRoute(
   appContext: AppContext,
 ): void {
   fastify.post(
-    '/locations',
+    '/clients/:clientId/locations',
     {
       schema: {
         tags: ['Locations'],
+        params: CreateLocationParamsSchema,
         body: CreateLocationBodySchema,
         response: {
           201: CreateLocationResponseSchema,
@@ -61,7 +65,11 @@ export function registerCreateLocationRoute(
       },
     },
     async (request, reply) => {
-      const parsed = CreateLocationCommandSchema.safeParse(request.body);
+      const { clientId } = request.params as { clientId: string };
+      const parsed = CreateLocationCommandSchema.safeParse({
+        ...(request.body as object),
+        clientId,
+      });
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }
