@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import Fastify, { type FastifyRequest } from 'fastify';
+import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
@@ -36,6 +39,14 @@ const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-de
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
 const LIBPOSTAL_URL = process.env['PINPOINT_LIBPOSTAL_URL'] ?? 'http://localhost:4400';
+/**
+ * Absolute (or server-relative) path to the built Vue SPA's `dist/`
+ * directory. When set, the server serves that directory at `/` with a
+ * SPA fallback (any unmatched GET returns `index.html` so the client
+ * router can pick it up). When unset — local dev — the SPA runs under
+ * its own Vite server on port 5173 and the API server stays headless.
+ */
+const WEB_DIST_DIR = process.env['PINPOINT_WEB_DIST_DIR'];
 /**
  * Shared secret the FlowCatalyst platform signs scheduled-job + reactor
  * webhooks with. When unset (local dev), the auth hook logs a per-request
@@ -182,6 +193,32 @@ async function buildServer() {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });
   registerBffRoutes(server, appContext);
+
+  if (WEB_DIST_DIR) {
+    const root = resolve(WEB_DIST_DIR);
+    if (!existsSync(root)) {
+      server.log.warn({ root }, 'PINPOINT_WEB_DIST_DIR is set but the directory does not exist; skipping static serving');
+    } else {
+      await server.register(fastifyStatic, {
+        root,
+        prefix: '/',
+        // Don't auto-serve index.html for non-root paths — the SPA's
+        // client-side router owns deep links. We serve index.html
+        // explicitly in the setNotFoundHandler fallback below.
+        index: 'index.html',
+      });
+      // SPA fallback: any unmatched GET (not /api, /bff, /me, /health,
+      // /jobs, /docs, /geocode, /verify-match, /countries) returns
+      // index.html so the client router can resolve the route.
+      server.setNotFoundHandler((req, reply) => {
+        if (req.method !== 'GET') {
+          return reply.code(404).send({ error: 'NotFound', message: `Route ${req.method} ${req.url} not found.` });
+        }
+        return reply.type('text/html').sendFile('index.html');
+      });
+      server.log.info({ root }, 'Serving Vue SPA from PINPOINT_WEB_DIST_DIR');
+    }
+  }
 
   return server;
 }

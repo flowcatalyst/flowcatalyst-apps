@@ -1,0 +1,13 @@
+# Build context is the monorepo root for any Dockerfile under apps/.
+# Docker reads .dockerignore alongside the build context, so keep this
+# at the repo root (not next to a per-app Dockerfile).
+**/node_modules
+**/dist
+**/.vite
+**/.vite-plus
+**/.turbo
+**/.tsbuildinfo
+**/*.log
+.git
+.github
+**/.DS_Store

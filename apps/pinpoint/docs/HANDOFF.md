@@ -4,13 +4,13 @@
 
 ## Status (2026-05-21)
 
-- **HEAD:** Slice 11 (Vue SPA lift) — `pinpoint-web` ported to `apps/pinpoint/web`, `pnpm dev` smoke green
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11 + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** 12 (cutover + testcontainers backfill).
-- **Workspaces:** 12, all `pnpm -r typecheck` clean
+- **HEAD:** Slice 12.1 (Dockerization) — multi-stage `Dockerfile` + `compose.prod.yaml`; `docker compose up` boots postgres + libpostal + pinpoint server (which serves the Vue SPA). `/health` and SPA fallback both 200.
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1 + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** 12.2 (OIDC + cookie sessions for BFF), 12.3 (testcontainers integration-test backfill).
+- **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
 - **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
-- **Drizzle migrations:** two generated, applied (schema + countries/global-default seed) — see `apps/pinpoint/server/drizzle/`
-- **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`)
+- **Drizzle migrations:** three generated, applied (schema + countries/global-default seed + 10c flashy_ricochet) — see `apps/pinpoint/server/drizzle/`
+- **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`). Production: `docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the repo root brings up the full stack.
 
 ## Decision factors
 
@@ -120,6 +120,62 @@ Out-of-scope for Slice 10b (kept here so it doesn't sneak back in):
 Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`) plus a hygiene follow-up (`194d447`). The full BFF surface under `/bff/clients/:cid/...` is in place — ~43 routes spanning dashboard, countries, clients, partitions, principal-partitions, locations, spatial-lookup, layers, layer-features, property-sets, master-locations (incl. confirm-geocode + match-features single + bulk), matching-config — plus the cross-client `GET /master-locations/unvalidated`. Full Rust BFF parity achieved.
 
 BFF auth still on the `x-user-id` dev fallback — real OIDC + cookie sessions land in Slice 12.
+
+## Slice 12.1 status (shipped)
+
+**Dockerization + production compose + README.** End-to-end smoke clean:
+`docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the
+monorepo root brings up postgres+PostGIS, the pelias/libpostal sidecar,
+and a single pinpoint image that serves the Vue SPA as static. `/health`
+and SPA deep-links both 200.
+
+What landed:
+
+- `apps/pinpoint/Dockerfile` — multi-stage build (node:24-alpine + pnpm).
+  Stage 1: `pnpm install --frozen-lockfile` + builds web (vite) + server
+  (tsc) + workspace deps (tsc), then `pnpm deploy --prod --legacy` produces
+  the runtime bundle. Stage 2: non-root `pinpoint` user, just dist +
+  node_modules + drizzle migrations + web/dist.
+- `apps/pinpoint/compose.prod.yaml` — full stack with healthchecks. Peers
+  the dev `compose.yaml` (db+libpostal only); both use the same images so
+  switching costs no GBs of layer re-pull.
+- `.dockerignore` at repo root.
+- `apps/pinpoint/README.md` — architecture overview, dev + prod
+  workflows, full env-var reference.
+
+Gotchas baked into the design (and the Dockerfile comments):
+
+- **`@flowcatalyst/sdk` is a git-tagged dep.** Alpine doesn't ship `git`,
+  so the build stage installs it explicitly. pnpm 11+ also blocks exotic
+  (git-resolved) subdeps by default; the deploy step opts out via
+  `pnpm config set block-exotic-subdeps false`.
+- **Workspace deps as TS source.** `@pinpoint/framework`, `@pinpoint/shared`,
+  `@flowcatalyst-apps/app-framework` historically exposed `src/*.ts`
+  directly so tsx-driven dev could resolve them. Node 24's experimental
+  type-stripping refuses TS in `node_modules`, which broke `node dist/server.js`.
+  Fixed via a `compiled` import condition: each workspace pkg's exports
+  now look like `{"types": "src", "compiled": "dist/index.js", "default":
+  "src/index.ts"}`. Dev (tsx) hits `default` → src; the runtime container
+  hits `compiled` → dist via `node --conditions=compiled dist/server.js`
+  in the Dockerfile CMD. Fulfil's workspace pkgs got the same treatment
+  for monorepo consistency, though only pinpoint dockerizes today.
+- **Postgres 18+ volume mount.** The new image expects
+  `/var/lib/postgresql/` (parent), not `/var/lib/postgresql/data` — its
+  startup script complains and refuses to start when data lives outside
+  the mount. The prod compose uses parent-mount; the dev compose still
+  uses the legacy `/data` path because its existing volumes were
+  initialised that way and forced re-init is more disruptive than the
+  warning.
+
+Still pending in Slice 12:
+
+- **12.2 — OIDC + cookie sessions for BFF.** `extractRequestToken` still
+  on the `x-user-id` dev fallback. Real auth landing is the gate before
+  pinpoint goes behind a real URL.
+- **12.3 — Integration-test backfill.** `@testcontainers/postgresql` +
+  tests for the ~10 Drizzle repos and ~22 write use cases. The current
+  83 tests cover pure functions and decorator orchestration; nothing
+  exercises a real DB or a real use-case-through-route flow.
 
 ## Slice 11 status (shipped)
 
