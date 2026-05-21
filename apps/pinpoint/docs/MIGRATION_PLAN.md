@@ -8,7 +8,7 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ## Status (2026-05-21)
 
-**Slice 10a shipped 2026-05-21.** Path-scope rewrite — all flat routes moved under `/clients/:clientId/...` to match the Rust shape. Layer features nest as `/clients/:cid/layers/:lid/features/*`. New `docs/route-triage.md` catalogues every Rust route file + the TS port status, including the ~18 deferred CRUD ops for 10b and the 11 BFF route files for 10c.
+**Slice 10b closed out 2026-05-21.** Three commits: `219ea59` (10b.1 — client/partition/layer update + delete, master-location update + reject), `994741d` (10b.2 — PropertySet aggregate + CRUD), `d02aee8` (10b.3 — LocationAttribute scaffolding + inline writes in `create-location`, plus `PrincipalRepository.{grant,revoke}PartitionAccess` + `findPrincipalsForPartition`). Slice 10c (BFF mount) has everything it needs from the existing repo + use-case graph.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -25,10 +25,13 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 | 8 | done | `72b812d` + `b4981c6` | Master locations + the full matching pipeline. `MasterLocation` aggregate (PENDING/GEOCODED/VALIDATED/REJECTED), `AddressMatcher` pure module + 80-entry SUBSTITUTIONS, libpostal `AddressNormalizer` + pelias/libpostal-service sidecar, `processing_log`, rewritten `create-location` running the full Rust pipeline. `validate-master-location` (geocode) + `confirm-master-location` (canonicalize + cascade). 4 new master-location routes. End-to-end smoke green |
 | schema-sync | done | `5f4685e` | Event-data interfaces → TypeBox; `scripts/sync-flowcatalyst.ts` pushes payload JSON Schemas via `addSchemaVersion`. All 12 events now carry schemas to the platform |
 | 9 | done | `2726201` | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 min, POST `/jobs/validate-master-locations` HMAC-verified, drains the GEOCODED batch. ScheduledJobDefinition in the DefinitionSet sync. 15 new tests |
-| 10a | done | (this commit) | Path-scope rewrite. 19 route files moved from flat to `/clients/:clientId/...`. Layer features under `/clients/:cid/layers/:lid/features/*`. `/me`, `/countries`, `/health`, `/geocode/*`, `/verify-match`, `/jobs/*` stay flat. New `docs/route-triage.md` catalogues the full Rust surface + ports status |
-| 10b | pending | — | ~18 missing CRUD use cases (Client/Partition/Layer update/delete + MasterLocation update/reject + PropertySet/Property/LocationAttribute/PrincipalPartition CRUD). Split into 2-3 commits |
-| 10c | pending | — | BFF mount at `/bff/clients/:cid/...` (11 route files) + `master-locations/unvalidated` (from Rust `unvalidated_routes.rs`) |
-| 11-12 | pending | — | Web lift (pinpoint-web → apps/pinpoint/web/) + cutover (Docker compose, README, OIDC) |
+| 10a | done | `4442d4c` | Path-scope rewrite. 19 route files moved from flat to `/clients/:clientId/...`. Layer features under `/clients/:cid/layers/:lid/features/*`. `/me`, `/countries`, `/health`, `/geocode/*`, `/verify-match`, `/jobs/*` stay flat. New `docs/route-triage.md` catalogues the full Rust surface + port status |
+| 10b.1 | done | `219ea59` | Existing-aggregate CRUD: `update`/`delete` for client, partition, layer; `update`/`reject` for master-location. 8 use cases. |
+| 10b.2 | done | `994741d` | PropertySet aggregate + four use cases: `create-property-set`, `update-property-set`, `delete-property-set`, `replace-property-set-properties` (bulk PUT of all child properties on a set, capped at 6 per Rust). Properties stay child entities — no per-Property aggregate, matching the Rust BFF's `replace_properties` single-op shape. |
+| 10b.3 | done | `d02aee8` | LocationAttribute (`lat` prefix) scaffolding + extend `create-location` to write `attributes[]` inline in the same UoW tx (early-validates non-empty keys, rejects duplicates). Plus `PrincipalRepository.{grant,revoke}PartitionAccess` + `findPrincipalsForPartition` — plain repo methods, no aggregate / event / use-case wrapper (matches Rust). Routes for grant/revoke land in 10c. |
+| 10c | pending | — | BFF mount at `/bff/clients/:cid/...` (11 route files, ~2530 LoC Rust to triage) + `GET /master-locations/unvalidated` (from Rust `unvalidated_routes.rs`). Each endpoint delegates to existing use cases (writes) or repos (reads) with `{items, total}` framing. |
+| 11 | pending | — | Web lift (`~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL) |
+| 12 | pending | — | Cutover: Docker compose (postgres + pinpoint + libpostal sidecar + web), Dockerfile, README, real OIDC, **testcontainers backfill across all Drizzle repos + write use cases** |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -318,14 +321,19 @@ Migrations: one Drizzle migration adds `master_locations` (with `point GEOMETRY(
 - Tests: 9 HMAC paths (header presence, timestamp window, signature mismatch, length mismatch, custom tolerance) + 6 batch orchestration paths (empty queue, happy path drain, per-master `Result.failure`, per-master thrown infra error, batch-size threading). 83 tests passing total.
 - **Deliverable**: platform-driven scheduled validation runnable end-to-end against the dev stack.
 
-### Slice 10 — BFF + fragments + unvalidated
+### Slice 10 — Path scope + CRUD backfill + BFF (split)
 
-- `routes/bff/partitions` — UI partition listing
-- `routes/bff/principal_partitions` — user's memberships
-- `routes/bff/spatial_lookup` — consolidate with slice 5
-- `fragment_routes` — investigate intent; likely deletable once Vue SPA owns the UI
-- `unvalidated_routes` — investigate; identify public endpoints, document why
-- **Deliverable**: UI-shaped endpoints; legacy routes triaged
+Slice 10 ended up split into four sub-slices, the first three shipped:
+
+- **10a (`4442d4c`) — DONE.** Path-scope rewrite. All flat routes moved under `/clients/:clientId/...`. New `docs/route-triage.md` catalogues the Rust route tree + TS port status.
+- **10b.1 (`219ea59`) — DONE.** 8 update/delete use cases against existing aggregates (client/partition/layer/master-location).
+- **10b.2 (`994741d`) — DONE.** PropertySet aggregate + 4 use cases (`pst` prefix).
+- **10b.3 (`d02aee8`) — DONE.** LocationAttribute (`lat` prefix) inline at create-location + `PrincipalRepository.{grant,revoke}PartitionAccess` + `findPrincipalsForPartition` repo methods.
+- **10c — PENDING.** Mount BFF surface under `/bff/clients/:cid/...`:
+  - 11 BFF route files (~2530 LoC Rust). Each delegates to an existing use case (writes) or repo (reads) with `{items, total}` framing.
+  - `GET /master-locations/unvalidated` from Rust `unvalidated_routes.rs`. Backed by `MasterLocationRepository.listByStatus` (already exists).
+  - `fragment_routes` from Rust: WILL NOT PORT — askama HTML, owned by the Vue SPA in Slice 11.
+  - BFF auth continues on the `x-user-id` dev fallback; real OIDC + cookie sessions land in Slice 12.
 
 ### Slice 11 — Web lift
 
@@ -337,13 +345,15 @@ Migrations: one Drizzle migration adds `master_locations` (with `point GEOMETRY(
 
 ### Slice 12 — Cutover
 
-- Docker Compose (postgres + pinpoint server + web)
-- `.env.example`
+- Docker Compose (postgres + pinpoint server + web + libpostal sidecar)
+- `.env.example` covering every `PINPOINT_*` / `FLOWCATALYST_*` env var
 - Migration parity check: diff Rust schema vs Drizzle schema
 - Smoke tests across main routes
 - Dockerfile (reuse fulfil's pattern)
 - README updates
-- **Deliverable**: deployable + documented
+- Real OIDC: replace `extractRequestToken`'s `x-user-id` dev fallback with a real token verifier; cookie sessions for the BFF surface
+- **Testcontainers backfill** — bring in `@testcontainers/postgresql`, write integration tests for every Drizzle repo (~10) and every write use case (~22). The current 83 tests cover pure functions, service decorators, and orchestration with fake repos; no DB-bound code is tested directly. This is the deliberate gap that has accumulated through every prior slice.
+- **Deliverable**: deployable + documented + integration-tested
 
 ---
 

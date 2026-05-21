@@ -2,32 +2,30 @@
 
 **Read this first if you're picking up the pinpoint port in a new session.**
 
-## Status (2026-05-20)
+## Status (2026-05-21)
 
-- **HEAD:** Slice 7 (LLM address verifier — Vercel AI SDK + Bedrock + Ollama + Noop) — this commit
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7 + PRE-0a + PRE-0b
-- **Slices remaining:** 8 → 12 (~42% of the work)
+- **HEAD:** `d02aee8` Slice 10b.3 (LocationAttribute scaffolding + principal-partition grant/revoke)
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3 + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** 10c (BFF mount), 11 (Vue lift), 12 (cutover + testcontainers backfill)
 - **Workspaces:** 12, all `pnpm -r typecheck` clean
-- **Smoke:** `POST /verify-match` against local Ollama+gemma4 returned sensible verdicts on three test pairs (same place / different house numbers / different cities); 40 tests passing (`pnpm -F @pinpoint/server test`)
-- **Drizzle migrations:** **TWO** now generated under `apps/pinpoint/server/drizzle/`:
-  - `20260520171747_futuristic_zaladane` — schema (all Slice 0-5 tables, audit_logs from app-framework, geometry columns + GIST indexes)
-  - `20260520171804_seed_globals` — `mcf_GLOBAL_DEFAULT` matching config + ~177-country geometry seed (verbatim port of Rust migration 016, with `ON CONFLICT (id) DO NOTHING` for re-runs)
-- **Local dev DB:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 (see `apps/pinpoint/compose.yaml`)
+- **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
+- **Drizzle migrations:** two generated, applied (schema + countries/global-default seed) — see `apps/pinpoint/server/drizzle/`
+- **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`)
 
-## Decision factors (kept here for next re-check, Slice 6+)
+## Decision factors
 
-The Slice 4 → Slice 5 → Slice 7 decision points all passed on 2026-05-20; Andrew opted to continue. Slice 7 was the named "AI SDK vs rig-core" re-check — Vercel AI SDK's `generateObject` + Ollama's native JSON-schema `format` field both produced clean structured output on gemma4 with the Rust-ported prompts, so no rig-core regression observed.
+All in-flight decision points (Slice 4 → 5 → 7 named re-checks) passed on 2026-05-20/21. The Vercel AI SDK / Ollama gemma4 path produced clean structured output with the Rust-ported prompts — no rig-core regression. The Slice 8 matching pipeline matches the Rust pinpoint's behavior end-to-end (PENDING → GEOCODED → VALIDATED with EXACT_HASH dedup on resubmission). The port is now functionally caught up.
 
-Re-evaluate again only if either of these change:
-- AI ecosystem gap — Slice 7 brings the Vercel AI SDK in; if `ai`@v6 + Bedrock turns out to be meaningfully worse than the Rust `rig-core` path on the actual prompts, that would be a strong "go back" signal.
-- Supply chain pain — Effect 4 is still beta-pinned. If a major Effect 4 rename lands before Slice 7 finishes, it's worth re-asking.
+Re-evaluate again only if:
+- Effect 4 ships a major rename that breaks the use-case shape before cutover (still beta-pinned at `4.0.0-beta.67`)
+- The BFF surface in Slice 10c turns out to be much heavier than the ~2530 LoC route-triage suggests
 
-The original decision factors stay relevant context:
-- Supply chain: Rust is meaningfully stronger (fewer deps, less npm churn, no beta lock-in)
-- Safety: Rust is stronger overall; Effect closes some gaps via `Sealed<E>`
-- Effect's specific wins for visibility: errors stay in the type signature, no `anyhow`-style flattening, automatic span tracing, structured concurrency — these matter for ops-heavy logistics
-- AI ecosystem: rig-core is genuinely good for focused use; Vercel AI SDK only wins meaningfully for broad/agentic AI
-- Hiring + frontend type sharing are the strongest *positive* reasons for TS
+Original decision factors (kept for posterity / future re-checks):
+- Supply chain: Rust meaningfully stronger (fewer deps, less npm churn, no beta lock-in)
+- Safety: Rust stronger overall; Effect closes gaps via `Sealed<E>`
+- Effect wins for visibility: typed error channel, automatic span tracing, structured concurrency
+- AI ecosystem: rig-core good for focused use; Vercel AI SDK wins for broad/agentic AI
+- Hiring + frontend type sharing are the strongest positive reasons for TS
 
 ## What's shipped
 
@@ -45,33 +43,49 @@ The original decision factors stay relevant context:
 | 6 | `5323e76` | External services: Photon `GeocoderService` + Effect 4 `RateLimiter`-backed decorator, `POST /geocode/forward` + `POST /geocode/reverse`, `NormalizedAddress` data type, 25 tests (first in the codebase) covering Photon parsing/error paths/User-Agent/query string + rate-limiter wall-clock behavior + trigram-key stability |
 | 7 | `b4f6620` | LLM `AddressVerifier`: Bedrock (Vercel AI SDK `generateObject`) + Ollama (native `/api/chat` with JSON-schema `format`) + Noop. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER` / `_MODEL` / `_OLLAMA_URL`). 15 new tests; smoke against local Ollama+gemma4 green |
 | 8 | `72b812d` + `b4981c6` | Master locations + the full matching pipeline. `MasterLocation` aggregate (PENDING/GEOCODED/VALIDATED/REJECTED) + repo + processing_log table. `AddressMatcher` pure module (Jaro-Winkler + 80-entry SUBSTITUTIONS) + `AddressNormalizer` (libpostal HTTP via `pelias/libpostal-service` sidecar, added to `compose.yaml`). Rewritten `create-location` use case running the full Rust pipeline (normalize → hash + fuzzy + matcher → LLM verify → master association OR creation → spatial lookup for VALIDATED-master case → LocationValidated). Two new use cases: `validate-master-location` (geocode) and `confirm-master-location` (canonicalize + cascade). 4 new routes under `/master-locations`. 28 new tests including the Rust matcher unit-test trio. End-to-end smoke green: PENDING → GEOCODED → VALIDATED with EXACT_HASH match on second submission of same address. |
-
 | schema-sync | `5f4685e` | Event-data interfaces → TypeBox + `addSchemaVersion` push from `scripts/sync-flowcatalyst.ts`. All 12 events now carry payload JSON Schemas to the platform |
 | 9 | `2726201` | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 minutes via a platform-fired webhook (`POST /jobs/validate-master-locations`), draining the GEOCODED backlog 100 masters at a time and calling `confirm-master-location` on each. HMAC verification via ported `flowcatalystWebhookAuthHook`. `runJob` wraps the batch in `SystemIdentity.SCHEDULER` scope. ScheduledJobDefinition wired into the DefinitionSet, sync-able via `pnpm flowcatalyst:sync`. 15 new tests (HMAC + batch orchestration) |
-| 10a | (this commit) | Path-scope rewrite. All flat routes (`/locations`, `/layers`, `/partitions`, `/matching-config`, `/spatial-lookup`, `/master-locations/*`) moved under `/clients/:clientId/...` to match the Rust API shape. Layer features nest further as `/clients/:cid/layers/:lid/features/*`. `/me`, `/countries`, `/health`, `/geocode/*`, `/verify-match`, `/jobs/*` stay flat (no client scope). New `docs/route-triage.md` catalogues every Rust route file + its TS-side status, including the deferred CRUD ops for 10b and the BFF surface for 10c |
+| 10a | `4442d4c` | Path-scope rewrite. All flat routes (`/locations`, `/layers`, `/partitions`, `/matching-config`, `/spatial-lookup`, `/master-locations/*`) moved under `/clients/:clientId/...` to match the Rust API shape. Layer features nest further as `/clients/:cid/layers/:lid/features/*`. `/me`, `/countries`, `/health`, `/geocode/*`, `/verify-match`, `/jobs/*` stay flat (no client scope). New `docs/route-triage.md` catalogues every Rust route file + its TS-side status, including the deferred CRUD ops for 10b and the BFF surface for 10c |
+| 10b.1 | `219ea59` | Existing-aggregate CRUD. `update-client` + `delete-client`, `update-partition` + `delete-partition`, `update-layer` + `delete-layer`, `update-master-location` + `reject-master-location`. |
+| 10b.2 | `994741d` | PropertySet aggregate (`pst` prefix registered) + four use cases: `create-property-set`, `update-property-set`, `delete-property-set`, `replace-property-set-properties` (bulk PUT of all child properties on a set, capped at 6 per Rust). Properties are managed inline as child entities — no per-Property aggregate, matching the BFF's `replace_properties` single-op shape. |
+| 10b.3 | `d02aee8` | LocationAttribute (`lat` prefix registered) + extend `create-location` to write `attributes[]` inline in the same UoW tx (early-validates non-empty keys, rejects duplicates as `BusinessRuleViolation`). Plus `PrincipalRepository.grantPartitionAccess` / `revokePartitionAccess` / `findPrincipalsForPartition` — three plain repo methods, no aggregate / event / use-case wrapper (matches Rust). Routes for grant/revoke land in Slice 10c; no standalone attribute-update/delete use case ever (matches Rust). Closes out Slice 10b. |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
+**Slice 10b sub-numbering note:** the original spec assigned LocationAttribute + principal-partition to a single "10b.3" alongside Property CRUD; what actually shipped split them: PropertySet got its own 10b.2 first, then 10b.3 picked up LocationAttribute + principal-partition. Net scope matches the original Slice 10b list — just rearranged sub-numbers.
+
 ## What's deferred (and where it lands)
 
-Tracked across slices so far. The next agent must NOT forget these:
+What's actually left vs. what's already done. Don't re-do completed items.
 
-- ~~**`countries.geometry` column + PostGIS extension + ~390KB seed**~~ → **Slice 5 — landed**
-- ~~**`layers.boundary` + `layer_features.boundary` GEOMETRY columns + GIST indexes**~~ → **Slice 5 — landed**
-- ~~**`location_feature_associations` table + `distance_meters`**~~ → **Slice 5 — landed (table empty; population by the matching pipeline still pending — see below)**
-- ~~**pg_trgm fuzzy matching (CREATE EXTENSION)**~~ → **Slice 5 — `pg_trgm` extension installed via `pnpm db:init`. Trgm indexes on `master_locations` still deferred to Slice 8 (table doesn't exist yet)**
-- **`master_locations` table** → Slice 8. `locations.master_location_id` is a nullable text column today with NO FK reference. Slice 8 adds both the table AND the FK in one migration.
-- **`processing_log` table** → Slice 8
-- **PropertySet + Property aggregate scaffolding** → later slice (no Rust use case exists for direct property-set management; tables ported as schema-only in Slice 4, mirroring how `location_attributes` was treated in Slice 3). `pst` prefix reserved but unregistered.
-- **`location_layer_associations` population** → still pending. Table exists; population is what the matching pipeline does (next: when `create-location` grows the spatial-lookup step in Slice 5b or as part of the geocoder slice).
-- **`layer_partitions` population** → later slice. Table ports in Slice 4; no `assign-layer-to-partition` use case yet.
-- **Address normalization (libpostal in Rust)** → Slice 8. The Rust `LibPostalNormalizer` talks HTTP to a `pelias/libpostal-service` sidecar — NOT an LLM service, contrary to what the migration plan implied. Three paths: (a) docker-compose in the pelias/libpostal-service sidecar (matches Rust verbatim, ~3GB container), (b) hosted normalization API, (c) accept reduced normalization quality.
-- **`AddressMatcher`** → Slice 8. The Rust `AddressMatcher` is NOT LLM-based either — it's a pure Jaro-Winkler + substitution-dictionary algorithm with thresholds from `MatchingConfig`. Belongs with the master-locations slice where it's actually called.
-- ~~**LLM verifier (Rust `rig-core` → TS Vercel AI SDK)**~~ → **Slice 7 — landed.** `AddressVerifier` interface + Bedrock/Ollama/Noop impls. Default Noop keeps the matching pipeline cred-free.
-- **Layer feature spatial lookup inside `create-location`** → next: the `POST /spatial-lookup` route + `LayerFeatureRepository.spatialLookup` exist, but `create-location.use-case.ts` doesn't call it. Wire it in as part of the matching slice (Slice 8).
-- **`LocationValidated` event emission** → Slice 8 (when master_locations + validation transitions land)
-- **Full Rust `create_location.rs` pipeline (~600 lines: normalize → hash + fuzzy → LLM verify → master association → log)** → consolidates in Slice 8. Slice 7 provided the LLM verifier; Slice 8 chains everything together.
-- **OIDC auth** → out of scope until cutover. `extractRequestToken` in `server.ts` has the `x-user-id` dev fallback marked TODO.
+**Done (struck through for posterity):**
+
+- ~~`countries.geometry` + PostGIS extension + ~390KB seed~~ → Slice 5
+- ~~`layers.boundary` + `layer_features.boundary` GEOMETRY columns + GIST indexes~~ → Slice 5
+- ~~`location_feature_associations` table + `distance_meters`~~ → Slice 5 (populated by the matching pipeline in Slice 8)
+- ~~`pg_trgm` extension + trgm indexes on `master_locations`~~ → Slice 5 / Slice 8
+- ~~`master_locations` table + `processing_log` table~~ → Slice 8
+- ~~`PropertySet` aggregate scaffolding~~ → Slice 10b.2
+- ~~`location_layer_associations` population~~ → Slice 8 (`create-location` calls `spatialLookup` for the VALIDATED-master case and writes associations)
+- ~~Address normalization (libpostal)~~ → Slice 8 — pelias/libpostal-service HTTP sidecar in `compose.yaml`
+- ~~`AddressMatcher` (Jaro-Winkler + substitutions)~~ → Slice 8
+- ~~LLM `AddressVerifier`~~ → Slice 7 (Bedrock + Ollama + Noop)
+- ~~Layer feature spatial lookup inside `create-location`~~ → Slice 8
+- ~~`LocationValidated` event emission~~ → Slice 8
+- ~~Full Rust `create_location.rs` pipeline~~ → Slice 8
+- ~~`LocationAttribute` scaffolding + inline attribute writes~~ → Slice 10b.3 (`lat` prefix; inline in `create-location` only — no standalone attribute CRUD, matches Rust BFF)
+- ~~`PrincipalRepository` grant/revoke/list~~ → Slice 10b.3 (plain repo methods, no aggregate/use-case wrapper — matches Rust)
+
+**Still pending:**
+
+- **`layer_partitions` population** → no `assign-layer-to-partition` use case yet. Currently no BFF surface needs it; revisit in Slice 10c if a route requires it.
+- **BFF surface mount** → Slice 10c. All 11 BFF route files from `docs/route-triage.md` remain to port. Each delegates to existing use cases (writes) or repositories (reads) with `{items, total}` framing.
+- **`master-locations/unvalidated` route** → Slice 10c. Rust `routes/unvalidated_routes.rs` listing-with-filters; backed by `MasterLocationRepository.listByStatus` (already exists from Slice 9).
+- **`fragment_routes` (askama HTML)** → WILL NOT PORT. The Vue SPA owns the UI; nothing calls fragment endpoints.
+- **Web lift** → Slice 11. Copy `~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL, `pnpm -F @pinpoint/web dev` smoke.
+- **OIDC auth + cookie sessions for BFF** → Slice 12. `extractRequestToken` still on the `x-user-id` dev fallback. Hardening before production cutover.
+- **Docker Compose for full stack (postgres + pinpoint server + web + libpostal sidecar) + Dockerfile + README** → Slice 12.
+- **Infra-repo + use-case integration tests** → final pre-cutover hygiene slice. None of the Drizzle repo implementations (`createDrizzleClientRepository`, `…LayerRepository`, `…MasterLocationRepository`, `…PrincipalRepository`, etc.) and none of the use cases are tested directly. The current 83 tests cover pure functions, service decorators (fetch-mocked), and orchestration with fake repos. Backfill plan: bring in `@testcontainers/postgresql`, write integration tests for every Drizzle repo (~10) + every write use case (~22). Land before Slice 12 cutover.
 
 ## What the next agent needs to read
 
@@ -81,19 +95,21 @@ In order:
 3. This file
 4. `MEMORY.md` — auto-loaded; gives broader context
 
-## Slice 10b spec (if continuing)
+## Slice 10b status (closed)
 
-**Missing CRUD operations** the BFF surface depends on. See
-`docs/route-triage.md` for the full list — ~18 use cases across Client,
-Partition, Layer, MasterLocation, PropertySet, Property, LocationAttribute,
-PrincipalPartition. Expect 2-3 commits split by aggregate group:
+Slice 10b is closed out. What shipped, in order:
 
-- 10b.1: client + partition + layer update/delete (uses existing aggregates)
-- 10b.2: master-location update/reject + location-attribute CRUD
-- 10b.3: property-set + property + principal-partition CRUD (three new aggregate
-  scaffoldings — these were schema-only in earlier slices)
+- **10b.1** (`219ea59`): client/partition/layer update + delete, master-location update + reject — 8 use cases against existing aggregates.
+- **10b.2** (`994741d`): PropertySet aggregate + 4 use cases (create/update/delete + `replace-property-set-properties` bulk PUT, cap 6 per Rust).
+- **10b.3** (`d02aee8`): LocationAttribute (`lat` prefix) scaffolding + inline attribute writes from `command.attributes` in `create-location`. Plus `PrincipalRepository.{grant,revoke}PartitionAccess` + `findPrincipalsForPartition` — three plain repo methods, no aggregate / event / use-case wrapper (matches Rust).
 
-## Slice 10c spec (after 10b)
+Out-of-scope for Slice 10b (kept here so it doesn't sneak back in):
+
+- Per-attribute update/delete on `LocationAttribute` — Rust BFF doesn't expose them. Attributes are managed inline at location creation only.
+- Routes for grant/revoke partition access — those land in 10c as part of `/bff/clients/:cid/partitions/:pid/principals`.
+- `assign-layer-to-partition` use case (i.e. `layer_partitions` population) — no current BFF route requires it; revisit in 10c if needed.
+
+## Slice 10c spec (next up)
 
 **BFF surface mount** under `/bff/clients/:cid/...`. Each endpoint
 delegates to existing use cases (writes) or repositories (reads) with
@@ -133,6 +149,8 @@ delegates to existing use cases (writes) or repositories (reads) with
 **Slice 7 corrected the LLM scope.** The original spec named three LLM services (`AddressNormalizer`, `AddressMatcher`, `AddressVerifier`); only `AddressVerifier` is actually LLM-based in Rust. The other two land with Slice 8: `AddressMatcher` is pure Jaro-Winkler + substitution dictionary, `AddressNormalizer` is the libpostal HTTP sidecar (Pelias). See updated Slice 8 spec.
 
 **The rate-limited geocoder test does wall-clock timing.** It fires 8 calls at 4 rps and asserts `elapsed >= 750ms`. Token-bucket refill timing varies a bit; if this turns out flaky in CI, widen the lower bound or split into "no-delay first burst" + "delay after burst" pairs against a tighter clock. Don't replace with fake timers — Effect 4's `RateLimiter` doesn't respect vitest's `vi.useFakeTimers`.
+
+**Drizzle repos + write use cases have ZERO direct test coverage.** The 83 tests today cover (a) pure functions in `domain/services/`, (b) infra-service decorators with mocked fetch, (c) orchestration logic with fake repos. None of `createDrizzle*Repository`, none of the use-case `execute` methods, are exercised against a real DB. This is a deliberate gap — there's no `@testcontainers/postgresql` setup yet. Plan: backfill in a dedicated test-infra slice before Slice 12 cutover. If you're tempted to add a one-off DB test, either (a) bring testcontainers in as the canonical pattern, or (b) use the dev compose DB on 5433 with a clear note that it requires `pnpm db:up` to run.
 
 ## Smoke commands
 
