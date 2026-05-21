@@ -1,10 +1,13 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface LayerFeatureDeletedData {
-  readonly featureId: string;
-  readonly layerId: string;
-}
+export const LayerFeatureDeletedDataSchema = Type.Object({
+  featureId: Type.String(),
+  layerId: Type.String(),
+});
+
+export type LayerFeatureDeletedData = Static<typeof LayerFeatureDeletedDataSchema>;
 
 export class LayerFeatureDeleted extends BaseDomainEvent<LayerFeatureDeletedData> {
   constructor(scope: Scope, data: LayerFeatureDeletedData) {
@@ -21,3 +24,10 @@ export class LayerFeatureDeleted extends BaseDomainEvent<LayerFeatureDeletedData
     );
   }
 }
+
+export const LayerFeatureDeletedEventType = {
+  code: 'pinpoint:layers:feature:deleted',
+  name: 'Layer Feature Deleted',
+  description: 'A feature was removed from a layer.',
+  payloadSchema: LayerFeatureDeletedDataSchema,
+} as const;

@@ -1,11 +1,19 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface ClientCreatedData {
-  readonly clientId: string;
-  readonly name: string;
-  readonly code: string;
-}
+/**
+ * Source of truth for both the runtime payload type AND the JSON Schema
+ * we sync to FlowCatalyst. `Static<typeof Schema>` derives the TS type
+ * so consumers can't drift from what's published.
+ */
+export const ClientCreatedDataSchema = Type.Object({
+  clientId: Type.String(),
+  name: Type.String(),
+  code: Type.String(),
+});
+
+export type ClientCreatedData = Static<typeof ClientCreatedDataSchema>;
 
 export class ClientCreated extends BaseDomainEvent<ClientCreatedData> {
   constructor(scope: Scope, data: ClientCreatedData) {
@@ -22,3 +30,10 @@ export class ClientCreated extends BaseDomainEvent<ClientCreatedData> {
     );
   }
 }
+
+export const ClientCreatedEventType = {
+  code: 'pinpoint:tenancy:client:created',
+  name: 'Client Created',
+  description: 'A pinpoint tenancy client was created.',
+  payloadSchema: ClientCreatedDataSchema,
+} as const;

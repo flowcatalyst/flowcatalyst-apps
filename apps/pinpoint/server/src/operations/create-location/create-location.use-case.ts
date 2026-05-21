@@ -101,7 +101,7 @@ function hitToProperty(hit: SpatialLookupHit): LayerPropertyAssignment {
               .split(';')
               .map((p) => p.split(','))
               .filter((parts) => parts.length === 2)
-              .map((parts): readonly [number, number] => [Number(parts[0]), Number(parts[1])])
+              .map((parts): [number, number] => [Number(parts[0]), Number(parts[1])])
           : null,
     },
     properties: Object.entries(hit.propertyValues).map(([key, value]) => ({ key, value })),

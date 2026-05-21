@@ -1,14 +1,17 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface MasterLocationGeocodedData {
-  readonly masterLocationId: string;
-  readonly clientId: string;
-  readonly latitude: number;
-  readonly longitude: number;
-  readonly confidence: number;
-  readonly formattedAddress: string | null;
-}
+export const MasterLocationGeocodedDataSchema = Type.Object({
+  masterLocationId: Type.String(),
+  clientId: Type.String(),
+  latitude: Type.Number(),
+  longitude: Type.Number(),
+  confidence: Type.Number({ minimum: 0, maximum: 1 }),
+  formattedAddress: Type.Union([Type.String(), Type.Null()]),
+});
+
+export type MasterLocationGeocodedData = Static<typeof MasterLocationGeocodedDataSchema>;
 
 /**
  * Emitted by `validate-master-location` (which is the geocoding step,
@@ -29,3 +32,10 @@ export class MasterLocationGeocoded extends BaseDomainEvent<MasterLocationGeocod
     );
   }
 }
+
+export const MasterLocationGeocodedEventType = {
+  code: 'pinpoint:locations:master_location:geocoded',
+  name: 'Master Location Geocoded',
+  description: 'A master location was resolved to coordinates (PENDING → GEOCODED).',
+  payloadSchema: MasterLocationGeocodedDataSchema,
+} as const;

@@ -1,14 +1,22 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
-import type { LayerKind } from '../layer.js';
 
-export interface LayerCreatedData {
-  readonly layerId: string;
-  readonly clientId: string;
-  readonly code: string;
-  readonly name: string;
-  readonly layerType: LayerKind;
-}
+export const LayerKindSchema = Type.Union([
+  Type.Literal('RADIUS'),
+  Type.Literal('POLYGON'),
+  Type.Literal('POINT'),
+]);
+
+export const LayerCreatedDataSchema = Type.Object({
+  layerId: Type.String(),
+  clientId: Type.String(),
+  code: Type.String(),
+  name: Type.String(),
+  layerType: LayerKindSchema,
+});
+
+export type LayerCreatedData = Static<typeof LayerCreatedDataSchema>;
 
 export class LayerCreated extends BaseDomainEvent<LayerCreatedData> {
   constructor(scope: Scope, data: LayerCreatedData) {
@@ -25,3 +33,10 @@ export class LayerCreated extends BaseDomainEvent<LayerCreatedData> {
     );
   }
 }
+
+export const LayerCreatedEventType = {
+  code: 'pinpoint:layers:layer:created',
+  name: 'Layer Created',
+  description: 'A layer (RADIUS / POLYGON / POINT) was created under a client.',
+  payloadSchema: LayerCreatedDataSchema,
+} as const;

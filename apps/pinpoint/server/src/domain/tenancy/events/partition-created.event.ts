@@ -1,12 +1,15 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface PartitionCreatedData {
-  readonly partitionId: string;
-  readonly clientId: string;
-  readonly code: string;
-  readonly name: string;
-}
+export const PartitionCreatedDataSchema = Type.Object({
+  partitionId: Type.String(),
+  clientId: Type.String(),
+  code: Type.String(),
+  name: Type.String(),
+});
+
+export type PartitionCreatedData = Static<typeof PartitionCreatedDataSchema>;
 
 export class PartitionCreated extends BaseDomainEvent<PartitionCreatedData> {
   constructor(scope: Scope, data: PartitionCreatedData) {
@@ -23,3 +26,10 @@ export class PartitionCreated extends BaseDomainEvent<PartitionCreatedData> {
     );
   }
 }
+
+export const PartitionCreatedEventType = {
+  code: 'pinpoint:tenancy:partition:created',
+  name: 'Partition Created',
+  description: 'A partition was created under a tenancy client.',
+  payloadSchema: PartitionCreatedDataSchema,
+} as const;

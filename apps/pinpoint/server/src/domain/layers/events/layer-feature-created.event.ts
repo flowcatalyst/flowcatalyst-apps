@@ -1,11 +1,14 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface LayerFeatureCreatedData {
-  readonly featureId: string;
-  readonly layerId: string;
-  readonly label: string;
-}
+export const LayerFeatureCreatedDataSchema = Type.Object({
+  featureId: Type.String(),
+  layerId: Type.String(),
+  label: Type.String(),
+});
+
+export type LayerFeatureCreatedData = Static<typeof LayerFeatureCreatedDataSchema>;
 
 export class LayerFeatureCreated extends BaseDomainEvent<LayerFeatureCreatedData> {
   constructor(scope: Scope, data: LayerFeatureCreatedData) {
@@ -24,3 +27,10 @@ export class LayerFeatureCreated extends BaseDomainEvent<LayerFeatureCreatedData
     );
   }
 }
+
+export const LayerFeatureCreatedEventType = {
+  code: 'pinpoint:layers:feature:created',
+  name: 'Layer Feature Created',
+  description: 'A feature was added to a layer.',
+  payloadSchema: LayerFeatureCreatedDataSchema,
+} as const;

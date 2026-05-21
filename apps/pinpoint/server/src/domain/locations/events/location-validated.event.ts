@@ -1,39 +1,51 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface LayerPropertyValue {
-  readonly key: string;
-  readonly value: string;
-}
+export const LayerPropertyValueSchema = Type.Object({
+  key: Type.String(),
+  value: Type.String(),
+});
 
-export interface FeatureGeometry {
-  readonly geometryType: string;
-  readonly longitude: number | null;
-  readonly latitude: number | null;
-  readonly radiusMeters: number | null;
-  readonly polygonPoints: readonly (readonly [number, number])[] | null;
-}
+export type LayerPropertyValue = Static<typeof LayerPropertyValueSchema>;
 
-export interface LayerPropertyAssignment {
-  readonly layerId: string;
-  readonly layerCode: string;
-  readonly layerName: string;
-  readonly layerType: string;
-  readonly featureId: string;
-  readonly featureLabel: string;
-  readonly distanceMeters: number | null;
-  readonly geometry: FeatureGeometry;
-  readonly properties: readonly LayerPropertyValue[];
-}
+export const FeatureGeometrySchema = Type.Object({
+  geometryType: Type.String(),
+  longitude: Type.Union([Type.Number(), Type.Null()]),
+  latitude: Type.Union([Type.Number(), Type.Null()]),
+  radiusMeters: Type.Union([Type.Number(), Type.Null()]),
+  polygonPoints: Type.Union([
+    Type.Array(Type.Tuple([Type.Number(), Type.Number()])),
+    Type.Null(),
+  ]),
+});
 
-export interface LocationValidatedData {
-  readonly locationId: string;
-  readonly clientId: string;
-  readonly masterLocationId: string;
-  readonly latitude: number;
-  readonly longitude: number;
-  readonly layerProperties: readonly LayerPropertyAssignment[];
-}
+export type FeatureGeometry = Static<typeof FeatureGeometrySchema>;
+
+export const LayerPropertyAssignmentSchema = Type.Object({
+  layerId: Type.String(),
+  layerCode: Type.String(),
+  layerName: Type.String(),
+  layerType: Type.String(),
+  featureId: Type.String(),
+  featureLabel: Type.String(),
+  distanceMeters: Type.Union([Type.Number(), Type.Null()]),
+  geometry: FeatureGeometrySchema,
+  properties: Type.Array(LayerPropertyValueSchema),
+});
+
+export type LayerPropertyAssignment = Static<typeof LayerPropertyAssignmentSchema>;
+
+export const LocationValidatedDataSchema = Type.Object({
+  locationId: Type.String(),
+  clientId: Type.String(),
+  masterLocationId: Type.String(),
+  latitude: Type.Number(),
+  longitude: Type.Number(),
+  layerProperties: Type.Array(LayerPropertyAssignmentSchema),
+});
+
+export type LocationValidatedData = Static<typeof LocationValidatedDataSchema>;
 
 /**
  * Emitted when a location transitions to VALIDATED — either because its
@@ -56,3 +68,11 @@ export class LocationValidated extends BaseDomainEvent<LocationValidatedData> {
     );
   }
 }
+
+export const LocationValidatedEventType = {
+  code: 'pinpoint:locations:location:validated',
+  name: 'Location Validated',
+  description:
+    'A location was marked VALIDATED. Carries layer-property assignments resolved from the master location coordinate.',
+  payloadSchema: LocationValidatedDataSchema,
+} as const;

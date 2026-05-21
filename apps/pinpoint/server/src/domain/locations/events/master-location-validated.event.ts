@@ -1,16 +1,19 @@
+import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
-export interface MasterLocationValidatedData {
-  readonly masterLocationId: string;
-  readonly clientId: string;
-  readonly latitude: number;
-  readonly longitude: number;
+export const MasterLocationValidatedDataSchema = Type.Object({
+  masterLocationId: Type.String(),
+  clientId: Type.String(),
+  latitude: Type.Number(),
+  longitude: Type.Number(),
   /** Locations cascaded to VALIDATED by this confirmation. */
-  readonly locationsValidated: number;
+  locationsValidated: Type.Integer({ minimum: 0 }),
   /** Spatial feature matches found at this coordinate. */
-  readonly featuresMatched: number;
-}
+  featuresMatched: Type.Integer({ minimum: 0 }),
+});
+
+export type MasterLocationValidatedData = Static<typeof MasterLocationValidatedDataSchema>;
 
 /**
  * Emitted by `confirm-master-location`. * → VALIDATED. Triggers the
@@ -31,3 +34,10 @@ export class MasterLocationValidated extends BaseDomainEvent<MasterLocationValid
     );
   }
 }
+
+export const MasterLocationValidatedEventType = {
+  code: 'pinpoint:locations:master_location:validated',
+  name: 'Master Location Validated',
+  description: 'A master location was marked canonical and its child locations cascaded to VALIDATED.',
+  payloadSchema: MasterLocationValidatedDataSchema,
+} as const;
