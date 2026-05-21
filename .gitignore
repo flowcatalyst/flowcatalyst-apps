@@ -18,3 +18,6 @@ tsconfig.tsbuildinfo
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Claude Code per-user settings
+.claude/settings.local.json

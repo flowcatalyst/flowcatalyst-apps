@@ -13,7 +13,7 @@ catalog:
   typescript: ^6.0.3
   vite-plus: ^0.1.21
   vitest: ^4.1.6
-  effect: 4.0.0-beta.67
+  effect: 4.0.0-beta.70
   '@types/node': ^24.0.0
 
 # Lets you opt different apps onto different versions during migrations.

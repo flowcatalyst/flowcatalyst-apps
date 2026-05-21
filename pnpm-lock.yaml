@@ -10,8 +10,8 @@ catalogs:
       specifier: ^24.0.0
       version: 24.12.4
     effect:
-      specifier: 4.0.0-beta.67
-      version: 4.0.0-beta.67
+      specifier: 4.0.0-beta.70
+      version: 4.0.0-beta.70
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -83,7 +83,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.70)
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -99,10 +99,10 @@ importers:
         version: 24.12.4
       drizzle-orm:
         specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.67)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
+        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.70)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.67
+        version: 4.0.0-beta.70
       fastify:
         specifier: ^5.0.0
         version: 5.8.5
@@ -176,7 +176,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.70)
       '@fulfil/framework':
         specifier: workspace:*
         version: link:../framework
@@ -191,10 +191,10 @@ importers:
         version: 9.1.0
       drizzle-orm:
         specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.67)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
+        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.70)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.67
+        version: 4.0.0-beta.70
       fastify:
         specifier: ^5.2.0
         version: 5.8.5
@@ -244,7 +244,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.70)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -254,10 +254,10 @@ importers:
         version: 24.12.4
       drizzle-orm:
         specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.67)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
+        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.70)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.67
+        version: 4.0.0-beta.70
       fastify:
         specifier: ^5.0.0
         version: 5.8.5
@@ -287,7 +287,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.70)
       '@pinpoint/framework':
         specifier: workspace:*
         version: link:../framework
@@ -302,10 +302,10 @@ importers:
         version: 6.0.185(zod@3.25.76)
       drizzle-orm:
         specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.67)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
+        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.70)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.67
+        version: 4.0.0-beta.70
       fastify:
         specifier: ^5.2.0
         version: 5.8.5
@@ -352,7 +352,7 @@ importers:
     dependencies:
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.67)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.70)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -362,10 +362,10 @@ importers:
         version: 24.12.4
       drizzle-orm:
         specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.67)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
+        version: 1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.70)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.67
+        version: 4.0.0-beta.70
       fastify:
         specifier: ^5.0.0
         version: 5.8.5
@@ -389,7 +389,7 @@ importers:
         version: 24.12.4
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-beta.67
+        version: 4.0.0-beta.70
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -2058,8 +2058,8 @@ packages:
       zod:
         optional: true
 
-  effect@4.0.0-beta.67:
-    resolution: {integrity: sha512-cQ1pVkbmB45VnFffQcmXuIuAT6b+t74JPKeJRqv6qT6MhilYQbLccrBu//jrxtlWpILfIzz09+s1QQrhOFmFKQ==}
+  effect@4.0.0-beta.70:
+    resolution: {integrity: sha512-8AwGTRiNriirHGEYHrOS0E9fzdhIqCdZjiHP1YXmNo2UyPGS43ILsymsSHT7V0DJS+8dvlKq2RxnrDBUhDNZHg==}
 
   elementtree@0.1.7:
     resolution: {integrity: sha512-wkgGT6kugeQk/P6VZ/f4T+4HB41BVgNBq5CDIZVbQ02nvTVqAiVTbskxxu3eA/X96lMlfYOwnLQpN2v5E1zDEg==}
@@ -3288,11 +3288,11 @@ snapshots:
     dependencies:
       typebox: 1.1.38
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.67)':
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/41fa42be450b4af3e81d49efb10595e7a1663ca2(effect@4.0.0-beta.70)':
     dependencies:
       neverthrow: 8.2.0
     optionalDependencies:
-      effect: 4.0.0-beta.67
+      effect: 4.0.0-beta.70
 
   '@ionic/cli-framework-output@2.2.8':
     dependencies:
@@ -4119,16 +4119,16 @@ snapshots:
       get-tsconfig: 4.14.0
       jiti: 2.7.0
 
-  drizzle-orm@1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.67)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76):
+  drizzle-orm@1.0.0-rc.1(@opentelemetry/api@1.9.1)(@sinclair/typebox@0.34.49)(effect@4.0.0-beta.70)(postgres@3.4.9)(typebox@1.1.38)(zod@3.25.76):
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@sinclair/typebox': 0.34.49
-      effect: 4.0.0-beta.67
+      effect: 4.0.0-beta.70
       postgres: 3.4.9
       typebox: 1.1.38
       zod: 3.25.76
 
-  effect@4.0.0-beta.67:
+  effect@4.0.0-beta.70:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 4.8.0
