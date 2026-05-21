@@ -190,7 +190,13 @@ export function createDrizzleMasterLocationRepository(
     },
 
     async listByClient(query: ListMasterLocationsQuery): Promise<ListMasterLocationsResult> {
-      const where = eq(masterLocations.clientId, query.clientId);
+      const where =
+        query.status == null
+          ? eq(masterLocations.clientId, query.clientId)
+          : and(
+              eq(masterLocations.clientId, query.clientId),
+              eq(masterLocations.status, query.status),
+            );
       const [rows, totalRow] = await Promise.all([
         db
           .select()

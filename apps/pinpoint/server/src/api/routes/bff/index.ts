@@ -18,8 +18,13 @@
  *             /master-locations/unvalidated route is registered alongside
  *             the master-location routes, not here, because it's a
  *             cross-client surface that lives outside the BFF tree)
- *   - 10c.4 — layers, layer-features (this commit)
- *   - 10c.5 — master_locations, matching-config
+ *   - 10c.4 — layers, layer-features (done)
+ *   - 10c.5 — master-locations (list/detail/update/validate/geocode/
+ *             reverse-geocode/processing-log), matching-config (this
+ *             commit). Three operator-tool routes (confirm-geocode,
+ *             per-master match-features, bulk match-features) deferred
+ *             to a hygiene follow-up — see master-locations/index.ts
+ *             for rationale.
  */
 import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../../../app-context.js';
@@ -32,6 +37,8 @@ import { registerBffLocationRoutes } from './locations/index.js';
 import { registerBffSpatialLookupRoutes } from './spatial-lookup/index.js';
 import { registerBffLayerRoutes } from './layers/index.js';
 import { registerBffLayerFeatureRoutes } from './layer-features/index.js';
+import { registerBffMasterLocationRoutes } from './master-locations/index.js';
+import { registerBffMatchingConfigRoutes } from './matching-config/index.js';
 
 export function registerBffRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   registerBffDashboardRoute(fastify, appContext);
@@ -43,4 +50,6 @@ export function registerBffRoutes(fastify: FastifyInstance, appContext: AppConte
   registerBffSpatialLookupRoutes(fastify, appContext);
   registerBffLayerRoutes(fastify, appContext);
   registerBffLayerFeatureRoutes(fastify, appContext);
+  registerBffMasterLocationRoutes(fastify, appContext);
+  registerBffMatchingConfigRoutes(fastify, appContext);
 }

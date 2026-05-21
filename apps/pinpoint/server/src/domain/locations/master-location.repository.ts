@@ -5,6 +5,12 @@ import type { MasterLocationId } from './ids.js';
 
 export interface ListMasterLocationsQuery {
   readonly clientId: ClientId;
+  /**
+   * Optional status filter. When set, only masters with this status are
+   * returned and counted. When omitted, all statuses are included.
+   * Used by the BFF master-locations list to filter by lifecycle.
+   */
+  readonly status?: MasterLocationStatus | undefined;
   readonly limit: number;
   readonly offset: number;
 }
