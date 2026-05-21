@@ -18,6 +18,13 @@ const CreateLocationParamsSchema = Type.Object({
  * inside the use case; `raw_*` columns get filled from the parsed
  * components, not from caller-structured fields. The Slice 3 shape is gone.
  */
+const AttributeValueSchema = Type.Union([Type.String(), Type.Array(Type.String())]);
+
+const AttributeInputSchema = Type.Object({
+  key: Type.String({ minLength: 1 }),
+  value: AttributeValueSchema,
+});
+
 const CreateLocationBodySchema = Type.Object({
   partitionId: NullableString,
   externalId: NullableString,
@@ -26,6 +33,7 @@ const CreateLocationBodySchema = Type.Object({
   countryCode: Type.Optional(
     Type.Union([Type.String({ minLength: 2, maxLength: 3 }), Type.Null()]),
   ),
+  attributes: Type.Optional(Type.Array(AttributeInputSchema)),
 });
 
 const CreateLocationResponseSchema = Type.Object({

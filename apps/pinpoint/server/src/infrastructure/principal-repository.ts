@@ -1,9 +1,15 @@
-import { eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import type { Principal, PrincipalDraft, PrincipalType } from '../domain/auth/principal.js';
-import type { PrincipalRepository } from '../domain/auth/principal.repository.js';
+import type {
+  PrincipalRepository,
+  PrincipalWithGrant,
+} from '../domain/auth/principal.repository.js';
 import { asPrincipalId, type PrincipalId } from '../domain/auth/ids.js';
+import type { PartitionId } from '../domain/tenancy/ids.js';
 import { principals, type PrincipalRow } from './schema/principals.js';
+import { principalPartitions } from './schema/principal-partitions.js';
 
 function toDomain(row: PrincipalRow): Principal {
   return {
@@ -50,6 +56,60 @@ export function createDrizzlePrincipalRepository(db: PostgresJsDatabase): Princi
         throw new Error(`Principal upsert returned no row for id=${draft.id}`);
       }
       return toDomain(row);
+    },
+
+    async findPrincipalsForPartition(
+      partitionId: PartitionId,
+    ): Promise<readonly PrincipalWithGrant[]> {
+      const rows = await db
+        .select({
+          principal: principals,
+          grantedAt: principalPartitions.grantedAt,
+        })
+        .from(principalPartitions)
+        .innerJoin(principals, eq(principals.id, principalPartitions.principalId))
+        .where(eq(principalPartitions.partitionId, partitionId))
+        .orderBy(asc(principalPartitions.grantedAt));
+      return rows.map((r) => ({
+        principal: toDomain(r.principal),
+        grantedAt: r.grantedAt,
+      }));
+    },
+
+    async grantPartitionAccess(
+      principalId: PrincipalId,
+      partitionId: PartitionId,
+      grantedBy: PrincipalId,
+      tx?: TransactionContext,
+    ): Promise<void> {
+      const client = resolveDb(db, tx);
+      await client
+        .insert(principalPartitions)
+        .values({
+          principalId,
+          partitionId,
+          grantedBy,
+          grantedAt: new Date(),
+        })
+        .onConflictDoNothing();
+    },
+
+    async revokePartitionAccess(
+      principalId: PrincipalId,
+      partitionId: PartitionId,
+      tx?: TransactionContext,
+    ): Promise<boolean> {
+      const client = resolveDb(db, tx);
+      const rows = await client
+        .delete(principalPartitions)
+        .where(
+          and(
+            eq(principalPartitions.principalId, principalId),
+            eq(principalPartitions.partitionId, partitionId),
+          ),
+        )
+        .returning();
+      return rows.length > 0;
     },
   };
 }

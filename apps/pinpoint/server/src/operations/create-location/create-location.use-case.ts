@@ -31,6 +31,7 @@ import { generateTsid } from '@flowcatalyst/sdk';
 import {
   AggregateRegistry,
   AuthorizationError,
+  BusinessRuleViolation,
   commitAggregate,
   InfrastructureError,
   NotFoundError,
@@ -44,11 +45,14 @@ import { PinpointPermission } from '@pinpoint/shared';
 
 import { MasterLocation } from '../../domain/locations/master-location.js';
 import {
+  asLocationAttributeId,
   asLocationId,
   asMasterLocationId,
+  LOCATION_ATTRIBUTE_ID_PREFIX,
   LOCATION_ID_PREFIX,
   MASTER_LOCATION_ID_PREFIX,
 } from '../../domain/locations/ids.js';
+import type { LocationAttribute } from '../../domain/locations/location-attribute.js';
 import { asClientId, asPartitionId } from '../../domain/tenancy/ids.js';
 import { LocationCreated } from '../../domain/locations/events/location-created.event.js';
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
@@ -75,6 +79,7 @@ import type {
   LocationFeatureAssociationInput,
   SpatialLookupHit,
 } from '../../domain/layers/layer-feature.repository.js';
+import type { LocationAttributeRepository } from '../../domain/locations/location-attribute.repository.js';
 import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
@@ -129,6 +134,7 @@ export class CreateLocationUseCase {
     private readonly addressNormalizer: AddressNormalizer,
     private readonly addressVerifier: AddressVerifier,
     private readonly processingLog: ProcessingLogRepository,
+    private readonly locationAttributes: LocationAttributeRepository,
   ) {}
 
   execute = (
@@ -143,6 +149,7 @@ export class CreateLocationUseCase {
     const addressNormalizer = this.addressNormalizer;
     const addressVerifier = this.addressVerifier;
     const processingLog = this.processingLog;
+    const locationAttributes = this.locationAttributes;
     const authorize = (): boolean => this.authorize();
 
     return Effect.gen(function* () {
@@ -174,6 +181,31 @@ export class CreateLocationUseCase {
             message: 'Address must not be empty.',
           }),
         );
+      }
+
+      // Validate attributes early so a bad attribute payload fails the
+      // request before we hit libpostal / fuzzy matching.
+      const attributeInputs = command.attributes ?? [];
+      const seenAttrKeys = new Set<string>();
+      for (const a of attributeInputs) {
+        const key = a.key.trim();
+        if (key.length === 0) {
+          return yield* Effect.fail(
+            new ValidationError({
+              code: 'ATTRIBUTE_KEY_REQUIRED',
+              message: 'Attribute keys must not be empty.',
+            }),
+          );
+        }
+        if (seenAttrKeys.has(key)) {
+          return yield* Effect.fail(
+            new BusinessRuleViolation({
+              code: 'DUPLICATE_ATTRIBUTE_KEY',
+              message: `Duplicate attribute key '${key}'.`,
+            }),
+          );
+        }
+        seenAttrKeys.add(key);
       }
 
       const client = yield* Effect.tryPromise({
@@ -411,6 +443,26 @@ export class CreateLocationUseCase {
 
         const primary = yield* commitAggregate(location, createdEvent, command);
 
+        // Persist location attributes inside the same tx.
+        if (attributeInputs.length > 0) {
+          const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
+            id: asLocationAttributeId(`${LOCATION_ATTRIBUTE_ID_PREFIX}_${generateTsid()}`),
+            locationId: location.id,
+            key: a.key.trim(),
+            value: a.value,
+            createdAt: now,
+            updatedAt: now,
+          }));
+          yield* Effect.tryPromise({
+            try: () => locationAttributes.insertMany(attrs),
+            catch: (cause) =>
+              new InfrastructureError({
+                code: 'LOCATION_ATTRIBUTE_WRITE_FAILED',
+                message: cause instanceof Error ? cause.message : String(cause),
+              }),
+          });
+        }
+
         // If the master is already VALIDATED, this location is too —
         // emit LocationValidated with the spatial-property payload.
         if (
@@ -555,7 +607,28 @@ export class CreateLocationUseCase {
         rawCountry: location.rawCountry,
       });
 
-      return yield* commitAggregate(location, locationEvent, command);
+      const sealed = yield* commitAggregate(location, locationEvent, command);
+
+      if (attributeInputs.length > 0) {
+        const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
+          id: asLocationAttributeId(`${LOCATION_ATTRIBUTE_ID_PREFIX}_${generateTsid()}`),
+          locationId: location.id,
+          key: a.key.trim(),
+          value: a.value,
+          createdAt: now,
+          updatedAt: now,
+        }));
+        yield* Effect.tryPromise({
+          try: () => locationAttributes.insertMany(attrs),
+          catch: (cause) =>
+            new InfrastructureError({
+              code: 'LOCATION_ATTRIBUTE_WRITE_FAILED',
+              message: cause instanceof Error ? cause.message : String(cause),
+            }),
+        });
+      }
+
+      return sealed;
     });
   };
 

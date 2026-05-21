@@ -18,7 +18,11 @@ export {
 } from './contracts/tenancy/partition-contracts.js';
 export {
   CreateLocationCommandSchema,
+  AttributeInputSchema,
+  AttributeValueSchema,
   type CreateLocationCommand,
+  type AttributeInput,
+  type AttributeValue,
 } from './contracts/locations/location-contracts.js';
 export {
   ValidateMasterLocationCommandSchema,

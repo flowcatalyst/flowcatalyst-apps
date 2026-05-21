@@ -77,10 +77,8 @@ Operations the existing TS port doesn't have but the BFF surface needs:
 | `update-property-set`              | PropertySet        | |
 | `delete-property-set`              | PropertySet        | cascade: properties cascade |
 | `replace-property-set-properties`  | PropertySet        | bulk PUT of all properties on a set; matches Rust BFF's single `replace_properties` op (cap 6). No per-Property aggregate — properties are child entities managed inline. |
-| `assign-principal-to-partition`    | PrincipalPartition (new aggregate) | grants UI partition access |
-| `revoke-principal-from-partition`  | PrincipalPartition | |
-| `update-location-attribute`        | LocationAttribute (new aggregate) | first non-schema-only use case for LocationAttribute (Slice 3 deferred) |
-| `delete-location-attribute`        | LocationAttribute  | |
+| principal partition grant / revoke | PrincipalRepository (no new aggregate) | Rust exposes these as `PrincipalRepository::{grant,revoke}_partition_access` — no separate aggregate or event. Slice 10b.3 mirrors that: three repo methods, no use case wrappers. Routes mount in Slice 10c. |
+| Location attributes on creation    | LocationAttribute (child of Location) | Slice 3 deferred the aggregate scaffolding; Rust's `CreateLocationRequest` carries `attributes[]` and persists them inline with the new location. Slice 10b.3 adds the `LocationAttribute` entity + repo + extends create-location to write attributes in the same tx. No standalone update/delete use case — Rust BFF does not expose attribute mutation either. |
 
 That's ~18 use cases. Each is ~150–250 LoC including tests; Slice 10b will probably split into 2-3 commits by aggregate group.
 

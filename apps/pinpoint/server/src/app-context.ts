@@ -26,6 +26,7 @@ import { createDrizzlePropertySetRepository } from './infrastructure/property-se
 import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
 import { createDrizzleMasterLocationRepository } from './infrastructure/master-location-repository.js';
 import { createDrizzleProcessingLogRepository } from './infrastructure/processing-log-repository.js';
+import { createDrizzleLocationAttributeRepository } from './infrastructure/location-attribute-repository.js';
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
 import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
 import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
@@ -67,6 +68,7 @@ import type { PropertySetRepository } from './domain/layers/property-set.reposit
 import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
 import type { MasterLocationRepository } from './domain/locations/master-location.repository.js';
 import type { ProcessingLogRepository } from './domain/locations/processing-log.repository.js';
+import type { LocationAttributeRepository } from './domain/locations/location-attribute.repository.js';
 import type { GeocoderService } from './domain/services/geocoder.js';
 import type { AddressVerifier } from './domain/services/address-verifier.js';
 import type { AddressNormalizer } from './domain/services/address-normalizer.js';
@@ -118,6 +120,7 @@ export interface AppContextRepositories {
   readonly matchingConfigs: MatchingConfigRepository;
   readonly masterLocations: MasterLocationRepository;
   readonly processingLog: ProcessingLogRepository;
+  readonly locationAttributes: LocationAttributeRepository;
 }
 
 export interface AppContextServices {
@@ -244,6 +247,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const matchingConfigRepo = createDrizzleMatchingConfigRepository(db);
   const masterLocationRepo = createDrizzleMasterLocationRepository(db);
   const processingLogRepo = createDrizzleProcessingLogRepository(db);
+  const locationAttributeRepo = createDrizzleLocationAttributeRepository(db);
 
   const rawGeocoder = createPhotonGeocoder({ baseUrl: config.geocodingApiUrl });
   const geocoder = createRateLimitedGeocoder(rawGeocoder, {
@@ -297,6 +301,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
       matchingConfigs: matchingConfigRepo,
       masterLocations: masterLocationRepo,
       processingLog: processingLogRepo,
+      locationAttributes: locationAttributeRepo,
     },
     services: {
       geocoder,
@@ -320,6 +325,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
         addressNormalizer,
         addressVerifier,
         processingLogRepo,
+        locationAttributeRepo,
       ),
       createLayer: new CreateLayerUseCase(clientRepo, layerRepo),
       updateLayer: new UpdateLayerUseCase(layerRepo),
