@@ -6,9 +6,9 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ---
 
-## Status (2026-05-20)
+## Status (2026-05-21)
 
-**Slice 7 shipped 2026-05-20.** LLM `AddressVerifier` (Bedrock + Ollama + Noop) landed via Vercel AI SDK + native Ollama JSON-schema format. The named "AI SDK vs rig-core" re-check passes: gemma4 returns structured verdicts matching the Rust-ported prompts. Slice 8 is the consolidation slice — master locations + the chained matching pipeline.
+**Slice 9 shipped 2026-05-21.** FlowCatalyst-scheduled validation worker. `POST /jobs/validate-master-locations` (HMAC-verified) drains the GEOCODED master_locations backlog 100 at a time via `runJob` + `confirm-master-location`. ScheduledJobDefinition (`*/5 * * * *`) is part of the DefinitionSet sync.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -21,8 +21,11 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 | 4 | done | `13cc964` | Layers + LayerFeatures. First `commitDelete` user. `boundary` GEOMETRY columns + GIST indexes deferred to Slice 5. PropertySet aggregate scaffolding deferred (schema only) |
 | 5 | done | `dac0b43` | PostGIS canary. `MatchingConfig` aggregate + `update-matching-config`, `GET/PUT /matching-config`, `POST /spatial-lookup`. Drizzle geometry `customType` (with `codec: 'text'` opt-out around the built-in POINT-only codec), GIST indexes on `layers`/`layer_features`/`countries`, country geometry seed verbatim from Rust 016, first two Drizzle migrations generated + applied |
 | 6 | done | `5323e76` | External services: Photon `GeocoderService` + Effect 4 `RateLimiter`-backed decorator, `POST /geocode/forward` + `POST /geocode/reverse`, 25 tests (first in the codebase) |
-| 7 | done | (this commit) | LLM `AddressVerifier` — Vercel AI SDK + `@ai-sdk/amazon-bedrock` Bedrock impl, native-fetch Ollama impl (sidesteps the `ollama-ai-provider-v2`'s zod-4 peer requirement), Noop default. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER`). 15 new tests; smoke against local Ollama+gemma4 green |
-| 8-12 | pending | — | master locations + matching pipeline, validation worker, BFF, web lift, cutover |
+| 7 | done | `b4f6620` | LLM `AddressVerifier` — Vercel AI SDK + `@ai-sdk/amazon-bedrock` Bedrock impl, native-fetch Ollama impl (sidesteps the `ollama-ai-provider-v2`'s zod-4 peer requirement), Noop default. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER`). 15 new tests; smoke against local Ollama+gemma4 green |
+| 8 | done | `72b812d` + `b4981c6` | Master locations + the full matching pipeline. `MasterLocation` aggregate (PENDING/GEOCODED/VALIDATED/REJECTED), `AddressMatcher` pure module + 80-entry SUBSTITUTIONS, libpostal `AddressNormalizer` + pelias/libpostal-service sidecar, `processing_log`, rewritten `create-location` running the full Rust pipeline. `validate-master-location` (geocode) + `confirm-master-location` (canonicalize + cascade). 4 new master-location routes. End-to-end smoke green |
+| schema-sync | done | `5f4685e` | Event-data interfaces → TypeBox; `scripts/sync-flowcatalyst.ts` pushes payload JSON Schemas via `addSchemaVersion`. All 12 events now carry schemas to the platform |
+| 9 | done | (this commit) | FlowCatalyst-scheduled validation worker. `pinpoint-validate-master-locations` runs every 5 min, POST `/jobs/validate-master-locations` HMAC-verified, drains the GEOCODED batch. ScheduledJobDefinition in the DefinitionSet sync. 15 new tests |
+| 10-12 | pending | — | BFF + fragment route triage, web lift, cutover |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -295,15 +298,22 @@ Migrations: one Drizzle migration adds `master_locations` (with `point GEOMETRY(
 - Routes: `POST /master-locations/:id/validate`, `POST /master-locations/:id/confirm`, `GET /master-locations/:id`, paged `GET /master-locations?clientId=…`
 - **Deliverable**: end-to-end matching pipeline runnable. Full smoke green: PENDING → GEOCODED → VALIDATED with EXACT_HASH dedup on repeat addresses.
 
-### Slice 9 — Validation worker (FlowCatalyst scheduled job)
+### Slice 9 — Validation worker (FlowCatalyst-scheduled job) — **DONE** (this commit)
 
-- Add to `flowcatalyst/scheduled-jobs.ts`: `{ code: 'pinpoint-validate-master-locations', schedule: '*/5 * * * *', target: '${publicBaseUrl}/jobs/validate-master-locations' }`
-- Webhook handler `POST /jobs/validate-master-locations`:
-  - HMAC verification via `flowcatalystWebhookAuthHook`
-  - `runJob(...)` with `SystemIdentity.SCHEDULER`
-  - Calls batch use case `validate-pending-master-locations`
-- Run `pnpm flowcatalyst:sync` to register
-- **Deliverable**: platform-driven scheduled validation; retries/observability from platform
+**Scope adjustments applied:**
+- The original spec mentioned a separate `validate-pending-master-locations` batch use case. The TS port skips that — the existing Slice 8 `confirm-master-location` is called per master inside the batch loop. Less code, same end result, the existing use case already enforces the GEOCODED → VALIDATED transition with all its checks.
+- Per-master error containment: each `confirm-master-location` runs in its own `runWrite` tx via the same loop. A `Result.failure` or thrown infra error is recorded in `failures` but doesn't abort the batch. Matches what a Rust `tokio::spawn` per-task pattern would give but stays sequential — the spatial-lookup + cascade per confirm is read-heavy + outbox-write-bound, so parallelism is unlikely to win and would contend on shared rows.
+- Scheduled jobs ride in the **DefinitionSet** sync now (the SDK gained `set.scheduledJobs` between Slice 0 and Slice 9). The Slice 0 comment in `scheduled-jobs.ts` saying they're "registered via the runtime resource API" is out of date; updated.
+- HMAC verification: ported `flowcatalystWebhookAuthHook` from fulfil verbatim (with the package paths adjusted). It's not yet in `@flowcatalyst-apps/app-framework` — tracked as a follow-up refactor.
+- `SystemIdentity` is pinpoint-local (`pinpoint:system:scheduler`) — mirrors fulfil's `SystemIdentity` but namespaced to pinpoint so audit / outbox rows are unambiguous about which app emitted them.
+- The batch handler is NOT a use case (no `Sealed<E>` return). It's a plain async orchestrator that calls the existing use case per-master. The platform-facing route returns the aggregate summary; the SDK doesn't require a sealed-event signature for webhook responses.
+
+
+- Code: `pinpoint-validate-master-locations`, schedule `*/5 * * * *`, target `${publicBaseUrl}/jobs/validate-master-locations`.
+- ScheduledJobDefinition fields: `concurrent: false`, `tracksCompletion: false`, `timeoutSeconds: 240`, `deliveryMaxAttempts: 3`.
+- Env: `FLOWCATALYST_SIGNING_SECRET` (required for prod; unset = dev-mode bypass with per-request warning).
+- Tests: 9 HMAC paths (header presence, timestamp window, signature mismatch, length mismatch, custom tolerance) + 6 batch orchestration paths (empty queue, happy path drain, per-master `Result.failure`, per-master thrown infra error, batch-size threading). 83 tests passing total.
+- **Deliverable**: platform-driven scheduled validation runnable end-to-end against the dev stack.
 
 ### Slice 10 — BFF + fragments + unvalidated
 

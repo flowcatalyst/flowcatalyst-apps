@@ -17,6 +17,7 @@ import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.j
 import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
 import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
 import { registerMasterLocationRoutes } from './api/routes/master-locations/index.js';
+import { registerJobsRoutes } from './api/routes/jobs/index.js';
 import type { AddressVerifierConfig } from './app-context.js';
 
 declare module 'fastify' {
@@ -33,6 +34,12 @@ const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-de
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
 const LIBPOSTAL_URL = process.env['PINPOINT_LIBPOSTAL_URL'] ?? 'http://localhost:4400';
+/**
+ * Shared secret the FlowCatalyst platform signs scheduled-job + reactor
+ * webhooks with. When unset (local dev), the auth hook logs a per-request
+ * warning and lets requests through. NEVER deploy without this set.
+ */
+const FLOWCATALYST_SIGNING_SECRET = process.env['FLOWCATALYST_SIGNING_SECRET'];
 
 /**
  * LLM provider selection mirrors the Rust pinpoint's `LLM_PROVIDER` /
@@ -131,6 +138,7 @@ async function buildServer() {
         { name: 'Geocode', description: 'Forward + reverse geocoding (Photon-backed, rate-limited)' },
         { name: 'Verify', description: 'LLM-backed address-match verification (Bedrock / Ollama / Noop)' },
         { name: 'MasterLocations', description: 'Master-location lifecycle: geocode (validate) + canonicalize (confirm) + reads' },
+        { name: 'Jobs', description: 'FlowCatalyst-scheduled job webhooks (HMAC-verified)' },
       ],
     },
   });
@@ -166,6 +174,9 @@ async function buildServer() {
   registerGeocodeRoutes(server, appContext);
   registerVerifyMatchRoutes(server, appContext);
   registerMasterLocationRoutes(server, appContext);
+  registerJobsRoutes(server, appContext, {
+    webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
+  });
 
   return server;
 }

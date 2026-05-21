@@ -204,5 +204,15 @@ export function createDrizzleMasterLocationRepository(
         total: Number(totalRow[0]?.value ?? 0),
       };
     },
+
+    async listByStatus(status, limit): Promise<readonly MasterLocation[]> {
+      const rows = await db
+        .select()
+        .from(masterLocations)
+        .where(eq(masterLocations.status, status))
+        .orderBy(asc(masterLocations.createdAt))
+        .limit(limit);
+      return rows.map(toDomain);
+    },
   };
 }

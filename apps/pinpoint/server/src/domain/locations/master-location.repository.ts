@@ -1,6 +1,6 @@
 import type { TransactionContext } from '@flowcatalyst-apps/app-framework';
 import type { ClientId, PartitionId } from '../tenancy/ids.js';
-import type { MasterLocation } from './master-location.js';
+import type { MasterLocation, MasterLocationStatus } from './master-location.js';
 import type { MasterLocationId } from './ids.js';
 
 export interface ListMasterLocationsQuery {
@@ -48,4 +48,11 @@ export interface MasterLocationRepository {
 
   /** All locations associated with this master — used by confirm cascade. */
   listByClient(query: ListMasterLocationsQuery): Promise<ListMasterLocationsResult>;
+
+  /**
+   * Drain a batch of masters in the given status. Used by Slice 9's
+   * validation worker to find GEOCODED masters waiting for confirmation.
+   * Returned in `createdAt ASC` order so the oldest backlog flushes first.
+   */
+  listByStatus(status: MasterLocationStatus, limit: number): Promise<readonly MasterLocation[]>;
 }
