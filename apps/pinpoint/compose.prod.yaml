@@ -78,6 +78,20 @@ services:
       PINPOINT_OLLAMA_URL: ${PINPOINT_OLLAMA_URL:-}
       AWS_REGION: ${AWS_REGION:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # OIDC. Empty OIDC_ISSUER_URL leaves /auth/login disabled (503) and
+      # all routes that need a principal will 401 unless the dev fallback
+      # is on. Production: set the issuer URL + audience + client id (+
+      # optional secret if the IdP requires one for the token endpoint).
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-pinpoint}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-${PINPOINT_PUBLIC_BASE_URL:-http://localhost:3000}/auth/callback}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
+      # Dev fallback — accepts the `x-user-id` header as the principal.
+      # MUST be unset in real production.
+      PINPOINT_AUTH_DEV_FALLBACK: ${PINPOINT_AUTH_DEV_FALLBACK:-false}
+      PINPOINT_AUTH_POST_LOGIN_REDIRECT: ${PINPOINT_AUTH_POST_LOGIN_REDIRECT:-/}
     ports:
       - "${PINPOINT_HTTP_PORT:-3000}:3000"
 

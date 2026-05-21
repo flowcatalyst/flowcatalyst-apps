@@ -33,6 +33,10 @@ import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
 import { createBedrockVerifier } from './infrastructure/services/bedrock-verifier.js';
 import { createOllamaVerifier } from './infrastructure/services/ollama-verifier.js';
 import { createLibPostalNormalizer } from './infrastructure/services/libpostal-normalizer.js';
+import { createOidcClient, type OidcClient } from './auth/oidc-client.js';
+import { createTokenValidator, type TokenValidator } from './auth/token-validator.js';
+import { createInMemorySessionStore, type SessionStore } from './auth/session-store.js';
+import type { AuthConfig } from './auth/auth-config.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
@@ -130,6 +134,18 @@ export interface AppContextServices {
 }
 
 /**
+ * Auth surface — null when no OIDC issuer is configured (local dev with
+ * `PINPOINT_AUTH_DEV_FALLBACK=true` still works in that mode). When set,
+ * the auth routes + the request-token extractor use it.
+ */
+export interface AppContextAuth {
+  readonly config: AuthConfig;
+  readonly oidcClient: OidcClient | null;
+  readonly tokenValidator: TokenValidator | null;
+  readonly sessionStore: SessionStore;
+}
+
+/**
  * LLM provider config for the address verifier. Mirrors the Rust
  * `llm_provider`/`ollama_url`/`llm_model` env vars; defaults to `'none'`
  * (Noop) so the matching pipeline runs without Bedrock creds or a local
@@ -184,6 +200,7 @@ export interface AppContext {
   readonly repositories: AppContextRepositories;
   readonly services: AppContextServices;
   readonly useCases: AppContextUseCases;
+  readonly auth: AppContextAuth;
   /**
    * Run a use-case Effect inside a Drizzle transaction. Provides
    * `UnitOfWork`, `DispatchJobBroker`, and `AggregateRegistry` Layers,
@@ -215,9 +232,16 @@ export interface AppContextConfig {
   readonly addressVerifier: AddressVerifierConfig;
   /** Base URL of the libpostal sidecar (`pelias/libpostal-service`). Default `http://localhost:4400`. */
   readonly libpostalUrl: string;
+  /**
+   * Auth wiring. When `oidc` is set, the auth routes go live and the
+   * request-token extractor validates JWTs / session cookies. The
+   * dev-fallback flag opts the `x-user-id` header path back on for local
+   * dev; should be false in production.
+   */
+  readonly auth: AuthConfig;
 }
 
-export function createAppContext(config: AppContextConfig): AppContext {
+export async function createAppContext(config: AppContextConfig): Promise<AppContext> {
   const { db, clientId } = config;
 
   const transactionManager = createTransactionManager(db);
@@ -285,6 +309,15 @@ export function createAppContext(config: AppContextConfig): AppContext {
     );
   };
 
+  // Build auth services lazily: OIDC discovery is only attempted when the
+  // issuer is configured, so a no-IdP local dev run with the dev fallback
+  // still boots fine. Discovery failures throw — startup blocks on the
+  // IdP being reachable, matching the Rust pinpoint's behaviour.
+  const sessionStore = createInMemorySessionStore();
+  const oidcClient = config.auth.oidc !== null ? await createOidcClient(config.auth.oidc) : null;
+  const tokenValidator =
+    config.auth.oidc !== null ? createTokenValidator(config.auth.oidc) : null;
+
   return {
     db,
     transactionManager,
@@ -351,6 +384,12 @@ export function createAppContext(config: AppContextConfig): AppContext {
       ),
       updateMasterLocation: new UpdateMasterLocationUseCase(masterLocationRepo),
       rejectMasterLocation: new RejectMasterLocationUseCase(masterLocationRepo),
+    },
+    auth: {
+      config: config.auth,
+      oidcClient,
+      tokenValidator,
+      sessionStore,
     },
     runWrite,
   };

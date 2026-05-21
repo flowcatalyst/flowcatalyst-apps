@@ -136,17 +136,47 @@ Server (`apps/pinpoint/server/src/server.ts`):
 | `PINPOINT_OLLAMA_URL`            | `http://localhost:11434`          | Only used when `PINPOINT_LLM_PROVIDER=ollama`. |
 | `AWS_REGION`                     | `us-east-1`                       | Only used when `PINPOINT_LLM_PROVIDER=bedrock`. |
 | `PINPOINT_WEB_DIST_DIR`          | _unset in dev / set in container_ | Absolute path to the built SPA `dist/`. When set, the server serves it at `/` with a SPA fallback so the Vue router works. The Dockerfile sets this to `/app/web/dist`. |
+| `OIDC_ISSUER_URL`                | _unset_                           | OIDC issuer URL (e.g. `https://accounts.example.com/`). When set, `/auth/login` redirects to the IdP's authorize endpoint. When unset, `/auth/login` returns 503 and the API requires either a JWT bearer or the dev fallback. |
+| `OIDC_AUDIENCE`                  | `OIDC_CLIENT_ID` value            | Expected `aud` claim on JWTs. Required for production auth; defaults to `OIDC_CLIENT_ID` if unset. |
+| `OIDC_CLIENT_ID`                 | `pinpoint`                        | OAuth client id registered with the IdP. |
+| `OIDC_CLIENT_SECRET`             | _unset_                           | Optional. When set, the token endpoint is called with `client_secret_basic`. Unset → public client (PKCE-only). |
+| `OIDC_REDIRECT_URI`              | `http://localhost:3000/auth/callback` | Where the IdP redirects after login. Must match the IdP's registered redirect URI exactly. |
+| `OIDC_SCOPES`                    | `openid profile email`            | Space-separated scopes requested at /auth/login. Override if the IdP needs more (e.g. `openid profile email roles offline_access`). |
+| `PINPOINT_AUTH_DEV_FALLBACK`     | `false`                           | When `true`, an `x-user-id` header is accepted as the principal id. **Never set in production.** Convenient for local dev (no IdP needed) and integration tests. |
+| `PINPOINT_AUTH_POST_LOGIN_REDIRECT` | `/`                            | Where to redirect after `/auth/callback` succeeds. |
 | `LOG_LEVEL`                      | `info`                            | Fastify log level. |
 
 Web (`apps/pinpoint/web/`) has no runtime env vars — the API base URL is
 relative (`/bff`, `/api`) and resolved via the server's own host. For dev,
 the Vite proxy in `vite.config.ts` points at `http://localhost:3000`.
 
+## Auth
+
+Three resolution paths, tried in order on every request:
+
+1. `Authorization: Bearer <jwt>` — validated against the OIDC issuer's
+   JWKS. Service-to-service callers use this.
+2. Session cookie (`pp_session`) — set by `/auth/login` after a successful
+   OIDC authorization-code-with-PKCE flow. Browsers use this.
+3. `x-user-id` header — only honoured when
+   `PINPOINT_AUTH_DEV_FALLBACK=true`. Dev / integration tests only.
+
+The auth routes mount at `/auth/login`, `/auth/callback`, `/auth/logout`,
+`/me`. When `OIDC_ISSUER_URL` is unset, `/auth/login` returns 503.
+
+Sessions live in process memory (`apps/pinpoint/server/src/auth/session-store.ts`).
+They survive within a single instance but not across restarts and not
+across replicas. A Redis/DB-backed store is the right next step for
+multi-instance deploys; not blocking single-instance prod.
+
 ## What's NOT in here yet
 
-- **OIDC auth.** `x-user-id` is still the dev fallback for both API + BFF.
-  Slice 12 (cutover) lands real OIDC + cookie sessions; until then,
-  production deploys should sit behind a network-level access control.
+- **Multi-instance session storage.** In-memory only — see Auth section
+  above.
+- **Token refresh on the hot path.** `extractRequestToken` validates the
+  session's stored access token but doesn't refresh on expiry — the SPA
+  bounces through `/auth/login` instead. Adding refresh is a follow-up if
+  it turns out to be a UX problem.
 - **Repo + use-case integration tests.** The 83-test suite covers pure
   functions and decorator behaviour; the Drizzle repo implementations
   (~10) and write use cases (~22) are not tested directly. Backfill via

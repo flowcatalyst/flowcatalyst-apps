@@ -4,9 +4,9 @@
 
 ## Status (2026-05-21)
 
-- **HEAD:** Slice 12.1 (Dockerization) — multi-stage `Dockerfile` + `compose.prod.yaml`; `docker compose up` boots postgres + libpostal + pinpoint server (which serves the Vue SPA). `/health` and SPA fallback both 200.
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1 + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** 12.2 (OIDC + cookie sessions for BFF), 12.3 (testcontainers integration-test backfill).
+- **HEAD:** Slice 12.2 (OIDC + cookie sessions) — `/auth/login`, `/auth/callback`, `/auth/logout` wired with openid-client v6 + jose-backed JWT validation; in-memory session store; `x-user-id` dev fallback gated behind `PINPOINT_AUTH_DEV_FALLBACK=true`.
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2 + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** 12.3 (testcontainers integration-test backfill).
 - **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
 - **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
 - **Drizzle migrations:** three generated, applied (schema + countries/global-default seed + 10c flashy_ricochet) — see `apps/pinpoint/server/drizzle/`
@@ -88,9 +88,9 @@ What's actually left vs. what's already done. Don't re-do completed items.
 - **`layer_partitions` population** → assignment surface ships in 10c.4 via `PUT /bff/clients/:cid/layers/:lid/partitions`. No `assign-layer-to-partition` use case (plain repo method `setPartitionIds`, matches Rust).
 - ~~BFF master-locations hygiene tail (`confirm-geocode`, `match-features` single + bulk)~~ → **shipped as 10c hygiene** (`194d447`). Two new repo methods (`MasterLocationRepository.applyConfirmedGeocode`, `LayerFeatureRepository.findFeaturesContainingPoint`) + three routes.
 - **`fragment_routes` (askama HTML)** → WILL NOT PORT. The Vue SPA owns the UI; nothing calls fragment endpoints.
-- **Web lift** → Slice 11. Copy `~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL, `pnpm -F @pinpoint/web dev` smoke.
-- **OIDC auth + cookie sessions for BFF** → Slice 12. `extractRequestToken` still on the `x-user-id` dev fallback. Hardening before production cutover.
-- **Docker Compose for full stack (postgres + pinpoint server + web + libpostal sidecar) + Dockerfile + README** → Slice 12.
+- ~~**Web lift**~~ → Slice 11 (shipped).
+- ~~**OIDC auth + cookie sessions for BFF**~~ → Slice 12.2 (shipped; in-memory sessions, no token refresh on hot path yet).
+- ~~**Docker Compose for full stack (postgres + pinpoint server + web + libpostal sidecar) + Dockerfile + README**~~ → Slice 12.1 (shipped).
 - **Infra-repo + use-case integration tests** → final pre-cutover hygiene slice. None of the Drizzle repo implementations (`createDrizzleClientRepository`, `…LayerRepository`, `…MasterLocationRepository`, `…PrincipalRepository`, etc.) and none of the use cases are tested directly. The current 83 tests cover pure functions, service decorators (fetch-mocked), and orchestration with fake repos. Backfill plan: bring in `@testcontainers/postgresql`, write integration tests for every Drizzle repo (~10) + every write use case (~22). Land before Slice 12 cutover.
 
 ## What the next agent needs to read
@@ -119,7 +119,71 @@ Out-of-scope for Slice 10b (kept here so it doesn't sneak back in):
 
 Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`) plus a hygiene follow-up (`194d447`). The full BFF surface under `/bff/clients/:cid/...` is in place — ~43 routes spanning dashboard, countries, clients, partitions, principal-partitions, locations, spatial-lookup, layers, layer-features, property-sets, master-locations (incl. confirm-geocode + match-features single + bulk), matching-config — plus the cross-client `GET /master-locations/unvalidated`. Full Rust BFF parity achieved.
 
-BFF auth still on the `x-user-id` dev fallback — real OIDC + cookie sessions land in Slice 12.
+BFF auth is now OIDC-backed (Slice 12.2); the `x-user-id` dev fallback
+stays available behind `PINPOINT_AUTH_DEV_FALLBACK=true` for local dev.
+
+## Slice 12.2 status (shipped)
+
+**OIDC + cookie sessions for the BFF + API.** `extractRequestToken` now
+resolves three paths in order — `Authorization: Bearer` (JWT validated
+via the issuer's JWKS), session cookie (`pp_session`, set by
+`/auth/login`), and `x-user-id` (only when
+`PINPOINT_AUTH_DEV_FALLBACK=true`). The auth surface lives under
+`src/auth/`:
+
+- `auth-config.ts` — env-driven (`OIDC_ISSUER_URL`, `OIDC_AUDIENCE`,
+  `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`,
+  `OIDC_SCOPES`, `PINPOINT_AUTH_DEV_FALLBACK`,
+  `PINPOINT_AUTH_POST_LOGIN_REDIRECT`).
+- `oidc-client.ts` — thin wrapper around openid-client v6's functional
+  API (`discovery` → `buildAuthorizationUrl` + `authorizationCodeGrant` +
+  `refreshTokenGrant` + `fetchUserInfo`). PKCE-with-S256.
+- `token-validator.ts` — JWKS-backed JWT verifier (jose's
+  `createRemoteJWKSet` + `jwtVerify`). Lazy discovery so a missing IdP
+  doesn't fail boot.
+- `session-store.ts` — in-memory `Map<sessionId, Session>` matching the
+  Rust pinpoint's shape. Carries in-flight PKCE state (created at
+  /login) + the post-callback tokens + sub/name/email. Lost on restart,
+  not shared across replicas — fine for single-instance prod;
+  Redis/DB-backed swap is a follow-up.
+- `session-cookie.ts` — `pp_session` cookie, `HttpOnly`+`SameSite=Lax`,
+  `Secure` auto-flipped off for plain-HTTP local dev.
+
+Routes mount under `/auth/`:
+
+- `GET /auth/login` — 503 when OIDC isn't configured; otherwise stores
+  PKCE verifier + state in a fresh session row, sets the cookie,
+  redirects to the IdP authorize URL.
+- `GET /auth/callback` — validates state, exchanges code for tokens,
+  fetches userinfo (best-effort), upserts the principal, redirects to
+  `PINPOINT_AUTH_POST_LOGIN_REDIRECT` (default `/`).
+- `GET /auth/logout` — drops the session row, clears the cookie,
+  redirects to `/auth/login` (or `/` when no IdP).
+- `GET /me` — unchanged; now also works for JWT-bearer and session-cookie
+  callers.
+
+`createAppContext` is now `async` because OIDC discovery is an `await`.
+`server.ts` registers `@fastify/cookie` BEFORE the onRequest hook, and
+the hook is **callback-style on purpose**: calling `done` inside
+`ScopeStore.run(scope, done)` binds the scope to ALS for the rest of the
+request pipeline. An `async` hook returning a promise unbinds the scope
+before Fastify's next handler runs — that's the trap.
+
+`compose.prod.yaml` gained `OIDC_*` + `PINPOINT_AUTH_*` env vars (all
+empty by default — must be set explicitly for real prod).
+
+Smoke (against `pnpm -F @pinpoint/server dev` with
+`PINPOINT_AUTH_DEV_FALLBACK=true`):
+- `/me` without auth → 401 ✓
+- `/me` with `x-user-id` → reaches principal upsert ✓ (DB-down here, but
+  scope binding proven)
+- `/auth/login` with no IdP → 503 ✓
+- `/auth/logout` → 302 ✓
+
+Still pending: a real end-to-end OIDC flow against a live IdP — the
+pieces are wired but the integration test belongs in 12.3. Token-refresh
+on session-cookie expiry is also a follow-up (currently the SPA bounces
+through `/auth/login`).
 
 ## Slice 12.1 status (shipped)
 

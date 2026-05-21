@@ -1,14 +1,17 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Fastify, { type FastifyRequest } from 'fastify';
+import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { Scope, ScopeStore, type RequestToken } from '@pinpoint/framework';
 import { db } from './infrastructure/db.js';
-import { createAppContext } from './app-context.js';
-import { registerMeRoute } from './api/routes/auth/me.route.js';
+import { createAppContext, type AppContext } from './app-context.js';
+import { loadAuthConfig } from './auth/auth-config.js';
+import { SESSION_COOKIE_NAME } from './auth/session-cookie.js';
+import { registerAuthRoutes } from './api/routes/auth/index.js';
 import { registerCountriesRoute } from './api/routes/reference/countries.route.js';
 import { registerClientRoutes } from './api/routes/tenancy/clients/index.js';
 import { registerPartitionRoutes } from './api/routes/tenancy/partitions/index.js';
@@ -88,13 +91,69 @@ function buildAddressVerifierConfig(): AddressVerifierConfig {
   return { provider: 'none' };
 }
 
-function extractRequestToken(req: FastifyRequest): RequestToken | null {
-  // TODO(auth): real OIDC extractor replaces this in a later slice. Dev
-  // fallback honors `x-user-id` so authenticated routes can be exercised
-  // end-to-end without a real IdP, matching fulfil's pattern.
-  const sub = req.headers['x-user-id'];
-  if (typeof sub !== 'string') return null;
-  return { sub };
+/**
+ * Resolve the principal for an inbound request. Order of precedence
+ * mirrors the Rust pinpoint:
+ *
+ *   1. `Authorization: Bearer <jwt>` — validated via the issuer's JWKS.
+ *      Service-to-service callers (CI tooling, the FlowCatalyst platform
+ *      itself) use this path.
+ *   2. Session cookie (`pp_session`) — looks up the stored access token
+ *      and validates that. Browsers use this path after `/auth/login`.
+ *   3. `x-user-id` header — only honoured when
+ *      `PINPOINT_AUTH_DEV_FALLBACK=true`. Convenient for local dev /
+ *      integration tests; should be unset in production.
+ *
+ * Returns `null` when none of the above produce a validated subject —
+ * the request continues anonymously and any route that needs a scope
+ * will 401 via the missing-ScopeStore path.
+ */
+async function extractRequestToken(
+  req: FastifyRequest,
+  appContext: AppContext,
+): Promise<RequestToken | null> {
+  const { tokenValidator, sessionStore, config } = appContext.auth;
+
+  const authHeader = req.headers['authorization'];
+  if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.slice('bearer '.length).trim();
+    if (token.length > 0 && tokenValidator) {
+      try {
+        const claims = await tokenValidator.validate(token);
+        return { sub: claims.sub };
+      } catch (err) {
+        req.log.warn({ err }, 'JWT validation failed');
+      }
+    }
+  }
+
+  const sessionId = req.cookies?.[SESSION_COOKIE_NAME];
+  if (sessionId) {
+    const session = sessionStore.get(sessionId);
+    if (session && session.accessToken.length > 0) {
+      if (tokenValidator) {
+        try {
+          const claims = await tokenValidator.validate(session.accessToken);
+          return { sub: claims.sub };
+        } catch (err) {
+          // Don't try to refresh in the hot path — surface 401 and let
+          // the SPA bounce through /auth/login. Refresh-on-expiry can
+          // land in a follow-up if it turns out to be a UX problem.
+          req.log.info({ err }, 'session access token failed validation');
+        }
+      } else if (session.sub) {
+        // No validator (no OIDC issuer configured) but a session exists.
+        // Trust the stored sub — used only in test setups.
+        return { sub: session.sub };
+      }
+    }
+  }
+
+  if (config.devFallback) {
+    const sub = req.headers['x-user-id'];
+    if (typeof sub === 'string' && sub.length > 0) return { sub };
+  }
+  return null;
 }
 
 async function buildServer() {
@@ -118,17 +177,32 @@ async function buildServer() {
     }
   });
 
-  // onRequest: bind a Scope on ALS for authenticated requests. Mirrors the
-  // shape of @fulfil/framework's `frameworkFastifyPlugin` minus the
-  // Fulfil-specific SLA / Prometheus pieces. Slice 1 introduces real auth.
+  // @fastify/cookie has to be registered BEFORE the onRequest hook that
+  // reads `req.cookies`. The plugin runs as part of Fastify's preHandler
+  // / preValidation chain so onRequest still sees parsed cookies via
+  // request.cookies on hooks registered after `register`.
+  await server.register(fastifyCookie);
+
+  // onRequest: bind a Scope on ALS for authenticated requests. The hook
+  // is callback-style on purpose — calling `done` INSIDE
+  // `ScopeStore.run(scope, done)` is what ties the rest of the request
+  // pipeline to the ALS-bound scope. An `async` hook that returns a
+  // promise hands control back to Fastify OUTSIDE the scope (the
+  // promise resolution happens after `store.run` has exited and
+  // restored the previous ALS context), so subsequent handlers see
+  // undefined. Auth resolution is itself async, so we run it as a
+  // promise and re-enter the callback world via `.then`.
   server.addHook('onRequest', (req, _reply, done) => {
-    const token = extractRequestToken(req);
-    if (token) {
-      const scope = Scope.fromRequest(token);
-      ScopeStore.run(scope, done);
-    } else {
-      done();
-    }
+    extractRequestToken(req, appContext)
+      .then((token) => {
+        if (token) {
+          const scope = Scope.fromRequest(token);
+          ScopeStore.run(scope, done);
+        } else {
+          done();
+        }
+      })
+      .catch((err) => done(err as Error));
   });
 
   await server.register(fastifySwagger, {
@@ -159,7 +233,7 @@ async function buildServer() {
 
   await server.register(fastifySwaggerUi, { routePrefix: '/docs' });
 
-  const appContext = createAppContext({
+  const appContext = await createAppContext({
     db,
     clientId: CLIENT_ID,
     publicBaseUrl: PUBLIC_BASE_URL,
@@ -167,6 +241,7 @@ async function buildServer() {
     geocodingApiUrl: GEOCODING_API_URL,
     geocodingRateLimit: GEOCODING_RATE_LIMIT,
     addressVerifier: buildAddressVerifierConfig(),
+    auth: loadAuthConfig(),
     libpostalUrl: LIBPOSTAL_URL,
   });
 
@@ -176,7 +251,7 @@ async function buildServer() {
     service: 'pinpoint',
   }));
 
-  registerMeRoute(server, appContext);
+  registerAuthRoutes(server, appContext);
   registerCountriesRoute(server, appContext);
   registerClientRoutes(server, appContext);
   registerPartitionRoutes(server, appContext);
