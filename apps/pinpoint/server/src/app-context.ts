@@ -63,15 +63,23 @@ import type { GeocoderService } from './domain/services/geocoder.js';
 import type { AddressVerifier } from './domain/services/address-verifier.js';
 import type { AddressNormalizer } from './domain/services/address-normalizer.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
+import { UpdateClientUseCase } from './operations/update-client/update-client.use-case.js';
+import { DeleteClientUseCase } from './operations/delete-client/delete-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
+import { UpdatePartitionUseCase } from './operations/update-partition/update-partition.use-case.js';
+import { DeletePartitionUseCase } from './operations/delete-partition/delete-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
 import { CreateLayerUseCase } from './operations/create-layer/create-layer.use-case.js';
+import { UpdateLayerUseCase } from './operations/update-layer/update-layer.use-case.js';
+import { DeleteLayerUseCase } from './operations/delete-layer/delete-layer.use-case.js';
 import { CreateLayerFeatureUseCase } from './operations/create-layer-feature/create-layer-feature.use-case.js';
 import { UpdateLayerFeatureUseCase } from './operations/update-layer-feature/update-layer-feature.use-case.js';
 import { DeleteLayerFeatureUseCase } from './operations/delete-layer-feature/delete-layer-feature.use-case.js';
 import { UpdateMatchingConfigUseCase } from './operations/update-matching-config/update-matching-config.use-case.js';
 import { ValidateMasterLocationUseCase } from './operations/validate-master-location/validate-master-location.use-case.js';
 import { ConfirmMasterLocationUseCase } from './operations/confirm-master-location/confirm-master-location.use-case.js';
+import { UpdateMasterLocationUseCase } from './operations/update-master-location/update-master-location.use-case.js';
+import { RejectMasterLocationUseCase } from './operations/reject-master-location/reject-master-location.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, the
@@ -130,15 +138,23 @@ export type AddressVerifierConfig =
 
 export interface AppContextUseCases {
   readonly createClient: CreateClientUseCase;
+  readonly updateClient: UpdateClientUseCase;
+  readonly deleteClient: DeleteClientUseCase;
   readonly createPartition: CreatePartitionUseCase;
+  readonly updatePartition: UpdatePartitionUseCase;
+  readonly deletePartition: DeletePartitionUseCase;
   readonly createLocation: CreateLocationUseCase;
   readonly createLayer: CreateLayerUseCase;
+  readonly updateLayer: UpdateLayerUseCase;
+  readonly deleteLayer: DeleteLayerUseCase;
   readonly createLayerFeature: CreateLayerFeatureUseCase;
   readonly updateLayerFeature: UpdateLayerFeatureUseCase;
   readonly deleteLayerFeature: DeleteLayerFeatureUseCase;
   readonly updateMatchingConfig: UpdateMatchingConfigUseCase;
   readonly validateMasterLocation: ValidateMasterLocationUseCase;
   readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
+  readonly updateMasterLocation: UpdateMasterLocationUseCase;
+  readonly rejectMasterLocation: RejectMasterLocationUseCase;
 }
 
 export interface AppContext {
@@ -268,7 +284,11 @@ export function createAppContext(config: AppContextConfig): AppContext {
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),
+      updateClient: new UpdateClientUseCase(clientRepo),
+      deleteClient: new DeleteClientUseCase(clientRepo),
       createPartition: new CreatePartitionUseCase(clientRepo, partitionRepo),
+      updatePartition: new UpdatePartitionUseCase(partitionRepo),
+      deletePartition: new DeletePartitionUseCase(partitionRepo),
       createLocation: new CreateLocationUseCase(
         clientRepo,
         partitionRepo,
@@ -281,6 +301,8 @@ export function createAppContext(config: AppContextConfig): AppContext {
         processingLogRepo,
       ),
       createLayer: new CreateLayerUseCase(clientRepo, layerRepo),
+      updateLayer: new UpdateLayerUseCase(layerRepo),
+      deleteLayer: new DeleteLayerUseCase(layerRepo),
       createLayerFeature: new CreateLayerFeatureUseCase(layerRepo, layerFeatureRepo),
       updateLayerFeature: new UpdateLayerFeatureUseCase(layerFeatureRepo),
       deleteLayerFeature: new DeleteLayerFeatureUseCase(layerFeatureRepo),
@@ -296,6 +318,8 @@ export function createAppContext(config: AppContextConfig): AppContext {
         layerFeatureRepo,
         processingLogRepo,
       ),
+      updateMasterLocation: new UpdateMasterLocationUseCase(masterLocationRepo),
+      rejectMasterLocation: new RejectMasterLocationUseCase(masterLocationRepo),
     },
     runWrite,
   };

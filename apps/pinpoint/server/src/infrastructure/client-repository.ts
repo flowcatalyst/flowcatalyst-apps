@@ -1,9 +1,13 @@
-import { eq } from 'drizzle-orm';
+import { asc, count, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { asClientId, type ClientId } from '../domain/tenancy/ids.js';
 import type { Client, ClientStatus } from '../domain/tenancy/client.js';
-import type { ClientRepository } from '../domain/tenancy/client.repository.js';
+import type {
+  ClientRepository,
+  ListClientsQuery,
+  ListClientsResult,
+} from '../domain/tenancy/client.repository.js';
 import { clients, type ClientRow } from './schema/clients.js';
 
 function toDomain(row: ClientRow): Client {
@@ -60,6 +64,22 @@ export function createDrizzleClientRepository(db: PostgresJsDatabase): ClientRep
     async findByCode(code: string): Promise<Client | null> {
       const [row] = await db.select().from(clients).where(eq(clients.code, code)).limit(1);
       return row ? toDomain(row) : null;
+    },
+
+    async listAll(query: ListClientsQuery): Promise<ListClientsResult> {
+      const [rows, totalRow] = await Promise.all([
+        db
+          .select()
+          .from(clients)
+          .orderBy(asc(clients.createdAt))
+          .limit(query.limit)
+          .offset(query.offset),
+        db.select({ value: count() }).from(clients),
+      ]);
+      return {
+        clients: rows.map(toDomain),
+        total: Number(totalRow[0]?.value ?? 0),
+      };
     },
   };
 }

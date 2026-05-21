@@ -31,4 +31,9 @@ export const Client = {
       updatedAt: input.now,
     };
   },
+
+  /** Rename a client. Code is immutable. */
+  rename(prior: Client, name: string, now: Date): Client {
+    return { ...prior, name, updatedAt: now };
+  },
 } as const;

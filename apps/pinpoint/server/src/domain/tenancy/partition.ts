@@ -21,6 +21,12 @@ export interface CreatePartitionInput {
   readonly now: Date;
 }
 
+export interface UpdatePartitionInput {
+  readonly name: string;
+  readonly description: string | null;
+  readonly now: Date;
+}
+
 export const Partition = {
   create(input: CreatePartitionInput): Partition {
     return {
@@ -30,6 +36,16 @@ export const Partition = {
       name: input.name,
       description: input.description ?? null,
       createdAt: input.now,
+      updatedAt: input.now,
+    };
+  },
+
+  /** Update partition's name + description. Code is immutable. */
+  update(prior: Partition, input: UpdatePartitionInput): Partition {
+    return {
+      ...prior,
+      name: input.name,
+      description: input.description,
       updatedAt: input.now,
     };
   },

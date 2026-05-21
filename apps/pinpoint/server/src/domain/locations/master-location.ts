@@ -111,4 +111,44 @@ export const MasterLocation = {
       updatedAt: now,
     };
   },
+
+  /**
+   * Manually edit normalized components. Caller is responsible for the
+   * new `addressHash` + `normalizedAddressLine` derivation; we don't
+   * recompute here to keep this pure.
+   */
+  updated(
+    prior: MasterLocation,
+    input: {
+      readonly normalizedHouseNumber: string | null;
+      readonly normalizedRoad: string | null;
+      readonly normalizedSuburb: string | null;
+      readonly normalizedCity: string;
+      readonly normalizedState: string | null;
+      readonly normalizedPostalCode: string | null;
+      readonly normalizedCountry: string;
+      readonly addressHash: string;
+      readonly normalizedAddressLine: string;
+      readonly now: Date;
+    },
+  ): MasterLocation {
+    return {
+      ...prior,
+      normalizedHouseNumber: input.normalizedHouseNumber,
+      normalizedRoad: input.normalizedRoad,
+      normalizedSuburb: input.normalizedSuburb,
+      normalizedCity: input.normalizedCity,
+      normalizedState: input.normalizedState,
+      normalizedPostalCode: input.normalizedPostalCode,
+      normalizedCountry: input.normalizedCountry,
+      addressHash: input.addressHash,
+      normalizedAddressLine: input.normalizedAddressLine,
+      updatedAt: input.now,
+    };
+  },
+
+  /** Transition * → REJECTED. */
+  rejected(prior: MasterLocation, now: Date): MasterLocation {
+    return { ...prior, status: 'REJECTED', updatedAt: now };
+  },
 } as const;

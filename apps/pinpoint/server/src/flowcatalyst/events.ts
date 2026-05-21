@@ -15,9 +15,15 @@ import type { TSchema } from '@sinclair/typebox';
 import type { sync } from '@flowcatalyst/sdk';
 
 import { ClientCreatedEventType } from '../domain/tenancy/events/client-created.event.js';
+import { ClientUpdatedEventType } from '../domain/tenancy/events/client-updated.event.js';
+import { ClientDeletedEventType } from '../domain/tenancy/events/client-deleted.event.js';
 import { PartitionCreatedEventType } from '../domain/tenancy/events/partition-created.event.js';
+import { PartitionUpdatedEventType } from '../domain/tenancy/events/partition-updated.event.js';
+import { PartitionDeletedEventType } from '../domain/tenancy/events/partition-deleted.event.js';
 
 import { LayerCreatedEventType } from '../domain/layers/events/layer-created.event.js';
+import { LayerUpdatedEventType } from '../domain/layers/events/layer-updated.event.js';
+import { LayerDeletedEventType } from '../domain/layers/events/layer-deleted.event.js';
 import { LayerFeatureCreatedEventType } from '../domain/layers/events/layer-feature-created.event.js';
 import { LayerFeatureUpdatedEventType } from '../domain/layers/events/layer-feature-updated.event.js';
 import { LayerFeatureDeletedEventType } from '../domain/layers/events/layer-feature-deleted.event.js';
@@ -27,6 +33,8 @@ import { LocationValidatedEventType } from '../domain/locations/events/location-
 import { MasterLocationCreatedEventType } from '../domain/locations/events/master-location-created.event.js';
 import { MasterLocationGeocodedEventType } from '../domain/locations/events/master-location-geocoded.event.js';
 import { MasterLocationValidatedEventType } from '../domain/locations/events/master-location-validated.event.js';
+import { MasterLocationUpdatedEventType } from '../domain/locations/events/master-location-updated.event.js';
+import { MasterLocationRejectedEventType } from '../domain/locations/events/master-location-rejected.event.js';
 
 import { MatchingConfigUpdatedEventType } from '../domain/matching/events/matching-config-updated.event.js';
 
@@ -46,8 +54,14 @@ export interface PinpointEventTypeDefinition extends sync.EventTypeDefinition {
  */
 export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   ClientCreatedEventType,
+  ClientUpdatedEventType,
+  ClientDeletedEventType,
   PartitionCreatedEventType,
+  PartitionUpdatedEventType,
+  PartitionDeletedEventType,
   LayerCreatedEventType,
+  LayerUpdatedEventType,
+  LayerDeletedEventType,
   LayerFeatureCreatedEventType,
   LayerFeatureUpdatedEventType,
   LayerFeatureDeletedEventType,
@@ -56,5 +70,7 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   MasterLocationCreatedEventType,
   MasterLocationGeocodedEventType,
   MasterLocationValidatedEventType,
+  MasterLocationUpdatedEventType,
+  MasterLocationRejectedEventType,
   MatchingConfigUpdatedEventType,
 ];

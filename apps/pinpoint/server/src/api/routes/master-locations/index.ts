@@ -4,6 +4,8 @@ import { registerValidateMasterLocationRoute } from './validate-master-location.
 import { registerConfirmMasterLocationRoute } from './confirm-master-location.route.js';
 import { registerGetMasterLocationRoute } from './get-master-location.route.js';
 import { registerListMasterLocationsRoute } from './list-master-locations.route.js';
+import { registerRejectMasterLocationRoute } from './reject-master-location.route.js';
+import { registerUpdateMasterLocationRoute } from './update-master-location.route.js';
 
 export function registerMasterLocationRoutes(
   fastify: FastifyInstance,
@@ -13,4 +15,6 @@ export function registerMasterLocationRoutes(
   registerConfirmMasterLocationRoute(fastify, appContext);
   registerGetMasterLocationRoute(fastify, appContext);
   registerListMasterLocationsRoute(fastify, appContext);
+  registerUpdateMasterLocationRoute(fastify, appContext);
+  registerRejectMasterLocationRoute(fastify, appContext);
 }

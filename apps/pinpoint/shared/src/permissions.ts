@@ -15,12 +15,18 @@ export const PinpointPermission = {
   ReferenceCountryRead: 'pinpoint:reference:country:read',
   TenancyClientCreate: 'pinpoint:tenancy:client:create',
   TenancyClientRead: 'pinpoint:tenancy:client:read',
+  TenancyClientUpdate: 'pinpoint:tenancy:client:update',
+  TenancyClientDelete: 'pinpoint:tenancy:client:delete',
   TenancyPartitionCreate: 'pinpoint:tenancy:partition:create',
   TenancyPartitionRead: 'pinpoint:tenancy:partition:read',
+  TenancyPartitionUpdate: 'pinpoint:tenancy:partition:update',
+  TenancyPartitionDelete: 'pinpoint:tenancy:partition:delete',
   LocationsLocationCreate: 'pinpoint:locations:location:create',
   LocationsLocationRead: 'pinpoint:locations:location:read',
   LayersLayerCreate: 'pinpoint:layers:layer:create',
   LayersLayerRead: 'pinpoint:layers:layer:read',
+  LayersLayerUpdate: 'pinpoint:layers:layer:update',
+  LayersLayerDelete: 'pinpoint:layers:layer:delete',
   LayersFeatureCreate: 'pinpoint:layers:feature:create',
   LayersFeatureUpdate: 'pinpoint:layers:feature:update',
   LayersFeatureDelete: 'pinpoint:layers:feature:delete',
@@ -33,6 +39,10 @@ export const PinpointPermission = {
   LocationsMasterLocationValidate: 'pinpoint:locations:master_location:validate',
   /** Canonicalization step (GEOCODED → VALIDATED). Cascades to child locations. */
   LocationsMasterLocationConfirm: 'pinpoint:locations:master_location:confirm',
+  /** Manually edit normalized components of a master location (BFF). */
+  LocationsMasterLocationUpdate: 'pinpoint:locations:master_location:update',
+  /** Manually mark a master location as REJECTED (junk, duplicate, etc.). */
+  LocationsMasterLocationReject: 'pinpoint:locations:master_location:reject',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];

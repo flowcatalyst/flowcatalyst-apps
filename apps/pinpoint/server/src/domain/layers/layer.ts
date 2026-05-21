@@ -36,6 +36,17 @@ export interface CreateLayerInput {
   readonly now: Date;
 }
 
+export interface UpdateLayerInput {
+  readonly name: string;
+  readonly description: string | null;
+  readonly centerLat: number | null;
+  readonly centerLon: number | null;
+  readonly radiusMeters: number | null;
+  readonly polygonGeojson: string | null;
+  readonly status: LayerStatus;
+  readonly now: Date;
+}
+
 export const Layer = {
   create(input: CreateLayerInput): Layer {
     return {
@@ -51,6 +62,21 @@ export const Layer = {
       polygonGeojson: input.polygonGeojson,
       status: 'ACTIVE',
       createdAt: input.now,
+      updatedAt: input.now,
+    };
+  },
+
+  /** Update mutable fields. `code` + `layerType` stay immutable. */
+  update(prior: Layer, input: UpdateLayerInput): Layer {
+    return {
+      ...prior,
+      name: input.name,
+      description: input.description,
+      centerLat: input.centerLat,
+      centerLon: input.centerLon,
+      radiusMeters: input.radiusMeters,
+      polygonGeojson: input.polygonGeojson,
+      status: input.status,
       updatedAt: input.now,
     };
   },

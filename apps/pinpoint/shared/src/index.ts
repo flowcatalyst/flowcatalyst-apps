@@ -2,11 +2,19 @@ export { PinpointPermission } from './permissions.js';
 
 export {
   CreateClientCommandSchema,
+  UpdateClientCommandSchema,
+  DeleteClientCommandSchema,
   type CreateClientCommand,
+  type UpdateClientCommand,
+  type DeleteClientCommand,
 } from './contracts/tenancy/client-contracts.js';
 export {
   CreatePartitionCommandSchema,
+  UpdatePartitionCommandSchema,
+  DeletePartitionCommandSchema,
   type CreatePartitionCommand,
+  type UpdatePartitionCommand,
+  type DeletePartitionCommand,
 } from './contracts/tenancy/partition-contracts.js';
 export {
   CreateLocationCommandSchema,
@@ -15,14 +23,24 @@ export {
 export {
   ValidateMasterLocationCommandSchema,
   ConfirmMasterLocationCommandSchema,
+  UpdateMasterLocationCommandSchema,
+  RejectMasterLocationCommandSchema,
   type ValidateMasterLocationCommand,
   type ConfirmMasterLocationCommand,
+  type UpdateMasterLocationCommand,
+  type RejectMasterLocationCommand,
 } from './contracts/locations/master-location-contracts.js';
 export {
   CreateLayerCommandSchema,
+  UpdateLayerCommandSchema,
+  DeleteLayerCommandSchema,
   LayerKindSchema,
+  LayerStatusSchema,
   type CreateLayerCommand,
+  type UpdateLayerCommand,
+  type DeleteLayerCommand,
   type LayerKind,
+  type LayerStatus,
 } from './contracts/layers/layer-contracts.js';
 export {
   CreateLayerFeatureCommandSchema,
