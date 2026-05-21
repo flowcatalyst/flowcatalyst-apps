@@ -32,5 +32,27 @@ services:
       timeout: 2s
       retries: 20
 
+  # libpostal sidecar — the address normalizer the matching pipeline calls.
+  # Same image the Rust pinpoint targets (pelias/libpostal-service); the
+  # /parse + /expand endpoints are stable so TS + Rust hashes collide for
+  # identical inputs.
+  #
+  # The image is large (~3GB — includes ~1.7GB of libpostal model data).
+  # Healthcheck waits for /parse to respond rather than just for the port,
+  # because the service takes ~30s on first start to load model data into
+  # memory.
+  libpostal:
+    image: pelias/libpostal-service:latest
+    container_name: pinpoint-libpostal
+    restart: unless-stopped
+    ports:
+      - "4400:4400"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4400/parse?address=test"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
 volumes:
   pinpoint-pgdata:

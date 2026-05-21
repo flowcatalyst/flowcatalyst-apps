@@ -23,22 +23,27 @@ import { createDrizzleLocationRepository } from './infrastructure/location-repos
 import { createDrizzleLayerRepository } from './infrastructure/layer-repository.js';
 import { createDrizzleLayerFeatureRepository } from './infrastructure/layer-feature-repository.js';
 import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
+import { createDrizzleMasterLocationRepository } from './infrastructure/master-location-repository.js';
+import { createDrizzleProcessingLogRepository } from './infrastructure/processing-log-repository.js';
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
 import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
 import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
 import { createBedrockVerifier } from './infrastructure/services/bedrock-verifier.js';
 import { createOllamaVerifier } from './infrastructure/services/ollama-verifier.js';
+import { createLibPostalNormalizer } from './infrastructure/services/libpostal-normalizer.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
 import { registerLayer } from './infrastructure/register-layer.js';
 import { registerLayerFeature } from './infrastructure/register-layer-feature.js';
 import { registerMatchingConfig } from './infrastructure/register-matching-config.js';
+import { registerMasterLocation } from './infrastructure/register-master-location.js';
 import { CLIENT_ID_PREFIX, PARTITION_ID_PREFIX } from './domain/tenancy/ids.js';
 import { CLIENT_TYPE } from './domain/tenancy/client.js';
 import { PARTITION_TYPE } from './domain/tenancy/partition.js';
-import { LOCATION_ID_PREFIX } from './domain/locations/ids.js';
+import { LOCATION_ID_PREFIX, MASTER_LOCATION_ID_PREFIX } from './domain/locations/ids.js';
 import { LOCATION_TYPE } from './domain/locations/location.js';
+import { MASTER_LOCATION_TYPE } from './domain/locations/master-location.js';
 import { LAYER_ID_PREFIX, LAYER_FEATURE_ID_PREFIX } from './domain/layers/ids.js';
 import { LAYER_TYPE } from './domain/layers/layer.js';
 import { LAYER_FEATURE_TYPE } from './domain/layers/layer-feature.js';
@@ -52,8 +57,11 @@ import type { LocationRepository } from './domain/locations/location.repository.
 import type { LayerRepository } from './domain/layers/layer.repository.js';
 import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
 import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
+import type { MasterLocationRepository } from './domain/locations/master-location.repository.js';
+import type { ProcessingLogRepository } from './domain/locations/processing-log.repository.js';
 import type { GeocoderService } from './domain/services/geocoder.js';
 import type { AddressVerifier } from './domain/services/address-verifier.js';
+import type { AddressNormalizer } from './domain/services/address-normalizer.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { CreatePartitionUseCase } from './operations/create-partition/create-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
@@ -62,6 +70,8 @@ import { CreateLayerFeatureUseCase } from './operations/create-layer-feature/cre
 import { UpdateLayerFeatureUseCase } from './operations/update-layer-feature/update-layer-feature.use-case.js';
 import { DeleteLayerFeatureUseCase } from './operations/delete-layer-feature/delete-layer-feature.use-case.js';
 import { UpdateMatchingConfigUseCase } from './operations/update-matching-config/update-matching-config.use-case.js';
+import { ValidateMasterLocationUseCase } from './operations/validate-master-location/validate-master-location.use-case.js';
+import { ConfirmMasterLocationUseCase } from './operations/confirm-master-location/confirm-master-location.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, the
@@ -85,11 +95,14 @@ export interface AppContextRepositories {
   readonly layers: LayerRepository;
   readonly layerFeatures: LayerFeatureRepository;
   readonly matchingConfigs: MatchingConfigRepository;
+  readonly masterLocations: MasterLocationRepository;
+  readonly processingLog: ProcessingLogRepository;
 }
 
 export interface AppContextServices {
   readonly geocoder: GeocoderService;
   readonly addressVerifier: AddressVerifier;
+  readonly addressNormalizer: AddressNormalizer;
 }
 
 /**
@@ -124,6 +137,8 @@ export interface AppContextUseCases {
   readonly updateLayerFeature: UpdateLayerFeatureUseCase;
   readonly deleteLayerFeature: DeleteLayerFeatureUseCase;
   readonly updateMatchingConfig: UpdateMatchingConfigUseCase;
+  readonly validateMasterLocation: ValidateMasterLocationUseCase;
+  readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
 }
 
 export interface AppContext {
@@ -162,6 +177,8 @@ export interface AppContextConfig {
   readonly geocodingRateLimit: number;
   /** LLM-backed address-verifier configuration. Default Noop keeps the matching pipeline cred-free. */
   readonly addressVerifier: AddressVerifierConfig;
+  /** Base URL of the libpostal sidecar (`pelias/libpostal-service`). Default `http://localhost:4400`. */
+  readonly libpostalUrl: string;
 }
 
 export function createAppContext(config: AppContextConfig): AppContext {
@@ -179,6 +196,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
     [LAYER_ID_PREFIX]: LAYER_TYPE,
     [LAYER_FEATURE_ID_PREFIX]: LAYER_FEATURE_TYPE,
     [MATCHING_CONFIG_ID_PREFIX]: MATCHING_CONFIG_TYPE,
+    [MASTER_LOCATION_ID_PREFIX]: MASTER_LOCATION_TYPE,
   });
 
   const principalRepo = createDrizzlePrincipalRepository(db);
@@ -189,18 +207,23 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const layerRepo = createDrizzleLayerRepository(db);
   const layerFeatureRepo = createDrizzleLayerFeatureRepository(db);
   const matchingConfigRepo = createDrizzleMatchingConfigRepository(db);
+  const masterLocationRepo = createDrizzleMasterLocationRepository(db);
+  const processingLogRepo = createDrizzleProcessingLogRepository(db);
 
   const rawGeocoder = createPhotonGeocoder({ baseUrl: config.geocodingApiUrl });
   const geocoder = createRateLimitedGeocoder(rawGeocoder, {
     requestsPerSecond: config.geocodingRateLimit,
   });
   const addressVerifier = buildAddressVerifier(config.addressVerifier);
+  const addressNormalizer = createLibPostalNormalizer({ baseUrl: config.libpostalUrl });
+  console.info(`[address-normalizer] provider=libpostal baseUrl=${config.libpostalUrl}`);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
   registerLocation(aggregateRegistry, locationRepo);
   registerLayer(aggregateRegistry, layerRepo);
   registerLayerFeature(aggregateRegistry, layerFeatureRepo);
   registerMatchingConfig(aggregateRegistry, matchingConfigRepo);
+  registerMasterLocation(aggregateRegistry, masterLocationRepo);
 
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
@@ -235,15 +258,28 @@ export function createAppContext(config: AppContextConfig): AppContext {
       layers: layerRepo,
       layerFeatures: layerFeatureRepo,
       matchingConfigs: matchingConfigRepo,
+      masterLocations: masterLocationRepo,
+      processingLog: processingLogRepo,
     },
     services: {
       geocoder,
       addressVerifier,
+      addressNormalizer,
     },
     useCases: {
       createClient: new CreateClientUseCase(clientRepo),
       createPartition: new CreatePartitionUseCase(clientRepo, partitionRepo),
-      createLocation: new CreateLocationUseCase(clientRepo, partitionRepo, locationRepo),
+      createLocation: new CreateLocationUseCase(
+        clientRepo,
+        partitionRepo,
+        locationRepo,
+        masterLocationRepo,
+        matchingConfigRepo,
+        layerFeatureRepo,
+        addressNormalizer,
+        addressVerifier,
+        processingLogRepo,
+      ),
       createLayer: new CreateLayerUseCase(clientRepo, layerRepo),
       createLayerFeature: new CreateLayerFeatureUseCase(layerRepo, layerFeatureRepo),
       updateLayerFeature: new UpdateLayerFeatureUseCase(layerFeatureRepo),
@@ -252,6 +288,13 @@ export function createAppContext(config: AppContextConfig): AppContext {
         clientRepo,
         partitionRepo,
         matchingConfigRepo,
+      ),
+      validateMasterLocation: new ValidateMasterLocationUseCase(masterLocationRepo, geocoder),
+      confirmMasterLocation: new ConfirmMasterLocationUseCase(
+        masterLocationRepo,
+        locationRepo,
+        layerFeatureRepo,
+        processingLogRepo,
       ),
     },
     runWrite,

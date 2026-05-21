@@ -13,6 +13,12 @@ export {
   type CreateLocationCommand,
 } from './contracts/locations/location-contracts.js';
 export {
+  ValidateMasterLocationCommandSchema,
+  ConfirmMasterLocationCommandSchema,
+  type ValidateMasterLocationCommand,
+  type ConfirmMasterLocationCommand,
+} from './contracts/locations/master-location-contracts.js';
+export {
   CreateLayerCommandSchema,
   LayerKindSchema,
   type CreateLayerCommand,

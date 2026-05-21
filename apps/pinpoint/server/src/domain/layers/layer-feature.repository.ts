@@ -39,6 +39,12 @@ export interface SpatialLookupHit {
   readonly polygonPoints: string | null;
 }
 
+export interface LocationFeatureAssociationInput {
+  readonly layerId: string;
+  readonly featureId: string;
+  readonly distanceMeters: number | null;
+}
+
 export interface LayerFeatureRepository {
   persist(aggregate: LayerFeature, tx?: TransactionContext): Promise<LayerFeature>;
   delete(aggregate: LayerFeature, tx?: TransactionContext): Promise<boolean>;
@@ -53,4 +59,18 @@ export interface LayerFeatureRepository {
    * partition and/or layer codes.
    */
   spatialLookup(query: SpatialLookupQuery): Promise<readonly SpatialLookupHit[]>;
+
+  /**
+   * Replace all `location_feature_associations` rows for a location with
+   * the provided set. Used by `confirm-master-location` (cascading
+   * spatial features down to child locations) and by `create-location`
+   * when a created location matches an already-validated master.
+   *
+   * Wraps the operation in a tx so partial writes can't leak.
+   */
+  replaceLocationFeatureAssociations(
+    locationId: string,
+    associations: readonly LocationFeatureAssociationInput[],
+    tx?: TransactionContext,
+  ): Promise<void>;
 }

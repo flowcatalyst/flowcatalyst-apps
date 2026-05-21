@@ -16,6 +16,7 @@ import { registerMatchingConfigRoutes } from './api/routes/matching-config/index
 import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
 import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
 import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
+import { registerMasterLocationRoutes } from './api/routes/master-locations/index.js';
 import type { AddressVerifierConfig } from './app-context.js';
 
 declare module 'fastify' {
@@ -31,6 +32,7 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
+const LIBPOSTAL_URL = process.env['PINPOINT_LIBPOSTAL_URL'] ?? 'http://localhost:4400';
 
 /**
  * LLM provider selection mirrors the Rust pinpoint's `LLM_PROVIDER` /
@@ -128,6 +130,7 @@ async function buildServer() {
         { name: 'Matching', description: 'Matching configs + spatial lookup' },
         { name: 'Geocode', description: 'Forward + reverse geocoding (Photon-backed, rate-limited)' },
         { name: 'Verify', description: 'LLM-backed address-match verification (Bedrock / Ollama / Noop)' },
+        { name: 'MasterLocations', description: 'Master-location lifecycle: geocode (validate) + canonicalize (confirm) + reads' },
       ],
     },
   });
@@ -142,6 +145,7 @@ async function buildServer() {
     geocodingApiUrl: GEOCODING_API_URL,
     geocodingRateLimit: GEOCODING_RATE_LIMIT,
     addressVerifier: buildAddressVerifierConfig(),
+    libpostalUrl: LIBPOSTAL_URL,
   });
 
   // Smoke endpoint — confirms the server boots and reaches steady state.
@@ -161,6 +165,7 @@ async function buildServer() {
   registerSpatialLookupRoutes(server, appContext);
   registerGeocodeRoutes(server, appContext);
   registerVerifyMatchRoutes(server, appContext);
+  registerMasterLocationRoutes(server, appContext);
 
   return server;
 }

@@ -8,22 +8,26 @@ import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
 const NullableString = Type.Optional(Type.Union([Type.String(), Type.Null()]));
 
+/**
+ * Slice 8 shape: free-form `address` plus an optional ISO-A3 `countryCode`
+ * retry hint. The libpostal sidecar (see compose.yaml) parses the address
+ * inside the use case; `raw_*` columns get filled from the parsed
+ * components, not from caller-structured fields. The Slice 3 shape is gone.
+ */
 const CreateLocationBodySchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
   partitionId: NullableString,
   externalId: NullableString,
   name: NullableString,
-  rawAddressLine1: Type.String({ minLength: 1 }),
-  rawAddressLine2: NullableString,
-  rawSuburb: NullableString,
-  rawCity: Type.String({ minLength: 1 }),
-  rawState: NullableString,
-  rawPostalCode: NullableString,
-  rawCountry: Type.String({ minLength: 1 }),
+  address: Type.String({ minLength: 1 }),
+  countryCode: Type.Optional(
+    Type.Union([Type.String({ minLength: 2, maxLength: 3 }), Type.Null()]),
+  ),
 });
 
 const CreateLocationResponseSchema = Type.Object({
   locationId: Type.String(),
+  masterLocationId: Type.String(),
   createdAt: Type.String({ format: 'date-time' }),
 });
 
@@ -80,6 +84,7 @@ export function registerCreateLocationRoute(
       const data = event.getData();
       return reply.code(201).send({
         locationId: data.locationId,
+        masterLocationId: data.masterLocationId ?? '',
         createdAt: event.time.toISOString(),
       });
     },

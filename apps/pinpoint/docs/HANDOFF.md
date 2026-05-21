@@ -43,7 +43,8 @@ The original decision factors stay relevant context:
 | 4 | `13cc964` | Layers + layer-features: `Layer` + `LayerFeature` aggregates, first `commitDelete` user, `POST /layers` + `POST/PUT/DELETE/GET /layer-features`, paged reads. `property_sets`/`properties`/`layer_partitions`/`location_layer_associations` ship as schema-only |
 | 5 | `dac0b43` | PostGIS canary: `MatchingConfig` aggregate + repo + `update-matching-config` use case, `GET/PUT /matching-config`, `POST /spatial-lookup`. Geometry `customType` (with `codec: 'text'` opt-out), GIST indexes on layers/layer_features/countries, country geometry seed (~177 rows). First two Drizzle migrations generated + applied. `docs/spatial-queries.md` captures the pattern |
 | 6 | `5323e76` | External services: Photon `GeocoderService` + Effect 4 `RateLimiter`-backed decorator, `POST /geocode/forward` + `POST /geocode/reverse`, `NormalizedAddress` data type, 25 tests (first in the codebase) covering Photon parsing/error paths/User-Agent/query string + rate-limiter wall-clock behavior + trigram-key stability |
-| 7 | (this commit) | LLM `AddressVerifier`: Bedrock (Vercel AI SDK `generateObject`) + Ollama (native `/api/chat` with JSON-schema `format`) + Noop. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER` / `_MODEL` / `_OLLAMA_URL`). 15 new tests; smoke against local Ollama+gemma4 green |
+| 7 | `b4f6620` | LLM `AddressVerifier`: Bedrock (Vercel AI SDK `generateObject`) + Ollama (native `/api/chat` with JSON-schema `format`) + Noop. `POST /verify-match` debug route. Env-driven provider selection (`PINPOINT_LLM_PROVIDER` / `_MODEL` / `_OLLAMA_URL`). 15 new tests; smoke against local Ollama+gemma4 green |
+| 8 | (this commit) | Master locations + the full matching pipeline. `MasterLocation` aggregate (PENDING/GEOCODED/VALIDATED/REJECTED) + repo + processing_log table. `AddressMatcher` pure module (Jaro-Winkler + 80-entry SUBSTITUTIONS) + `AddressNormalizer` (libpostal HTTP via `pelias/libpostal-service` sidecar, added to `compose.yaml`). Rewritten `create-location` use case running the full Rust pipeline (normalize → hash + fuzzy + matcher → LLM verify → master association OR creation → spatial lookup for VALIDATED-master case → LocationValidated). Two new use cases: `validate-master-location` (geocode) and `confirm-master-location` (canonicalize + cascade). 4 new routes under `/master-locations`. 28 new tests including the Rust matcher unit-test trio. End-to-end smoke green: PENDING → GEOCODED → VALIDATED with EXACT_HASH match on second submission of same address. |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -76,23 +77,26 @@ In order:
 3. This file
 4. `MEMORY.md` — auto-loaded; gives broader context
 
-## Slice 8 spec (if continuing)
+## Next: event-schema sync to FlowCatalyst (small focused commit)
 
-**Master locations + the full matching pipeline.** This is the big one — it consolidates everything slices 3-7 set up.
+Andrew flagged this mid-Slice-8: today `pinpointEventTypes` only sync code/name/description for each event; payload JSON Schemas aren't pushed. The SDK has `client.eventTypes.addSchemaVersion(id, schema)` ready to call. Plan:
 
-- `MasterLocation` aggregate + Drizzle table. The `locations.master_location_id` column has been waiting for this FK since Slice 3; Slice 8 adds the table AND the FK in one migration.
-- `master_locations.point GEOMETRY(Point, 4326)` + GIST index. Backfill migration from Rust 011 (`UPDATE master_locations SET point = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)`) is documented in `docs/spatial-queries.md`.
-- `processing_log` table — port verbatim from Rust 014.
-- Trgm GIN index on `master_locations.normalized_address_line` (the trgm extension was enabled in Slice 5 via `pnpm db:init`).
-- `AddressMatcher` — port the pure Jaro-Winkler + substitution-dictionary algorithm from Rust `address_matcher.rs`. Pure module, no service tag. The 80-entry SUBSTITUTIONS table ships verbatim (Afrikaans → English street types, ZA city aliases, country variants).
-- `AddressNormalizer` — port the `LibPostalNormalizer` (HTTP client for `pelias/libpostal-service`). Decision still open on whether to add the sidecar to `compose.yaml` (matches Rust verbatim, ~3GB container) or use a hosted normalization API. The orphan `pinpoint-libpostal-1` container we saw earlier is from a prior pelias setup — same image, recyclable.
-- Use cases: `confirm-master-location`, `validate-master-location` (calls the `AddressVerifier` from Slice 7), and the chained `create_location` pipeline (normalize → hash + fuzzy → LLM verify → master association → log).
-- Events: `master-location-{confirmed,validated}`, `LocationValidated`.
-- Routes: `POST /master-locations/confirm`, `POST /master-locations/validate`.
-- Wire `POST /spatial-lookup` into `create-location` so a new location auto-populates `location_feature_associations` from the resolved coordinate.
-- Deliverable: end-to-end matching pipeline runnable.
+1. Convert event-data declarations from hand-written TS interfaces to TypeBox (single source of truth for TS types AND JSON Schema — same trick we use for routes).
+2. Extend `scripts/sync-flowcatalyst.ts` to call `addSchemaVersion(...)` per event after the DefinitionSet sync.
 
-This is the slice where Slice 3's "~85% of the Rust create_location.rs pipeline deferred" finally lands. Expect it to be bigger than slices 4-7 individually.
+Scope is ~10 files. Land it before Slice 9 so the validation worker's event types ship with schemas from day one.
+
+## Slice 9 spec (after schema-sync)
+
+**Validation worker (FlowCatalyst-scheduled job).** Periodic worker that picks up GEOCODED master_locations and runs `confirm-master-location` on each. The use case + route are already in place (Slice 8); Slice 9 is the platform-scheduled-job webhook that drives the batch.
+
+- Add to `flowcatalyst/scheduled-jobs.ts`: `{ code: 'pinpoint-validate-master-locations', schedule: '*/5 * * * *', target: '${publicBaseUrl}/jobs/validate-master-locations' }`.
+- Webhook handler `POST /jobs/validate-master-locations`:
+  - HMAC verification via `flowcatalystWebhookAuthHook`.
+  - `runJob(...)` with `SystemIdentity.SCHEDULER`.
+  - Iterate `master_locations WHERE status='GEOCODED'`, call `confirm-master-location` for each.
+- Run `pnpm flowcatalyst:sync` to register the scheduled job.
+- Deliverable: platform-driven scheduled validation; retries + observability come from the platform.
 
 ## Gotchas
 

@@ -273,20 +273,27 @@ Migrations: `003_matching_config.sql`, `011_spatial_matching.sql` (partial — b
 - Env: `PINPOINT_LLM_PROVIDER` (none / bedrock / ollama), `PINPOINT_LLM_MODEL`, `PINPOINT_OLLAMA_URL`, `AWS_REGION`
 - **Deliverable**: LLM verifier callable end-to-end against local Ollama; tests green; Bedrock impl present but not smoke-tested (no credentials path here)
 
-### Slice 8 — Master locations + matching pipeline
+### Slice 8 — Master locations + matching pipeline — **DONE** (this commit)
 
-Now consolidating: AddressMatcher (algorithm), AddressNormalizer (libpostal sidecar), MasterLocation table, and the chained `create_location` pipeline (~600 lines in Rust) all land together because they depend on each other.
+**Scope adjustments applied:**
+- libpostal: added pelias/libpostal-service to `compose.yaml` (matches Rust verbatim). ~3GB image but the parsing/expand wire shape is identical so TS + Rust hashes collide for the same input. Env: `PINPOINT_LIBPOSTAL_URL` (defaults to `http://localhost:4400`).
+- `AddressMatcher`: pure module, no service Tag — `findMatch(input, hash, candidates, thresholds)`. Takes a narrow `MatchThresholds` interface rather than the full `MatchingConfig` aggregate, so tests + future call sites can pass a bare threshold record. Jaro-Winkler is hand-ported (no external dep).
+- `create-location` command shape changed from Slice 3's structured raw_* fields to the Rust shape: a free-form `address` string + optional ISO-A3 `countryCode` retry hint. The libpostal sidecar parses the address inside the use case; raw_* columns get filled from the parsed components.
+- `processing_log` entries don't land on the no-match path — same as Rust. The append fires BEFORE the master commits, so the FK fails (silently — both Rust and TS swallow the error). The pipeline still works correctly; the log table just won't show entries for new masters. Fix path: have `ProcessingLogRepository.append` resolve `TransactionStore` for the bound tx; deferred.
+- `LocationCreatedData` event grew a `masterLocationId` field — the new pipeline always has one (existing match OR fresh creation), so downstream consumers don't need to refetch.
+- Geometry-write gotcha: when latitude/longitude are NULL (PENDING masters), the embedded `${value}` parameters are uninferrable; the repo branches to `NULL::geometry` instead of `CASE WHEN ... END`. Pre-cast on both branches when writing PostGIS columns under a conditional — Postgres rejects untyped NULLs in those positions.
+- `POST /spatial-lookup` wired into `create-location`'s match path: when matched master is VALIDATED, the spatial lookup runs at the master's coords + `location_feature_associations` get written + a LocationValidated event emits alongside the LocationCreated. Same shape as the confirm-cascade.
 
-Migrations: `master_locations` table + FK from `locations.master_location_id`; `processing_log` table from Rust 014; `master_locations.point` GEOMETRY column + GIST index + lat/lon backfill from Rust 011; trgm GIN index on `master_locations.normalized_address_line`.
 
-- Aggregate: `MasterLocation`
-- Algorithm (no Tag): `AddressMatcher` — port verbatim from Rust including the 80-entry SUBSTITUTIONS table (Afrikaans → English street types, ZA city aliases, country variants)
-- Service: `AddressNormalizer` — port `LibPostalNormalizer` (HTTP client for `pelias/libpostal-service`). Decision: add the sidecar to `compose.yaml` (matches Rust verbatim, ~3GB container) vs. a hosted normalization API.
-- Use cases: `confirm-master-location`, `validate-master-location` (calls Slice 7's `AddressVerifier`), and the chained `create_location` pipeline (normalize → hash + fuzzy → LLM verify → master association → log)
-- Events: `master-location-{confirmed,validated}`, `LocationValidated`
-- Routes: `POST /master-locations/confirm`, `POST /master-locations/validate`
-- Wire `POST /spatial-lookup` into `create-location` so a new location auto-populates `location_feature_associations` from the resolved coordinate
-- **Deliverable**: end-to-end matching pipeline; the slice where Slice 3's "~85% of `create_location.rs` deferred" finally lands. Expect significantly larger than slices 4-7 individually.
+Migrations: one Drizzle migration adds `master_locations` (with `point GEOMETRY(Point, 4326)` + GIST + trgm GIN on `normalized_address_line`), `processing_log`, `raw_suburb`/`normalized_suburb` on `locations`, and the deferred `locations.master_location_id` FK to `master_locations(id)`.
+
+- Aggregates: `MasterLocation` (PENDING/GEOCODED/VALIDATED/REJECTED)
+- Algorithm (no Tag): `AddressMatcher` — Jaro-Winkler + 80-entry SUBSTITUTIONS table verbatim from Rust
+- Service: `AddressNormalizer` — `LibPostalNormalizer` (HTTP client for the pelias/libpostal-service sidecar in compose.yaml)
+- Use cases: `confirm-master-location` (canonicalize + cascade), `validate-master-location` (geocode via Photon), rewritten `create-location` (full Rust pipeline)
+- Events: `master-location-{created,geocoded,validated}`, `LocationValidated`
+- Routes: `POST /master-locations/:id/validate`, `POST /master-locations/:id/confirm`, `GET /master-locations/:id`, paged `GET /master-locations?clientId=…`
+- **Deliverable**: end-to-end matching pipeline runnable. Full smoke green: PENDING → GEOCODED → VALIDATED with EXACT_HASH dedup on repeat addresses.
 
 ### Slice 9 — Validation worker (FlowCatalyst scheduled job)
 

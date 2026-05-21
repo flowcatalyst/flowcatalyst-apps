@@ -28,6 +28,11 @@ export const PinpointPermission = {
   MatchingConfigRead: 'pinpoint:matching:config:read',
   MatchingConfigManage: 'pinpoint:matching:config:manage',
   MatchingSpatialLookup: 'pinpoint:matching:spatial:lookup',
+  LocationsMasterLocationRead: 'pinpoint:locations:master_location:read',
+  /** Geocode-only step (PENDING → GEOCODED). Despite the name, this is the geocoding gate. */
+  LocationsMasterLocationValidate: 'pinpoint:locations:master_location:validate',
+  /** Canonicalization step (GEOCODED → VALIDATED). Cascades to child locations. */
+  LocationsMasterLocationConfirm: 'pinpoint:locations:master_location:confirm',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];
