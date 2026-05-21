@@ -4,9 +4,9 @@
 
 ## Status (2026-05-21)
 
-- **HEAD:** `194d447` Slice 10c hygiene (BFF confirm-geocode + match-features single + bulk)
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene) + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** 11 (Vue lift), 12 (cutover + testcontainers backfill).
+- **HEAD:** Slice 11 (Vue SPA lift) — `pinpoint-web` ported to `apps/pinpoint/web`, `pnpm dev` smoke green
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11 + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** 12 (cutover + testcontainers backfill).
 - **Workspaces:** 12, all `pnpm -r typecheck` clean
 - **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
 - **Drizzle migrations:** two generated, applied (schema + countries/global-default seed) — see `apps/pinpoint/server/drizzle/`
@@ -121,22 +121,32 @@ Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58b
 
 BFF auth still on the `x-user-id` dev fallback — real OIDC + cookie sessions land in Slice 12.
 
-## Slice 11 spec (next up)
+## Slice 11 status (shipped)
 
-**Vue SPA lift.** Copy `~/Developer/tangent/pinpoint/pinpoint-web/` →
-`apps/pinpoint/web/`, rename `package.json` → `@pinpoint/web`, retarget
-the API base URL to the local pinpoint server, smoke `pnpm -F @pinpoint/web dev`.
+**Vue SPA lift.** `pinpoint-web/` lifted into `apps/pinpoint/web/`. The
+SPA boots clean on `pnpm -F @pinpoint/web dev` (Vite 7, HTTP 200 on `/`),
+typechecks under the monorepo's TS 6 + vue-tsc 2.2 catalog.
 
-Anticipated gotchas:
-- The SPA's API client likely depends on response shapes from the Rust
-  BFF. Most BFF responses are now Rust-parity, but a handful diverge
-  (PropertySet enforces one-per-layer at the BFF; principal-partition
-  list grew a `grantedAt` timestamp). Surface any drifts as SPA fixes.
-- Build tooling (Vite + Vue) is new to this monorepo — wire it through
-  pnpm-workspace.yaml and the catalog where it makes sense.
-- The SPA's auth flow uses session cookies (Rust BFF). For the TS port,
-  the `x-user-id` dev fallback will work; real OIDC + cookie sessions
-  land alongside cutover in Slice 12.
+What changed vs the Rust source:
+- `package.json` adopted monorepo conventions: catalog refs for
+  `typescript` / `vitest` / `@types/node`, dropped the standalone
+  `oxlint`/`oxfmt` scripts (vite-plus handles fmt/lint at the root), no
+  per-package `pnpm.onlyBuiltDependencies` (root workspace owns that).
+- `zod` pinned to `^3.25.0` (was `^4.1.13`). The whole monorepo runs on
+  zod 3; adding zod 4 caused pnpm to produce two `drizzle-orm` peer
+  trees (one bound to zod 3, one to zod 4), which surfaced as cross-
+  workspace nominal-type errors in `@fulfil/server`'s drizzle calls.
+  `@vee-validate/zod@4` happily supports zod 3, so the downgrade is a
+  no-op for the SPA.
+- `PpLayerEditor.vue` emits switched from kebab-case (`"point-change"`,
+  `"radius-change"`, `"polygon-change"`) to camelCase to satisfy
+  vue-tsc 2.2's stricter typed-`defineEmits` checks. Template binding
+  is unchanged (Vue auto-converts).
+
+Vite dev proxies `/bff`, `/api`, `/auth` → `http://localhost:3000` to
+hit the local pinpoint server. The SPA still uses the BFF cookie-auth
+flow; with the dev server fallback (`x-user-id`) it expects real OIDC
+in Slice 12, so most write surfaces will 401 until then.
 
 ## Gotchas
 
