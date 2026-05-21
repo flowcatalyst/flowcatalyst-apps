@@ -14,7 +14,9 @@
  * countries/global-default seed survives across tests so the matching
  * pipeline doesn't have to reseed each time.
  */
-import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -63,6 +65,33 @@ async function bootstrap(): Promise<DbFixtureState> {
   // App-side connection — reopens so the search_path ALTER takes effect.
   const sql = postgres(url);
   const db = drizzle({ client: sql });
+
+  // Apply the SDK's outbox_messages migration before pinpoint's own
+  // migrations — anything that calls commitAggregate writes to it via
+  // DrizzleOutboxDriver. The SDK ships the .sql alongside its dist; we
+  // resolve the main entry and walk up so pnpm's content-hashed install
+  // path isn't hard-coded. (The SDK's package.json doesn't expose
+  // `./package.json` in its exports map, so we can't resolve that
+  // directly.)
+  // ESM resolution honours the SDK's `exports` map; CJS `require.resolve`
+  // doesn't, which is why we use `import.meta.resolve` here.
+  const sdkEntryUrl = import.meta.resolve('@flowcatalyst/sdk');
+  const sdkEntry = fileURLToPath(sdkEntryUrl);
+  // SDK ships as <root>/dist/index.js — two dirs up gets us <root>.
+  const sdkRoot = dirname(dirname(sdkEntry));
+  const outboxMigration = await readFile(
+    resolve(sdkRoot, 'migrations/postgresql/001_create_outbox_messages.sql'),
+    'utf8',
+  );
+  // Force the outbox_messages table + its indexes into the `pinpoint`
+  // schema so cleanDb's TRUNCATE picks it up. Without this, the SDK
+  // migration runs unqualified and lands in whatever search_path[0] is
+  // at session-start, which depends on whether the role's ALTER had
+  // propagated yet — flaky.
+  const qualifiedMigration = outboxMigration
+    .replace(/\bCREATE TABLE outbox_messages\b/g, `CREATE TABLE "${SCHEMA}"."outbox_messages"`)
+    .replace(/\bON outbox_messages\b/g, `ON "${SCHEMA}"."outbox_messages"`);
+  await sql.unsafe(qualifiedMigration);
 
   await migrate(db, { migrationsFolder: DRIZZLE_DIR, migrationsSchema: SCHEMA });
 

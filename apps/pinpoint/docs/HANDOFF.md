@@ -4,11 +4,11 @@
 
 ## Status (2026-05-21)
 
-- **HEAD:** Slice 12.2 (OIDC + cookie sessions) — `/auth/login`, `/auth/callback`, `/auth/logout` wired with openid-client v6 + jose-backed JWT validation; in-memory session store; `x-user-id` dev fallback gated behind `PINPOINT_AUTH_DEV_FALLBACK=true`.
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2 + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** 12.3 (testcontainers integration-test backfill).
+- **HEAD:** Slice 12.3 (integration-test harness) — testcontainers-backed PG; 25 integration tests across 4 repos + 2 use cases land alongside the existing 83 unit tests. Harness + pattern documented in `docs/integration-testing.md`; ~18 use cases + ~8 repos still to backfill, but no new harness work needed.
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2, 12.3 (harness + representative spread) + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** rest of the integration-test backfill (mechanical, follow the docs); production cutover items as needed.
 - **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
-- **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
+- **Tests:** 83 unit (`pnpm test`) + 25 integration (`pnpm test:integration`, needs Docker)
 - **Drizzle migrations:** three generated, applied (schema + countries/global-default seed + 10c flashy_ricochet) — see `apps/pinpoint/server/drizzle/`
 - **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`). Production: `docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the repo root brings up the full stack.
 
@@ -121,6 +121,57 @@ Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58b
 
 BFF auth is now OIDC-backed (Slice 12.2); the `x-user-id` dev fallback
 stays available behind `PINPOINT_AUTH_DEV_FALLBACK=true` for local dev.
+
+## Slice 12.3 status (shipped — harness + representative spread)
+
+**Testcontainers-backed integration harness.** See
+`docs/integration-testing.md` for the long-form. New surface:
+
+- `test/integration/db-fixture.ts` — one PostGIS testcontainer per
+  test run, mirrors `scripts/db-init.ts` (schema + postgis + pg_trgm +
+  role search_path) then applies the SDK's `outbox_messages` migration
+  (rewritten on the fly to fully-qualify into the `pinpoint` schema)
+  and the pinpoint drizzle migrations. `cleanDb()` truncates every
+  table via a single `TRUNCATE … RESTART IDENTITY CASCADE`.
+- `test/integration/test-app-context.ts` — builds a real `AppContext`
+  on the testcontainer DB + a `runInScope` helper that binds a
+  `ScopeStore` around use-case calls.
+- `vitest.integration.config.ts` — separate config, picks up only
+  `test/integration/**/*.test.ts`, `fileParallelism: false` (one
+  container shared across the run).
+- New scripts: `pnpm test:integration` (slow, needs Docker),
+  `pnpm test:all` (unit + integration). `pnpm test` stays unit-only.
+
+Tests added (representative spread, not exhaustive):
+- **Repos**: Client, Partition, Principal (incl. grant/revoke), Layer
+  (PostGIS round-trip).
+- **Use cases**: create-client (happy + duplicate), replace-property-
+  set-properties (happy + cap-6 + duplicate-key).
+
+25 integration tests pass, ~30s total (most of that container boot).
+83 unit tests still pass; full workspace typecheck still clean.
+
+Not yet backfilled (mechanical follow-up — patterns are documented):
+~8 repos (Country, Location, LayerFeature, MatchingConfig,
+MasterLocation, ProcessingLog, LocationAttribute, PropertySet) and
+~18 use cases (the create-location matching pipeline is the chunkiest
+remaining one). Live-IdP end-to-end OIDC smoke also still open.
+
+Three gotchas baked into the harness, worth knowing before you add to
+it:
+- **outbox_messages lives in the SDK, not pinpoint's migrations.** The
+  fixture loads it via `import.meta.resolve('@flowcatalyst/sdk')` (NOT
+  `require.resolve(...package.json)` — the SDK's exports map doesn't
+  expose package.json) and walks two dirs up from the resolved
+  `dist/index.js`. The SQL is rewritten on the fly to qualify the
+  table into the `pinpoint` schema so cleanDb truncates it.
+- **`outbox_messages.type` is the message-kind discriminator**
+  (`EVENT` / `AUDIT_LOG` / `DISPATCH_JOB`). The CloudEvents event-type
+  code lives in `payload::jsonb->>'type'`. Filter on both.
+- **`createRequire` doesn't resolve ESM-only packages with `exports`
+  maps.** That tripped a chunk of time in the fixture build — use
+  `import.meta.resolve` for ESM-only deps. Documented in the harness
+  comment.
 
 ## Slice 12.2 status (shipped)
 

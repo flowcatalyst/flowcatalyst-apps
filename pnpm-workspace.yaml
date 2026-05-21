@@ -4,11 +4,15 @@ packages:
   - 'packages/*'
 
 allowBuilds:
-  cpu-features: set this to true or false
+  # testcontainers (used by @pinpoint/server integration tests) brings in
+  # cpu-features + ssh2 for Docker-over-SSH; protobufjs is also a
+  # transitive dep with build scripts. None of them run at app runtime,
+  # only at install time to compile native bindings.
+  cpu-features: true
   esbuild: true
   msgpackr-extract: true
-  protobufjs: set this to true or false
-  ssh2: set this to true or false
+  protobufjs: true
+  ssh2: true
 
 # Centralised dependency versions. Reference with `"effect": "catalog:"` etc.
 # Bump here once instead of in every package.
