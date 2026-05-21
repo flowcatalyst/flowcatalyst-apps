@@ -8,6 +8,7 @@ import type {
   MasterLocationStatus,
 } from '../domain/locations/master-location.js';
 import type {
+  ApplyConfirmedGeocodeInput,
   FindUnvalidatedQuery,
   FindUnvalidatedResult,
   ListMasterLocationsQuery,
@@ -221,6 +222,28 @@ export function createDrizzleMasterLocationRepository(
         .orderBy(asc(masterLocations.createdAt))
         .limit(limit);
       return rows.map(toDomain);
+    },
+
+    async applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void> {
+      const point = sql`ST_SetSRID(ST_MakePoint(${input.longitude}::double precision, ${input.latitude}::double precision), 4326)`;
+      await db
+        .update(masterLocations)
+        .set({
+          normalizedHouseNumber: input.normalizedHouseNumber,
+          normalizedRoad: input.normalizedRoad,
+          normalizedSuburb: input.normalizedSuburb,
+          normalizedCity: input.normalizedCity,
+          normalizedState: input.normalizedState,
+          normalizedPostalCode: input.normalizedPostalCode,
+          normalizedCountry: input.normalizedCountry,
+          addressHash: input.addressHash,
+          normalizedAddressLine: input.normalizedAddressLine,
+          latitude: input.latitude,
+          longitude: input.longitude,
+          point: point as never,
+          updatedAt: new Date(),
+        })
+        .where(eq(masterLocations.id, input.masterLocationId));
     },
 
     async findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult> {

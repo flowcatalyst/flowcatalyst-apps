@@ -13,6 +13,7 @@ import type {
 } from '../domain/layers/layer-feature.js';
 import type {
   FeatureAssociation,
+  FindFeaturesContainingPointQuery,
   LayerFeatureRepository,
   ListLayerFeaturesQuery,
   ListLayerFeaturesResult,
@@ -277,6 +278,59 @@ export function createDrizzleLayerFeatureRepository(
         .update(layerFeatures)
         .set({ status, updatedAt: new Date() })
         .where(eq(layerFeatures.id, featureId));
+    },
+
+    async findFeaturesContainingPoint(
+      query: FindFeaturesContainingPointQuery,
+    ): Promise<readonly FeatureAssociation[]> {
+      // Same containment predicate as the RADIUS/POLYGON half of
+      // `spatialLookup`, but without the POINT-nearest UNION. Used by
+      // match-features (single + bulk) — we want only features that
+      // actually contain the point.
+      const queryPoint = sql`ST_SetSRID(ST_MakePoint(${query.longitude}, ${query.latitude}), 4326)`;
+
+      const partitionFilter =
+        query.partitionId == null
+          ? sql`AND NOT EXISTS (SELECT 1 FROM layer_partitions lp WHERE lp.layer_id = l.id)`
+          : sql`AND (
+              NOT EXISTS (SELECT 1 FROM layer_partitions lp WHERE lp.layer_id = l.id)
+              OR EXISTS (
+                SELECT 1 FROM layer_partitions lp
+                WHERE lp.layer_id = l.id AND lp.partition_id = ${query.partitionId}
+              )
+            )`;
+
+      const rows = (await db.execute(sql<{
+        feature_id: string;
+        layer_id: string;
+        layer_name: string;
+        label: string;
+      }>`
+        SELECT lf.id AS feature_id, lf.layer_id, l.name AS layer_name, lf.label
+        FROM layer_features lf
+        JOIN layers l ON l.id = lf.layer_id
+        WHERE l.client_id = ${query.clientId}
+          AND l.status = 'ACTIVE'
+          AND lf.status = 'ACTIVE'
+          AND l.layer_type IN ('RADIUS', 'POLYGON')
+          AND lf.boundary IS NOT NULL
+          AND ST_Intersects(lf.boundary, ${queryPoint})
+          ${partitionFilter}
+        ORDER BY l.name, lf.label
+      `)) as unknown as ReadonlyArray<{
+        feature_id: string;
+        layer_id: string;
+        layer_name: string;
+        label: string;
+      }>;
+
+      return rows.map((r) => ({
+        layerFeatureId: r.feature_id,
+        layerId: r.layer_id,
+        layerName: r.layer_name,
+        featureLabel: r.label,
+        distanceMeters: null,
+      }));
     },
 
     async findFeatureAssociations(

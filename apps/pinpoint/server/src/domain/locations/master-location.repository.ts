@@ -68,6 +68,32 @@ export interface MasterLocationRepository {
    * `GET /master-locations/unvalidated`. Ordered by id, asc or desc.
    */
   findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult>;
+
+  /**
+   * Atomic update of normalized address fields + addressHash +
+   * normalizedAddressLine + lat/lon (incl. the derived PostGIS `point`
+   * column). Used by the BFF `confirm-geocode` flow where the SPA
+   * confirms a reverse-geocode suggestion — Rust's
+   * `update_address_with_coordinates`. Plain repo write with no event:
+   * the subsequent `confirm-master-location` call emits MasterLocation
+   * Validated, which is the load-bearing event for downstream consumers.
+   */
+  applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void>;
+}
+
+export interface ApplyConfirmedGeocodeInput {
+  readonly masterLocationId: MasterLocationId;
+  readonly normalizedHouseNumber: string | null;
+  readonly normalizedRoad: string | null;
+  readonly normalizedSuburb: string | null;
+  readonly normalizedCity: string;
+  readonly normalizedState: string | null;
+  readonly normalizedPostalCode: string | null;
+  readonly normalizedCountry: string;
+  readonly addressHash: string;
+  readonly normalizedAddressLine: string;
+  readonly latitude: number;
+  readonly longitude: number;
 }
 
 export interface FindUnvalidatedQuery {

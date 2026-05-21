@@ -98,4 +98,23 @@ export interface LayerFeatureRepository {
    * use case.
    */
   setStatus(featureId: LayerFeatureId, status: 'ACTIVE' | 'INACTIVE'): Promise<void>;
+
+  /**
+   * Containment-only spatial lookup — features whose boundary contains
+   * the point via `ST_Intersects`. Excludes the POINT-nearest half of
+   * `spatialLookup`. Used by the BFF `match-features` endpoints (single
+   * + bulk) to re-associate child locations with their matched
+   * features. `distanceMeters` is always null in the result (it's a
+   * containment match, not a distance match).
+   */
+  findFeaturesContainingPoint(
+    query: FindFeaturesContainingPointQuery,
+  ): Promise<readonly FeatureAssociation[]>;
+}
+
+export interface FindFeaturesContainingPointQuery {
+  readonly clientId: ClientId;
+  readonly partitionId: PartitionId | null;
+  readonly latitude: number;
+  readonly longitude: number;
 }
