@@ -81,5 +81,10 @@ export function createDrizzleClientRepository(db: PostgresJsDatabase): ClientRep
         total: Number(totalRow[0]?.value ?? 0),
       };
     },
+
+    async count(): Promise<number> {
+      const [row] = await db.select({ value: count() }).from(clients);
+      return Number(row?.value ?? 0);
+    },
   };
 }

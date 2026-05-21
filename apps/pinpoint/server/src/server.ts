@@ -19,6 +19,7 @@ import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
 import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
 import { registerMasterLocationRoutes } from './api/routes/master-locations/index.js';
 import { registerJobsRoutes } from './api/routes/jobs/index.js';
+import { registerBffRoutes } from './api/routes/bff/index.js';
 import type { AddressVerifierConfig } from './app-context.js';
 
 declare module 'fastify' {
@@ -140,6 +141,7 @@ async function buildServer() {
         { name: 'Verify', description: 'LLM-backed address-match verification (Bedrock / Ollama / Noop)' },
         { name: 'MasterLocations', description: 'Master-location lifecycle: geocode (validate) + canonicalize (confirm) + reads' },
         { name: 'Jobs', description: 'FlowCatalyst-scheduled job webhooks (HMAC-verified)' },
+        { name: 'BFF', description: 'UI-shaped endpoints for the Vue SPA (mounted under /bff/...)' },
       ],
     },
   });
@@ -179,6 +181,7 @@ async function buildServer() {
   registerJobsRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });
+  registerBffRoutes(server, appContext);
 
   return server;
 }

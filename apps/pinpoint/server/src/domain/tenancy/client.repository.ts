@@ -19,4 +19,7 @@ export interface ClientRepository {
   findById(id: ClientId): Promise<Client | null>;
   findByCode(code: string): Promise<Client | null>;
   listAll(query: ListClientsQuery): Promise<ListClientsResult>;
+
+  /** Total client count. Used by the BFF dashboard. */
+  count(): Promise<number>;
 }
