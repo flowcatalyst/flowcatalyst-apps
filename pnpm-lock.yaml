@@ -828,7 +828,7 @@ packages:
       typebox: ^1.0.13
 
   '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76':
-    resolution: {gitHosted: true, integrity: sha512-6q8WWlVmHL5yMEbB89hb7badHKC6jWPbx8AEyXKLe2V8YNXCxEGoifr5+13MRZXn3ATzy83FKk7Anol6xjeWyA==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/56f7933e6ca0bd0cd63d5bafc874d25cd7176a76}
     version: 0.6.8
     engines: {node: '>=18.0.0'}
     peerDependencies:

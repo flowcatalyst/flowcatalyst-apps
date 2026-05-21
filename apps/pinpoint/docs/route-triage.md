@@ -76,9 +76,7 @@ Operations the existing TS port doesn't have but the BFF surface needs:
 | `create-property-set`              | PropertySet (new aggregate) | first non-schema-only use case for PropertySet (Slice 4 deferred this) |
 | `update-property-set`              | PropertySet        | |
 | `delete-property-set`              | PropertySet        | cascade: properties cascade |
-| `create-property`                  | Property (new aggregate)   | key+value under a property set |
-| `update-property`                  | Property           | |
-| `delete-property`                  | Property           | |
+| `replace-property-set-properties`  | PropertySet        | bulk PUT of all properties on a set; matches Rust BFF's single `replace_properties` op (cap 6). No per-Property aggregate — properties are child entities managed inline. |
 | `assign-principal-to-partition`    | PrincipalPartition (new aggregate) | grants UI partition access |
 | `revoke-principal-from-partition`  | PrincipalPartition | |
 | `update-location-attribute`        | LocationAttribute (new aggregate) | first non-schema-only use case for LocationAttribute (Slice 3 deferred) |

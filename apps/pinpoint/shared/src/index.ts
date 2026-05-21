@@ -51,6 +51,18 @@ export {
   type DeleteLayerFeatureCommand,
 } from './contracts/layers/layer-feature-contracts.js';
 export {
+  CreatePropertySetCommandSchema,
+  UpdatePropertySetCommandSchema,
+  DeletePropertySetCommandSchema,
+  ReplacePropertySetPropertiesCommandSchema,
+  PropertyInputSchema,
+  type CreatePropertySetCommand,
+  type UpdatePropertySetCommand,
+  type DeletePropertySetCommand,
+  type ReplacePropertySetPropertiesCommand,
+  type PropertyInput,
+} from './contracts/layers/property-set-contracts.js';
+export {
   UpdateMatchingConfigCommandSchema,
   type UpdateMatchingConfigCommand,
 } from './contracts/matching/matching-config-contracts.js';

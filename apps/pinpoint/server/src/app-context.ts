@@ -22,6 +22,7 @@ import { createDrizzlePartitionRepository } from './infrastructure/partition-rep
 import { createDrizzleLocationRepository } from './infrastructure/location-repository.js';
 import { createDrizzleLayerRepository } from './infrastructure/layer-repository.js';
 import { createDrizzleLayerFeatureRepository } from './infrastructure/layer-feature-repository.js';
+import { createDrizzlePropertySetRepository } from './infrastructure/property-set-repository.js';
 import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
 import { createDrizzleMasterLocationRepository } from './infrastructure/master-location-repository.js';
 import { createDrizzleProcessingLogRepository } from './infrastructure/processing-log-repository.js';
@@ -36,6 +37,7 @@ import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
 import { registerLayer } from './infrastructure/register-layer.js';
 import { registerLayerFeature } from './infrastructure/register-layer-feature.js';
+import { registerPropertySet } from './infrastructure/register-property-set.js';
 import { registerMatchingConfig } from './infrastructure/register-matching-config.js';
 import { registerMasterLocation } from './infrastructure/register-master-location.js';
 import { CLIENT_ID_PREFIX, PARTITION_ID_PREFIX } from './domain/tenancy/ids.js';
@@ -44,9 +46,14 @@ import { PARTITION_TYPE } from './domain/tenancy/partition.js';
 import { LOCATION_ID_PREFIX, MASTER_LOCATION_ID_PREFIX } from './domain/locations/ids.js';
 import { LOCATION_TYPE } from './domain/locations/location.js';
 import { MASTER_LOCATION_TYPE } from './domain/locations/master-location.js';
-import { LAYER_ID_PREFIX, LAYER_FEATURE_ID_PREFIX } from './domain/layers/ids.js';
+import {
+  LAYER_ID_PREFIX,
+  LAYER_FEATURE_ID_PREFIX,
+  PROPERTY_SET_ID_PREFIX,
+} from './domain/layers/ids.js';
 import { LAYER_TYPE } from './domain/layers/layer.js';
 import { LAYER_FEATURE_TYPE } from './domain/layers/layer-feature.js';
+import { PROPERTY_SET_TYPE } from './domain/layers/property-set.js';
 import { MATCHING_CONFIG_ID_PREFIX } from './domain/matching/ids.js';
 import { MATCHING_CONFIG_TYPE } from './domain/matching/matching-config.js';
 import type { PrincipalRepository } from './domain/auth/principal.repository.js';
@@ -56,6 +63,7 @@ import type { PartitionRepository } from './domain/tenancy/partition.repository.
 import type { LocationRepository } from './domain/locations/location.repository.js';
 import type { LayerRepository } from './domain/layers/layer.repository.js';
 import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
+import type { PropertySetRepository } from './domain/layers/property-set.repository.js';
 import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
 import type { MasterLocationRepository } from './domain/locations/master-location.repository.js';
 import type { ProcessingLogRepository } from './domain/locations/processing-log.repository.js';
@@ -75,6 +83,10 @@ import { DeleteLayerUseCase } from './operations/delete-layer/delete-layer.use-c
 import { CreateLayerFeatureUseCase } from './operations/create-layer-feature/create-layer-feature.use-case.js';
 import { UpdateLayerFeatureUseCase } from './operations/update-layer-feature/update-layer-feature.use-case.js';
 import { DeleteLayerFeatureUseCase } from './operations/delete-layer-feature/delete-layer-feature.use-case.js';
+import { CreatePropertySetUseCase } from './operations/create-property-set/create-property-set.use-case.js';
+import { UpdatePropertySetUseCase } from './operations/update-property-set/update-property-set.use-case.js';
+import { DeletePropertySetUseCase } from './operations/delete-property-set/delete-property-set.use-case.js';
+import { ReplacePropertySetPropertiesUseCase } from './operations/replace-property-set-properties/replace-property-set-properties.use-case.js';
 import { UpdateMatchingConfigUseCase } from './operations/update-matching-config/update-matching-config.use-case.js';
 import { ValidateMasterLocationUseCase } from './operations/validate-master-location/validate-master-location.use-case.js';
 import { ConfirmMasterLocationUseCase } from './operations/confirm-master-location/confirm-master-location.use-case.js';
@@ -102,6 +114,7 @@ export interface AppContextRepositories {
   readonly locations: LocationRepository;
   readonly layers: LayerRepository;
   readonly layerFeatures: LayerFeatureRepository;
+  readonly propertySets: PropertySetRepository;
   readonly matchingConfigs: MatchingConfigRepository;
   readonly masterLocations: MasterLocationRepository;
   readonly processingLog: ProcessingLogRepository;
@@ -150,6 +163,10 @@ export interface AppContextUseCases {
   readonly createLayerFeature: CreateLayerFeatureUseCase;
   readonly updateLayerFeature: UpdateLayerFeatureUseCase;
   readonly deleteLayerFeature: DeleteLayerFeatureUseCase;
+  readonly createPropertySet: CreatePropertySetUseCase;
+  readonly updatePropertySet: UpdatePropertySetUseCase;
+  readonly deletePropertySet: DeletePropertySetUseCase;
+  readonly replacePropertySetProperties: ReplacePropertySetPropertiesUseCase;
   readonly updateMatchingConfig: UpdateMatchingConfigUseCase;
   readonly validateMasterLocation: ValidateMasterLocationUseCase;
   readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
@@ -211,6 +228,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
     [LOCATION_ID_PREFIX]: LOCATION_TYPE,
     [LAYER_ID_PREFIX]: LAYER_TYPE,
     [LAYER_FEATURE_ID_PREFIX]: LAYER_FEATURE_TYPE,
+    [PROPERTY_SET_ID_PREFIX]: PROPERTY_SET_TYPE,
     [MATCHING_CONFIG_ID_PREFIX]: MATCHING_CONFIG_TYPE,
     [MASTER_LOCATION_ID_PREFIX]: MASTER_LOCATION_TYPE,
   });
@@ -222,6 +240,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
   const locationRepo = createDrizzleLocationRepository(db);
   const layerRepo = createDrizzleLayerRepository(db);
   const layerFeatureRepo = createDrizzleLayerFeatureRepository(db);
+  const propertySetRepo = createDrizzlePropertySetRepository(db);
   const matchingConfigRepo = createDrizzleMatchingConfigRepository(db);
   const masterLocationRepo = createDrizzleMasterLocationRepository(db);
   const processingLogRepo = createDrizzleProcessingLogRepository(db);
@@ -238,6 +257,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
   registerLocation(aggregateRegistry, locationRepo);
   registerLayer(aggregateRegistry, layerRepo);
   registerLayerFeature(aggregateRegistry, layerFeatureRepo);
+  registerPropertySet(aggregateRegistry, propertySetRepo);
   registerMatchingConfig(aggregateRegistry, matchingConfigRepo);
   registerMasterLocation(aggregateRegistry, masterLocationRepo);
 
@@ -273,6 +293,7 @@ export function createAppContext(config: AppContextConfig): AppContext {
       locations: locationRepo,
       layers: layerRepo,
       layerFeatures: layerFeatureRepo,
+      propertySets: propertySetRepo,
       matchingConfigs: matchingConfigRepo,
       masterLocations: masterLocationRepo,
       processingLog: processingLogRepo,
@@ -306,6 +327,10 @@ export function createAppContext(config: AppContextConfig): AppContext {
       createLayerFeature: new CreateLayerFeatureUseCase(layerRepo, layerFeatureRepo),
       updateLayerFeature: new UpdateLayerFeatureUseCase(layerFeatureRepo),
       deleteLayerFeature: new DeleteLayerFeatureUseCase(layerFeatureRepo),
+      createPropertySet: new CreatePropertySetUseCase(layerRepo, propertySetRepo),
+      updatePropertySet: new UpdatePropertySetUseCase(propertySetRepo),
+      deletePropertySet: new DeletePropertySetUseCase(propertySetRepo),
+      replacePropertySetProperties: new ReplacePropertySetPropertiesUseCase(propertySetRepo),
       updateMatchingConfig: new UpdateMatchingConfigUseCase(
         clientRepo,
         partitionRepo,

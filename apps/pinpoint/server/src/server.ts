@@ -12,6 +12,7 @@ import { registerPartitionRoutes } from './api/routes/tenancy/partitions/index.j
 import { registerLocationRoutes } from './api/routes/locations/index.js';
 import { registerLayerRoutes } from './api/routes/layers/index.js';
 import { registerLayerFeatureRoutes } from './api/routes/layer-features/index.js';
+import { registerPropertySetRoutes } from './api/routes/property-sets/index.js';
 import { registerMatchingConfigRoutes } from './api/routes/matching-config/index.js';
 import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
 import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
@@ -169,6 +170,7 @@ async function buildServer() {
   registerLocationRoutes(server, appContext);
   registerLayerRoutes(server, appContext);
   registerLayerFeatureRoutes(server, appContext);
+  registerPropertySetRoutes(server, appContext);
   registerMatchingConfigRoutes(server, appContext);
   registerSpatialLookupRoutes(server, appContext);
   registerGeocodeRoutes(server, appContext);

@@ -27,6 +27,10 @@ import { LayerDeletedEventType } from '../domain/layers/events/layer-deleted.eve
 import { LayerFeatureCreatedEventType } from '../domain/layers/events/layer-feature-created.event.js';
 import { LayerFeatureUpdatedEventType } from '../domain/layers/events/layer-feature-updated.event.js';
 import { LayerFeatureDeletedEventType } from '../domain/layers/events/layer-feature-deleted.event.js';
+import { PropertySetCreatedEventType } from '../domain/layers/events/property-set-created.event.js';
+import { PropertySetUpdatedEventType } from '../domain/layers/events/property-set-updated.event.js';
+import { PropertySetDeletedEventType } from '../domain/layers/events/property-set-deleted.event.js';
+import { PropertySetPropertiesReplacedEventType } from '../domain/layers/events/property-set-properties-replaced.event.js';
 
 import { LocationCreatedEventType } from '../domain/locations/events/location-created.event.js';
 import { LocationValidatedEventType } from '../domain/locations/events/location-validated.event.js';
@@ -65,6 +69,10 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   LayerFeatureCreatedEventType,
   LayerFeatureUpdatedEventType,
   LayerFeatureDeletedEventType,
+  PropertySetCreatedEventType,
+  PropertySetUpdatedEventType,
+  PropertySetDeletedEventType,
+  PropertySetPropertiesReplacedEventType,
   LocationCreatedEventType,
   LocationValidatedEventType,
   MasterLocationCreatedEventType,
