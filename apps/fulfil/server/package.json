@@ -25,7 +25,7 @@
     "@fulfil/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.49",
     "croner": "^9.0.0",
-    "drizzle-orm": "1.0.0-rc.1",
+    "drizzle-orm": "1.0.0-rc.3",
     "effect": "catalog:",
     "fastify": "^5.2.0",
     "postgres": "^3.4.0",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@flowcatalyst-apps/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "drizzle-kit": "1.0.0-rc.1",
+    "drizzle-kit": "1.0.0-rc.3",
     "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"

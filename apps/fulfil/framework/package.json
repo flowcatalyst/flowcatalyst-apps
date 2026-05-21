@@ -26,7 +26,7 @@
   "devDependencies": {
     "@flowcatalyst-apps/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "drizzle-orm": "1.0.0-rc.1",
+    "drizzle-orm": "1.0.0-rc.3",
     "effect": "catalog:",
     "fastify": "^5.0.0",
     "typescript": "catalog:",
@@ -34,7 +34,7 @@
     "zod": "^3.24.0"
   },
   "peerDependencies": {
-    "drizzle-orm": "1.0.0-rc.1",
+    "drizzle-orm": "1.0.0-rc.3",
     "effect": "catalog:",
     "fastify": "^5.0.0",
     "zod": "^3.0.0"

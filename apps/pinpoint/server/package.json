@@ -31,7 +31,7 @@
     "@pinpoint/shared": "workspace:*",
     "@sinclair/typebox": "^0.34.49",
     "ai": "^6.0.185",
-    "drizzle-orm": "1.0.0-rc.1",
+    "drizzle-orm": "1.0.0-rc.3",
     "effect": "catalog:",
     "fastify": "^5.2.0",
     "jose": "^6.2.3",
@@ -42,7 +42,7 @@
   "devDependencies": {
     "@flowcatalyst-apps/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "drizzle-kit": "1.0.0-rc.1",
+    "drizzle-kit": "1.0.0-rc.3",
     "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
