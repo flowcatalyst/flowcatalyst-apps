@@ -6,6 +6,7 @@ import { registerGetMasterLocationRoute } from './get-master-location.route.js';
 import { registerListMasterLocationsRoute } from './list-master-locations.route.js';
 import { registerRejectMasterLocationRoute } from './reject-master-location.route.js';
 import { registerUpdateMasterLocationRoute } from './update-master-location.route.js';
+import { registerUnvalidatedMasterLocationsRoute } from './unvalidated.route.js';
 
 export function registerMasterLocationRoutes(
   fastify: FastifyInstance,
@@ -17,4 +18,5 @@ export function registerMasterLocationRoutes(
   registerListMasterLocationsRoute(fastify, appContext);
   registerUpdateMasterLocationRoute(fastify, appContext);
   registerRejectMasterLocationRoute(fastify, appContext);
+  registerUnvalidatedMasterLocationsRoute(fastify, appContext);
 }

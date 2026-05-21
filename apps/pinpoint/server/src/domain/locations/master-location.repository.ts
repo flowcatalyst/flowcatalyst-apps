@@ -55,4 +55,24 @@ export interface MasterLocationRepository {
    * Returned in `createdAt ASC` order so the oldest backlog flushes first.
    */
   listByStatus(status: MasterLocationStatus, limit: number): Promise<readonly MasterLocation[]>;
+
+  /**
+   * BFF / operator listing of masters not yet VALIDATED. Optional
+   * cross-client + per-partition filters. Backs
+   * `GET /master-locations/unvalidated`. Ordered by id, asc or desc.
+   */
+  findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult>;
+}
+
+export interface FindUnvalidatedQuery {
+  readonly clientIds: readonly ClientId[] | null;
+  readonly partitionIds: readonly PartitionId[] | null;
+  readonly limit: number;
+  readonly offset: number;
+  readonly ascending: boolean;
+}
+
+export interface FindUnvalidatedResult {
+  readonly masters: readonly MasterLocation[];
+  readonly total: number;
 }

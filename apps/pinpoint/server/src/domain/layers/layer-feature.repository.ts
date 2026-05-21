@@ -45,6 +45,15 @@ export interface LocationFeatureAssociationInput {
   readonly distanceMeters: number | null;
 }
 
+export interface FeatureAssociation {
+  readonly layerFeatureId: string;
+  readonly layerId: string;
+  readonly layerName: string;
+  readonly featureLabel: string;
+  /** Non-null only for POINT-layer associations (nearest-feature distance). */
+  readonly distanceMeters: number | null;
+}
+
 export interface LayerFeatureRepository {
   persist(aggregate: LayerFeature, tx?: TransactionContext): Promise<LayerFeature>;
   delete(aggregate: LayerFeature, tx?: TransactionContext): Promise<boolean>;
@@ -73,4 +82,11 @@ export interface LayerFeatureRepository {
     associations: readonly LocationFeatureAssociationInput[],
     tx?: TransactionContext,
   ): Promise<void>;
+
+  /**
+   * The persisted `location_feature_associations` rows for a location,
+   * joined with layer + feature label for display. Used by the BFF
+   * location detail. Ordered by layer name + label.
+   */
+  findFeatureAssociations(locationId: string): Promise<readonly FeatureAssociation[]>;
 }

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { asClientId, asPartitionId, type ClientId, type PartitionId } from '../domain/tenancy/ids.js';
@@ -8,6 +8,8 @@ import type {
   MasterLocationStatus,
 } from '../domain/locations/master-location.js';
 import type {
+  FindUnvalidatedQuery,
+  FindUnvalidatedResult,
   ListMasterLocationsQuery,
   ListMasterLocationsResult,
   MasterLocationRepository,
@@ -213,6 +215,45 @@ export function createDrizzleMasterLocationRepository(
         .orderBy(asc(masterLocations.createdAt))
         .limit(limit);
       return rows.map(toDomain);
+    },
+
+    async findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult> {
+      // status != 'VALIDATED' plus optional clientId / partitionId IN-clauses.
+      // Mirror of Rust `find_unvalidated` in pg_master_location_repository.rs.
+      const filters = [ne(masterLocations.status, 'VALIDATED')];
+      if (query.clientIds != null && query.clientIds.length > 0) {
+        filters.push(
+          inArray(
+            masterLocations.clientId,
+            query.clientIds.map((id) => id as string),
+          ),
+        );
+      }
+      if (query.partitionIds != null && query.partitionIds.length > 0) {
+        filters.push(
+          inArray(
+            masterLocations.partitionId,
+            query.partitionIds.map((id) => id as string),
+          ),
+        );
+      }
+      const where = and(...filters);
+      const order = query.ascending ? asc(masterLocations.id) : desc(masterLocations.id);
+
+      const [rows, totalRow] = await Promise.all([
+        db
+          .select()
+          .from(masterLocations)
+          .where(where)
+          .orderBy(order)
+          .limit(query.limit)
+          .offset(query.offset),
+        db.select({ value: count() }).from(masterLocations).where(where),
+      ]);
+      return {
+        masters: rows.map(toDomain),
+        total: Number(totalRow[0]?.value ?? 0),
+      };
     },
   };
 }

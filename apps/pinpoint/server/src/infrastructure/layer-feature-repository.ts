@@ -12,6 +12,7 @@ import type {
   LayerFeatureStatus,
 } from '../domain/layers/layer-feature.js';
 import type {
+  FeatureAssociation,
   LayerFeatureRepository,
   ListLayerFeaturesQuery,
   ListLayerFeaturesResult,
@@ -20,6 +21,7 @@ import type {
   SpatialLookupQuery,
 } from '../domain/layers/layer-feature.repository.js';
 import { layerFeatures, type LayerFeatureRow } from './schema/layer-features.js';
+import { layers } from './schema/layers.js';
 import { locationFeatureAssociations } from './schema/location-feature-associations.js';
 
 function toDomain(row: LayerFeatureRow): LayerFeature {
@@ -265,6 +267,34 @@ export function createDrizzleLayerFeatureRepository(
           })),
         )
         .onConflictDoNothing();
+    },
+
+    async findFeatureAssociations(
+      locationId: string,
+    ): Promise<readonly FeatureAssociation[]> {
+      const rows = await db
+        .select({
+          layerFeatureId: locationFeatureAssociations.layerFeatureId,
+          layerId: locationFeatureAssociations.layerId,
+          distanceMeters: locationFeatureAssociations.distanceMeters,
+          layerName: layers.name,
+          featureLabel: layerFeatures.label,
+        })
+        .from(locationFeatureAssociations)
+        .innerJoin(
+          layerFeatures,
+          eq(layerFeatures.id, locationFeatureAssociations.layerFeatureId),
+        )
+        .innerJoin(layers, eq(layers.id, locationFeatureAssociations.layerId))
+        .where(eq(locationFeatureAssociations.locationId, locationId))
+        .orderBy(asc(layers.name), asc(layerFeatures.label));
+      return rows.map((r) => ({
+        layerFeatureId: r.layerFeatureId,
+        layerId: r.layerId,
+        layerName: r.layerName,
+        featureLabel: r.featureLabel,
+        distanceMeters: r.distanceMeters,
+      }));
     },
   };
 }
