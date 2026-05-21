@@ -9,6 +9,8 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "pnpm test && pnpm test:integration",
     "typecheck": "tsc --noEmit",
     "db:up": "docker compose -f ../compose.yaml up -d --wait",
     "db:down": "docker compose -f ../compose.yaml down",
@@ -41,8 +43,10 @@
   },
   "devDependencies": {
     "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@testcontainers/postgresql": "^12.0.0",
     "@types/node": "catalog:",
     "drizzle-kit": "1.0.0-rc.3",
+    "testcontainers": "^12.0.0",
     "tsx": "^4.19.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
