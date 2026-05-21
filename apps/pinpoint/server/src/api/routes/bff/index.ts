@@ -12,8 +12,8 @@
  * the API today). Real OIDC + cookie sessions land in Slice 12.
  *
  * Sub-slice order:
- *   - 10c.1 — dashboard, countries, clients (this commit)
- *   - 10c.2 — partitions, principal-partitions
+ *   - 10c.1 — dashboard, countries, clients (done)
+ *   - 10c.2 — partitions, principal-partitions (this commit)
  *   - 10c.3 — locations, spatial-lookup, /master-locations/unvalidated
  *   - 10c.4 — layers, layer-features
  *   - 10c.5 — master_locations, matching-config
@@ -23,9 +23,13 @@ import type { AppContext } from '../../../app-context.js';
 import { registerBffDashboardRoute } from './dashboard.route.js';
 import { registerBffCountriesRoute } from './countries.route.js';
 import { registerBffClientRoutes } from './clients/index.js';
+import { registerBffPartitionRoutes } from './partitions/index.js';
+import { registerBffPrincipalPartitionRoutes } from './principal-partitions/index.js';
 
 export function registerBffRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   registerBffDashboardRoute(fastify, appContext);
   registerBffCountriesRoute(fastify, appContext);
   registerBffClientRoutes(fastify, appContext);
+  registerBffPartitionRoutes(fastify, appContext);
+  registerBffPrincipalPartitionRoutes(fastify, appContext);
 }
