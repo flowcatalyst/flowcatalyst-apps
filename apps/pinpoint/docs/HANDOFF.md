@@ -4,9 +4,9 @@
 
 ## Status (2026-05-21)
 
-- **HEAD:** `d02aee8` Slice 10b.3 (LocationAttribute scaffolding + principal-partition grant/revoke)
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3 + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** 10c (BFF mount), 11 (Vue lift), 12 (cutover + testcontainers backfill)
+- **HEAD:** `65b17f0` Slice 10c.5 (BFF master-locations + matching-config — closes 10c)
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c.1, 10c.2, 10c.3, 10c.4, 10c.5 + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** 11 (Vue lift), 12 (cutover + testcontainers backfill). Plus a small 10c hygiene follow-up: BFF master-locations confirm-geocode + match-features endpoints (single + bulk) — operator tools, not blocking SPA primary flows.
 - **Workspaces:** 12, all `pnpm -r typecheck` clean
 - **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
 - **Drizzle migrations:** two generated, applied (schema + countries/global-default seed) — see `apps/pinpoint/server/drizzle/`
@@ -49,6 +49,11 @@ Original decision factors (kept for posterity / future re-checks):
 | 10b.1 | `219ea59` | Existing-aggregate CRUD. `update-client` + `delete-client`, `update-partition` + `delete-partition`, `update-layer` + `delete-layer`, `update-master-location` + `reject-master-location`. |
 | 10b.2 | `994741d` | PropertySet aggregate (`pst` prefix registered) + four use cases: `create-property-set`, `update-property-set`, `delete-property-set`, `replace-property-set-properties` (bulk PUT of all child properties on a set, capped at 6 per Rust). Properties are managed inline as child entities — no per-Property aggregate, matching the BFF's `replace_properties` single-op shape. |
 | 10b.3 | `d02aee8` | LocationAttribute (`lat` prefix registered) + extend `create-location` to write `attributes[]` inline in the same UoW tx (early-validates non-empty keys, rejects duplicates as `BusinessRuleViolation`). Plus `PrincipalRepository.grantPartitionAccess` / `revokePartitionAccess` / `findPrincipalsForPartition` — three plain repo methods, no aggregate / event / use-case wrapper (matches Rust). Routes for grant/revoke land in Slice 10c; no standalone attribute-update/delete use case ever (matches Rust). Closes out Slice 10b. |
+| 10c.1 | `ca7cbc2` | BFF dashboard + countries + clients (list + detail). New `api/routes/bff/` tree. `ClientRepository.count()` added for the dashboard. |
+| 10c.2 | `4cb02e0` | BFF partitions (CRUD) + principal-partitions (list / grant / revoke). Exercises the 10b.3 repo methods. |
+| 10c.3 | `e2b4ea5` | BFF locations (list/detail/create) + spatial-lookup (with `partitionCode` resolution) + `GET /master-locations/unvalidated` (cross-client). Added repo methods: `LayerFeatureRepository.findFeatureAssociations`, `MasterLocationRepository.findUnvalidated`. |
+| 10c.4 | `8cb58bb` | BFF layers (CRUD + partitions + property-sets) + layer-features (CRUD + status flip). 17 routes. Added repo methods: `LayerRepository.findPartitionIds` / `setPartitionIds`, `PropertySetRepository.countByLayerIds`, `LayerFeatureRepository.setStatus`. |
+| 10c.5 | `65b17f0` | BFF master-locations (list/detail/update/validate/geocode/reverse-geocode/processing-log) + matching-config (GET/PUT). `ListMasterLocationsQuery` grew an optional `status` filter. Closes 10c — full BFF surface (~40 routes, 11 mount points) in place. |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -75,12 +80,13 @@ What's actually left vs. what's already done. Don't re-do completed items.
 - ~~Full Rust `create_location.rs` pipeline~~ → Slice 8
 - ~~`LocationAttribute` scaffolding + inline attribute writes~~ → Slice 10b.3 (`lat` prefix; inline in `create-location` only — no standalone attribute CRUD, matches Rust BFF)
 - ~~`PrincipalRepository` grant/revoke/list~~ → Slice 10b.3 (plain repo methods, no aggregate/use-case wrapper — matches Rust)
+- ~~BFF surface mount (~40 routes across 11 mount points)~~ → Slice 10c (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`)
+- ~~`master-locations/unvalidated` cross-client route~~ → Slice 10c.3 (`e2b4ea5`)
 
 **Still pending:**
 
-- **`layer_partitions` population** → no `assign-layer-to-partition` use case yet. Currently no BFF surface needs it; revisit in Slice 10c if a route requires it.
-- **BFF surface mount** → Slice 10c. All 11 BFF route files from `docs/route-triage.md` remain to port. Each delegates to existing use cases (writes) or repositories (reads) with `{items, total}` framing.
-- **`master-locations/unvalidated` route** → Slice 10c. Rust `routes/unvalidated_routes.rs` listing-with-filters; backed by `MasterLocationRepository.listByStatus` (already exists from Slice 9).
+- **`layer_partitions` population** → assignment surface ships in 10c.4 via `PUT /bff/clients/:cid/layers/:lid/partitions`. No `assign-layer-to-partition` use case (plain repo method `setPartitionIds`, matches Rust).
+- **BFF master-locations hygiene tail** → small follow-up. Three operator-tool endpoints from Rust BFF deferred from 10c.5: `POST :mlid/confirm-geocode` (compound apply-coords + validate; SPA can orchestrate via existing PUT + validate), `POST :mlid/match-features` (single-master spatial re-match), `POST /match-features` (client-wide bulk re-match). None blocks SPA primary flows — matching pipeline runs spatial-lookup automatically on the canonical VALIDATED transition.
 - **`fragment_routes` (askama HTML)** → WILL NOT PORT. The Vue SPA owns the UI; nothing calls fragment endpoints.
 - **Web lift** → Slice 11. Copy `~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL, `pnpm -F @pinpoint/web dev` smoke.
 - **OIDC auth + cookie sessions for BFF** → Slice 12. `extractRequestToken` still on the `x-user-id` dev fallback. Hardening before production cutover.
@@ -109,18 +115,30 @@ Out-of-scope for Slice 10b (kept here so it doesn't sneak back in):
 - Routes for grant/revoke partition access — those land in 10c as part of `/bff/clients/:cid/partitions/:pid/principals`.
 - `assign-layer-to-partition` use case (i.e. `layer_partitions` population) — no current BFF route requires it; revisit in 10c if needed.
 
-## Slice 10c spec (next up)
+## Slice 10c status (closed)
 
-**BFF surface mount** under `/bff/clients/:cid/...`. Each endpoint
-delegates to existing use cases (writes) or repositories (reads) with
-`{items, total}` UI-shaped responses. Includes:
+Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`). The full BFF surface under `/bff/clients/:cid/...` is in place — ~40 routes spanning dashboard, countries, clients, partitions, principal-partitions, locations, spatial-lookup, layers, layer-features, property-sets, master-locations, matching-config — plus the cross-client `GET /master-locations/unvalidated`.
 
-- `GET /bff/dashboard/stats`
-- `GET /bff/countries`
-- `GET /bff/clients/:cid` + the 11 nested BFF route files (see triage doc)
-- `/master-locations/unvalidated` (from `routes/unvalidated_routes.rs`)
-- BFF auth: continues to use the `x-user-id` dev fallback for now;
-  real OIDC + cookie sessions land in Slice 12.
+Deferred from 10c.5 to a small hygiene follow-up (Rust BFF parity, not blocking SPA): `POST /master-locations/:mlid/confirm-geocode`, per-master + bulk `POST .../match-features`. These are operator-tool re-runs; the matching pipeline already handles the happy path automatically.
+
+BFF auth still on the `x-user-id` dev fallback — real OIDC + cookie sessions land in Slice 12.
+
+## Slice 11 spec (next up)
+
+**Vue SPA lift.** Copy `~/Developer/tangent/pinpoint/pinpoint-web/` →
+`apps/pinpoint/web/`, rename `package.json` → `@pinpoint/web`, retarget
+the API base URL to the local pinpoint server, smoke `pnpm -F @pinpoint/web dev`.
+
+Anticipated gotchas:
+- The SPA's API client likely depends on response shapes from the Rust
+  BFF. Most BFF responses are now Rust-parity, but a handful diverge
+  (PropertySet enforces one-per-layer at the BFF; principal-partition
+  list grew a `grantedAt` timestamp). Surface any drifts as SPA fixes.
+- Build tooling (Vite + Vue) is new to this monorepo — wire it through
+  pnpm-workspace.yaml and the catalog where it makes sense.
+- The SPA's auth flow uses session cookies (Rust BFF). For the TS port,
+  the `x-user-id` dev fallback will work; real OIDC + cookie sessions
+  land alongside cutover in Slice 12.
 
 ## Gotchas
 

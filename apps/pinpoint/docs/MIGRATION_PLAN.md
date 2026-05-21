@@ -8,7 +8,9 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ## Status (2026-05-21)
 
-**Slice 10b closed out 2026-05-21.** Three commits: `219ea59` (10b.1 — client/partition/layer update + delete, master-location update + reject), `994741d` (10b.2 — PropertySet aggregate + CRUD), `d02aee8` (10b.3 — LocationAttribute scaffolding + inline writes in `create-location`, plus `PrincipalRepository.{grant,revoke}PartitionAccess` + `findPrincipalsForPartition`). Slice 10c (BFF mount) has everything it needs from the existing repo + use-case graph.
+**Slice 10c closed out 2026-05-21.** Five sub-commits (`ca7cbc2` / `4cb02e0` / `e2b4ea5` / `8cb58bb` / `65b17f0`) brought up the full BFF surface — ~40 routes across 11 mount points under `/bff/clients/:cid/...` plus the cross-client `GET /master-locations/unvalidated`. Three operator-tool routes from Rust BFF deferred from 10c.5 as a hygiene follow-up: `POST /master-locations/:mlid/confirm-geocode`, per-master + bulk `POST .../match-features`. SPA primary flows are fully supported; deferred routes are re-runs that the matching pipeline already handles automatically on the canonical VALIDATED transition.
+
+Slice 11 (Vue SPA lift) is the next focus.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -29,7 +31,11 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 | 10b.1 | done | `219ea59` | Existing-aggregate CRUD: `update`/`delete` for client, partition, layer; `update`/`reject` for master-location. 8 use cases. |
 | 10b.2 | done | `994741d` | PropertySet aggregate + four use cases: `create-property-set`, `update-property-set`, `delete-property-set`, `replace-property-set-properties` (bulk PUT of all child properties on a set, capped at 6 per Rust). Properties stay child entities — no per-Property aggregate, matching the Rust BFF's `replace_properties` single-op shape. |
 | 10b.3 | done | `d02aee8` | LocationAttribute (`lat` prefix) scaffolding + extend `create-location` to write `attributes[]` inline in the same UoW tx (early-validates non-empty keys, rejects duplicates). Plus `PrincipalRepository.{grant,revoke}PartitionAccess` + `findPrincipalsForPartition` — plain repo methods, no aggregate / event / use-case wrapper (matches Rust). Routes for grant/revoke land in 10c. |
-| 10c | pending | — | BFF mount at `/bff/clients/:cid/...` (11 route files, ~2530 LoC Rust to triage) + `GET /master-locations/unvalidated` (from Rust `unvalidated_routes.rs`). Each endpoint delegates to existing use cases (writes) or repos (reads) with `{items, total}` framing. |
+| 10c.1 | done | `ca7cbc2` | BFF dashboard + countries + clients (list + detail). New `api/routes/bff/` tree. `ClientRepository.count()` added. |
+| 10c.2 | done | `4cb02e0` | BFF partitions (CRUD) + principal-partitions (list / grant / revoke). Exercises the 10b.3 repo methods. |
+| 10c.3 | done | `e2b4ea5` | BFF locations (list/detail/create) + spatial-lookup (with `partitionCode` resolution) + `GET /master-locations/unvalidated` (cross-client). Added `LayerFeatureRepository.findFeatureAssociations`, `MasterLocationRepository.findUnvalidated`. |
+| 10c.4 | done | `8cb58bb` | BFF layers (CRUD + partitions + property-sets) + layer-features (CRUD + status flip). 17 routes. Added `LayerRepository.findPartitionIds`/`setPartitionIds`, `PropertySetRepository.countByLayerIds`, `LayerFeatureRepository.setStatus`. |
+| 10c.5 | done | `65b17f0` | BFF master-locations (list/detail/update/validate/geocode/reverse-geocode/processing-log) + matching-config (GET/PUT). `ListMasterLocationsQuery` grew an optional `status` filter. Closes 10c. |
 | 11 | pending | — | Web lift (`~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL) |
 | 12 | pending | — | Cutover: Docker compose (postgres + pinpoint + libpostal sidecar + web), Dockerfile, README, real OIDC, **testcontainers backfill across all Drizzle repos + write use cases** |
 
