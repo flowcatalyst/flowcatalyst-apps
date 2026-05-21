@@ -4,9 +4,9 @@
 
 ## Status (2026-05-21)
 
-- **HEAD:** `65b17f0` Slice 10c.5 (BFF master-locations + matching-config — closes 10c)
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c.1, 10c.2, 10c.3, 10c.4, 10c.5 + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** 11 (Vue lift), 12 (cutover + testcontainers backfill). Plus a small 10c hygiene follow-up: BFF master-locations confirm-geocode + match-features endpoints (single + bulk) — operator tools, not blocking SPA primary flows.
+- **HEAD:** `194d447` Slice 10c hygiene (BFF confirm-geocode + match-features single + bulk)
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene) + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** 11 (Vue lift), 12 (cutover + testcontainers backfill).
 - **Workspaces:** 12, all `pnpm -r typecheck` clean
 - **Tests:** 83 passing across 11 files (`pnpm -F @pinpoint/server test`)
 - **Drizzle migrations:** two generated, applied (schema + countries/global-default seed) — see `apps/pinpoint/server/drizzle/`
@@ -86,7 +86,7 @@ What's actually left vs. what's already done. Don't re-do completed items.
 **Still pending:**
 
 - **`layer_partitions` population** → assignment surface ships in 10c.4 via `PUT /bff/clients/:cid/layers/:lid/partitions`. No `assign-layer-to-partition` use case (plain repo method `setPartitionIds`, matches Rust).
-- **BFF master-locations hygiene tail** → small follow-up. Three operator-tool endpoints from Rust BFF deferred from 10c.5: `POST :mlid/confirm-geocode` (compound apply-coords + validate; SPA can orchestrate via existing PUT + validate), `POST :mlid/match-features` (single-master spatial re-match), `POST /match-features` (client-wide bulk re-match). None blocks SPA primary flows — matching pipeline runs spatial-lookup automatically on the canonical VALIDATED transition.
+- ~~BFF master-locations hygiene tail (`confirm-geocode`, `match-features` single + bulk)~~ → **shipped as 10c hygiene** (`194d447`). Two new repo methods (`MasterLocationRepository.applyConfirmedGeocode`, `LayerFeatureRepository.findFeaturesContainingPoint`) + three routes.
 - **`fragment_routes` (askama HTML)** → WILL NOT PORT. The Vue SPA owns the UI; nothing calls fragment endpoints.
 - **Web lift** → Slice 11. Copy `~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL, `pnpm -F @pinpoint/web dev` smoke.
 - **OIDC auth + cookie sessions for BFF** → Slice 12. `extractRequestToken` still on the `x-user-id` dev fallback. Hardening before production cutover.
@@ -117,9 +117,7 @@ Out-of-scope for Slice 10b (kept here so it doesn't sneak back in):
 
 ## Slice 10c status (closed)
 
-Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`). The full BFF surface under `/bff/clients/:cid/...` is in place — ~40 routes spanning dashboard, countries, clients, partitions, principal-partitions, locations, spatial-lookup, layers, layer-features, property-sets, master-locations, matching-config — plus the cross-client `GET /master-locations/unvalidated`.
-
-Deferred from 10c.5 to a small hygiene follow-up (Rust BFF parity, not blocking SPA): `POST /master-locations/:mlid/confirm-geocode`, per-master + bulk `POST .../match-features`. These are operator-tool re-runs; the matching pipeline already handles the happy path automatically.
+Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`) plus a hygiene follow-up (`194d447`). The full BFF surface under `/bff/clients/:cid/...` is in place — ~43 routes spanning dashboard, countries, clients, partitions, principal-partitions, locations, spatial-lookup, layers, layer-features, property-sets, master-locations (incl. confirm-geocode + match-features single + bulk), matching-config — plus the cross-client `GET /master-locations/unvalidated`. Full Rust BFF parity achieved.
 
 BFF auth still on the `x-user-id` dev fallback — real OIDC + cookie sessions land in Slice 12.
 
