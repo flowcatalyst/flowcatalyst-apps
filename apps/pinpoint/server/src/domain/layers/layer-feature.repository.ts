@@ -89,4 +89,13 @@ export interface LayerFeatureRepository {
    * location detail. Ordered by layer name + label.
    */
   findFeatureAssociations(locationId: string): Promise<readonly FeatureAssociation[]>;
+
+  /**
+   * Direct status flip for a feature (ACTIVE/INACTIVE), used by the BFF
+   * `PUT /features/:id/status` endpoint. Mirror of Rust's
+   * `update_status` repo method — no aggregate commit, no event. If
+   * audit coverage becomes a real requirement, swap to a dedicated
+   * use case.
+   */
+  setStatus(featureId: LayerFeatureId, status: 'ACTIVE' | 'INACTIVE'): Promise<void>;
 }

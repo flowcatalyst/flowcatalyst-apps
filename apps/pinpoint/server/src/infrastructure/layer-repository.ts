@@ -10,6 +10,7 @@ import type {
   ListLayersResult,
 } from '../domain/layers/layer.repository.js';
 import { layers, type LayerRow } from './schema/layers.js';
+import { layerPartitions } from './schema/layer-partitions.js';
 
 function toDomain(row: LayerRow): Layer {
   return {
@@ -106,6 +107,35 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
         layers: rows.map(toDomain),
         total: Number(totalRow[0]?.value ?? 0),
       };
+    },
+
+    async findPartitionIds(layerId: LayerId): Promise<readonly string[]> {
+      const rows = await db
+        .select({ partitionId: layerPartitions.partitionId })
+        .from(layerPartitions)
+        .where(eq(layerPartitions.layerId, layerId));
+      return rows.map((r) => r.partitionId);
+    },
+
+    async setPartitionIds(
+      layerId: LayerId,
+      partitionIds: readonly string[],
+    ): Promise<void> {
+      // Replace-all atomically — delete existing assignments then insert
+      // the new set. No aggregate / event involved (matches Rust's
+      // `set_layer_partitions`). Wrap in a tx to avoid leaving a layer
+      // with no rows visible mid-write.
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(layerPartitions)
+          .where(eq(layerPartitions.layerId, layerId));
+        if (partitionIds.length > 0) {
+          await tx
+            .insert(layerPartitions)
+            .values(partitionIds.map((partitionId) => ({ layerId, partitionId })))
+            .onConflictDoNothing();
+        }
+      });
     },
   };
 }

@@ -269,6 +269,16 @@ export function createDrizzleLayerFeatureRepository(
         .onConflictDoNothing();
     },
 
+    async setStatus(
+      featureId: LayerFeatureId,
+      status: 'ACTIVE' | 'INACTIVE',
+    ): Promise<void> {
+      await db
+        .update(layerFeatures)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(layerFeatures.id, featureId));
+    },
+
     async findFeatureAssociations(
       locationId: string,
     ): Promise<readonly FeatureAssociation[]> {

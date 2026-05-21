@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import {
@@ -152,6 +152,23 @@ export function createDrizzlePropertySetRepository(
         rows.map((r) => r.id),
       );
       return rows.map((row) => toDomain(row, childMap.get(row.id) ?? []));
+    },
+
+    async countByLayerIds(
+      layerIds: readonly LayerId[],
+    ): Promise<ReadonlyMap<string, number>> {
+      if (layerIds.length === 0) return new Map();
+      const rows = await db
+        .select({
+          layerId: propertySets.layerId,
+          value: count(),
+        })
+        .from(propertySets)
+        .where(inArray(propertySets.layerId, [...layerIds] as string[]))
+        .groupBy(propertySets.layerId);
+      const out = new Map<string, number>();
+      for (const r of rows) out.set(r.layerId, Number(r.value));
+      return out;
     },
   };
 }

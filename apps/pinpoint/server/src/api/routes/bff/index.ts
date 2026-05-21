@@ -14,11 +14,11 @@
  * Sub-slice order:
  *   - 10c.1 — dashboard, countries, clients (done)
  *   - 10c.2 — partitions, principal-partitions (done)
- *   - 10c.3 — locations, spatial-lookup (this commit; the
+ *   - 10c.3 — locations, spatial-lookup (done; the
  *             /master-locations/unvalidated route is registered alongside
  *             the master-location routes, not here, because it's a
  *             cross-client surface that lives outside the BFF tree)
- *   - 10c.4 — layers, layer-features
+ *   - 10c.4 — layers, layer-features (this commit)
  *   - 10c.5 — master_locations, matching-config
  */
 import type { FastifyInstance } from 'fastify';
@@ -30,6 +30,8 @@ import { registerBffPartitionRoutes } from './partitions/index.js';
 import { registerBffPrincipalPartitionRoutes } from './principal-partitions/index.js';
 import { registerBffLocationRoutes } from './locations/index.js';
 import { registerBffSpatialLookupRoutes } from './spatial-lookup/index.js';
+import { registerBffLayerRoutes } from './layers/index.js';
+import { registerBffLayerFeatureRoutes } from './layer-features/index.js';
 
 export function registerBffRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   registerBffDashboardRoute(fastify, appContext);
@@ -39,4 +41,6 @@ export function registerBffRoutes(fastify: FastifyInstance, appContext: AppConte
   registerBffPrincipalPartitionRoutes(fastify, appContext);
   registerBffLocationRoutes(fastify, appContext);
   registerBffSpatialLookupRoutes(fastify, appContext);
+  registerBffLayerRoutes(fastify, appContext);
+  registerBffLayerFeatureRoutes(fastify, appContext);
 }

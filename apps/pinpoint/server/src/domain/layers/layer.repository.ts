@@ -21,4 +21,18 @@ export interface LayerRepository {
   findById(id: LayerId): Promise<Layer | null>;
   findByClientAndCode(clientId: ClientId, code: string): Promise<Layer | null>;
   listByClient(query: ListLayersQuery): Promise<ListLayersResult>;
+
+  /**
+   * Partition assignments for a layer. Empty array = "applies to all
+   * partitions" (wildcard semantics). Used by the BFF layer detail and
+   * by the matching pipeline's partition-filter clause in spatialLookup.
+   */
+  findPartitionIds(layerId: LayerId): Promise<readonly string[]>;
+
+  /**
+   * Replace the partition assignments for a layer atomically. Empty
+   * array = wildcard (apply to all partitions). Mirror of Rust BFF's
+   * `set_layer_partitions`.
+   */
+  setPartitionIds(layerId: LayerId, partitionIds: readonly string[]): Promise<void>;
 }
