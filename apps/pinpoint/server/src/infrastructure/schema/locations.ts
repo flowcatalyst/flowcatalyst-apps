@@ -1,14 +1,12 @@
 /**
- * Locations — raw addresses captured for resolution, optionally linked to a
- * master_locations row once matching succeeds.
+ * Locations — raw addresses captured for resolution, linked to a
+ * `master_locations` row once the matching pipeline finds or creates one.
  *
- * Slice 3 lands the full column set (raw + normalized + match info + status)
- * but only the "minimal create" path uses normalized/match fields — those
- * stay null until the normalization / matching slices (5-8) populate them.
- *
- * `master_location_id` is intentionally a plain text column with NO FK
- * reference here; master_locations lands in Slice 8 and the FK is added
- * there. Locations is the only inbound reference, so this is safe.
+ * Slice 3 landed the full column set (raw + normalized + match info +
+ * status); Slice 8 adds the FK on `master_location_id` + the
+ * raw_suburb/normalized_suburb columns from Rust migration 014, and the
+ * matching pipeline (rewritten `create-location` use case) actually
+ * populates the normalized + match info.
  */
 import {
   doublePrecision,
@@ -22,6 +20,7 @@ import { sql } from 'drizzle-orm';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { clients } from './clients.js';
 import { partitions } from './partitions.js';
+import { masterLocations } from './master-locations.js';
 
 export const locations = pgTable(
   'locations',
@@ -31,8 +30,7 @@ export const locations = pgTable(
       .notNull()
       .references(() => clients.id),
     partitionId: text('partition_id').references(() => partitions.id),
-    /** FK to master_locations(id) — added in Slice 8 when that table lands. */
-    masterLocationId: text('master_location_id'),
+    masterLocationId: text('master_location_id').references(() => masterLocations.id),
     externalId: text('external_id'),
     name: text('name'),
 

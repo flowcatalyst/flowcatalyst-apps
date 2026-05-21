@@ -1,21 +1,23 @@
 import { z } from 'zod';
 
 /**
- * Minimal-create command for Slice 3. Takes raw address fields directly;
- * normalization and master-location matching come in later slices and
- * augment the persisted Location via separate use cases.
+ * Slice 8 rewrites the command shape to match the Rust pipeline: a single
+ * free-form `address` string + an optional `countryCode` retry hint. The
+ * libpostal normalizer parses it on the way in; `raw_*` columns are
+ * filled from the parsed components, not from caller-supplied structured
+ * fields. The Slice 3 minimal-create shape is gone.
  */
 export const CreateLocationCommandSchema = z.object({
   clientId: z.string().trim().min(1),
   partitionId: z.string().trim().min(1).optional().nullable(),
   externalId: z.string().trim().min(1).optional().nullable(),
   name: z.string().trim().min(1).optional().nullable(),
-  rawAddressLine1: z.string().trim().min(1),
-  rawAddressLine2: z.string().trim().optional().nullable(),
-  rawSuburb: z.string().trim().optional().nullable(),
-  rawCity: z.string().trim().min(1),
-  rawState: z.string().trim().optional().nullable(),
-  rawPostalCode: z.string().trim().optional().nullable(),
-  rawCountry: z.string().trim().min(1),
+  address: z.string().trim().min(1),
+  /**
+   * Optional ISO-A3 country code (e.g. "ZAF"). If libpostal fails to
+   * normalize the address, the matching pipeline retries with the
+   * country code appended before giving up.
+   */
+  countryCode: z.string().trim().min(2).max(3).optional().nullable(),
 });
 export type CreateLocationCommand = z.infer<typeof CreateLocationCommandSchema>;

@@ -138,6 +138,15 @@ export function createDrizzleLocationRepository(db: PostgresJsDatabase): Locatio
       return row ? toDomain(row) : null;
     },
 
+    async listByMaster(masterLocationId): Promise<readonly Location[]> {
+      const rows = await db
+        .select()
+        .from(locations)
+        .where(eq(locations.masterLocationId, masterLocationId))
+        .orderBy(asc(locations.createdAt));
+      return rows.map(toDomain);
+    },
+
     async listByClient(query: ListByClientQuery): Promise<ListByClientResult> {
       const where = eq(locations.clientId, query.clientId);
       const [rows, totalRow] = await Promise.all([

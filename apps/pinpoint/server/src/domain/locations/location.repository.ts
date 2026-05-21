@@ -1,7 +1,7 @@
 import type { TransactionContext } from '@flowcatalyst-apps/app-framework';
 import type { ClientId, PartitionId } from '../tenancy/ids.js';
 import type { Location } from './location.js';
-import type { LocationId } from './ids.js';
+import type { LocationId, MasterLocationId } from './ids.js';
 
 export interface ListByClientQuery {
   readonly clientId: ClientId;
@@ -30,6 +30,13 @@ export interface LocationRepository {
     partitionId: PartitionId | null,
     externalId: string,
   ): Promise<Location | null>;
+
+  /**
+   * All child locations attached to a master. Used by the
+   * confirm-master-location cascade to flip every non-validated child to
+   * VALIDATED and emit LocationValidated for it.
+   */
+  listByMaster(masterLocationId: MasterLocationId): Promise<readonly Location[]>;
 
   listByClient(query: ListByClientQuery): Promise<ListByClientResult>;
 }

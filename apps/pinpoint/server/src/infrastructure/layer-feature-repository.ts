@@ -15,10 +15,12 @@ import type {
   LayerFeatureRepository,
   ListLayerFeaturesQuery,
   ListLayerFeaturesResult,
+  LocationFeatureAssociationInput,
   SpatialLookupHit,
   SpatialLookupQuery,
 } from '../domain/layers/layer-feature.repository.js';
 import { layerFeatures, type LayerFeatureRow } from './schema/layer-features.js';
+import { locationFeatureAssociations } from './schema/location-feature-associations.js';
 
 function toDomain(row: LayerFeatureRow): LayerFeature {
   return {
@@ -239,6 +241,30 @@ export function createDrizzleLayerFeatureRepository(
           polygonPoints: r.boundary_wkt ? parsePolygonWkt(r.boundary_wkt) : null,
         };
       });
+    },
+
+    async replaceLocationFeatureAssociations(
+      locationId: string,
+      associations: readonly LocationFeatureAssociationInput[],
+      tx?: TransactionContext,
+    ): Promise<void> {
+      const client = resolveDb(db, tx);
+      await client
+        .delete(locationFeatureAssociations)
+        .where(eq(locationFeatureAssociations.locationId, locationId));
+
+      if (associations.length === 0) return;
+      await client
+        .insert(locationFeatureAssociations)
+        .values(
+          associations.map((a) => ({
+            locationId,
+            layerFeatureId: a.featureId,
+            layerId: a.layerId,
+            distanceMeters: a.distanceMeters,
+          })),
+        )
+        .onConflictDoNothing();
     },
   };
 }

@@ -5,6 +5,12 @@ export interface LocationCreatedData {
   readonly locationId: string;
   readonly clientId: string;
   readonly partitionId: string | null;
+  /**
+   * Master the location matched to (or freshly created). Always present
+   * in the Slice 8 pipeline; the field is on the event so downstream
+   * consumers don't need to refetch the location row to learn it.
+   */
+  readonly masterLocationId: string;
   readonly externalId: string | null;
   readonly rawCity: string;
   readonly rawCountry: string;

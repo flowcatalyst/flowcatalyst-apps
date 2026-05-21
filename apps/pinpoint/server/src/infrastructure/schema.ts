@@ -74,3 +74,9 @@ export type {
   NewLocationFeatureAssociation,
   LocationFeatureAssociationRow,
 } from './schema/location-feature-associations.js';
+
+export { masterLocations } from './schema/master-locations.js';
+export type { NewMasterLocation, MasterLocationRow } from './schema/master-locations.js';
+
+export { processingLog } from './schema/processing-log.js';
+export type { NewProcessingLogEntry, ProcessingLogRow } from './schema/processing-log.js';
