@@ -11,7 +11,16 @@
  * comparable; refactoring this into `@flowcatalyst-apps/app-framework`
  * is on the deferred-cleanup list.
  */
+import { ALL_PERMISSIONS_SET } from '../auth/role-permissions.js';
+
 export const SystemIdentity = {
-  /** Used by the FlowCatalyst-scheduled validation worker (Slice 9). */
-  SCHEDULER: { principalId: 'pinpoint:system:scheduler' },
+  /**
+   * Used by the FlowCatalyst-scheduled validation worker (Slice 9).
+   * Grants the full permission set — the scheduler is platform-driven
+   * and pre-authorised; per-user permission checks don't apply.
+   */
+  SCHEDULER: {
+    principalId: 'pinpoint:system:scheduler',
+    permissions: ALL_PERMISSIONS_SET,
+  },
 } as const;

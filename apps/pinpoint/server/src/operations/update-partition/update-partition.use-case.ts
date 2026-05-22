@@ -7,6 +7,7 @@ import {
   InfrastructureError,
   NotFoundError,
   ScopeStore,
+  type Scope,
   ValidationError,
   type Sealed,
   type UnitOfWork,
@@ -29,12 +30,12 @@ export class UpdatePartitionUseCase {
     command: UpdatePartitionCommand,
   ): Effect.Effect<Sealed<PartitionUpdated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
     const partitions = this.partitions;
-    const authorize = (): boolean => this.authorize();
+    const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
 
-      if (!authorize()) {
+      if (!authorize(scope)) {
         return yield* Effect.fail(
           new AuthorizationError({
             code: 'PERMISSION_DENIED',
@@ -93,7 +94,9 @@ export class UpdatePartitionUseCase {
     });
   };
 
-  private authorize(): boolean {
-    return true;
+  private authorize(scope: Scope): boolean {
+    return scope.permissions.has(
+      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
+    );
   }
 }

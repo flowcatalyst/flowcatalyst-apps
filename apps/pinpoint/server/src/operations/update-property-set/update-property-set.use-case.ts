@@ -7,6 +7,7 @@ import {
   InfrastructureError,
   NotFoundError,
   ScopeStore,
+  type Scope,
   type Sealed,
   type UnitOfWork,
   type UseCaseError,
@@ -32,12 +33,12 @@ export class UpdatePropertySetUseCase {
     UnitOfWork | AggregateRegistry
   > => {
     const propertySets = this.propertySets;
-    const authorize = (): boolean => this.authorize();
+    const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
 
-      if (!authorize()) {
+      if (!authorize(scope)) {
         return yield* Effect.fail(
           new AuthorizationError({
             code: 'PERMISSION_DENIED',
@@ -106,7 +107,9 @@ export class UpdatePropertySetUseCase {
     });
   };
 
-  private authorize(): boolean {
-    return true;
+  private authorize(scope: Scope): boolean {
+    return scope.permissions.has(
+      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
+    );
   }
 }

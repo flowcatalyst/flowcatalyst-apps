@@ -15,6 +15,7 @@
  */
 import { ScopeStore, Scope, type RequestToken } from '@pinpoint/framework';
 import { createAppContext, type AppContext } from '../../src/app-context.js';
+import { ALL_PERMISSIONS_SET } from '../../src/auth/role-permissions.js';
 import { getDbFixture } from './db-fixture.js';
 
 let appContextPromise: Promise<AppContext> | null = null;
@@ -48,9 +49,17 @@ export async function getTestAppContext(): Promise<AppContext> {
  * commitAggregate calls `ScopeStore.require()` to read the principal id
  * for the audit-log row; without a bound scope every use case errors
  * before touching the DB.
+ *
+ * Grants the full permission set by default — matches the dev-fallback
+ * auth behaviour in `server.ts` so the use-case `authorize(scope)`
+ * checks always pass in tests. Pass an explicit `permissions` on the
+ * token to scope down (e.g. for a permission-denied test case).
  */
 export function runInScope<T>(token: RequestToken, fn: () => T | Promise<T>): Promise<T> {
-  const scope = Scope.fromRequest(token);
+  const scope = Scope.fromRequest({
+    ...token,
+    permissions: token.permissions ?? ALL_PERMISSIONS_SET,
+  });
   return new Promise((resolve, reject) => {
     ScopeStore.run(scope, () => {
       Promise.resolve(fn()).then(resolve, reject);

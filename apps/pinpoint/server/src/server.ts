@@ -10,6 +10,7 @@ import { Scope, ScopeStore, type RequestToken } from '@pinpoint/framework';
 import { db } from './infrastructure/db.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
+import { ALL_PERMISSIONS_SET, permissionsForRoles } from './auth/role-permissions.js';
 import { SESSION_COOKIE_NAME } from './auth/session-cookie.js';
 import { registerAuthRoutes } from './api/routes/auth/index.js';
 import { registerCountriesRoute } from './api/routes/reference/countries.route.js';
@@ -120,7 +121,10 @@ async function extractRequestToken(
     if (token.length > 0 && tokenValidator) {
       try {
         const claims = await tokenValidator.validate(token);
-        return { sub: claims.sub };
+        return {
+          sub: claims.sub,
+          permissions: permissionsForRoles(claims.roles),
+        };
       } catch (err) {
         req.log.warn({ err }, 'JWT validation failed');
       }
@@ -134,7 +138,10 @@ async function extractRequestToken(
       if (tokenValidator) {
         try {
           const claims = await tokenValidator.validate(session.accessToken);
-          return { sub: claims.sub };
+          return {
+            sub: claims.sub,
+            permissions: permissionsForRoles(claims.roles),
+          };
         } catch (err) {
           // Don't try to refresh in the hot path — surface 401 and let
           // the SPA bounce through /auth/login. Refresh-on-expiry can
@@ -143,15 +150,21 @@ async function extractRequestToken(
         }
       } else if (session.sub) {
         // No validator (no OIDC issuer configured) but a session exists.
-        // Trust the stored sub — used only in test setups.
-        return { sub: session.sub };
+        // Trust the stored sub — used only in test setups. Grant the
+        // full permission set since this code path is gated on the
+        // OIDC issuer being unconfigured (only happens in test rigs).
+        return { sub: session.sub, permissions: ALL_PERMISSIONS_SET };
       }
     }
   }
 
   if (config.devFallback) {
     const sub = req.headers['x-user-id'];
-    if (typeof sub === 'string' && sub.length > 0) return { sub };
+    if (typeof sub === 'string' && sub.length > 0) {
+      // Dev fallback grants everything — matches the Rust pinpoint
+      // dev path. NEVER enable in production.
+      return { sub, permissions: ALL_PERMISSIONS_SET };
+    }
   }
   return null;
 }

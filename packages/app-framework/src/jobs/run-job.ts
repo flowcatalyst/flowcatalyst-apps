@@ -19,6 +19,7 @@ export async function runJob<T>(
     tenant: descriptor.tenant ?? null,
     measurement: createMeasurementContext(),
     sqlAudit: descriptor.sqlSampling ? SqlAuditContext.capturing() : SqlAuditContext.inactive(),
+    permissions: descriptor.identity.permissions ?? new Set(),
   };
 
   return ScopeStore.run(scope, () => fn(scope));
