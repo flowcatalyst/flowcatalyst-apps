@@ -36,6 +36,7 @@ import {
   InfrastructureError,
   NotFoundError,
   ScopeStore,
+  TransactionStore,
   type Scope,
   ValidationError,
   type Sealed,
@@ -454,8 +455,12 @@ export class CreateLocationUseCase {
             createdAt: now,
             updatedAt: now,
           }));
+          // Bind the attribute write to the current UoW tx — without this
+          // the insert runs against the default connection and the FK to
+          // the just-created (still-uncommitted) location row fails.
+          const tx = TransactionStore.require();
           yield* Effect.tryPromise({
-            try: () => locationAttributes.insertMany(attrs),
+            try: () => locationAttributes.insertMany(attrs, tx),
             catch: (cause) =>
               new InfrastructureError({
                 code: 'LOCATION_ATTRIBUTE_WRITE_FAILED',
@@ -619,8 +624,12 @@ export class CreateLocationUseCase {
           createdAt: now,
           updatedAt: now,
         }));
+        // Bind the attribute write to the current UoW tx — without this
+        // the insert runs against the default connection and the FK to
+        // the just-created (still-uncommitted) location row fails.
+        const tx = TransactionStore.require();
         yield* Effect.tryPromise({
-          try: () => locationAttributes.insertMany(attrs),
+          try: () => locationAttributes.insertMany(attrs, tx),
           catch: (cause) =>
             new InfrastructureError({
               code: 'LOCATION_ATTRIBUTE_WRITE_FAILED',
