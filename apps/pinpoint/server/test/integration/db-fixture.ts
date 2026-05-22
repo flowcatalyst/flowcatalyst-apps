@@ -97,11 +97,20 @@ async function bootstrap(): Promise<DbFixtureState> {
 
   // Discover every app table from information_schema. Doing it once at
   // bootstrap means tests that add new tables get covered automatically.
+  //
+  // `countries` is excluded so the ~177-row seed from the seed_globals
+  // migration survives across tests — re-seeding on every beforeEach is
+  // slow, and the country table is read-only from the app's perspective
+  // (only the matching pipeline reads it, never writes). Tests that
+  // need to add country rows can do so explicitly.
+  const SEED_PRESERVED = new Set(['countries']);
   const tableRows = await sql<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = ${SCHEMA}
       AND tablename != '__drizzle_migrations'
   `;
-  const truncatables = tableRows.map((r) => r.tablename);
+  const truncatables = tableRows
+    .map((r) => r.tablename)
+    .filter((t) => !SEED_PRESERVED.has(t));
 
   return { container, url, sql, db, truncatables };
 }
