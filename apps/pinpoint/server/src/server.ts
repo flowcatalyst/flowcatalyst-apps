@@ -12,6 +12,7 @@ import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
 import { ALL_PERMISSIONS_SET, permissionsForRoles } from './auth/role-permissions.js';
 import { SESSION_COOKIE_NAME } from './auth/session-cookie.js';
+import { tryRefreshSession } from './auth/session-refresh.js';
 import { registerAuthRoutes } from './api/routes/auth/index.js';
 import { registerCountriesRoute } from './api/routes/reference/countries.route.js';
 import { registerClientRoutes } from './api/routes/tenancy/clients/index.js';
@@ -143,10 +144,17 @@ async function extractRequestToken(
             permissions: permissionsForRoles(claims.roles),
           };
         } catch (err) {
-          // Don't try to refresh in the hot path — surface 401 and let
-          // the SPA bounce through /auth/login. Refresh-on-expiry can
-          // land in a follow-up if it turns out to be a UX problem.
+          // Access token failed to validate — typically expired. If
+          // the session carries a refresh token and OIDC is configured,
+          // attempt a single in-band refresh before giving up.
+          // Refresh failure falls through to 401, which the SPA
+          // handles by bouncing through /auth/login.
           req.log.info({ err }, 'session access token failed validation');
+          const refreshed = await tryRefreshSession(
+            { ...appContext.auth, log: req.log },
+            session,
+          );
+          if (refreshed) return refreshed;
         }
       } else if (session.sub) {
         // No validator (no OIDC issuer configured) but a session exists.
