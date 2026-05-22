@@ -2,13 +2,13 @@
 
 **Read this first if you're picking up the pinpoint port in a new session.**
 
-## Status (2026-05-21)
+## Status (2026-05-22)
 
-- **HEAD:** Slice 12.3 (integration-test harness) — testcontainers-backed PG; 25 integration tests across 4 repos + 2 use cases land alongside the existing 83 unit tests. Harness + pattern documented in `docs/integration-testing.md`; ~18 use cases + ~8 repos still to backfill, but no new harness work needed.
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2, 12.3 (harness + representative spread) + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** rest of the integration-test backfill (mechanical, follow the docs); production cutover items as needed.
+- **HEAD:** `9782ad4` Slice 12.3d — integration-test backfill closed across four sub-slices (12.3a/b/c/d). All 12 Drizzle repos and 20 of 22 write use cases now have integration coverage. The two skipped use cases (`create-location` and `validate-master-location`) need libpostal + geocoder mocking via global-fetch interception — deferred as a hardening follow-up.
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2, 12.3 (harness + 12.3a/b/c/d) + PRE-0a + PRE-0b + schema-sync
+- **Slices remaining:** none against the original plan. Optional hardening: integration tests for create-location + validate-master-location (need fetch-mock layer for libpostal/geocoder/LLM); production cutover items as they come up.
 - **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
-- **Tests:** 83 unit (`pnpm test`) + 25 integration (`pnpm test:integration`, needs Docker)
+- **Tests:** 83 unit (`pnpm test`) + 85 integration across 31 files (`pnpm test:integration`, needs Docker)
 - **Drizzle migrations:** three generated, applied (schema + countries/global-default seed + 10c flashy_ricochet) — see `apps/pinpoint/server/drizzle/`
 - **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`). Production: `docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the repo root brings up the full stack.
 
