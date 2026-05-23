@@ -4,7 +4,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -17,26 +16,24 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { asLayerId, asPropertySetId } from '../../domain/layers/ids.js';
 import { PropertySet } from '../../domain/layers/property-set.js';
 import { PropertySetUpdated } from '../../domain/layers/events/property-set-updated.event.js';
-import type { PropertySetRepository } from '../../domain/layers/property-set.repository.js';
+import { PropertySets } from '../../domain/layers/property-set.repository.js';
 import type { UpdatePropertySetCommand } from './update-property-set.command.js';
 
 export class UpdatePropertySetUseCase {
   static readonly requiredPermission = PinpointPermission.LayersPropertySetUpdate;
-
-  constructor(private readonly propertySets: PropertySetRepository) {}
 
   execute = (
     command: UpdatePropertySetCommand,
   ): Effect.Effect<
     Sealed<PropertySetUpdated>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | PropertySets
   > => {
-    const propertySets = this.propertySets;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const propertySets = yield* PropertySets;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -52,14 +49,7 @@ export class UpdatePropertySetUseCase {
       const name = command.name.trim();
       const description = command.description?.trim() || null;
 
-      const existing = yield* Effect.tryPromise({
-        try: () => propertySets.findById(propertySetId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'PROPERTY_SET_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* propertySets.findById(propertySetId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -78,14 +68,7 @@ export class UpdatePropertySetUseCase {
       }
 
       if (name !== existing.name) {
-        const collision = yield* Effect.tryPromise({
-          try: () => propertySets.findByLayerAndName(layerId, name),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: 'PROPERTY_SET_REPO_READ_FAILED',
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
+        const collision = yield* propertySets.findByLayerAndName(layerId, name);
         if (collision && collision.id !== existing.id) {
           return yield* Effect.fail(
             new BusinessRuleViolation({

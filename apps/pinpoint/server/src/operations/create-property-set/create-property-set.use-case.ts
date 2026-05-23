@@ -5,7 +5,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -23,31 +22,26 @@ import {
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { PropertySet } from '../../domain/layers/property-set.js';
 import { PropertySetCreated } from '../../domain/layers/events/property-set-created.event.js';
-import type { LayerRepository } from '../../domain/layers/layer.repository.js';
-import type { PropertySetRepository } from '../../domain/layers/property-set.repository.js';
+import { Layers } from '../../domain/layers/layer.repository.js';
+import { PropertySets } from '../../domain/layers/property-set.repository.js';
 import type { CreatePropertySetCommand } from './create-property-set.command.js';
 
 export class CreatePropertySetUseCase {
   static readonly requiredPermission = PinpointPermission.LayersPropertySetCreate;
-
-  constructor(
-    private readonly layers: LayerRepository,
-    private readonly propertySets: PropertySetRepository,
-  ) {}
 
   execute = (
     command: CreatePropertySetCommand,
   ): Effect.Effect<
     Sealed<PropertySetCreated>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | Layers | PropertySets
   > => {
-    const layers = this.layers;
-    const propertySets = this.propertySets;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const layers = yield* Layers;
+      const propertySets = yield* PropertySets;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -63,14 +57,7 @@ export class CreatePropertySetUseCase {
       const name = command.name.trim();
       const description = command.description?.trim() || null;
 
-      const layer = yield* Effect.tryPromise({
-        try: () => layers.findById(layerId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'LAYER_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const layer = yield* layers.findById(layerId);
       if (!layer) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -88,14 +75,7 @@ export class CreatePropertySetUseCase {
         );
       }
 
-      const duplicate = yield* Effect.tryPromise({
-        try: () => propertySets.findByLayerAndName(layerId, name),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'PROPERTY_SET_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const duplicate = yield* propertySets.findByLayerAndName(layerId, name);
       if (duplicate) {
         return yield* Effect.fail(
           new BusinessRuleViolation({

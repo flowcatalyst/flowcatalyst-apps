@@ -13,7 +13,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -31,26 +30,24 @@ import {
   addressHash as computeAddressHash,
   toAddressLine,
 } from '../../domain/services/address-normalizer.js';
-import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
+import { MasterLocations } from '../../domain/locations/master-location.repository.js';
 import type { UpdateMasterLocationCommand } from './update-master-location.command.js';
 
 export class UpdateMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationUpdate;
-
-  constructor(private readonly masters: MasterLocationRepository) {}
 
   execute = (
     command: UpdateMasterLocationCommand,
   ): Effect.Effect<
     Sealed<MasterLocationUpdated>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | MasterLocations
   > => {
-    const masters = this.masters;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const masters = yield* MasterLocations;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -64,14 +61,7 @@ export class UpdateMasterLocationUseCase {
       const clientId = asClientId(command.clientId.trim());
       const masterLocationId = asMasterLocationId(command.masterLocationId.trim());
 
-      const existing = yield* Effect.tryPromise({
-        try: () => masters.findById(masterLocationId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MASTER_LOCATION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* masters.findById(masterLocationId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({

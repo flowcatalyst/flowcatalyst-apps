@@ -4,7 +4,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -18,22 +17,24 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { Partition } from '../../domain/tenancy/partition.js';
 import { asClientId, asPartitionId } from '../../domain/tenancy/ids.js';
 import { PartitionUpdated } from '../../domain/tenancy/events/partition-updated.event.js';
-import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
+import { Partitions } from '../../domain/tenancy/partition.repository.js';
 import type { UpdatePartitionCommand } from './update-partition.command.js';
 
 export class UpdatePartitionUseCase {
   static readonly requiredPermission = PinpointPermission.TenancyPartitionUpdate;
 
-  constructor(private readonly partitions: PartitionRepository) {}
-
   execute = (
     command: UpdatePartitionCommand,
-  ): Effect.Effect<Sealed<PartitionUpdated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const partitions = this.partitions;
+  ): Effect.Effect<
+    Sealed<PartitionUpdated>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Partitions
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const partitions = yield* Partitions;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -57,14 +58,7 @@ export class UpdatePartitionUseCase {
         );
       }
 
-      const existing = yield* Effect.tryPromise({
-        try: () => partitions.findById(partitionId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'PARTITION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* partitions.findById(partitionId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({

@@ -1,30 +1,24 @@
 /**
  * Full create-location pipeline — port of Rust `create_location.rs`.
  *
- * Replaces the Slice 3 minimal-create version. Steps:
+ * Steps (unchanged from the slice-8 rewrite):
  *   1. Validate client (+ partition if provided).
- *   2. Idempotent external_id dedup → if found, return the existing
- *      location's LocationCreated as if just created (Rust pattern).
- *   3. Normalize the free-form `address` via libpostal; retry with
- *      `country_code` appended on failure.
+ *   2. Idempotent external_id dedup.
+ *   3. Normalize via libpostal; retry with country_code on failure.
  *   4. Resolve matching config for (client, partition).
- *   5. Look up master by exact address_hash (VALIDATED only).
- *   6. Look up fuzzy candidates via pg_trgm (threshold 0.3, limit 50,
- *      VALIDATED only).
- *   7. Run AddressMatcher on all candidates.
- *   8. If fuzzy match: optionally call AddressVerifier (LLM) — its `null`
- *      return is "no opinion" (proceed); `match_confirmed=false` rejects.
- *   9a. Match → create Location pointing at matched master. If master
- *      is VALIDATED, also emit LocationValidated with spatial-feature
- *      payload + write location_feature_associations.
- *   9b. No match → create a new MasterLocation (PENDING) and a Location
- *      pointing at it.
- *  10. Throughout, append processing_log rows. Fire-and-forget — log
- *      failures must not block the pipeline.
+ *   5. Exact hash match against VALIDATED masters.
+ *   6. Fuzzy candidates via pg_trgm.
+ *   7. Algorithmic matcher.
+ *   8. Optional LLM verifier on fuzzy matches.
+ *   9a. Match → create Location pointing at matched master (+ optional
+ *       LocationValidated if master is VALIDATED).
+ *   9b. No match → create new MasterLocation (PENDING) + Location.
+ *  10. processing_log rows throughout (fire-and-forget).
+ *  11. Persist attributes if the command carried any.
  *
- * Returns Sealed<LocationCreated>. Secondary events
- * (MasterLocationCreated, LocationValidated) emit through additional
- * `commitAggregate` calls in the same outbox/tx batch.
+ * Repo deps are yielded from the Effect environment via Tags. The two
+ * non-repo service deps (AddressNormalizer, AddressVerifier) stay as
+ * constructor args.
  */
 import { Effect } from 'effect';
 import { generateTsid } from '@flowcatalyst/sdk';
@@ -71,18 +65,18 @@ import {
 } from '../../domain/services/address-normalizer.js';
 import type { Location } from '../../domain/locations/location.js';
 import type { AddressVerifier } from '../../domain/services/address-verifier.js';
-import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
-import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
-import type { LocationRepository } from '../../domain/locations/location.repository.js';
-import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
-import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
+import { Clients } from '../../domain/tenancy/client.repository.js';
+import { Partitions } from '../../domain/tenancy/partition.repository.js';
+import { Locations } from '../../domain/locations/location.repository.js';
+import { MasterLocations } from '../../domain/locations/master-location.repository.js';
+import { MatchingConfigs } from '../../domain/matching/matching-config.repository.js';
+import { LayerFeatures } from '../../domain/layers/layer-feature.repository.js';
+import { LocationAttributes } from '../../domain/locations/location-attribute.repository.js';
+import { ProcessingLogs } from '../../domain/locations/processing-log.repository.js';
 import type {
-  LayerFeatureRepository,
   LocationFeatureAssociationInput,
   SpatialLookupHit,
 } from '../../domain/layers/layer-feature.repository.js';
-import type { LocationAttributeRepository } from '../../domain/locations/location-attribute.repository.js';
-import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
 const FUZZY_THRESHOLD = 0.3;
@@ -127,35 +121,40 @@ export class CreateLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsLocationCreate;
 
   constructor(
-    private readonly clients: ClientRepository,
-    private readonly partitions: PartitionRepository,
-    private readonly locations: LocationRepository,
-    private readonly masters: MasterLocationRepository,
-    private readonly matchingConfigs: MatchingConfigRepository,
-    private readonly layerFeatures: LayerFeatureRepository,
     private readonly addressNormalizer: AddressNormalizer,
     private readonly addressVerifier: AddressVerifier,
-    private readonly processingLog: ProcessingLogRepository,
-    private readonly locationAttributes: LocationAttributeRepository,
   ) {}
 
   execute = (
     command: CreateLocationCommand,
-  ): Effect.Effect<Sealed<LocationCreated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const clients = this.clients;
-    const partitions = this.partitions;
-    const locations = this.locations;
-    const masters = this.masters;
-    const matchingConfigs = this.matchingConfigs;
-    const layerFeatures = this.layerFeatures;
+  ): Effect.Effect<
+    Sealed<LocationCreated>,
+    UseCaseError,
+    | UnitOfWork
+    | AggregateRegistry
+    | Clients
+    | Partitions
+    | Locations
+    | MasterLocations
+    | MatchingConfigs
+    | LayerFeatures
+    | LocationAttributes
+    | ProcessingLogs
+  > => {
     const addressNormalizer = this.addressNormalizer;
     const addressVerifier = this.addressVerifier;
-    const processingLog = this.processingLog;
-    const locationAttributes = this.locationAttributes;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const clients = yield* Clients;
+      const partitions = yield* Partitions;
+      const locations = yield* Locations;
+      const masters = yield* MasterLocations;
+      const matchingConfigs = yield* MatchingConfigs;
+      const layerFeatures = yield* LayerFeatures;
+      const locationAttributes = yield* LocationAttributes;
+      const processingLog = yield* ProcessingLogs;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -185,8 +184,8 @@ export class CreateLocationUseCase {
         );
       }
 
-      // Validate attributes early so a bad attribute payload fails the
-      // request before we hit libpostal / fuzzy matching.
+      // Validate attributes early so a bad payload fails before we hit
+      // libpostal / fuzzy matching.
       const attributeInputs = command.attributes ?? [];
       const seenAttrKeys = new Set<string>();
       for (const a of attributeInputs) {
@@ -210,14 +209,7 @@ export class CreateLocationUseCase {
         seenAttrKeys.add(key);
       }
 
-      const client = yield* Effect.tryPromise({
-        try: () => clients.findById(clientId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'CLIENT_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const client = yield* clients.findById(clientId);
       if (!client) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -228,14 +220,7 @@ export class CreateLocationUseCase {
       }
 
       if (partitionId) {
-        const partition = yield* Effect.tryPromise({
-          try: () => partitions.findById(partitionId),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: 'PARTITION_REPO_READ_FAILED',
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
+        const partition = yield* partitions.findById(partitionId);
         if (!partition) {
           return yield* Effect.fail(
             new NotFoundError({
@@ -246,18 +231,9 @@ export class CreateLocationUseCase {
         }
       }
 
-      // Step 2: idempotent dedup. Rust returns an existing location's
-      // LocationCreated as a success; we mirror that — the caller gets a
-      // 201 with the existing id rather than a 409.
+      // Step 2: idempotent dedup.
       if (externalId) {
-        const existing = yield* Effect.tryPromise({
-          try: () => locations.findByExternalId(clientId, partitionId, externalId),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: 'LOCATION_REPO_READ_FAILED',
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
+        const existing = yield* locations.findByExternalId(clientId, partitionId, externalId);
         if (existing) {
           const event = new LocationCreated(scope, {
             locationId: existing.id,
@@ -273,6 +249,8 @@ export class CreateLocationUseCase {
       }
 
       // Step 3: normalize, with a country-code retry on first failure.
+      // AddressNormalizer is the libpostal HTTP service — non-repo, no
+      // Effect Tag. Wrap once with Effect.tryPromise.
       const normalized: NormalizedAddress = yield* Effect.tryPromise({
         try: async () => {
           try {
@@ -292,45 +270,18 @@ export class CreateLocationUseCase {
       const addressHash = computeAddressHash(normalized);
       const addressLine = toAddressLine(normalized);
 
-      // Step 4: matching config (cascade fallback handled in the repo).
-      const config = yield* Effect.tryPromise({
-        try: () => matchingConfigs.resolve(clientId, partitionId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MATCHING_CONFIG_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const config = yield* matchingConfigs.resolve(clientId, partitionId);
 
-      // Step 5: exact hash match (only against VALIDATED masters).
-      const hashHit = yield* Effect.tryPromise({
-        try: () => masters.findByHash(clientId, partitionId, addressHash),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MASTER_LOCATION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
-
+      const hashHit = yield* masters.findByHash(clientId, partitionId, addressHash);
       const validatedHashHit = hashHit && hashHit.status === 'VALIDATED' ? hashHit : null;
 
-      // Step 6: fuzzy candidates. Filter to VALIDATED and exclude the hash
-      // hit (already at the head of the candidates list).
-      const fuzzyCandidates = yield* Effect.tryPromise({
-        try: () =>
-          masters.findFuzzyCandidates(
-            clientId,
-            partitionId,
-            addressLine,
-            FUZZY_THRESHOLD,
-            FUZZY_LIMIT,
-          ),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MASTER_LOCATION_FUZZY_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const fuzzyCandidates = yield* masters.findFuzzyCandidates(
+        clientId,
+        partitionId,
+        addressLine,
+        FUZZY_THRESHOLD,
+        FUZZY_LIMIT,
+      );
 
       const candidates = [
         ...(validatedHashHit ? [validatedHashHit] : []),
@@ -339,10 +290,10 @@ export class CreateLocationUseCase {
         ),
       ];
 
-      // Step 7: run the algorithmic matcher.
       let matchResult = findMatch(normalized, addressHash, candidates, config);
 
-      // Step 8: optional LLM verifier for fuzzy matches (skip exact hash).
+      // Step 8: optional LLM verifier for fuzzy matches. AddressVerifier is
+      // the LLM service — non-repo, no Effect Tag. Wrap once.
       if (matchResult !== null && matchResult.method === 'FUZZY') {
         const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
         if (candidate) {
@@ -361,8 +312,6 @@ export class CreateLocationUseCase {
           const verdict = yield* Effect.promise(() =>
             addressVerifier.verify(addressLine, candidateLine),
           );
-          // `null` = no verifier opinion → keep the algorithmic match.
-          // `match_confirmed = false` rejects, falls through to no-match path.
           if (verdict && !verdict.match_confirmed) {
             matchResult = null;
           }
@@ -373,32 +322,29 @@ export class CreateLocationUseCase {
       const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
 
       if (matchResult !== null) {
-        // ──── Match path ───────────────────────────────────────────────
         const matchedMaster = candidates.find((c) => c.id === matchResult!.masterLocationId);
 
-        yield* Effect.promise(() =>
-          processingLog
-            .append(asMasterLocationId(matchResult!.masterLocationId), 'normalized', {
-              input: address,
-              house_number: normalized.houseNumber,
-              road: normalized.road,
-              suburb: normalized.suburb,
-              city: normalized.city,
-              state: normalized.state,
-              postal_code: normalized.postalCode,
-              country: normalized.country,
-              address_hash: addressHash,
-            })
-            .catch(() => undefined),
+        // processing_log writes are fire-and-forget — log failures must
+        // not block the pipeline.
+        yield* Effect.ignore(
+          processingLog.append(asMasterLocationId(matchResult.masterLocationId), 'normalized', {
+            input: address,
+            house_number: normalized.houseNumber,
+            road: normalized.road,
+            suburb: normalized.suburb,
+            city: normalized.city,
+            state: normalized.state,
+            postal_code: normalized.postalCode,
+            country: normalized.country,
+            address_hash: addressHash,
+          }),
         );
-        yield* Effect.promise(() =>
-          processingLog
-            .append(asMasterLocationId(matchResult!.masterLocationId), 'matched', {
-              method: matchResult!.method,
-              confidence: matchResult!.confidence,
-              location_id: locationId,
-            })
-            .catch(() => undefined),
+        yield* Effect.ignore(
+          processingLog.append(asMasterLocationId(matchResult.masterLocationId), 'matched', {
+            method: matchResult.method,
+            confidence: matchResult.confidence,
+            location_id: locationId,
+          }),
         );
 
         const masterValidated =
@@ -445,7 +391,6 @@ export class CreateLocationUseCase {
 
         const primary = yield* commitAggregate(location, createdEvent, command);
 
-        // Persist location attributes inside the same tx.
         if (attributeInputs.length > 0) {
           const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
             id: asLocationAttributeId(`${LOCATION_ATTRIBUTE_ID_PREFIX}_${generateTsid()}`),
@@ -455,22 +400,12 @@ export class CreateLocationUseCase {
             createdAt: now,
             updatedAt: now,
           }));
-          // Bind the attribute write to the current UoW tx — without this
-          // the insert runs against the default connection and the FK to
-          // the just-created (still-uncommitted) location row fails.
+          // Bind the attribute write to the current UoW tx so the FK to
+          // the just-created (still-uncommitted) location resolves.
           const tx = TransactionStore.require();
-          yield* Effect.tryPromise({
-            try: () => locationAttributes.insertMany(attrs, tx),
-            catch: (cause) =>
-              new InfrastructureError({
-                code: 'LOCATION_ATTRIBUTE_WRITE_FAILED',
-                message: cause instanceof Error ? cause.message : String(cause),
-              }),
-          });
+          yield* locationAttributes.insertMany(attrs, tx);
         }
 
-        // If the master is already VALIDATED, this location is too —
-        // emit LocationValidated with the spatial-property payload.
         if (
           masterValidated &&
           matchedMaster &&
@@ -479,34 +414,17 @@ export class CreateLocationUseCase {
         ) {
           const lat = matchedMaster.latitude;
           const lon = matchedMaster.longitude;
-          const hits = yield* Effect.tryPromise({
-            try: () =>
-              layerFeatures.spatialLookup({
-                clientId,
-                partitionId,
-                latitude: lat,
-                longitude: lon,
-                layerCodes: null,
-              }),
-            catch: (cause) =>
-              new InfrastructureError({
-                code: 'SPATIAL_LOOKUP_FAILED',
-                message: cause instanceof Error ? cause.message : String(cause),
-              }),
+          const hits = yield* layerFeatures.spatialLookup({
+            clientId,
+            partitionId,
+            latitude: lat,
+            longitude: lon,
+            layerCodes: null,
           });
-
-          yield* Effect.tryPromise({
-            try: () =>
-              layerFeatures.replaceLocationFeatureAssociations(
-                location.id,
-                hits.map(hitToAssociation),
-              ),
-            catch: (cause) =>
-              new InfrastructureError({
-                code: 'LOCATION_FEATURE_ASSOC_WRITE_FAILED',
-                message: cause instanceof Error ? cause.message : String(cause),
-              }),
-          });
+          yield* layerFeatures.replaceLocationFeatureAssociations(
+            location.id,
+            hits.map(hitToAssociation),
+          );
 
           const validatedEvent = new LocationValidated(scope, {
             locationId: location.id,
@@ -522,7 +440,7 @@ export class CreateLocationUseCase {
         return primary;
       }
 
-      // ──── No-match path: create a fresh master + location ─────────────
+      // ──── No-match path ─────────────────────────────────────────────
       const masterId = asMasterLocationId(`${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`);
       const master = MasterLocation.create({
         id: masterId,
@@ -540,28 +458,24 @@ export class CreateLocationUseCase {
         now,
       });
 
-      yield* Effect.promise(() =>
-        processingLog
-          .append(masterId, 'normalized', {
-            input: address,
-            house_number: normalized.houseNumber,
-            road: normalized.road,
-            suburb: normalized.suburb,
-            city: normalized.city,
-            state: normalized.state,
-            postal_code: normalized.postalCode,
-            country: normalized.country,
-            address_hash: addressHash,
-          })
-          .catch(() => undefined),
+      yield* Effect.ignore(
+        processingLog.append(masterId, 'normalized', {
+          input: address,
+          house_number: normalized.houseNumber,
+          road: normalized.road,
+          suburb: normalized.suburb,
+          city: normalized.city,
+          state: normalized.state,
+          postal_code: normalized.postalCode,
+          country: normalized.country,
+          address_hash: addressHash,
+        }),
       );
-      yield* Effect.promise(() =>
-        processingLog
-          .append(masterId, 'created', {
-            reason: 'no_match',
-            candidates_checked: candidates.length,
-          })
-          .catch(() => undefined),
+      yield* Effect.ignore(
+        processingLog.append(masterId, 'created', {
+          reason: 'no_match',
+          candidates_checked: candidates.length,
+        }),
       );
 
       const masterEvent = new MasterLocationCreated(scope, {
@@ -624,18 +538,8 @@ export class CreateLocationUseCase {
           createdAt: now,
           updatedAt: now,
         }));
-        // Bind the attribute write to the current UoW tx — without this
-        // the insert runs against the default connection and the FK to
-        // the just-created (still-uncommitted) location row fails.
         const tx = TransactionStore.require();
-        yield* Effect.tryPromise({
-          try: () => locationAttributes.insertMany(attrs, tx),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: 'LOCATION_ATTRIBUTE_WRITE_FAILED',
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
+        yield* locationAttributes.insertMany(attrs, tx);
       }
 
       return sealed;

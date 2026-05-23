@@ -4,7 +4,6 @@ import {
   AggregateRegistry,
   AuthorizationError,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -25,26 +24,24 @@ import {
   LAYER_FEATURE_ID_PREFIX,
 } from '../../domain/layers/ids.js';
 import { LayerFeatureCreated } from '../../domain/layers/events/layer-feature-created.event.js';
-import type { LayerRepository } from '../../domain/layers/layer.repository.js';
-import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
+import { Layers } from '../../domain/layers/layer.repository.js';
 import type { CreateLayerFeatureCommand } from './create-layer-feature.command.js';
 
 export class CreateLayerFeatureUseCase {
   static readonly requiredPermission = PinpointPermission.LayersFeatureCreate;
 
-  constructor(
-    private readonly layers: LayerRepository,
-    private readonly features: LayerFeatureRepository,
-  ) {}
-
   execute = (
     command: CreateLayerFeatureCommand,
-  ): Effect.Effect<Sealed<LayerFeatureCreated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const layers = this.layers;
+  ): Effect.Effect<
+    Sealed<LayerFeatureCreated>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Layers
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const layers = yield* Layers;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -89,14 +86,7 @@ export class CreateLayerFeatureUseCase {
         );
       }
 
-      const layer = yield* Effect.tryPromise({
-        try: () => layers.findById(layerId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'LAYER_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const layer = yield* layers.findById(layerId);
       if (!layer) {
         return yield* Effect.fail(
           new NotFoundError({

@@ -5,7 +5,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -27,29 +26,24 @@ import {
   PropertySet,
 } from '../../domain/layers/property-set.js';
 import { PropertySetPropertiesReplaced } from '../../domain/layers/events/property-set-properties-replaced.event.js';
-import type { PropertySetRepository } from '../../domain/layers/property-set.repository.js';
+import { PropertySets } from '../../domain/layers/property-set.repository.js';
 import type { ReplacePropertySetPropertiesCommand } from './replace-property-set-properties.command.js';
 
 export class ReplacePropertySetPropertiesUseCase {
-  // Reuse the update permission — replacing properties is a property-set
-  // mutation; there's no separate "manage properties" permission in the
-  // Rust pinpoint role catalog either.
   static readonly requiredPermission = PinpointPermission.LayersPropertySetUpdate;
-
-  constructor(private readonly propertySets: PropertySetRepository) {}
 
   execute = (
     command: ReplacePropertySetPropertiesCommand,
   ): Effect.Effect<
     Sealed<PropertySetPropertiesReplaced>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | PropertySets
   > => {
-    const propertySets = this.propertySets;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const propertySets = yield* PropertySets;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -94,14 +88,7 @@ export class ReplacePropertySetPropertiesUseCase {
         seen.add(key);
       }
 
-      const existing = yield* Effect.tryPromise({
-        try: () => propertySets.findById(propertySetId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'PROPERTY_SET_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* propertySets.findById(propertySetId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({

@@ -4,6 +4,9 @@
  * geocoder service. The semantic "validate" step (mark canonical +
  * cascade child locations) is `confirm-master-location`. Names preserved
  * for parity with the Rust pinpoint.
+ *
+ * Geocoder is a non-repo service (external HTTP), so it stays as a
+ * constructor dep. Repo deps are yielded from the Effect environment.
  */
 import { Effect } from 'effect';
 import {
@@ -24,7 +27,7 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationGeocoded } from '../../domain/locations/events/master-location-geocoded.event.js';
-import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
+import { MasterLocations } from '../../domain/locations/master-location.repository.js';
 import type { GeocoderService } from '../../domain/services/geocoder.js';
 import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
 import type { ValidateMasterLocationCommand } from './validate-master-location.command.js';
@@ -32,24 +35,21 @@ import type { ValidateMasterLocationCommand } from './validate-master-location.c
 export class ValidateMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationValidate;
 
-  constructor(
-    private readonly masters: MasterLocationRepository,
-    private readonly geocoder: GeocoderService,
-  ) {}
+  constructor(private readonly geocoder: GeocoderService) {}
 
   execute = (
     command: ValidateMasterLocationCommand,
   ): Effect.Effect<
     Sealed<MasterLocationGeocoded>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | MasterLocations
   > => {
-    const masters = this.masters;
     const geocoder = this.geocoder;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const masters = yield* MasterLocations;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -62,14 +62,7 @@ export class ValidateMasterLocationUseCase {
 
       const masterId = asMasterLocationId(command.masterLocationId.trim());
 
-      const master = yield* Effect.tryPromise({
-        try: () => masters.findById(masterId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MASTER_LOCATION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const master = yield* masters.findById(masterId);
       if (!master) {
         return yield* Effect.fail(
           new NotFoundError({

@@ -4,7 +4,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -19,22 +18,24 @@ import { Layer } from '../../domain/layers/layer.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asLayerId } from '../../domain/layers/ids.js';
 import { LayerUpdated } from '../../domain/layers/events/layer-updated.event.js';
-import type { LayerRepository } from '../../domain/layers/layer.repository.js';
+import { Layers } from '../../domain/layers/layer.repository.js';
 import type { UpdateLayerCommand } from './update-layer.command.js';
 
 export class UpdateLayerUseCase {
   static readonly requiredPermission = PinpointPermission.LayersLayerUpdate;
 
-  constructor(private readonly layers: LayerRepository) {}
-
   execute = (
     command: UpdateLayerCommand,
-  ): Effect.Effect<Sealed<LayerUpdated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const layers = this.layers;
+  ): Effect.Effect<
+    Sealed<LayerUpdated>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Layers
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const layers = yield* Layers;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -58,14 +59,7 @@ export class UpdateLayerUseCase {
         );
       }
 
-      const existing = yield* Effect.tryPromise({
-        try: () => layers.findById(layerId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'LAYER_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* layers.findById(layerId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -83,8 +77,6 @@ export class UpdateLayerUseCase {
         );
       }
 
-      // Same geometry rules as create-layer: RADIUS needs center+radius,
-      // POLYGON needs polygon_geojson, POINT none required.
       if (existing.layerType === 'RADIUS') {
         if (command.centerLat == null || command.centerLon == null) {
           return yield* Effect.fail(

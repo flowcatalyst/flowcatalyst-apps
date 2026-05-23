@@ -10,7 +10,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -24,26 +23,24 @@ import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationRejected } from '../../domain/locations/events/master-location-rejected.event.js';
-import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
+import { MasterLocations } from '../../domain/locations/master-location.repository.js';
 import type { RejectMasterLocationCommand } from './reject-master-location.command.js';
 
 export class RejectMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationReject;
-
-  constructor(private readonly masters: MasterLocationRepository) {}
 
   execute = (
     command: RejectMasterLocationCommand,
   ): Effect.Effect<
     Sealed<MasterLocationRejected>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | MasterLocations
   > => {
-    const masters = this.masters;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const masters = yield* MasterLocations;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -58,14 +55,7 @@ export class RejectMasterLocationUseCase {
       const masterLocationId = asMasterLocationId(command.masterLocationId.trim());
       const reason = command.reason?.trim() || null;
 
-      const existing = yield* Effect.tryPromise({
-        try: () => masters.findById(masterLocationId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MASTER_LOCATION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* masters.findById(masterLocationId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -82,14 +72,8 @@ export class RejectMasterLocationUseCase {
           }),
         );
       }
-      if (existing.status === 'REJECTED') {
-        // Idempotent: re-rejecting is a no-op success. Emit the event so
-        // downstream consumers see the audit trail and the reason update.
-      } else if (existing.status === 'VALIDATED') {
-        // Rejecting a VALIDATED master un-canonicalises it. Tracked
-        // intentionally — the BFF may want to gate this behind a stronger
-        // confirmation, but at the use-case layer we allow it.
-      }
+      // Re-rejecting is idempotent. Re-rejecting a VALIDATED master
+      // un-canonicalises it — gated at the BFF layer if desired.
 
       const updated = MasterLocation.rejected(existing, new Date());
       const event = new MasterLocationRejected(scope, {

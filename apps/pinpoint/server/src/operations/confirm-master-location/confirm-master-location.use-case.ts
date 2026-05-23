@@ -3,17 +3,6 @@
  * `locations` row: flips status to VALIDATED, writes the spatial-feature
  * associations from the master's coordinate, and emits LocationValidated
  * (carrying the rich layer-property payload).
- *
- * Port of Rust `confirm_master_location.rs`. Same structure: spatial
- * lookup once at the master's coords, then loop over child locations
- * doing per-location associations + events. The Rust uses a single UoW
- * commit per-location; we do the same so each LocationValidated event
- * rides with that location's status update.
- *
- * The primary event returned to the caller is `MasterLocationValidated`.
- * The per-location LocationValidated events are committed inside the
- * Effect via secondary `commitAggregate` calls — they share the same
- * Drizzle tx and outbox batch.
  */
 import { Effect } from 'effect';
 import {
@@ -21,7 +10,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -40,14 +28,14 @@ import {
   type LayerPropertyAssignment,
 } from '../../domain/locations/events/location-validated.event.js';
 import type { Location } from '../../domain/locations/location.js';
-import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
-import type { LocationRepository } from '../../domain/locations/location.repository.js';
+import { MasterLocations } from '../../domain/locations/master-location.repository.js';
+import { Locations } from '../../domain/locations/location.repository.js';
+import { LayerFeatures } from '../../domain/layers/layer-feature.repository.js';
+import { ProcessingLogs } from '../../domain/locations/processing-log.repository.js';
 import type {
-  LayerFeatureRepository,
   LocationFeatureAssociationInput,
   SpatialLookupHit,
 } from '../../domain/layers/layer-feature.repository.js';
-import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
 import type { ConfirmMasterLocationCommand } from './confirm-master-location.command.js';
 
 function spatialHitToLayerProperty(hit: SpatialLookupHit): LayerPropertyAssignment {
@@ -88,28 +76,21 @@ function spatialHitToAssociation(hit: SpatialLookupHit): LocationFeatureAssociat
 export class ConfirmMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationConfirm;
 
-  constructor(
-    private readonly masters: MasterLocationRepository,
-    private readonly locations: LocationRepository,
-    private readonly layerFeatures: LayerFeatureRepository,
-    private readonly processingLog: ProcessingLogRepository,
-  ) {}
-
   execute = (
     command: ConfirmMasterLocationCommand,
   ): Effect.Effect<
     Sealed<MasterLocationValidated>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | MasterLocations | Locations | LayerFeatures | ProcessingLogs
   > => {
-    const masters = this.masters;
-    const locations = this.locations;
-    const layerFeatures = this.layerFeatures;
-    const processingLog = this.processingLog;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const masters = yield* MasterLocations;
+      const locations = yield* Locations;
+      const layerFeatures = yield* LayerFeatures;
+      const processingLog = yield* ProcessingLogs;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -123,14 +104,7 @@ export class ConfirmMasterLocationUseCase {
       const masterId = asMasterLocationId(command.masterLocationId.trim());
       const commandClientId = asClientId(command.clientId.trim());
 
-      const master = yield* Effect.tryPromise({
-        try: () => masters.findById(masterId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MASTER_LOCATION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const master = yield* masters.findById(masterId);
       if (!master) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -160,48 +134,23 @@ export class ConfirmMasterLocationUseCase {
       const latitude = master.latitude;
       const longitude = master.longitude;
 
-      // One spatial lookup at the master's coordinate; reused for both
-      // the per-location associations write and the LocationValidated
-      // event payload below.
-      const spatialHits = yield* Effect.tryPromise({
-        try: () =>
-          layerFeatures.spatialLookup({
-            clientId: master.clientId,
-            partitionId: master.partitionId,
-            latitude,
-            longitude,
-            layerCodes: null,
-          }),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'SPATIAL_LOOKUP_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
+      const spatialHits = yield* layerFeatures.spatialLookup({
+        clientId: master.clientId,
+        partitionId: master.partitionId,
+        latitude,
+        longitude,
+        layerCodes: null,
       });
 
       const associations = spatialHits.map(spatialHitToAssociation);
       const layerProperties = spatialHits.map(spatialHitToLayerProperty);
 
-      const children = yield* Effect.tryPromise({
-        try: () => locations.listByMaster(masterId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'LOCATION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const children = yield* locations.listByMaster(masterId);
 
       const now = new Date();
       let locationsValidated = 0;
       for (const child of children) {
-        yield* Effect.tryPromise({
-          try: () => layerFeatures.replaceLocationFeatureAssociations(child.id, associations),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: 'LOCATION_FEATURE_ASSOC_WRITE_FAILED',
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
+        yield* layerFeatures.replaceLocationFeatureAssociations(child.id, associations);
 
         if (child.status === 'VALIDATED') continue;
 
@@ -218,16 +167,14 @@ export class ConfirmMasterLocationUseCase {
         locationsValidated += 1;
       }
 
-      // Fire-and-forget audit row. A logging failure must not block the
-      // confirm flow; the caller never observes it.
-      yield* Effect.promise(() =>
-        processingLog
-          .append(master.id, 'validated', {
-            method: 'direct',
-            locations_validated: locationsValidated,
-            features_matched: associations.length,
-          })
-          .catch(() => undefined),
+      // Fire-and-forget audit row — a logging failure must not block
+      // the confirm flow. `Effect.ignore` drops the error channel.
+      yield* Effect.ignore(
+        processingLog.append(master.id, 'validated', {
+          method: 'direct',
+          locations_validated: locationsValidated,
+          features_matched: associations.length,
+        }),
       );
 
       const updatedMaster = MasterLocation.confirmed(master, now);

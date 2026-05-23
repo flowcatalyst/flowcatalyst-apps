@@ -3,7 +3,6 @@ import {
   AggregateRegistry,
   AuthorizationError,
   commitDelete,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -15,27 +14,24 @@ import { PinpointPermission } from '@pinpoint/shared';
 
 import { asLayerFeatureId } from '../../domain/layers/ids.js';
 import { LayerFeatureDeleted } from '../../domain/layers/events/layer-feature-deleted.event.js';
-import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
+import { LayerFeatures } from '../../domain/layers/layer-feature.repository.js';
 import type { DeleteLayerFeatureCommand } from './delete-layer-feature.command.js';
 
-/**
- * First use case in the codebase to exercise `commitDelete`. The pattern
- * mirrors `commitAggregate` but signals removal intent — the registry's
- * `delete` handler runs inside the same Drizzle tx as the outbox write.
- */
 export class DeleteLayerFeatureUseCase {
   static readonly requiredPermission = PinpointPermission.LayersFeatureDelete;
 
-  constructor(private readonly features: LayerFeatureRepository) {}
-
   execute = (
     command: DeleteLayerFeatureCommand,
-  ): Effect.Effect<Sealed<LayerFeatureDeleted>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const features = this.features;
+  ): Effect.Effect<
+    Sealed<LayerFeatureDeleted>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | LayerFeatures
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const features = yield* LayerFeatures;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -48,14 +44,7 @@ export class DeleteLayerFeatureUseCase {
 
       const featureId = asLayerFeatureId(command.featureId.trim());
 
-      const prior = yield* Effect.tryPromise({
-        try: () => features.findById(featureId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'LAYER_FEATURE_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const prior = yield* features.findById(featureId);
       if (!prior) {
         return yield* Effect.fail(
           new NotFoundError({

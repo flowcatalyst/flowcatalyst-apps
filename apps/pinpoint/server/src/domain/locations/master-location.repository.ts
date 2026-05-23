@@ -1,15 +1,12 @@
+import { Context, Effect, Layer } from 'effect';
 import type { TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { InfrastructureError } from '@pinpoint/framework';
 import type { ClientId, PartitionId } from '../tenancy/ids.js';
 import type { MasterLocation, MasterLocationStatus } from './master-location.js';
 import type { MasterLocationId } from './ids.js';
 
 export interface ListMasterLocationsQuery {
   readonly clientId: ClientId;
-  /**
-   * Optional status filter. When set, only masters with this status are
-   * returned and counted. When omitted, all statuses are included.
-   * Used by the BFF master-locations list to filter by lifecycle.
-   */
   readonly status?: MasterLocationStatus | undefined;
   readonly limit: number;
   readonly offset: number;
@@ -18,67 +15,6 @@ export interface ListMasterLocationsQuery {
 export interface ListMasterLocationsResult {
   readonly masters: readonly MasterLocation[];
   readonly total: number;
-}
-
-export interface MasterLocationRepository {
-  persist(aggregate: MasterLocation, tx?: TransactionContext): Promise<MasterLocation>;
-  delete(aggregate: MasterLocation, tx?: TransactionContext): Promise<boolean>;
-
-  findById(id: MasterLocationId): Promise<MasterLocation | null>;
-
-  /**
-   * Exact-hash lookup scoped to (client, partition). Returns the master
-   * row whose `address_hash` matches, regardless of status — callers
-   * filter by status (matching pipeline considers only VALIDATED masters
-   * for matching, mirroring the Rust pattern).
-   */
-  findByHash(
-    clientId: ClientId,
-    partitionId: PartitionId | null,
-    addressHash: string,
-  ): Promise<MasterLocation | null>;
-
-  /**
-   * pg_trgm fuzzy candidate search via `normalized_address_line %> $1`,
-   * returning up to `limit` rows ordered by trigram similarity. Threshold
-   * defaults to 0.3 (Rust default); callers retain the option to filter
-   * the result by status.
-   */
-  findFuzzyCandidates(
-    clientId: ClientId,
-    partitionId: PartitionId | null,
-    addressLine: string,
-    threshold: number,
-    limit: number,
-  ): Promise<readonly MasterLocation[]>;
-
-  /** All locations associated with this master — used by confirm cascade. */
-  listByClient(query: ListMasterLocationsQuery): Promise<ListMasterLocationsResult>;
-
-  /**
-   * Drain a batch of masters in the given status. Used by Slice 9's
-   * validation worker to find GEOCODED masters waiting for confirmation.
-   * Returned in `createdAt ASC` order so the oldest backlog flushes first.
-   */
-  listByStatus(status: MasterLocationStatus, limit: number): Promise<readonly MasterLocation[]>;
-
-  /**
-   * BFF / operator listing of masters not yet VALIDATED. Optional
-   * cross-client + per-partition filters. Backs
-   * `GET /master-locations/unvalidated`. Ordered by id, asc or desc.
-   */
-  findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult>;
-
-  /**
-   * Atomic update of normalized address fields + addressHash +
-   * normalizedAddressLine + lat/lon (incl. the derived PostGIS `point`
-   * column). Used by the BFF `confirm-geocode` flow where the SPA
-   * confirms a reverse-geocode suggestion — Rust's
-   * `update_address_with_coordinates`. Plain repo write with no event:
-   * the subsequent `confirm-master-location` call emits MasterLocation
-   * Validated, which is the load-bearing event for downstream consumers.
-   */
-  applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void>;
 }
 
 export interface ApplyConfirmedGeocodeInput {
@@ -107,4 +43,96 @@ export interface FindUnvalidatedQuery {
 export interface FindUnvalidatedResult {
   readonly masters: readonly MasterLocation[];
   readonly total: number;
+}
+
+export interface MasterLocationRepository {
+  persist(aggregate: MasterLocation, tx?: TransactionContext): Promise<MasterLocation>;
+  delete(aggregate: MasterLocation, tx?: TransactionContext): Promise<boolean>;
+  findById(id: MasterLocationId): Promise<MasterLocation | null>;
+  findByHash(
+    clientId: ClientId,
+    partitionId: PartitionId | null,
+    addressHash: string,
+  ): Promise<MasterLocation | null>;
+  findFuzzyCandidates(
+    clientId: ClientId,
+    partitionId: PartitionId | null,
+    addressLine: string,
+    threshold: number,
+    limit: number,
+  ): Promise<readonly MasterLocation[]>;
+  listByClient(query: ListMasterLocationsQuery): Promise<ListMasterLocationsResult>;
+  listByStatus(status: MasterLocationStatus, limit: number): Promise<readonly MasterLocation[]>;
+  findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult>;
+  applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void>;
+}
+
+export interface MasterLocationsService {
+  readonly persist: (
+    aggregate: MasterLocation,
+    tx?: TransactionContext,
+  ) => Effect.Effect<MasterLocation, InfrastructureError>;
+  readonly delete: (
+    aggregate: MasterLocation,
+    tx?: TransactionContext,
+  ) => Effect.Effect<boolean, InfrastructureError>;
+  readonly findById: (
+    id: MasterLocationId,
+  ) => Effect.Effect<MasterLocation | null, InfrastructureError>;
+  readonly findByHash: (
+    clientId: ClientId,
+    partitionId: PartitionId | null,
+    addressHash: string,
+  ) => Effect.Effect<MasterLocation | null, InfrastructureError>;
+  readonly findFuzzyCandidates: (
+    clientId: ClientId,
+    partitionId: PartitionId | null,
+    addressLine: string,
+    threshold: number,
+    limit: number,
+  ) => Effect.Effect<readonly MasterLocation[], InfrastructureError>;
+  readonly listByClient: (
+    query: ListMasterLocationsQuery,
+  ) => Effect.Effect<ListMasterLocationsResult, InfrastructureError>;
+  readonly listByStatus: (
+    status: MasterLocationStatus,
+    limit: number,
+  ) => Effect.Effect<readonly MasterLocation[], InfrastructureError>;
+  readonly findUnvalidated: (
+    query: FindUnvalidatedQuery,
+  ) => Effect.Effect<FindUnvalidatedResult, InfrastructureError>;
+  readonly applyConfirmedGeocode: (
+    input: ApplyConfirmedGeocodeInput,
+  ) => Effect.Effect<void, InfrastructureError>;
+}
+
+export class MasterLocations extends Context.Service<
+  MasterLocations,
+  MasterLocationsService
+>()('@pinpoint/server/MasterLocations') {
+  static layer(port: MasterLocationRepository): Layer.Layer<MasterLocations> {
+    const wrap =
+      <Args extends readonly unknown[], A>(op: string, fn: (...args: Args) => Promise<A>) =>
+      (...args: Args): Effect.Effect<A, InfrastructureError> =>
+        Effect.tryPromise({
+          try: () => fn(...args),
+          catch: (cause) =>
+            new InfrastructureError({
+              code: `MASTER_LOCATION_REPO_${op}_FAILED`,
+              message: cause instanceof Error ? cause.message : String(cause),
+            }),
+        });
+
+    return Layer.succeed(MasterLocations, {
+      persist: wrap('PERSIST', port.persist.bind(port)),
+      delete: wrap('DELETE', port.delete.bind(port)),
+      findById: wrap('READ', port.findById.bind(port)),
+      findByHash: wrap('READ', port.findByHash.bind(port)),
+      findFuzzyCandidates: wrap('FUZZY', port.findFuzzyCandidates.bind(port)),
+      listByClient: wrap('LIST', port.listByClient.bind(port)),
+      listByStatus: wrap('LIST', port.listByStatus.bind(port)),
+      findUnvalidated: wrap('LIST', port.findUnvalidated.bind(port)),
+      applyConfirmedGeocode: wrap('APPLY_GEOCODE', port.applyConfirmedGeocode.bind(port)),
+    });
+  }
 }

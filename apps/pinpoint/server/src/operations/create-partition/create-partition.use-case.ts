@@ -5,7 +5,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -23,27 +22,26 @@ import {
   PARTITION_ID_PREFIX,
 } from '../../domain/tenancy/ids.js';
 import { PartitionCreated } from '../../domain/tenancy/events/partition-created.event.js';
-import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
-import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
+import { Clients } from '../../domain/tenancy/client.repository.js';
+import { Partitions } from '../../domain/tenancy/partition.repository.js';
 import type { CreatePartitionCommand } from './create-partition.command.js';
 
 export class CreatePartitionUseCase {
   static readonly requiredPermission = PinpointPermission.TenancyPartitionCreate;
 
-  constructor(
-    private readonly clients: ClientRepository,
-    private readonly partitions: PartitionRepository,
-  ) {}
-
   execute = (
     command: CreatePartitionCommand,
-  ): Effect.Effect<Sealed<PartitionCreated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const clients = this.clients;
-    const partitions = this.partitions;
+  ): Effect.Effect<
+    Sealed<PartitionCreated>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Clients | Partitions
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const clients = yield* Clients;
+      const partitions = yield* Partitions;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -84,14 +82,7 @@ export class CreatePartitionUseCase {
         );
       }
 
-      const client = yield* Effect.tryPromise({
-        try: () => clients.findById(clientId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'CLIENT_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const client = yield* clients.findById(clientId);
       if (!client) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -101,14 +92,7 @@ export class CreatePartitionUseCase {
         );
       }
 
-      const duplicate = yield* Effect.tryPromise({
-        try: () => partitions.findByClientAndCode(clientId, code),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'PARTITION_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const duplicate = yield* partitions.findByClientAndCode(clientId, code);
       if (duplicate) {
         return yield* Effect.fail(
           new BusinessRuleViolation({

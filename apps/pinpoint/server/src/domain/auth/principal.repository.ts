@@ -1,13 +1,10 @@
+import { Context, Effect, Layer } from 'effect';
 import type { TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { InfrastructureError } from '@pinpoint/framework';
 import type { Principal, PrincipalDraft } from './principal.js';
 import type { PrincipalId } from './ids.js';
 import type { PartitionId } from '../tenancy/ids.js';
 
-/**
- * A principal joined with the `granted_at` timestamp from its
- * principal_partitions row, used by the BFF "who has access to this
- * partition?" list view.
- */
 export interface PrincipalWithGrant {
   readonly principal: Principal;
   readonly grantedAt: Date;
@@ -15,35 +12,62 @@ export interface PrincipalWithGrant {
 
 export interface PrincipalRepository {
   findById(id: PrincipalId): Promise<Principal | null>;
-
-  /**
-   * Insert or update a principal by id. Returns the persisted row.
-   *
-   * Used by the auth flow — on first authenticated request (or OIDC
-   * callback in a later slice), the principal is upserted from token
-   * claims so subsequent reads can resolve it.
-   */
   upsert(draft: PrincipalDraft): Promise<Principal>;
-
-  /** List principals that have access to a given partition, ordered by grant time. */
   findPrincipalsForPartition(partitionId: PartitionId): Promise<readonly PrincipalWithGrant[]>;
-
-  /**
-   * Grant `principalId` access to `partitionId`. Idempotent: re-granting
-   * is a no-op (the existing row is left alone — `granted_by` and
-   * `granted_at` are preserved on conflict).
-   */
   grantPartitionAccess(
     principalId: PrincipalId,
     partitionId: PartitionId,
     grantedBy: PrincipalId,
     tx?: TransactionContext,
   ): Promise<void>;
-
-  /** Returns true if a row was actually deleted; false if the grant did not exist. */
   revokePartitionAccess(
     principalId: PrincipalId,
     partitionId: PartitionId,
     tx?: TransactionContext,
   ): Promise<boolean>;
+}
+
+export interface PrincipalsService {
+  readonly findById: (id: PrincipalId) => Effect.Effect<Principal | null, InfrastructureError>;
+  readonly upsert: (draft: PrincipalDraft) => Effect.Effect<Principal, InfrastructureError>;
+  readonly findPrincipalsForPartition: (
+    partitionId: PartitionId,
+  ) => Effect.Effect<readonly PrincipalWithGrant[], InfrastructureError>;
+  readonly grantPartitionAccess: (
+    principalId: PrincipalId,
+    partitionId: PartitionId,
+    grantedBy: PrincipalId,
+    tx?: TransactionContext,
+  ) => Effect.Effect<void, InfrastructureError>;
+  readonly revokePartitionAccess: (
+    principalId: PrincipalId,
+    partitionId: PartitionId,
+    tx?: TransactionContext,
+  ) => Effect.Effect<boolean, InfrastructureError>;
+}
+
+export class Principals extends Context.Service<Principals, PrincipalsService>()(
+  '@pinpoint/server/Principals',
+) {
+  static layer(port: PrincipalRepository): Layer.Layer<Principals> {
+    const wrap =
+      <Args extends readonly unknown[], A>(op: string, fn: (...args: Args) => Promise<A>) =>
+      (...args: Args): Effect.Effect<A, InfrastructureError> =>
+        Effect.tryPromise({
+          try: () => fn(...args),
+          catch: (cause) =>
+            new InfrastructureError({
+              code: `PRINCIPAL_REPO_${op}_FAILED`,
+              message: cause instanceof Error ? cause.message : String(cause),
+            }),
+        });
+
+    return Layer.succeed(Principals, {
+      findById: wrap('READ', port.findById.bind(port)),
+      upsert: wrap('UPSERT', port.upsert.bind(port)),
+      findPrincipalsForPartition: wrap('READ', port.findPrincipalsForPartition.bind(port)),
+      grantPartitionAccess: wrap('GRANT', port.grantPartitionAccess.bind(port)),
+      revokePartitionAccess: wrap('REVOKE', port.revokePartitionAccess.bind(port)),
+    });
+  }
 }

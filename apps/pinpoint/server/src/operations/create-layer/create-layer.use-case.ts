@@ -5,7 +5,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -20,27 +19,26 @@ import { Layer } from '../../domain/layers/layer.js';
 import { asLayerId, LAYER_ID_PREFIX } from '../../domain/layers/ids.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { LayerCreated } from '../../domain/layers/events/layer-created.event.js';
-import type { LayerRepository } from '../../domain/layers/layer.repository.js';
-import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
+import { Layers } from '../../domain/layers/layer.repository.js';
+import { Clients } from '../../domain/tenancy/client.repository.js';
 import type { CreateLayerCommand } from './create-layer.command.js';
 
 export class CreateLayerUseCase {
   static readonly requiredPermission = PinpointPermission.LayersLayerCreate;
 
-  constructor(
-    private readonly clients: ClientRepository,
-    private readonly layers: LayerRepository,
-  ) {}
-
   execute = (
     command: CreateLayerCommand,
-  ): Effect.Effect<Sealed<LayerCreated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const clients = this.clients;
-    const layers = this.layers;
+  ): Effect.Effect<
+    Sealed<LayerCreated>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Clients | Layers
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const clients = yield* Clients;
+      const layers = yield* Layers;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -74,7 +72,6 @@ export class CreateLayerUseCase {
         );
       }
 
-      // Geometry rules per LayerKind — mirror the Rust validate() block.
       if (layerType === 'RADIUS') {
         if (command.centerLat == null || command.centerLon == null) {
           return yield* Effect.fail(
@@ -102,16 +99,8 @@ export class CreateLayerUseCase {
           );
         }
       }
-      // POINT: no layer-level geometry required — individual features provide it.
 
-      const client = yield* Effect.tryPromise({
-        try: () => clients.findById(clientId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'CLIENT_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const client = yield* clients.findById(clientId);
       if (!client) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -121,14 +110,7 @@ export class CreateLayerUseCase {
         );
       }
 
-      const duplicate = yield* Effect.tryPromise({
-        try: () => layers.findByClientAndCode(clientId, code),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'LAYER_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const duplicate = yield* layers.findByClientAndCode(clientId, code);
       if (duplicate) {
         return yield* Effect.fail(
           new BusinessRuleViolation({

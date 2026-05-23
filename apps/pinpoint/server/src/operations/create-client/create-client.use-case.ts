@@ -5,7 +5,6 @@ import {
   AuthorizationError,
   BusinessRuleViolation,
   commitAggregate,
-  InfrastructureError,
   ScopeStore,
   type Scope,
   ValidationError,
@@ -18,22 +17,24 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { Client } from '../../domain/tenancy/client.js';
 import { asClientId, CLIENT_ID_PREFIX } from '../../domain/tenancy/ids.js';
 import { ClientCreated } from '../../domain/tenancy/events/client-created.event.js';
-import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
+import { Clients } from '../../domain/tenancy/client.repository.js';
 import type { CreateClientCommand } from './create-client.command.js';
 
 export class CreateClientUseCase {
   static readonly requiredPermission = PinpointPermission.TenancyClientCreate;
 
-  constructor(private readonly clients: ClientRepository) {}
-
   execute = (
     command: CreateClientCommand,
-  ): Effect.Effect<Sealed<ClientCreated>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const clients = this.clients;
+  ): Effect.Effect<
+    Sealed<ClientCreated>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Clients
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const clients = yield* Clients;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -64,14 +65,7 @@ export class CreateClientUseCase {
         );
       }
 
-      const existing = yield* Effect.tryPromise({
-        try: () => clients.findByCode(code),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'CLIENT_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* clients.findByCode(code);
       if (existing) {
         return yield* Effect.fail(
           new BusinessRuleViolation({

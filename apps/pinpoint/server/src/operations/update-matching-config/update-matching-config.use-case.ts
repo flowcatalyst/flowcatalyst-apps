@@ -4,7 +4,6 @@ import {
   AggregateRegistry,
   AuthorizationError,
   commitAggregate,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -22,9 +21,9 @@ import {
 } from '../../domain/matching/ids.js';
 import { asClientId, asPartitionId } from '../../domain/tenancy/ids.js';
 import { MatchingConfigUpdated } from '../../domain/matching/events/matching-config-updated.event.js';
-import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
-import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
-import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
+import { Clients } from '../../domain/tenancy/client.repository.js';
+import { Partitions } from '../../domain/tenancy/partition.repository.js';
+import { MatchingConfigs } from '../../domain/matching/matching-config.repository.js';
 import type { UpdateMatchingConfigCommand } from './update-matching-config.command.js';
 
 /**
@@ -32,34 +31,24 @@ import type { UpdateMatchingConfigCommand } from './update-matching-config.comma
  * config. If `resolve` returns the global default, we promote a new
  * scoped row with the global defaults + the requested overrides
  * (mirroring the Rust use case).
- *
- * Validation thresholds are 0..1; enforced in the Zod schema, so the
- * use case body only handles repo concerns + the global-default-promotion
- * decision.
  */
 export class UpdateMatchingConfigUseCase {
   static readonly requiredPermission = PinpointPermission.MatchingConfigManage;
-
-  constructor(
-    private readonly clients: ClientRepository,
-    private readonly partitions: PartitionRepository,
-    private readonly configs: MatchingConfigRepository,
-  ) {}
 
   execute = (
     command: UpdateMatchingConfigCommand,
   ): Effect.Effect<
     Sealed<MatchingConfigUpdated>,
     UseCaseError,
-    UnitOfWork | AggregateRegistry
+    UnitOfWork | AggregateRegistry | Clients | Partitions | MatchingConfigs
   > => {
-    const clients = this.clients;
-    const partitions = this.partitions;
-    const configs = this.configs;
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const clients = yield* Clients;
+      const partitions = yield* Partitions;
+      const configs = yield* MatchingConfigs;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -76,14 +65,7 @@ export class UpdateMatchingConfigUseCase {
           ? asPartitionId(command.partitionId.trim())
           : null;
 
-      const client = yield* Effect.tryPromise({
-        try: () => clients.findById(clientId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'CLIENT_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const client = yield* clients.findById(clientId);
       if (!client) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -94,14 +76,7 @@ export class UpdateMatchingConfigUseCase {
       }
 
       if (partitionId != null) {
-        const partition = yield* Effect.tryPromise({
-          try: () => partitions.findById(partitionId),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: 'PARTITION_REPO_READ_FAILED',
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
+        const partition = yield* partitions.findById(partitionId);
         if (!partition || partition.clientId !== clientId) {
           return yield* Effect.fail(
             new NotFoundError({
@@ -112,14 +87,7 @@ export class UpdateMatchingConfigUseCase {
         }
       }
 
-      const resolved = yield* Effect.tryPromise({
-        try: () => configs.resolve(clientId, partitionId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'MATCHING_CONFIG_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const resolved = yield* configs.resolve(clientId, partitionId);
 
       const now = new Date();
       const thresholdUpdate = {

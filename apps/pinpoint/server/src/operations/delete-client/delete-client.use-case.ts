@@ -11,7 +11,6 @@ import {
   AggregateRegistry,
   AuthorizationError,
   commitDelete,
-  InfrastructureError,
   NotFoundError,
   ScopeStore,
   type Scope,
@@ -23,22 +22,24 @@ import { PinpointPermission } from '@pinpoint/shared';
 
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { ClientDeleted } from '../../domain/tenancy/events/client-deleted.event.js';
-import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
+import { Clients } from '../../domain/tenancy/client.repository.js';
 import type { DeleteClientCommand } from './delete-client.command.js';
 
 export class DeleteClientUseCase {
   static readonly requiredPermission = PinpointPermission.TenancyClientDelete;
 
-  constructor(private readonly clients: ClientRepository) {}
-
   execute = (
     command: DeleteClientCommand,
-  ): Effect.Effect<Sealed<ClientDeleted>, UseCaseError, UnitOfWork | AggregateRegistry> => {
-    const clients = this.clients;
+  ): Effect.Effect<
+    Sealed<ClientDeleted>,
+    UseCaseError,
+    UnitOfWork | AggregateRegistry | Clients
+  > => {
     const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
+      const clients = yield* Clients;
 
       if (!authorize(scope)) {
         return yield* Effect.fail(
@@ -50,14 +51,7 @@ export class DeleteClientUseCase {
       }
 
       const clientId = asClientId(command.clientId.trim());
-      const existing = yield* Effect.tryPromise({
-        try: () => clients.findById(clientId),
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'CLIENT_REPO_READ_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
+      const existing = yield* clients.findById(clientId);
       if (!existing) {
         return yield* Effect.fail(
           new NotFoundError({
@@ -72,12 +66,6 @@ export class DeleteClientUseCase {
         code: existing.code,
       });
 
-      // commitDelete invokes the registry's `delete` handler inside the
-      // bound tx. If any child row still references the client, Postgres
-      // raises a foreign_key_violation (23503) — the SDK surfaces it as an
-      // InfrastructureError and the route maps it to 500. Future work
-      // (10b.x cleanup) can translate that specific failure into a
-      // BusinessRuleViolation with friendlier messaging.
       return yield* commitDelete(existing, event, command);
     });
   };

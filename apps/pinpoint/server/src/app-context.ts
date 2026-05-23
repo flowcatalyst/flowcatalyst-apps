@@ -61,18 +61,36 @@ import { LAYER_FEATURE_TYPE } from './domain/layers/layer-feature.js';
 import { PROPERTY_SET_TYPE } from './domain/layers/property-set.js';
 import { MATCHING_CONFIG_ID_PREFIX } from './domain/matching/ids.js';
 import { MATCHING_CONFIG_TYPE } from './domain/matching/matching-config.js';
-import type { PrincipalRepository } from './domain/auth/principal.repository.js';
-import type { CountryRepository } from './domain/reference/country.repository.js';
-import type { ClientRepository } from './domain/tenancy/client.repository.js';
-import type { PartitionRepository } from './domain/tenancy/partition.repository.js';
-import type { LocationRepository } from './domain/locations/location.repository.js';
-import type { LayerRepository } from './domain/layers/layer.repository.js';
-import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
-import type { PropertySetRepository } from './domain/layers/property-set.repository.js';
-import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
-import type { MasterLocationRepository } from './domain/locations/master-location.repository.js';
-import type { ProcessingLogRepository } from './domain/locations/processing-log.repository.js';
-import type { LocationAttributeRepository } from './domain/locations/location-attribute.repository.js';
+import { Principals, type PrincipalRepository } from './domain/auth/principal.repository.js';
+import { Countries, type CountryRepository } from './domain/reference/country.repository.js';
+import { Clients, type ClientRepository } from './domain/tenancy/client.repository.js';
+import { Partitions, type PartitionRepository } from './domain/tenancy/partition.repository.js';
+import { Locations, type LocationRepository } from './domain/locations/location.repository.js';
+import { Layers, type LayerRepository } from './domain/layers/layer.repository.js';
+import {
+  LayerFeatures,
+  type LayerFeatureRepository,
+} from './domain/layers/layer-feature.repository.js';
+import {
+  PropertySets,
+  type PropertySetRepository,
+} from './domain/layers/property-set.repository.js';
+import {
+  MatchingConfigs,
+  type MatchingConfigRepository,
+} from './domain/matching/matching-config.repository.js';
+import {
+  MasterLocations,
+  type MasterLocationRepository,
+} from './domain/locations/master-location.repository.js';
+import {
+  ProcessingLogs,
+  type ProcessingLogRepository,
+} from './domain/locations/processing-log.repository.js';
+import {
+  LocationAttributes,
+  type LocationAttributeRepository,
+} from './domain/locations/location-attribute.repository.js';
 import type { GeocoderService } from './domain/services/geocoder.js';
 import type { AddressVerifier } from './domain/services/address-verifier.js';
 import type { AddressNormalizer } from './domain/services/address-normalizer.js';
@@ -211,10 +229,33 @@ export interface AppContext {
    * via `ScopeStore.require()` rather than through an Effect Tag.
    */
   readonly runWrite: <A>(
-    program: Effect.Effect<A, UseCaseError, UnitOfWork | DispatchJobBroker | AggregateRegistry>,
+    program: Effect.Effect<A, UseCaseError, UseCaseRequirements>,
     scope: Scope,
   ) => Promise<Result.Result<A, UseCaseError>>;
 }
+
+/**
+ * The full Effect requirement set that `runWrite` provides. Every use
+ * case's `execute` Effect needs at most this union — `UnitOfWork`,
+ * `DispatchJobBroker`, `AggregateRegistry`, plus every repo Tag. The
+ * alias keeps individual use-case signatures readable.
+ */
+export type UseCaseRequirements =
+  | UnitOfWork
+  | DispatchJobBroker
+  | AggregateRegistry
+  | Clients
+  | Partitions
+  | Principals
+  | Countries
+  | Locations
+  | LocationAttributes
+  | MasterLocations
+  | ProcessingLogs
+  | Layers
+  | LayerFeatures
+  | PropertySets
+  | MatchingConfigs;
 
 export interface AppContextConfig {
   readonly db: PostgresJsDatabase;
@@ -292,15 +333,37 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   // One OutboxManager backs both UoW and DispatchJobBroker.
   const outboxManager = buildOutboxManager({ clientId });
 
+  // Repo Tags. Every use case yields these from the Effect environment
+  // instead of receiving the underlying Promise repo via constructor
+  // injection. Each Tag wraps its Promise port once at the boundary
+  // (see <repo>.repository.ts → `XTag.layer(port)`), so call sites
+  // get pre-typed `Effect<T, InfrastructureError>` and skip per-call
+  // `Effect.tryPromise` boilerplate.
+  const repoLayer = Layer.mergeAll(
+    Clients.layer(clientRepo),
+    Partitions.layer(partitionRepo),
+    Principals.layer(principalRepo),
+    Countries.layer(countryRepo),
+    Locations.layer(locationRepo),
+    LocationAttributes.layer(locationAttributeRepo),
+    MasterLocations.layer(masterLocationRepo),
+    ProcessingLogs.layer(processingLogRepo),
+    Layers.layer(layerRepo),
+    LayerFeatures.layer(layerFeatureRepo),
+    PropertySets.layer(propertySetRepo),
+    MatchingConfigs.layer(matchingConfigRepo),
+  );
+
   const baseLayer = Layer.mergeAll(
     unitOfWorkLayer(outboxManager),
     dispatchJobBrokerLayer(outboxManager),
     aggregateRegistryLayer(aggregateRegistry),
+    repoLayer,
   );
   const runtime = ManagedRuntime.make(baseLayer);
 
   const runWrite = async <A>(
-    program: Effect.Effect<A, UseCaseError, UnitOfWork | DispatchJobBroker | AggregateRegistry>,
+    program: Effect.Effect<A, UseCaseError, UseCaseRequirements>,
     _scope: Scope,
   ): Promise<Result.Result<A, UseCaseError>> => {
     const collected = Effect.result(program);
@@ -342,48 +405,38 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       addressNormalizer,
     },
     useCases: {
-      createClient: new CreateClientUseCase(clientRepo),
-      updateClient: new UpdateClientUseCase(clientRepo),
-      deleteClient: new DeleteClientUseCase(clientRepo),
-      createPartition: new CreatePartitionUseCase(clientRepo, partitionRepo),
-      updatePartition: new UpdatePartitionUseCase(partitionRepo),
-      deletePartition: new DeletePartitionUseCase(partitionRepo),
-      createLocation: new CreateLocationUseCase(
-        clientRepo,
-        partitionRepo,
-        locationRepo,
-        masterLocationRepo,
-        matchingConfigRepo,
-        layerFeatureRepo,
-        addressNormalizer,
-        addressVerifier,
-        processingLogRepo,
-        locationAttributeRepo,
-      ),
-      createLayer: new CreateLayerUseCase(clientRepo, layerRepo),
-      updateLayer: new UpdateLayerUseCase(layerRepo),
-      deleteLayer: new DeleteLayerUseCase(layerRepo),
-      createLayerFeature: new CreateLayerFeatureUseCase(layerRepo, layerFeatureRepo),
-      updateLayerFeature: new UpdateLayerFeatureUseCase(layerFeatureRepo),
-      deleteLayerFeature: new DeleteLayerFeatureUseCase(layerFeatureRepo),
-      createPropertySet: new CreatePropertySetUseCase(layerRepo, propertySetRepo),
-      updatePropertySet: new UpdatePropertySetUseCase(propertySetRepo),
-      deletePropertySet: new DeletePropertySetUseCase(propertySetRepo),
-      replacePropertySetProperties: new ReplacePropertySetPropertiesUseCase(propertySetRepo),
-      updateMatchingConfig: new UpdateMatchingConfigUseCase(
-        clientRepo,
-        partitionRepo,
-        matchingConfigRepo,
-      ),
-      validateMasterLocation: new ValidateMasterLocationUseCase(masterLocationRepo, geocoder),
-      confirmMasterLocation: new ConfirmMasterLocationUseCase(
-        masterLocationRepo,
-        locationRepo,
-        layerFeatureRepo,
-        processingLogRepo,
-      ),
-      updateMasterLocation: new UpdateMasterLocationUseCase(masterLocationRepo),
-      rejectMasterLocation: new RejectMasterLocationUseCase(masterLocationRepo),
+      // All use cases yield their repo deps from the Effect environment
+      // (see the `repoLayer` above). The constructor is a no-op pass-through
+      // — kept as a class so static `requiredPermission` stays attached and
+      // call sites don't churn.
+      createClient: new CreateClientUseCase(),
+      updateClient: new UpdateClientUseCase(),
+      deleteClient: new DeleteClientUseCase(),
+      createPartition: new CreatePartitionUseCase(),
+      updatePartition: new UpdatePartitionUseCase(),
+      deletePartition: new DeletePartitionUseCase(),
+      // create-location keeps the two service deps (libpostal,
+      // LLM verifier) via constructor; all 8 repo deps come from the
+      // Effect environment via Tags.
+      createLocation: new CreateLocationUseCase(addressNormalizer, addressVerifier),
+      createLayer: new CreateLayerUseCase(),
+      updateLayer: new UpdateLayerUseCase(),
+      deleteLayer: new DeleteLayerUseCase(),
+      createLayerFeature: new CreateLayerFeatureUseCase(),
+      updateLayerFeature: new UpdateLayerFeatureUseCase(),
+      deleteLayerFeature: new DeleteLayerFeatureUseCase(),
+      createPropertySet: new CreatePropertySetUseCase(),
+      updatePropertySet: new UpdatePropertySetUseCase(),
+      deletePropertySet: new DeletePropertySetUseCase(),
+      replacePropertySetProperties: new ReplacePropertySetPropertiesUseCase(),
+      updateMatchingConfig: new UpdateMatchingConfigUseCase(),
+      // ValidateMasterLocationUseCase still injects the geocoder (an
+      // external service, not a DB repo). Repo deps come from the
+      // Effect environment.
+      validateMasterLocation: new ValidateMasterLocationUseCase(geocoder),
+      confirmMasterLocation: new ConfirmMasterLocationUseCase(),
+      updateMasterLocation: new UpdateMasterLocationUseCase(),
+      rejectMasterLocation: new RejectMasterLocationUseCase(),
     },
     auth: {
       config: config.auth,
