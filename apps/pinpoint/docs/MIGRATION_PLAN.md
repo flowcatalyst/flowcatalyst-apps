@@ -6,11 +6,11 @@ Execution model: **vertical slices**. Each slice ends with a runnable endpoint o
 
 ---
 
-## Status (2026-05-21)
+## Status (2026-05-25)
 
-**Slice 10c closed out 2026-05-21.** Five sub-commits (`ca7cbc2` / `4cb02e0` / `e2b4ea5` / `8cb58bb` / `65b17f0`) brought up the full BFF surface — ~40 routes across 11 mount points under `/bff/clients/:cid/...` plus the cross-client `GET /master-locations/unvalidated`. Three operator-tool routes from Rust BFF deferred from 10c.5 as a hygiene follow-up: `POST /master-locations/:mlid/confirm-geocode`, per-master + bulk `POST .../match-features`. SPA primary flows are fully supported; deferred routes are re-runs that the matching pipeline already handles automatically on the canonical VALIDATED transition.
+**Slice 14 closed out 2026-05-25.** Two commits (`6aa92af` / `ec21ec5`) moved pinpoint fully off Effect onto plain async/await + the SDK's non-Effect sealed-`Result<T>` surface. All 21 use cases, ~50 routes, 22 integration tests, the scheduling worker + test, every Drizzle repository, the framework re-exports, and the composition root are now plain async/await. `effect` is dropped from `@pinpoint/server` deps + `@pinpoint/framework` dev/peer deps. `@flowcatalyst-apps/app-framework` keeps shipping its Effect path so Fulfil is unaffected.
 
-Slice 11 (Vue SPA lift) is the next focus.
+Slice 11 (Vue SPA lift) remains the next functional focus. Slice 12 (cutover) follows.
 
 | Slice | Status | Commit | Notes |
 |---|---|---|---|
@@ -38,6 +38,8 @@ Slice 11 (Vue SPA lift) is the next focus.
 | 10c.5 | done | `65b17f0` | BFF master-locations (list/detail/update/validate/geocode/reverse-geocode/processing-log) + matching-config (GET/PUT). `ListMasterLocationsQuery` grew an optional `status` filter. Closes 10c. |
 | 11 | pending | — | Web lift (`~/Developer/tangent/pinpoint/pinpoint-web/` → `apps/pinpoint/web/`, retarget API base URL) |
 | 12 | pending | — | Cutover: Docker compose (postgres + pinpoint + libpostal sidecar + web), Dockerfile, README, real OIDC, **testcontainers backfill across all Drizzle repos + write use cases** |
+| 14a | done | `6aa92af` | Proof-of-pattern: `create-client` use case + route + integration test off Effect. New non-Effect UoW surface in `@flowcatalyst-apps/app-framework` (`createPlainUnitOfWork`, `plainCommitAggregate`, `plainCommitDelete`, `plainEmitEvent`) — shares the same `OutboxManager` / `DrizzleOutboxDriver` / `TransactionStore` stack as the Effect path. New `@pinpoint/framework/plain` subpath re-exports the SDK's `@flowcatalyst/sdk/usecase` + plain UoW helpers. `AppContext.runWritePlain` boundary added alongside the Effect `runWrite`. |
+| 14b | done | `ec21ec5` | Full sweep. All 20 remaining use cases converted to `async execute(cmd): Promise<Result<TEvent>>` with constructor-injected UoW/registry/repos. All routes use `runWrite(() => uc.execute(cmd))`, `isFailure`, `result.value`, `result.error.type`. 22 integration tests + scheduling worker test converted. 12 repositories dropped their Effect `Context.Service` adapters (Promise-typed `*Repository` interface stays). `@pinpoint/framework` collapsed — `/plain` subpath removed; main entry exposes the SDK non-Effect surface + the plain UoW factories under un-prefixed names. `app-context.ts` shed the Effect runtime / Layer composition / repo Tag layers. `rate-limited-geocoder` rewritten as plain token-bucket (same burst-of-N semantics). `effect` dropped from pinpoint deps. All 90 unit + 116 integration tests green; Fulfil unaffected. |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -45,22 +47,23 @@ Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
 ---
 
-## Stack (matches `apps/fulfil/`)
+## Stack
+
+Pinpoint diverges from `apps/fulfil/` on the use-case shape — fulfil keeps using Effect; pinpoint is plain async/await as of slice 14. Everything else still matches fulfil.
 
 - **Runtime**: Node 24 LTS, pnpm 11, TypeScript 6.0.3
 - **HTTP**: Fastify + `@fastify/type-provider-typebox`
 - **OpenAPI**: `@fastify/swagger` + `@fastify/swagger-ui` (generated from TypeBox)
 - **DB**: Drizzle ORM 1.0 RC + `postgres-js` driver
 - **Schemas**: TypeBox (events, route schemas), Zod (shared/domain validation)
-- **Effect**: `effect@4.0.0-beta.67` (catalog-pinned, no caret)
-- **Use cases**: `@flowcatalyst/sdk/effect/usecase` — `UnitOfWork`, `Sealed<E>`, `commitAggregate`, `TestUnitOfWork`
-- **Outbox**: `@flowcatalyst/sdk` `OutboxManager` + `DrizzleOutboxDriver`
+- **Use cases**: `@flowcatalyst/sdk/usecase` (non-Effect) — sealed `Result<T>`, `UseCaseError`, `UnitOfWork` interface, `OutboxUnitOfWork`. Pinpoint apps construct use cases with `(uow, registry, ...repos)` and return `Promise<Result<TEvent>>`. Sealed-`Result<T>` enforces "success only via `unitOfWork.commit(...)`" at the type level — the SDK exports the success constructor token internally only.
+- **UoW boundary**: `appContext.runWrite(() => uc.execute(cmd))` opens a Drizzle tx, binds it on `TransactionStore` (ALS), invokes the thunk. `commitAggregate(this.uow, this.registry, agg, event, cmd)` / `commitDelete(...)` from `@pinpoint/framework` orchestrate aggregate-persist + local audit log + outbox write inside the same tx.
+- **Outbox**: `@flowcatalyst/sdk` `OutboxManager` + `DrizzleOutboxDriver` (ALS-aware; reads tx from `TransactionStore`)
 - **Identity**: `Scope` + `ScopeStore` (AsyncLocalStorage)
-- **Fan-out**: `DispatchJobBroker` (cross-aggregate)
 - **LLM**: Vercel AI SDK (`ai`@v6 + `@ai-sdk/amazon-bedrock`)
 - **Scheduling**: FlowCatalyst platform scheduled jobs → webhook endpoints (not in-process croner)
 - **Logging**: Pino via Fastify
-- **Testing**: Vitest
+- **Testing**: Vitest; integration tests run against testcontainers Postgres via the real `runWrite` + Drizzle (no `TestUnitOfWork`)
 
 ## Catalog additions (`pnpm-workspace.yaml`)
 
@@ -102,7 +105,7 @@ apps/pinpoint/
 | `pinpoint-domain/repositories/<x>_repository.rs` (trait) | `domain/<subdomain>/<aggregate>/<aggregate>.repository.ts` (interface) |
 | `pinpoint-domain/usecases/<verb>_<x>.rs` | `operations/<verb>-<aggregate>/<verb>-<aggregate>.use-case.ts` |
 | `pinpoint-domain/events/<x>_events.rs` | `domain/<subdomain>/events/<aggregate>-<verb-past>.event.ts` extending `BaseDomainEvent` |
-| `pinpoint-domain/services/{address_matcher,address_normalizer,address_verifier,geocoder,rate_limiter}.rs` | Effect Tag interfaces in `domain/services/`; Vercel-AI / HTTP impls in `infrastructure/services/` |
+| `pinpoint-domain/services/{address_matcher,address_normalizer,address_verifier,geocoder,rate_limiter}.rs` | Plain async interfaces in `domain/services/`; Vercel-AI / HTTP impls in `infrastructure/services/` |
 | `pinpoint-domain/authorization.rs` | `PinpointPermission` const catalog + `static readonly requiredPermission` on use case classes |
 | `pinpoint-infra/repositories/*` | `infrastructure/<aggregate>-repository.ts` (Drizzle) |
 | `pinpoint-server/routes/*.rs` | `api/routes/<subdomain>/<aggregate>/*.route.ts` |
@@ -110,7 +113,7 @@ apps/pinpoint/
 | `pinpoint-server/tasks/validation_worker.rs` | `scheduling/validate-master-locations/` webhook handler + FlowCatalyst scheduled job definition |
 | `pinpoint-server/session.rs` | `frameworkFastifyPlugin` + `extractRequestToken` for OIDC |
 | `migrations/*.sql` | `server/drizzle/*.sql` (port verbatim) |
-| `rig-core` / `rig-bedrock` | `ai` + `@ai-sdk/amazon-bedrock`, hidden behind Effect Tag service interfaces |
+| `rig-core` / `rig-bedrock` | `ai` + `@ai-sdk/amazon-bedrock`, hidden behind plain async service interfaces |
 
 ---
 
@@ -252,6 +255,8 @@ Migrations: `003_matching_config.sql`, `011_spatial_matching.sql` (partial — b
 
 ### Slice 6 — External services + rate limiter — **DONE** (this commit)
 
+> **Retrospective (slice 14)**: the Effect 4 `RateLimiter` described below was replaced with a plain token-bucket implementation when pinpoint moved off Effect. Same burst-of-N semantics; same tests pass. See slice 14 for the rewrite.
+
 **Scope adjustments applied:**
 - Geocoder is a plain async interface (`GeocoderService`), not an Effect Tag — matches the repository pattern. Composed at the AppContext composition root and read via `appContext.services.geocoder`.
 - Provider confirmed from Rust: **Photon** (`https://photon.komoot.io`), the same OSM/Komoot search service the Rust pinpoint uses. The TS impl is a byte-for-byte port of `geocoding_client.rs` — same query construction order, same User-Agent default, same confidence weights (0.20 + 0.25 + 0.25 + 0.20 + 0.10), same error message strings. Self-hosted Photon configurable via `PINPOINT_GEOCODING_API_URL`.
@@ -361,19 +366,53 @@ Slice 10 ended up split into four sub-slices, the first three shipped:
 - **Testcontainers backfill** — bring in `@testcontainers/postgresql`, write integration tests for every Drizzle repo (~10) and every write use case (~22). The current 83 tests cover pure functions, service decorators, and orchestration with fake repos; no DB-bound code is tested directly. This is the deliberate gap that has accumulated through every prior slice.
 - **Deliverable**: deployable + documented + integration-tested
 
+### Slice 14 — Off Effect — **DONE** (`6aa92af` + `ec21ec5`)
+
+**Scope adjustments applied:**
+- The SDK gained a non-Effect use-case surface (`@flowcatalyst/sdk/usecase`) in v0.6.15 — sealed `Result<T>`, `UseCaseError` factory namespace, plain `UnitOfWork` interface, `OutboxUnitOfWork` class. Pinpoint adopts that; the SDK's older `@flowcatalyst/sdk/effect/usecase` stays in place for Fulfil.
+- `@flowcatalyst-apps/app-framework` keeps both surfaces — the existing Effect path (`unit-of-work.ts` with the Effect `UnitOfWork` Tag, `commitAggregate`, etc.) AND a new `unit-of-work-plain.ts` exposing `createPlainUnitOfWork(manager)` + `plainCommitAggregate`/`plainCommitDelete`/`plainEmitEvent` + `toInfrastructureFailure`. Both paths wrap the same `OutboxManager` / `DrizzleOutboxDriver` / `TransactionStore` stack — only the call shape changes. Fulfil keeps importing the Effect names; pinpoint's `@pinpoint/framework` re-exports the `plain*` factories under un-prefixed names (`createUnitOfWork`, `commitAggregate`, etc.).
+- Use case shape changes from `Effect.gen` with `yield* Tag` to a plain class with constructor-injected deps:
+  ```ts
+  class CreateClientUseCase {
+    constructor(
+      private readonly uow: UnitOfWork,
+      private readonly registry: AggregateRegistryImpl,
+      private readonly clients: ClientRepository,
+    ) {}
+    async execute(cmd: CreateClientCommand): Promise<Result<ClientCreated>> {
+      const scope = ScopeStore.require();
+      if (!this.authorize(scope)) return Result.failure(UseCaseError.authorization(...));
+      const existing = await this.clients.findByCode(cmd.code);
+      if (existing) return Result.failure(UseCaseError.businessRule(...));
+      // ...
+      return commitAggregate(this.uow, this.registry, client, event, cmd);
+    }
+  }
+  ```
+- All 12 Drizzle repository files dropped their `*Service` `Context.Service` Effect adapters. The Promise-typed `*Repository` interface + Drizzle impl is the only repo surface that remains. Use cases call repository methods directly via `await this.repo.method(args)`.
+- `app-context.ts` shed the `ManagedRuntime` + `Layer.mergeAll` + repo Tag layers + `UseCaseRequirements` union + Effect `runWrite`. The single `runWrite(thunk: () => Promise<Result<A>>) => Promise<Result<A>>` boundary opens a Drizzle tx and binds it on `TransactionStore`. Use cases construct with explicit `(uow, registry, ...repos, ...services)`.
+- Routes converted: `result.success.event` → `result.value`, `Result.isFailure(result)` (Effect) → `isFailure(result)` (SDK), `result.failure._tag` → `result.error.type` (`'validation'` / `'not_found'` / `'business_rule'` / `'concurrency'` / `'authorization'` / `'infrastructure'`). `sendUseCaseError` in `error-mapper.ts` uses `UseCaseError.httpStatus(error)` from the SDK.
+- 22 integration tests converted: `appContext.runWrite(uc.execute(cmd), undefined as any)` → `appContext.runWrite(() => uc.execute(cmd))`. Fixture seeders (`seedClient` / `seedPartition` / `seedLocation` inside each test file) ride the same boundary. Integration tests use the real testcontainers Postgres + the real `runWrite` (there's no `TestUnitOfWork` equivalent — the Drizzle tx is the test sandbox).
+- Scheduling worker test fakes `appContext.runWrite` directly. Success in fakes is fabricated as `{ _tag: 'success', value }` since the SDK's `Result.success(token, value)` requires an internal token; the worker code only checks `isFailure` so the shape is enough.
+- `rate-limited-geocoder` rewritten as a plain token-bucket — burst capacity = `requestsPerSecond`, refill 1 token per `1000/rps` ms. Per-decorator bucket (no cross-decorator sharing); the multi-key sharing the Effect 4 `RateLimiter` provided via `layerStoreMemory` was unused. If a process-shared bucket becomes a real need, a Redis-backed wrapper drops in here.
+- `effect` removed from `@pinpoint/server` deps and `@pinpoint/framework` dev/peer deps. Pinpoint's framework now only peer-depends on `drizzle-orm` and `fastify`.
+- `@pinpoint/framework`'s `/plain` subpath (introduced in 14a for side-by-side migration) is collapsed away in 14b. Pinpoint uses a single `@pinpoint/framework` import surface.
+- **Fulfil unaffected**: `pnpm -r typecheck` clean across all 12 workspaces. Fulfil keeps using `@flowcatalyst/sdk/effect/usecase` + the Effect Tag-flavoured `commitAggregate` / `commitDelete` from app-framework.
+- Tests: pinpoint server 90 unit + 116 integration tests all green.
+
 ---
 
 ## Cross-cutting
 
-**Outbox / UoW / Sealed** — every write use case returns `Effect.Effect<Sealed<E>, UseCaseError, UnitOfWork | AggregateRegistry [| DispatchJobBroker]>`. Routes call `appContext.runWrite(useCase.execute(command), scope)`. Bypassing UoW = compile error via `Sealed<E>` brand.
+**Outbox / UoW / sealed Result** — every write use case returns `Promise<Result<TEvent>>`. Routes call `appContext.runWrite(() => useCase.execute(command))`. The SDK's sealed `Result<T>` keeps "success only via `unitOfWork.commit(...)`" as a runtime invariant — the success constructor takes an internal token that only `UnitOfWork` implementations hold, so a use case can't accidentally return a synthetic success. `commitAggregate(this.uow, this.registry, agg, event, cmd)` from `@pinpoint/framework` is the canonical entry: it runs `registry.persist(agg, tx)` + local audit-log write inside the SDK's `persist` callback, then the SDK emits the outbox event + audit log — all four writes ride the same ALS-bound Drizzle tx.
 
-**Identity** — `Scope` from `ScopeStore` (ALS). HTTP requests via framework plugin OIDC extractor; scheduled job webhooks via `Scope.fromParentEvent`; in-process scheduled work (none currently planned) via `runJob`.
+**Identity** — `Scope` from `ScopeStore` (ALS). HTTP requests via framework plugin OIDC extractor; scheduled job webhooks via `Scope.fromParentEvent`; in-process scheduled work (none currently planned) via `runJob`. Use cases read scope via `ScopeStore.require()`.
 
-**Errors** — `Data.TaggedError` per failure. `UseCaseError` union: `ValidationError | NotFoundError | BusinessRuleViolation | ConcurrencyError | AuthorizationError | InfrastructureError`. HTTP mapping via `httpStatus(error)` at the route boundary.
+**Errors** — `UseCaseError` is a discriminated union with a `type` field (NOT `_tag`): `validation | not_found | business_rule | concurrency | authorization | infrastructure`. Factories: `UseCaseError.validation(code, message, details?)`, `.notFound(...)`, `.businessRule(...)`, `.authorization(...)`, `.infrastructure(...)`, `.concurrency(...)`. HTTP mapping via `UseCaseError.httpStatus(error)` at the route boundary (`sendUseCaseError` helper in `api/plugins/error-mapper.ts`).
 
 **Observability** — Pino via Fastify; `correlationId`/`executionId`/`principalId` attached to every log.
 
-**Testing** — Use cases: `TestUnitOfWork.layer(buffer)` + fake `AggregateRegistry` + `ScopeStore.run`. Routes: Fastify `inject()`. Repos: Testcontainers Postgres for slices with non-trivial queries; in-memory fakes elsewhere.
+**Testing** — Integration tests run against testcontainers Postgres via the real `runWrite` boundary — opens a Drizzle tx, binds it on ALS, invokes the use case. Success is asserted by `isSuccess(result)` + `result.value.getData()`; failure via `isFailure(result)` + `result.error.type === '<discriminator>'`. Unit tests use plain function/repo fakes; the scheduling worker test fakes `appContext.runWrite` directly and only relies on `isFailure`/`Result.failure` (success is fabricated via a plain `{ _tag: 'success', value }` literal — the success token is SDK-internal).
 
 ## Known risks
 
