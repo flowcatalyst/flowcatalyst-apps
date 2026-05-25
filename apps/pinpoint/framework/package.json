@@ -10,6 +10,11 @@
       "types": "./src/index.ts",
       "compiled": "./dist/index.js",
       "default": "./src/index.ts"
+    },
+    "./plain": {
+      "types": "./src/plain.ts",
+      "compiled": "./dist/plain.js",
+      "default": "./src/plain.ts"
     }
   },
   "scripts": {

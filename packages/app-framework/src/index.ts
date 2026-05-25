@@ -73,3 +73,16 @@ export type {
   OutboxManagerConfig,
   UnitOfWorkLayerOptions,
 } from './infrastructure/unit-of-work.js';
+
+// Non-Effect UoW path — same OutboxManager + DrizzleOutboxDriver + ALS tx
+// store as the Effect path, just without the Effect wrapper. Apps that want
+// plain async/await use cases consume these instead of the Tags + Layers.
+// Names are `plain*` so the two surfaces can coexist during a migration.
+export {
+  createUnitOfWork as createPlainUnitOfWork,
+  commitAggregate as plainCommitAggregate,
+  commitDelete as plainCommitDelete,
+  emitEvent as plainEmitEvent,
+  toInfrastructureFailure,
+} from './infrastructure/unit-of-work-plain.js';
+export type { UnitOfWorkOptions as PlainUnitOfWorkOptions } from './infrastructure/unit-of-work-plain.js';

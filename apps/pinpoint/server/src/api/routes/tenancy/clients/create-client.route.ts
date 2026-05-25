@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
+import { isFailure } from '@pinpoint/framework/plain';
 import { CreateClientCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
-import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { sendPlainUseCaseError } from '../../../plugins/error-mapper.js';
 
 const CreateClientBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -55,17 +55,19 @@ export function registerCreateClientRoute(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWritePlain(() =>
         appContext.useCases.createClient.execute(parsed.data),
-        scope,
       );
 
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendPlainUseCaseError(reply, result.error);
       }
 
-      const event = result.success.event;
+      const event = result.value;
       const data = event.getData();
+      // `scope` is logged to silence the unused-var warning while we keep
+      // the explicit 401 branch in place for the un-converted route surface.
+      void scope;
       return reply.code(201).send({
         clientId: data.clientId,
         createdAt: event.time.toISOString(),

@@ -83,7 +83,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -176,7 +176,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
       '@fulfil/framework':
         specifier: workspace:*
         version: link:../framework
@@ -244,7 +244,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -293,7 +293,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
       '@pinpoint/framework':
         specifier: workspace:*
         version: link:../framework
@@ -434,7 +434,7 @@ importers:
     dependencies:
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -1074,9 +1074,9 @@ packages:
     peerDependencies:
       typebox: ^1.0.13
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454':
-    resolution: {gitHosted: true, integrity: sha512-7gVnEulqmH6yoE85puMJQhnom7yAaMkzfWcHZ7J2hGjqutq9+taL5RthFV+KQWXO83CatB2ZCGD5/L96t/AZOw==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454}
-    version: 0.6.14
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3':
+    resolution: {gitHosted: true, integrity: sha512-yaVZcHNccCJjXoTxAKdLdyvW0xjZiu3AaN1O/3oU4u3wrmYWlHV08ZcPM+lKrJzoJ2nS6IQlbcqo6TxYMVgJ2A==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3}
+    version: 0.6.15
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@fastify/cookie': ^11.0.0
@@ -4322,7 +4322,7 @@ snapshots:
     dependencies:
       typebox: 1.1.38
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)':
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/0b8a3062d647a0df36043fd57493b22ddcd291c3(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)':
     dependencies:
       fastify-plugin: 5.1.0
       neverthrow: 8.2.0

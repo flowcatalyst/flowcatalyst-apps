@@ -5,6 +5,7 @@ import {
   aggregateRegistryLayer,
   buildOutboxManager,
   createAggregateRegistry,
+  createPlainUnitOfWork,
   createTransactionManager,
   DispatchJobBroker,
   dispatchJobBrokerLayer,
@@ -15,6 +16,10 @@ import {
   type TransactionManager,
 } from '@pinpoint/framework';
 import type { UnitOfWork, UseCaseError } from '@pinpoint/framework';
+// Non-Effect surface — pinpoint is migrating off Effect. Both surfaces ride
+// the same OutboxManager + ALS tx, so converted and not-yet-converted use
+// cases live happily side-by-side until the sweep finishes.
+import type { Result as PlainResult, UnitOfWork as PlainUnitOfWork } from '@pinpoint/framework/plain';
 import { createDrizzlePrincipalRepository } from './infrastructure/principal-repository.js';
 import { createDrizzleCountryRepository } from './infrastructure/country-repository.js';
 import { createDrizzleClientRepository } from './infrastructure/client-repository.js';
@@ -234,6 +239,19 @@ export interface AppContext {
     program: Effect.Effect<A, UseCaseError, UseCaseRequirements>,
     scope: Scope,
   ) => Promise<Result.Result<A, UseCaseError>>;
+  /**
+   * Plain async/await boundary for use cases that have been migrated off
+   * Effect. Opens a Drizzle tx, binds it on ALS via `TransactionStore`, and
+   * invokes the thunk inside the tx — the thunk's `Result.failure(...)` is
+   * returned as-is (no rollback for business errors; nothing was written),
+   * and a thrown exception triggers rollback.
+   *
+   * Identity comes from the surrounding `ScopeStore.run(scope, ...)` (set by
+   * the route boundary), same as the Effect path.
+   */
+  readonly runWritePlain: <A>(
+    thunk: () => Promise<PlainResult<A>>,
+  ) => Promise<PlainResult<A>>;
 }
 
 /**
@@ -374,6 +392,16 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     );
   };
 
+  // Non-Effect UoW shares the OutboxManager with the Effect path, so events
+  // emitted by converted use cases ride the same outbox table + the same
+  // ALS-bound Drizzle tx.
+  const plainUow: PlainUnitOfWork = createPlainUnitOfWork(outboxManager);
+
+  const runWritePlain = async <A>(
+    thunk: () => Promise<PlainResult<A>>,
+  ): Promise<PlainResult<A>> =>
+    transactionManager.inTransaction((tx) => TransactionStore.run(tx, thunk));
+
   // Build auth services lazily: OIDC discovery is only attempted when the
   // issuer is configured, so a no-IdP local dev run with the dev fallback
   // still boots fine. Discovery failures throw — startup blocks on the
@@ -407,11 +435,11 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       addressNormalizer,
     },
     useCases: {
-      // All use cases yield their repo deps from the Effect environment
-      // (see the `repoLayer` above). The constructor is a no-op pass-through
-      // — kept as a class so static `requiredPermission` stays attached and
-      // call sites don't churn.
-      createClient: new CreateClientUseCase(),
+      // Effect-based use cases yield their repo deps from the Effect
+      // environment (see the `repoLayer` above) and use an empty constructor.
+      // Migrated use cases take their deps (uow, registry, repos) via
+      // constructor injection — `createClient` is the first one converted.
+      createClient: new CreateClientUseCase(plainUow, aggregateRegistry, clientRepo),
       updateClient: new UpdateClientUseCase(),
       deleteClient: new DeleteClientUseCase(),
       createPartition: new CreatePartitionUseCase(),
@@ -447,6 +475,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       sessionStore,
     },
     runWrite,
+    runWritePlain,
   };
 }
 
