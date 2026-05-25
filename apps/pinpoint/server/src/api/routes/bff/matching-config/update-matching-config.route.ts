@@ -9,13 +9,13 @@
  * optional).
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { UpdateMatchingConfigCommandSchema } from '@pinpoint/shared';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const Threshold = Type.Number({ minimum: 0, maximum: 1 });
 
@@ -87,12 +87,11 @@ export function registerBffUpdateMatchingConfigRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.updateMatchingConfig.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
       const updated = await appContext.repositories.matchingConfigs.resolve(

@@ -1,25 +1,14 @@
-import { Effect, Layer, ManagedRuntime, Result } from 'effect';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
-  AggregateRegistry,
-  aggregateRegistryLayer,
   buildOutboxManager,
   createAggregateRegistry,
-  createPlainUnitOfWork,
+  createUnitOfWork,
   createTransactionManager,
-  DispatchJobBroker,
-  dispatchJobBrokerLayer,
   TransactionStore,
-  unitOfWorkLayer,
   type AggregateRegistryImpl,
-  type Scope,
   type TransactionManager,
 } from '@pinpoint/framework';
-import type { UnitOfWork, UseCaseError } from '@pinpoint/framework';
-// Non-Effect surface — pinpoint is migrating off Effect. Both surfaces ride
-// the same OutboxManager + ALS tx, so converted and not-yet-converted use
-// cases live happily side-by-side until the sweep finishes.
-import type { Result as PlainResult, UnitOfWork as PlainUnitOfWork } from '@pinpoint/framework/plain';
+import type { Result, UnitOfWork } from '@pinpoint/framework';
 import { createDrizzlePrincipalRepository } from './infrastructure/principal-repository.js';
 import { createDrizzleCountryRepository } from './infrastructure/country-repository.js';
 import { createDrizzleClientRepository } from './infrastructure/client-repository.js';
@@ -68,36 +57,18 @@ import { LAYER_FEATURE_TYPE } from './domain/layers/layer-feature.js';
 import { PROPERTY_SET_TYPE } from './domain/layers/property-set.js';
 import { MATCHING_CONFIG_ID_PREFIX } from './domain/matching/ids.js';
 import { MATCHING_CONFIG_TYPE } from './domain/matching/matching-config.js';
-import { Principals, type PrincipalRepository } from './domain/auth/principal.repository.js';
-import { Countries, type CountryRepository } from './domain/reference/country.repository.js';
-import { Clients, type ClientRepository } from './domain/tenancy/client.repository.js';
-import { Partitions, type PartitionRepository } from './domain/tenancy/partition.repository.js';
-import { Locations, type LocationRepository } from './domain/locations/location.repository.js';
-import { Layers, type LayerRepository } from './domain/layers/layer.repository.js';
-import {
-  LayerFeatures,
-  type LayerFeatureRepository,
-} from './domain/layers/layer-feature.repository.js';
-import {
-  PropertySets,
-  type PropertySetRepository,
-} from './domain/layers/property-set.repository.js';
-import {
-  MatchingConfigs,
-  type MatchingConfigRepository,
-} from './domain/matching/matching-config.repository.js';
-import {
-  MasterLocations,
-  type MasterLocationRepository,
-} from './domain/locations/master-location.repository.js';
-import {
-  ProcessingLogs,
-  type ProcessingLogRepository,
-} from './domain/locations/processing-log.repository.js';
-import {
-  LocationAttributes,
-  type LocationAttributeRepository,
-} from './domain/locations/location-attribute.repository.js';
+import type { PrincipalRepository } from './domain/auth/principal.repository.js';
+import type { CountryRepository } from './domain/reference/country.repository.js';
+import type { ClientRepository } from './domain/tenancy/client.repository.js';
+import type { PartitionRepository } from './domain/tenancy/partition.repository.js';
+import type { LocationRepository } from './domain/locations/location.repository.js';
+import type { LayerRepository } from './domain/layers/layer.repository.js';
+import type { LayerFeatureRepository } from './domain/layers/layer-feature.repository.js';
+import type { PropertySetRepository } from './domain/layers/property-set.repository.js';
+import type { MatchingConfigRepository } from './domain/matching/matching-config.repository.js';
+import type { MasterLocationRepository } from './domain/locations/master-location.repository.js';
+import type { ProcessingLogRepository } from './domain/locations/processing-log.repository.js';
+import type { LocationAttributeRepository } from './domain/locations/location-attribute.repository.js';
 import type { GeocoderService } from './domain/services/geocoder.js';
 import type { AddressVerifier } from './domain/services/address-verifier.js';
 import type { AddressNormalizer } from './domain/services/address-normalizer.js';
@@ -125,15 +96,14 @@ import { UpdateMasterLocationUseCase } from './operations/update-master-location
 import { RejectMasterLocationUseCase } from './operations/reject-master-location/reject-master-location.use-case.js';
 
 /**
- * Composition root for the pinpoint server. Wires the repository graph, the
- * `UnitOfWork` / `DispatchJobBroker` / `AggregateRegistry` Layers, and the
- * `runWrite` boundary runner that opens a Drizzle tx, binds it on ALS, and
- * drains the Effect.
+ * Composition root for the pinpoint server. Wires the repository graph, a
+ * Promise-typed UnitOfWork backed by the SDK's non-Effect surface, and a
+ * `runWrite` boundary that opens a Drizzle tx, binds it on ALS via
+ * `TransactionStore`, and invokes the use-case thunk.
  *
- * One `OutboxManager` is built here and shared by both UoW and DispatchJobBroker
- * so events, audit logs, and dispatch jobs all ride the same `TransactionStore`-
- * bound Drizzle tx. As use-case slices land they get registered into the
- * `useCases` block and their repositories into `aggregateRegistry`.
+ * One `OutboxManager` is built here so events + audit logs ride the same
+ * ALS-bound Drizzle tx as the aggregate writes. Each use case is wired with
+ * its required dependencies (uow, registry, repos, services) at construction.
  *
  * Keep this file dumb — wiring only, no business logic.
  */
@@ -227,55 +197,17 @@ export interface AppContext {
   readonly useCases: AppContextUseCases;
   readonly auth: AppContextAuth;
   /**
-   * Run a use-case Effect inside a Drizzle transaction. Provides
-   * `UnitOfWork`, `DispatchJobBroker`, and `AggregateRegistry` Layers,
-   * collapses the error channel via `Effect.result`, and returns the
-   * resulting `Result<A, E>` as a Promise.
+   * Plain async/await boundary for use cases. Opens a Drizzle tx, binds it
+   * on ALS via `TransactionStore`, and invokes the thunk inside the tx —
+   * the thunk's `Result.failure(...)` is returned as-is (nothing was
+   * written, so the tx commits trivially), and a thrown exception triggers
+   * rollback.
    *
-   * Identity comes from `ScopeStore` (ALS); the program reads it directly
-   * via `ScopeStore.require()` rather than through an Effect Tag.
+   * Identity comes from the surrounding `ScopeStore.run(scope, ...)` (set
+   * by the route boundary).
    */
-  readonly runWrite: <A>(
-    program: Effect.Effect<A, UseCaseError, UseCaseRequirements>,
-    scope: Scope,
-  ) => Promise<Result.Result<A, UseCaseError>>;
-  /**
-   * Plain async/await boundary for use cases that have been migrated off
-   * Effect. Opens a Drizzle tx, binds it on ALS via `TransactionStore`, and
-   * invokes the thunk inside the tx — the thunk's `Result.failure(...)` is
-   * returned as-is (no rollback for business errors; nothing was written),
-   * and a thrown exception triggers rollback.
-   *
-   * Identity comes from the surrounding `ScopeStore.run(scope, ...)` (set by
-   * the route boundary), same as the Effect path.
-   */
-  readonly runWritePlain: <A>(
-    thunk: () => Promise<PlainResult<A>>,
-  ) => Promise<PlainResult<A>>;
+  readonly runWrite: <A>(thunk: () => Promise<Result<A>>) => Promise<Result<A>>;
 }
-
-/**
- * The full Effect requirement set that `runWrite` provides. Every use
- * case's `execute` Effect needs at most this union — `UnitOfWork`,
- * `DispatchJobBroker`, `AggregateRegistry`, plus every repo Tag. The
- * alias keeps individual use-case signatures readable.
- */
-export type UseCaseRequirements =
-  | UnitOfWork
-  | DispatchJobBroker
-  | AggregateRegistry
-  | Clients
-  | Partitions
-  | Principals
-  | Countries
-  | Locations
-  | LocationAttributes
-  | MasterLocations
-  | ProcessingLogs
-  | Layers
-  | LayerFeatures
-  | PropertySets
-  | MatchingConfigs;
 
 export interface AppContextConfig {
   readonly db: PostgresJsDatabase;
@@ -350,56 +282,12 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   registerMatchingConfig(aggregateRegistry, matchingConfigRepo);
   registerMasterLocation(aggregateRegistry, masterLocationRepo);
 
-  // One OutboxManager backs both UoW and DispatchJobBroker.
+  // One OutboxManager backs the UoW so events + local audit logs ride the
+  // same ALS-bound Drizzle tx as the aggregate writes.
   const outboxManager = buildOutboxManager({ clientId });
+  const uow: UnitOfWork = createUnitOfWork(outboxManager);
 
-  // Repo Tags. Every use case yields these from the Effect environment
-  // instead of receiving the underlying Promise repo via constructor
-  // injection. Each Tag wraps its Promise port once at the boundary
-  // (see <repo>.repository.ts → `XTag.layer(port)`), so call sites
-  // get pre-typed `Effect<T, InfrastructureError>` and skip per-call
-  // `Effect.tryPromise` boilerplate.
-  const repoLayer = Layer.mergeAll(
-    Clients.layer(clientRepo),
-    Partitions.layer(partitionRepo),
-    Principals.layer(principalRepo),
-    Countries.layer(countryRepo),
-    Locations.layer(locationRepo),
-    LocationAttributes.layer(locationAttributeRepo),
-    MasterLocations.layer(masterLocationRepo),
-    ProcessingLogs.layer(processingLogRepo),
-    Layers.layer(layerRepo),
-    LayerFeatures.layer(layerFeatureRepo),
-    PropertySets.layer(propertySetRepo),
-    MatchingConfigs.layer(matchingConfigRepo),
-  );
-
-  const baseLayer = Layer.mergeAll(
-    unitOfWorkLayer(outboxManager),
-    dispatchJobBrokerLayer(outboxManager),
-    aggregateRegistryLayer(aggregateRegistry),
-    repoLayer,
-  );
-  const runtime = ManagedRuntime.make(baseLayer);
-
-  const runWrite = async <A>(
-    program: Effect.Effect<A, UseCaseError, UseCaseRequirements>,
-    _scope: Scope,
-  ): Promise<Result.Result<A, UseCaseError>> => {
-    const collected = Effect.result(program);
-    return transactionManager.inTransaction((tx) =>
-      TransactionStore.run(tx, () => runtime.runPromise(collected)),
-    );
-  };
-
-  // Non-Effect UoW shares the OutboxManager with the Effect path, so events
-  // emitted by converted use cases ride the same outbox table + the same
-  // ALS-bound Drizzle tx.
-  const plainUow: PlainUnitOfWork = createPlainUnitOfWork(outboxManager);
-
-  const runWritePlain = async <A>(
-    thunk: () => Promise<PlainResult<A>>,
-  ): Promise<PlainResult<A>> =>
+  const runWrite = async <A>(thunk: () => Promise<Result<A>>): Promise<Result<A>> =>
     transactionManager.inTransaction((tx) => TransactionStore.run(tx, thunk));
 
   // Build auth services lazily: OIDC discovery is only attempted when the
@@ -435,38 +323,89 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       addressNormalizer,
     },
     useCases: {
-      // Effect-based use cases yield their repo deps from the Effect
-      // environment (see the `repoLayer` above) and use an empty constructor.
-      // Migrated use cases take their deps (uow, registry, repos) via
-      // constructor injection — `createClient` is the first one converted.
-      createClient: new CreateClientUseCase(plainUow, aggregateRegistry, clientRepo),
-      updateClient: new UpdateClientUseCase(),
-      deleteClient: new DeleteClientUseCase(),
-      createPartition: new CreatePartitionUseCase(),
-      updatePartition: new UpdatePartitionUseCase(),
-      deletePartition: new DeletePartitionUseCase(),
-      // create-location keeps the two service deps (libpostal,
-      // LLM verifier) via constructor; all 8 repo deps come from the
-      // Effect environment via Tags.
-      createLocation: new CreateLocationUseCase(addressNormalizer, addressVerifier),
-      createLayer: new CreateLayerUseCase(),
-      updateLayer: new UpdateLayerUseCase(),
-      deleteLayer: new DeleteLayerUseCase(),
-      createLayerFeature: new CreateLayerFeatureUseCase(),
-      updateLayerFeature: new UpdateLayerFeatureUseCase(),
-      deleteLayerFeature: new DeleteLayerFeatureUseCase(),
-      createPropertySet: new CreatePropertySetUseCase(),
-      updatePropertySet: new UpdatePropertySetUseCase(),
-      deletePropertySet: new DeletePropertySetUseCase(),
-      replacePropertySetProperties: new ReplacePropertySetPropertiesUseCase(),
-      updateMatchingConfig: new UpdateMatchingConfigUseCase(),
-      // ValidateMasterLocationUseCase still injects the geocoder (an
-      // external service, not a DB repo). Repo deps come from the
-      // Effect environment.
-      validateMasterLocation: new ValidateMasterLocationUseCase(geocoder),
-      confirmMasterLocation: new ConfirmMasterLocationUseCase(),
-      updateMasterLocation: new UpdateMasterLocationUseCase(),
-      rejectMasterLocation: new RejectMasterLocationUseCase(),
+      createClient: new CreateClientUseCase(uow, aggregateRegistry, clientRepo),
+      updateClient: new UpdateClientUseCase(uow, aggregateRegistry, clientRepo),
+      deleteClient: new DeleteClientUseCase(uow, aggregateRegistry, clientRepo),
+      createPartition: new CreatePartitionUseCase(
+        uow,
+        aggregateRegistry,
+        clientRepo,
+        partitionRepo,
+      ),
+      updatePartition: new UpdatePartitionUseCase(uow, aggregateRegistry, partitionRepo),
+      deletePartition: new DeletePartitionUseCase(uow, aggregateRegistry, partitionRepo),
+      createLocation: new CreateLocationUseCase(
+        uow,
+        aggregateRegistry,
+        clientRepo,
+        partitionRepo,
+        locationRepo,
+        masterLocationRepo,
+        matchingConfigRepo,
+        layerFeatureRepo,
+        locationAttributeRepo,
+        processingLogRepo,
+        addressNormalizer,
+        addressVerifier,
+      ),
+      createLayer: new CreateLayerUseCase(uow, aggregateRegistry, clientRepo, layerRepo),
+      updateLayer: new UpdateLayerUseCase(uow, aggregateRegistry, layerRepo),
+      deleteLayer: new DeleteLayerUseCase(uow, aggregateRegistry, layerRepo),
+      createLayerFeature: new CreateLayerFeatureUseCase(uow, aggregateRegistry, layerRepo),
+      updateLayerFeature: new UpdateLayerFeatureUseCase(
+        uow,
+        aggregateRegistry,
+        layerFeatureRepo,
+      ),
+      deleteLayerFeature: new DeleteLayerFeatureUseCase(
+        uow,
+        aggregateRegistry,
+        layerFeatureRepo,
+      ),
+      createPropertySet: new CreatePropertySetUseCase(
+        uow,
+        aggregateRegistry,
+        layerRepo,
+        propertySetRepo,
+      ),
+      updatePropertySet: new UpdatePropertySetUseCase(uow, aggregateRegistry, propertySetRepo),
+      deletePropertySet: new DeletePropertySetUseCase(uow, aggregateRegistry, propertySetRepo),
+      replacePropertySetProperties: new ReplacePropertySetPropertiesUseCase(
+        uow,
+        aggregateRegistry,
+        propertySetRepo,
+      ),
+      updateMatchingConfig: new UpdateMatchingConfigUseCase(
+        uow,
+        aggregateRegistry,
+        clientRepo,
+        partitionRepo,
+        matchingConfigRepo,
+      ),
+      validateMasterLocation: new ValidateMasterLocationUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+        geocoder,
+      ),
+      confirmMasterLocation: new ConfirmMasterLocationUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+        locationRepo,
+        layerFeatureRepo,
+        processingLogRepo,
+      ),
+      updateMasterLocation: new UpdateMasterLocationUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+      ),
+      rejectMasterLocation: new RejectMasterLocationUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+      ),
     },
     auth: {
       config: config.auth,
@@ -475,7 +414,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       sessionStore,
     },
     runWrite,
-    runWritePlain,
   };
 }
 

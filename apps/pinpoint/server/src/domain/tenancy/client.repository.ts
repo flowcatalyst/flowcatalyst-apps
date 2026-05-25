@@ -23,9 +23,8 @@
  * use cases that haven't been migrated to the Tag yet keep working
  * without churn. Convert one use case at a time.
  */
-import { Context, Effect, Layer } from 'effect';
 import type { TransactionContext } from '@flowcatalyst-apps/app-framework';
-import { InfrastructureError } from '@pinpoint/framework';
+import type { InfrastructureError } from '@pinpoint/framework';
 import type { Client } from './client.js';
 import type { ClientId } from './ids.js';
 
@@ -51,57 +50,3 @@ export interface ClientRepository {
   count(): Promise<number>;
 }
 
-export interface ClientsService {
-  readonly persist: (
-    aggregate: Client,
-    tx?: TransactionContext,
-  ) => Effect.Effect<Client, InfrastructureError>;
-  readonly delete: (
-    aggregate: Client,
-    tx?: TransactionContext,
-  ) => Effect.Effect<boolean, InfrastructureError>;
-  readonly findById: (id: ClientId) => Effect.Effect<Client | null, InfrastructureError>;
-  readonly findByCode: (code: string) => Effect.Effect<Client | null, InfrastructureError>;
-  readonly listAll: (
-    query: ListClientsQuery,
-  ) => Effect.Effect<ListClientsResult, InfrastructureError>;
-  readonly count: () => Effect.Effect<number, InfrastructureError>;
-}
-
-export class Clients extends Context.Service<Clients, ClientsService>()(
-  '@pinpoint/server/Clients',
-) {
-  /**
-   * Adapt the Promise-typed `ClientRepository` into the Effect-shaped
-   * `Clients` Tag. Each method wraps the underlying Promise in
-   * `Effect.tryPromise` with a typed `InfrastructureError` once, here
-   * at the boundary — every use case call site collapses from a five-
-   * line `Effect.tryPromise({ try, catch })` to a one-line
-   * `yield* clients.findById(id)`.
-   */
-  static layer(port: ClientRepository): Layer.Layer<Clients> {
-    const wrap =
-      <Args extends readonly unknown[], A>(
-        op: string,
-        fn: (...args: Args) => Promise<A>,
-      ) =>
-      (...args: Args): Effect.Effect<A, InfrastructureError> =>
-        Effect.tryPromise({
-          try: () => fn(...args),
-          catch: (cause) =>
-            new InfrastructureError({
-              code: `CLIENT_REPO_${op}_FAILED`,
-              message: cause instanceof Error ? cause.message : String(cause),
-            }),
-        });
-
-    return Layer.succeed(Clients, {
-      persist: wrap('PERSIST', port.persist.bind(port)),
-      delete: wrap('DELETE', port.delete.bind(port)),
-      findById: wrap('READ', port.findById.bind(port)),
-      findByCode: wrap('READ', port.findByCode.bind(port)),
-      listAll: wrap('LIST', port.listAll.bind(port)),
-      count: wrap('COUNT', port.count.bind(port)),
-    });
-  }
-}

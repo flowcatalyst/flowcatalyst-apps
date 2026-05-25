@@ -11,7 +11,6 @@
  * load-bearing audit signal for downstream consumers.
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { ConfirmMasterLocationCommandSchema } from '@pinpoint/shared';
@@ -24,6 +23,7 @@ import {
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
+import { isFailure } from '@pinpoint/framework';
 
 const BodySchema = Type.Object({
   houseNumber: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -174,12 +174,11 @@ export function registerBffConfirmGeocodeRoute(
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError' });
       }
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.confirmMasterLocation.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
       const ml = await appContext.repositories.masterLocations.findById(mid);

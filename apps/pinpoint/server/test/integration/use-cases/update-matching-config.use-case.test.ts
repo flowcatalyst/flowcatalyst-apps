@@ -6,11 +6,11 @@
  * touches the same row (not a new one).
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('UpdateMatchingConfigUseCase (integration)', () => {
   let appContext: AppContext;
@@ -28,31 +28,27 @@ describe('UpdateMatchingConfigUseCase (integration)', () => {
 
   async function createClient(): Promise<string> {
     const r = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(r)) throw new Error('setup failed');
-    return r.success.event.getData().clientId;
+    if (!isSuccess(r)) throw new Error('setup failed');
+    return r.value.getData().clientId;
   }
 
   it('promotes a scoped config from the global default + emits the event', async () => {
     const clientId = await createClient();
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.updateMatchingConfig.execute({
+      appContext.runWrite(() =>
+appContext.useCases.updateMatchingConfig.execute({
           clientId,
           streetThreshold: 0.7,
           overallThreshold: 0.9,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     const config = await appContext.repositories.matchingConfigs.resolve(
       clientId as never,
@@ -76,13 +72,11 @@ describe('UpdateMatchingConfigUseCase (integration)', () => {
     const clientId = await createClient();
 
     await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.updateMatchingConfig.execute({
+      appContext.runWrite(() =>
+appContext.useCases.updateMatchingConfig.execute({
           clientId,
           streetThreshold: 0.7,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
     const after1 = await appContext.repositories.matchingConfigs.resolve(
@@ -91,13 +85,11 @@ describe('UpdateMatchingConfigUseCase (integration)', () => {
     );
 
     await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.updateMatchingConfig.execute({
+      appContext.runWrite(() =>
+appContext.useCases.updateMatchingConfig.execute({
           clientId,
           streetThreshold: 0.5,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
     const after2 = await appContext.repositories.matchingConfigs.resolve(
@@ -112,17 +104,15 @@ describe('UpdateMatchingConfigUseCase (integration)', () => {
 
   it('404s when the client does not exist', async () => {
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.updateMatchingConfig.execute({
+      appContext.runWrite(() =>
+appContext.useCases.updateMatchingConfig.execute({
           clientId: 'cli_NOPE',
           streetThreshold: 0.7,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('NotFoundError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('not_found');
   });
 });

@@ -11,54 +11,51 @@
  * direct repo writes.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 async function setup(ctx: AppContext) {
   // 1. create client
   const clientResult = await runInScope({ sub: 'prn_test' }, () =>
-    ctx.runWrite(
+    ctx.runWrite(() =>
+
       ctx.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      undefined as any,
-    ),
+      ),
   );
-  if (!Result.isSuccess(clientResult)) throw new Error('createClient failed');
-  const clientId = clientResult.success.event.getData().clientId;
+  if (!isSuccess(clientResult)) throw new Error('createClient failed');
+  const clientId = clientResult.value.getData().clientId;
 
   // 2. create layer
   const layerResult = await runInScope({ sub: 'prn_test' }, () =>
-    ctx.runWrite(
+    ctx.runWrite(() =>
+
       ctx.useCases.createLayer.execute({
         clientId,
         code: 'L1',
         name: 'Layer 1',
         layerType: 'POINT',
       }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      undefined as any,
-    ),
+      ),
   );
-  if (!Result.isSuccess(layerResult)) throw new Error('createLayer failed');
-  const layerId = layerResult.success.event.getData().layerId;
+  if (!isSuccess(layerResult)) throw new Error('createLayer failed');
+  const layerId = layerResult.value.getData().layerId;
 
   // 3. create property-set
   const psResult = await runInScope({ sub: 'prn_test' }, () =>
-    ctx.runWrite(
+    ctx.runWrite(() =>
+
       ctx.useCases.createPropertySet.execute({
         clientId,
         layerId,
         name: 'Defaults',
       }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      undefined as any,
-    ),
+      ),
   );
-  if (!Result.isSuccess(psResult)) throw new Error('createPropertySet failed');
-  const propertySetId = psResult.success.event.getData().propertySetId;
+  if (!isSuccess(psResult)) throw new Error('createPropertySet failed');
+  const propertySetId = psResult.value.getData().propertySetId;
 
   return { clientId, layerId, propertySetId };
 }
@@ -81,7 +78,8 @@ describe('ReplacePropertySetPropertiesUseCase (integration)', () => {
     const { clientId, layerId, propertySetId } = await setup(ctx);
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      ctx.runWrite(
+      ctx.runWrite(() =>
+
         ctx.useCases.replacePropertySetProperties.execute({
           clientId,
           layerId,
@@ -91,11 +89,9 @@ describe('ReplacePropertySetPropertiesUseCase (integration)', () => {
             { key: 'priority', value: 'high' },
           ],
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     // Properties landed.
     const persisted = await ctx.repositories.propertySets.findById(propertySetId as never);
@@ -116,28 +112,28 @@ describe('ReplacePropertySetPropertiesUseCase (integration)', () => {
 
     const tooMany = Array.from({ length: 7 }, (_, i) => ({ key: `k${i}`, value: `v${i}` }));
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      ctx.runWrite(
+      ctx.runWrite(() =>
+
         ctx.useCases.replacePropertySetProperties.execute({
           clientId,
           layerId,
           propertySetId,
           properties: tooMany,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('ValidationError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('validation');
   });
 
   it('rejects duplicate keys with a BusinessRuleViolation', async () => {
     const { clientId, layerId, propertySetId } = await setup(ctx);
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      ctx.runWrite(
+      ctx.runWrite(() =>
+
         ctx.useCases.replacePropertySetProperties.execute({
           clientId,
           layerId,
@@ -147,13 +143,11 @@ describe('ReplacePropertySetPropertiesUseCase (integration)', () => {
             { key: 'k', value: 'b' },
           ],
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('BusinessRuleViolation');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('business_rule');
   });
 });

@@ -7,18 +7,14 @@
  * Doesn't touch status — that's `confirm-master-location` /
  * `reject-master-location`'s job.
  */
-import { Effect } from 'effect';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  BusinessRuleViolation,
-  commitAggregate,
-  NotFoundError,
+  Result,
   ScopeStore,
+  UseCaseError,
+  commitAggregate,
+  type AggregateRegistryImpl,
   type Scope,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
@@ -30,93 +26,86 @@ import {
   addressHash as computeAddressHash,
   toAddressLine,
 } from '../../domain/services/address-normalizer.js';
-import { MasterLocations } from '../../domain/locations/master-location.repository.js';
+import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { UpdateMasterLocationCommand } from './update-master-location.command.js';
 
 export class UpdateMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationUpdate;
 
-  execute = (
-    command: UpdateMasterLocationCommand,
-  ): Effect.Effect<
-    Sealed<MasterLocationUpdated>,
-    UseCaseError,
-    UnitOfWork | AggregateRegistry | MasterLocations
-  > => {
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly masters: MasterLocationRepository,
+  ) {}
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const masters = yield* MasterLocations;
+  async execute(command: UpdateMasterLocationCommand): Promise<Result<MasterLocationUpdated>> {
+    const scope = ScopeStore.require();
 
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.LocationsMasterLocationUpdate}.`,
-          }),
-        );
-      }
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.LocationsMasterLocationUpdate}.`,
+        ),
+      );
+    }
 
-      const clientId = asClientId(command.clientId.trim());
-      const masterLocationId = asMasterLocationId(command.masterLocationId.trim());
+    const clientId = asClientId(command.clientId.trim());
+    const masterLocationId = asMasterLocationId(command.masterLocationId.trim());
 
-      const existing = yield* masters.findById(masterLocationId);
-      if (!existing) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'MASTER_LOCATION_NOT_FOUND',
-            message: `Master location '${masterLocationId}' not found.`,
-          }),
-        );
-      }
-      if (existing.clientId !== clientId) {
-        return yield* Effect.fail(
-          new BusinessRuleViolation({
-            code: 'MASTER_LOCATION_CLIENT_MISMATCH',
-            message: 'Master location belongs to a different client.',
-          }),
-        );
-      }
+    const existing = await this.masters.findById(masterLocationId);
+    if (!existing) {
+      return Result.failure(
+        UseCaseError.notFound(
+          'MASTER_LOCATION_NOT_FOUND',
+          `Master location '${masterLocationId}' not found.`,
+        ),
+      );
+    }
+    if (existing.clientId !== clientId) {
+      return Result.failure(
+        UseCaseError.businessRule(
+          'MASTER_LOCATION_CLIENT_MISMATCH',
+          'Master location belongs to a different client.',
+        ),
+      );
+    }
 
-      const normalized = {
-        houseNumber: command.normalizedHouseNumber?.trim() || null,
-        road: command.normalizedRoad?.trim() || null,
-        suburb: command.normalizedSuburb?.trim() || null,
-        city: command.normalizedCity.trim(),
-        state: command.normalizedState?.trim() || null,
-        postalCode: command.normalizedPostalCode?.trim() || null,
-        country: command.normalizedCountry.trim(),
-      };
-      const newHash = computeAddressHash(normalized);
-      const newAddressLine = toAddressLine(normalized);
+    const normalized = {
+      houseNumber: command.normalizedHouseNumber?.trim() || null,
+      road: command.normalizedRoad?.trim() || null,
+      suburb: command.normalizedSuburb?.trim() || null,
+      city: command.normalizedCity.trim(),
+      state: command.normalizedState?.trim() || null,
+      postalCode: command.normalizedPostalCode?.trim() || null,
+      country: command.normalizedCountry.trim(),
+    };
+    const newHash = computeAddressHash(normalized);
+    const newAddressLine = toAddressLine(normalized);
 
-      const updated = MasterLocation.updated(existing, {
-        normalizedHouseNumber: normalized.houseNumber,
-        normalizedRoad: normalized.road,
-        normalizedSuburb: normalized.suburb,
-        normalizedCity: normalized.city,
-        normalizedState: normalized.state,
-        normalizedPostalCode: normalized.postalCode,
-        normalizedCountry: normalized.country,
-        addressHash: newHash,
-        normalizedAddressLine: newAddressLine,
-        now: new Date(),
-      });
-
-      const event = new MasterLocationUpdated(scope, {
-        masterLocationId: updated.id,
-        clientId: updated.clientId,
-        addressHash: updated.addressHash,
-      });
-
-      return yield* commitAggregate(updated, event, command);
+    const updated = MasterLocation.updated(existing, {
+      normalizedHouseNumber: normalized.houseNumber,
+      normalizedRoad: normalized.road,
+      normalizedSuburb: normalized.suburb,
+      normalizedCity: normalized.city,
+      normalizedState: normalized.state,
+      normalizedPostalCode: normalized.postalCode,
+      normalizedCountry: normalized.country,
+      addressHash: newHash,
+      normalizedAddressLine: newAddressLine,
+      now: new Date(),
     });
-  };
+
+    const event = new MasterLocationUpdated(scope, {
+      masterLocationId: updated.id,
+      clientId: updated.clientId,
+      addressHash: updated.addressHash,
+    });
+
+    return commitAggregate(this.uow, this.registry, updated, event, command);
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(UpdateMasterLocationUseCase.requiredPermission);
   }
 }

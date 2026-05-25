@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { CreateLayerCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const CreateLayerParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
@@ -75,16 +75,15 @@ export function registerCreateLayerRoute(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.createLayer.execute(parsed.data),
-        scope,
       );
 
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
-      const event = result.success.event;
+      const event = result.value;
       const data = event.getData();
       return reply.code(201).send({
         layerId: data.layerId,

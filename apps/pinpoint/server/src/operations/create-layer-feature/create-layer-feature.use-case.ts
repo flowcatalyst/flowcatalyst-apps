@@ -1,16 +1,12 @@
-import { Effect } from 'effect';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  commitAggregate,
-  NotFoundError,
+  Result,
   ScopeStore,
+  UseCaseError,
+  commitAggregate,
+  type AggregateRegistryImpl,
   type Scope,
-  ValidationError,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
@@ -24,103 +20,90 @@ import {
   LAYER_FEATURE_ID_PREFIX,
 } from '../../domain/layers/ids.js';
 import { LayerFeatureCreated } from '../../domain/layers/events/layer-feature-created.event.js';
-import { Layers } from '../../domain/layers/layer.repository.js';
+import type { LayerRepository } from '../../domain/layers/layer.repository.js';
 import type { CreateLayerFeatureCommand } from './create-layer-feature.command.js';
 
 export class CreateLayerFeatureUseCase {
   static readonly requiredPermission = PinpointPermission.LayersFeatureCreate;
 
-  execute = (
-    command: CreateLayerFeatureCommand,
-  ): Effect.Effect<
-    Sealed<LayerFeatureCreated>,
-    UseCaseError,
-    UnitOfWork | AggregateRegistry | Layers
-  > => {
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly layers: LayerRepository,
+  ) {}
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const layers = yield* Layers;
+  async execute(command: CreateLayerFeatureCommand): Promise<Result<LayerFeatureCreated>> {
+    const scope = ScopeStore.require();
 
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.LayersFeatureCreate}.`,
-          }),
-        );
-      }
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.LayersFeatureCreate}.`,
+        ),
+      );
+    }
 
-      const layerId = asLayerId(command.layerId.trim());
-      const label = command.label.trim();
-      const propertyValues = command.propertyValues ?? {};
+    const layerId = asLayerId(command.layerId.trim());
+    const label = command.label.trim();
+    const propertyValues = command.propertyValues ?? {};
 
-      if (label.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'FEATURE_LABEL_REQUIRED',
-            message: 'Feature label must not be empty.',
-          }),
-        );
-      }
+    if (label.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('FEATURE_LABEL_REQUIRED', 'Feature label must not be empty.'),
+      );
+    }
 
-      const hasPoint = command.centerLat != null && command.centerLon != null;
-      const hasPolygon =
-        command.polygonGeojson != null && command.polygonGeojson.trim().length > 0;
-      if (!hasPoint && !hasPolygon) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'FEATURE_GEOMETRY_REQUIRED',
-            message: 'Feature must have either a center point (lat/lon) or a polygon.',
-          }),
-        );
-      }
+    const hasPoint = command.centerLat != null && command.centerLon != null;
+    const hasPolygon =
+      command.polygonGeojson != null && command.polygonGeojson.trim().length > 0;
+    if (!hasPoint && !hasPolygon) {
+      return Result.failure(
+        UseCaseError.validation(
+          'FEATURE_GEOMETRY_REQUIRED',
+          'Feature must have either a center point (lat/lon) or a polygon.',
+        ),
+      );
+    }
 
-      if (Object.keys(propertyValues).length > PROPERTY_VALUES_MAX) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'FEATURE_TOO_MANY_PROPERTIES',
-            message: `A feature can have at most ${PROPERTY_VALUES_MAX} property values.`,
-          }),
-        );
-      }
+    if (Object.keys(propertyValues).length > PROPERTY_VALUES_MAX) {
+      return Result.failure(
+        UseCaseError.validation(
+          'FEATURE_TOO_MANY_PROPERTIES',
+          `A feature can have at most ${PROPERTY_VALUES_MAX} property values.`,
+        ),
+      );
+    }
 
-      const layer = yield* layers.findById(layerId);
-      if (!layer) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'LAYER_NOT_FOUND',
-            message: `Layer '${layerId}' not found.`,
-          }),
-        );
-      }
+    const layer = await this.layers.findById(layerId);
+    if (!layer) {
+      return Result.failure(
+        UseCaseError.notFound('LAYER_NOT_FOUND', `Layer '${layerId}' not found.`),
+      );
+    }
 
-      const id = asLayerFeatureId(`${LAYER_FEATURE_ID_PREFIX}_${generateTsid()}`);
-      const feature = LayerFeature.create({
-        id,
-        layerId,
-        label,
-        centerLat: command.centerLat ?? null,
-        centerLon: command.centerLon ?? null,
-        radiusMeters: command.radiusMeters ?? null,
-        polygonGeojson: command.polygonGeojson ?? null,
-        propertyValues,
-        now: new Date(),
-      });
-      const event = new LayerFeatureCreated(scope, {
-        featureId: id,
-        layerId,
-        label,
-      });
-
-      return yield* commitAggregate(feature, event, command);
+    const id = asLayerFeatureId(`${LAYER_FEATURE_ID_PREFIX}_${generateTsid()}`);
+    const feature = LayerFeature.create({
+      id,
+      layerId,
+      label,
+      centerLat: command.centerLat ?? null,
+      centerLon: command.centerLon ?? null,
+      radiusMeters: command.radiusMeters ?? null,
+      polygonGeojson: command.polygonGeojson ?? null,
+      propertyValues,
+      now: new Date(),
     });
-  };
+    const event = new LayerFeatureCreated(scope, {
+      featureId: id,
+      layerId,
+      label,
+    });
+
+    return commitAggregate(this.uow, this.registry, feature, event, command);
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(CreateLayerFeatureUseCase.requiredPermission);
   }
 }

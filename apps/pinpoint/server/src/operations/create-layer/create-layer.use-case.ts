@@ -1,17 +1,12 @@
-import { Effect } from 'effect';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  BusinessRuleViolation,
-  commitAggregate,
-  NotFoundError,
+  Result,
   ScopeStore,
+  UseCaseError,
+  commitAggregate,
+  type AggregateRegistryImpl,
   type Scope,
-  ValidationError,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
@@ -19,137 +14,118 @@ import { Layer } from '../../domain/layers/layer.js';
 import { asLayerId, LAYER_ID_PREFIX } from '../../domain/layers/ids.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { LayerCreated } from '../../domain/layers/events/layer-created.event.js';
-import { Layers } from '../../domain/layers/layer.repository.js';
-import { Clients } from '../../domain/tenancy/client.repository.js';
+import type { LayerRepository } from '../../domain/layers/layer.repository.js';
+import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
 import type { CreateLayerCommand } from './create-layer.command.js';
 
 export class CreateLayerUseCase {
   static readonly requiredPermission = PinpointPermission.LayersLayerCreate;
 
-  execute = (
-    command: CreateLayerCommand,
-  ): Effect.Effect<
-    Sealed<LayerCreated>,
-    UseCaseError,
-    UnitOfWork | AggregateRegistry | Clients | Layers
-  > => {
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly clients: ClientRepository,
+    private readonly layers: LayerRepository,
+  ) {}
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const clients = yield* Clients;
-      const layers = yield* Layers;
+  async execute(command: CreateLayerCommand): Promise<Result<LayerCreated>> {
+    const scope = ScopeStore.require();
 
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.LayersLayerCreate}.`,
-          }),
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.LayersLayerCreate}.`,
+        ),
+      );
+    }
+
+    const clientId = asClientId(command.clientId.trim());
+    const code = command.code.trim();
+    const name = command.name.trim();
+    const description = command.description?.trim() || null;
+    const layerType = command.layerType;
+
+    if (name.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('LAYER_NAME_REQUIRED', 'Layer name must not be empty.'),
+      );
+    }
+    if (code.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('LAYER_CODE_REQUIRED', 'Layer code must not be empty.'),
+      );
+    }
+
+    if (layerType === 'RADIUS') {
+      if (command.centerLat == null || command.centerLon == null) {
+        return Result.failure(
+          UseCaseError.validation(
+            'RADIUS_CENTER_REQUIRED',
+            'Radius layers require centerLat and centerLon.',
+          ),
         );
       }
-
-      const clientId = asClientId(command.clientId.trim());
-      const code = command.code.trim();
-      const name = command.name.trim();
-      const description = command.description?.trim() || null;
-      const layerType = command.layerType;
-
-      if (name.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'LAYER_NAME_REQUIRED',
-            message: 'Layer name must not be empty.',
-          }),
+      if (command.radiusMeters == null) {
+        return Result.failure(
+          UseCaseError.validation('RADIUS_METERS_REQUIRED', 'Radius layers require radiusMeters.'),
         );
       }
-      if (code.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'LAYER_CODE_REQUIRED',
-            message: 'Layer code must not be empty.',
-          }),
+    } else if (layerType === 'POLYGON') {
+      if (!command.polygonGeojson || command.polygonGeojson.trim().length === 0) {
+        return Result.failure(
+          UseCaseError.validation(
+            'POLYGON_GEOJSON_REQUIRED',
+            'Polygon layers require polygonGeojson.',
+          ),
         );
       }
+    }
 
-      if (layerType === 'RADIUS') {
-        if (command.centerLat == null || command.centerLon == null) {
-          return yield* Effect.fail(
-            new ValidationError({
-              code: 'RADIUS_CENTER_REQUIRED',
-              message: 'Radius layers require centerLat and centerLon.',
-            }),
-          );
-        }
-        if (command.radiusMeters == null) {
-          return yield* Effect.fail(
-            new ValidationError({
-              code: 'RADIUS_METERS_REQUIRED',
-              message: 'Radius layers require radiusMeters.',
-            }),
-          );
-        }
-      } else if (layerType === 'POLYGON') {
-        if (!command.polygonGeojson || command.polygonGeojson.trim().length === 0) {
-          return yield* Effect.fail(
-            new ValidationError({
-              code: 'POLYGON_GEOJSON_REQUIRED',
-              message: 'Polygon layers require polygonGeojson.',
-            }),
-          );
-        }
-      }
+    const client = await this.clients.findById(clientId);
+    if (!client) {
+      return Result.failure(
+        UseCaseError.notFound('CLIENT_NOT_FOUND', `Client '${clientId}' not found.`),
+      );
+    }
 
-      const client = yield* clients.findById(clientId);
-      if (!client) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'CLIENT_NOT_FOUND',
-            message: `Client '${clientId}' not found.`,
-          }),
-        );
-      }
+    const duplicate = await this.layers.findByClientAndCode(clientId, code);
+    if (duplicate) {
+      return Result.failure(
+        UseCaseError.businessRule(
+          'LAYER_CODE_EXISTS',
+          `A layer with code '${code}' already exists for client '${clientId}'.`,
+          { existingLayerId: duplicate.id },
+        ),
+      );
+    }
 
-      const duplicate = yield* layers.findByClientAndCode(clientId, code);
-      if (duplicate) {
-        return yield* Effect.fail(
-          new BusinessRuleViolation({
-            code: 'LAYER_CODE_EXISTS',
-            message: `A layer with code '${code}' already exists for client '${clientId}'.`,
-            details: { existingLayerId: duplicate.id },
-          }),
-        );
-      }
-
-      const id = asLayerId(`${LAYER_ID_PREFIX}_${generateTsid()}`);
-      const layer = Layer.create({
-        id,
-        clientId,
-        code,
-        name,
-        description,
-        layerType,
-        centerLat: command.centerLat ?? null,
-        centerLon: command.centerLon ?? null,
-        radiusMeters: command.radiusMeters ?? null,
-        polygonGeojson: command.polygonGeojson ?? null,
-        now: new Date(),
-      });
-      const event = new LayerCreated(scope, {
-        layerId: id,
-        clientId,
-        code,
-        name,
-        layerType,
-      });
-
-      return yield* commitAggregate(layer, event, command);
+    const id = asLayerId(`${LAYER_ID_PREFIX}_${generateTsid()}`);
+    const layer = Layer.create({
+      id,
+      clientId,
+      code,
+      name,
+      description,
+      layerType,
+      centerLat: command.centerLat ?? null,
+      centerLon: command.centerLon ?? null,
+      radiusMeters: command.radiusMeters ?? null,
+      polygonGeojson: command.polygonGeojson ?? null,
+      now: new Date(),
     });
-  };
+    const event = new LayerCreated(scope, {
+      layerId: id,
+      clientId,
+      code,
+      name,
+      layerType,
+    });
+
+    return commitAggregate(this.uow, this.registry, layer, event, command);
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(CreateLayerUseCase.requiredPermission);
   }
 }

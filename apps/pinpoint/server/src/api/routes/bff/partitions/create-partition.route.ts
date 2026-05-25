@@ -7,13 +7,13 @@
  * the partition by id and returns the full SPA-shaped detail.
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { CreatePartitionCommandSchema } from '@pinpoint/shared';
 import { asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const BodySchema = Type.Object({
   code: Type.String({ minLength: 1 }),
@@ -77,16 +77,15 @@ export function registerBffCreatePartitionRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.createPartition.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
       // Re-read the just-created partition to return the SPA-shaped detail.
-      const data = result.success.event.getData();
+      const data = result.value.getData();
       const partition = await appContext.repositories.partitions.findById(
         asPartitionId(data.partitionId),
       );

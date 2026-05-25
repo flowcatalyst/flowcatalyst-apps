@@ -4,11 +4,11 @@
  * verifies that running update on a missing client surfaces NotFoundError.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('UpdateClientUseCase (integration)', () => {
   let appContext: AppContext;
@@ -26,27 +26,23 @@ describe('UpdateClientUseCase (integration)', () => {
 
   async function createClient(name = 'Acme', code = 'ACME'): Promise<string> {
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name, code }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name, code }),
       ),
     );
-    if (!Result.isSuccess(result)) throw new Error('client setup failed');
-    return result.success.event.getData().clientId;
+    if (!isSuccess(result)) throw new Error('client setup failed');
+    return result.value.getData().clientId;
   }
 
   it('renames a client + writes ClientUpdated to outbox', async () => {
     const clientId = await createClient();
 
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.updateClient.execute({ clientId, name: 'Acme Holdings' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.updateClient.execute({ clientId, name: 'Acme Holdings' }),
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     const client = await appContext.repositories.clients.findById(clientId as never);
     expect(client?.name).toBe('Acme Holdings');
@@ -60,14 +56,12 @@ describe('UpdateClientUseCase (integration)', () => {
 
   it('404s on a missing client', async () => {
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.updateClient.execute({ clientId: 'cli_NOPE', name: 'X' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.updateClient.execute({ clientId: 'cli_NOPE', name: 'X' }),
       ),
     );
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('NotFoundError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('not_found');
   });
 });

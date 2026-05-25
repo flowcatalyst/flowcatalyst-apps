@@ -8,7 +8,6 @@
  * event emission. Returns the BFF-shaped detail.
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { ConfirmMasterLocationCommandSchema } from '@pinpoint/shared';
@@ -16,6 +15,7 @@ import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
+import { isFailure } from '@pinpoint/framework';
 
 const ResponseSchema = Type.Object({
   id: Type.String(),
@@ -84,12 +84,11 @@ export function registerBffValidateMasterLocationRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.confirmMasterLocation.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
       const ml = await appContext.repositories.masterLocations.findById(

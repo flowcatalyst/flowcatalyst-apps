@@ -7,7 +7,7 @@ import {
   type AggregateRegistryImpl,
   type Scope,
   type UnitOfWork,
-} from '@pinpoint/framework/plain';
+} from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
 import { Client } from '../../domain/tenancy/client.js';

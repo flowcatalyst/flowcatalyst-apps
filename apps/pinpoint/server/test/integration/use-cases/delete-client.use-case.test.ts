@@ -3,11 +3,11 @@
  * outbox event, an audit row, and the 404 path.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('DeleteClientUseCase (integration)', () => {
   let appContext: AppContext;
@@ -25,27 +25,23 @@ describe('DeleteClientUseCase (integration)', () => {
 
   async function createClient(): Promise<string> {
     const r = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(r)) throw new Error('setup failed');
-    return r.success.event.getData().clientId;
+    if (!isSuccess(r)) throw new Error('setup failed');
+    return r.value.getData().clientId;
   }
 
   it('deletes the row, emits ClientDeleted, writes an audit row', async () => {
     const clientId = await createClient();
 
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.deleteClient.execute({ clientId }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.deleteClient.execute({ clientId }),
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     expect(await appContext.repositories.clients.findById(clientId as never)).toBeNull();
 
@@ -64,14 +60,12 @@ describe('DeleteClientUseCase (integration)', () => {
 
   it('404s on a missing client', async () => {
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.deleteClient.execute({ clientId: 'cli_NOPE' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.deleteClient.execute({ clientId: 'cli_NOPE' }),
       ),
     );
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('NotFoundError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('not_found');
   });
 });

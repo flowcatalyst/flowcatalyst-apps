@@ -7,7 +7,6 @@
  * still emits the master event).
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
@@ -19,6 +18,7 @@ import { MasterLocation } from '../../../src/domain/locations/master-location.js
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('ConfirmMasterLocationUseCase (integration)', () => {
   let appContext: AppContext;
@@ -39,14 +39,12 @@ describe('ConfirmMasterLocationUseCase (integration)', () => {
     masterLocationId: string;
   }> {
     const c = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(c)) throw new Error('client setup failed');
-    const clientId = c.success.event.getData().clientId;
+    if (!isSuccess(c)) throw new Error('client setup failed');
+    const clientId = c.value.getData().clientId;
 
     const now = new Date();
     const masterId = asMasterLocationId(
@@ -80,16 +78,14 @@ describe('ConfirmMasterLocationUseCase (integration)', () => {
     const { clientId, masterLocationId } = await seedGeocodedMaster();
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.confirmMasterLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.confirmMasterLocation.execute({
           clientId,
           masterLocationId,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     const master = await appContext.repositories.masterLocations.findById(
       masterLocationId as never,
@@ -106,17 +102,15 @@ describe('ConfirmMasterLocationUseCase (integration)', () => {
 
   it('404s on a missing master', async () => {
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.confirmMasterLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.confirmMasterLocation.execute({
           clientId: 'cli_NOPE',
           masterLocationId: 'mlo_NOPE',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('NotFoundError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('not_found');
   });
 });

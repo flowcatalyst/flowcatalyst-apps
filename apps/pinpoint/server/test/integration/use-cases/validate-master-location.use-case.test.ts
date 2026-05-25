@@ -10,7 +10,6 @@
  *   - MasterLocationGeocoded event in the outbox.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
@@ -23,6 +22,7 @@ import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import { installFetchMock, jsonResponse, type FetchMock } from '../fetch-mock.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('ValidateMasterLocationUseCase (integration)', () => {
   let appContext: AppContext;
@@ -47,14 +47,12 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
 
   async function seedPendingMaster(): Promise<string> {
     const c = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(c)) throw new Error('client setup failed');
-    const clientId = c.success.event.getData().clientId;
+    if (!isSuccess(c)) throw new Error('client setup failed');
+    const clientId = c.value.getData().clientId;
 
     const masterId = asMasterLocationId(
       `${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`,
@@ -102,13 +100,11 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
     );
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.validateMasterLocation.execute({ masterLocationId }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.validateMasterLocation.execute({ masterLocationId }),
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     // Row updated.
     const fetched = await appContext.repositories.masterLocations.findById(
@@ -133,14 +129,12 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
   it('rejects re-validating an already-GEOCODED master', async () => {
     // Seed straight to GEOCODED status via the domain helper.
     const c = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(c)) throw new Error('client setup failed');
-    const clientId = c.success.event.getData().clientId;
+    if (!isSuccess(c)) throw new Error('client setup failed');
+    const clientId = c.value.getData().clientId;
 
     const masterId = asMasterLocationId(
       `${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`,
@@ -169,18 +163,16 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
     await appContext.repositories.masterLocations.persist(geocoded);
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.validateMasterLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.validateMasterLocation.execute({
           masterLocationId: masterId,
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('BusinessRuleViolation');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('business_rule');
   });
 
   it('surfaces a geocoder failure as InfrastructureError', async () => {
@@ -191,15 +183,13 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
     );
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.validateMasterLocation.execute({ masterLocationId }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.validateMasterLocation.execute({ masterLocationId }),
       ),
     );
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('InfrastructureError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('infrastructure');
   });
 });

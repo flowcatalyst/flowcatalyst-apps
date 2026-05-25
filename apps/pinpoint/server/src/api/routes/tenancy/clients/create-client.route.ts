@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
-import { isFailure } from '@pinpoint/framework/plain';
+import { isFailure } from '@pinpoint/framework';
 import { CreateClientCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
-import { sendPlainUseCaseError } from '../../../plugins/error-mapper.js';
+import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 
 const CreateClientBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -55,12 +55,12 @@ export function registerCreateClientRoute(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWritePlain(() =>
+      const result = await appContext.runWrite(() =>
         appContext.useCases.createClient.execute(parsed.data),
       );
 
       if (isFailure(result)) {
-        return sendPlainUseCaseError(reply, result.error);
+        return sendUseCaseError(reply, result.error);
       }
 
       const event = result.value;

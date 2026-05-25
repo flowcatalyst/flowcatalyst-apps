@@ -8,13 +8,13 @@
  * polygon, which isn't the intent (matches Rust).
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { CreateLayerFeatureCommandSchema } from '@pinpoint/shared';
 import { asLayerFeatureId, asLayerId } from '../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const BodySchema = Type.Object({
   label: Type.String({ minLength: 1 }),
@@ -110,15 +110,14 @@ export function registerBffCreateLayerFeatureRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.createLayerFeature.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
-      const data = result.success.event.getData();
+      const data = result.value.getData();
       const feature = await appContext.repositories.layerFeatures.findById(
         asLayerFeatureId(data.featureId),
       );

@@ -10,7 +10,6 @@
  * components, then re-reads and returns the BFF-shaped detail.
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { UpdateMasterLocationCommandSchema } from '@pinpoint/shared';
@@ -18,6 +17,7 @@ import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
+import { isFailure } from '@pinpoint/framework';
 
 const BodySchema = Type.Object({
   houseNumber: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -113,12 +113,11 @@ export function registerBffUpdateMasterLocationRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.updateMasterLocation.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
       const updated = await appContext.repositories.masterLocations.findById(

@@ -1,25 +1,17 @@
 import type { FastifyReply } from 'fastify';
-import { httpStatus, type UseCaseError } from '@pinpoint/framework';
-import {
-  UseCaseError as PlainUseCaseError,
-  type UseCaseError as PlainUseCaseErrorType,
-} from '@pinpoint/framework/plain';
+import { UseCaseError, type UseCaseError as UseCaseErrorType } from '@pinpoint/framework';
 
-export async function sendUseCaseError(reply: FastifyReply, error: UseCaseError): Promise<void> {
-  const status = httpStatus(error);
-  await reply.code(status).send({
-    error: error._tag,
-    code: error.code,
-    message: error.message,
-    details: error.details ?? null,
-  });
-}
-
-export async function sendPlainUseCaseError(
+/**
+ * Map a `UseCaseError` to an HTTP response with the conventional shape.
+ * The SDK's `UseCaseError` is a discriminated union with a `type` field —
+ * we surface it as `error` in the response body so the wire shape stays
+ * stable.
+ */
+export async function sendUseCaseError(
   reply: FastifyReply,
-  error: PlainUseCaseErrorType,
+  error: UseCaseErrorType,
 ): Promise<void> {
-  const status = PlainUseCaseError.httpStatus(error);
+  const status = UseCaseError.httpStatus(error);
   await reply.code(status).send({
     error: error.type,
     code: error.code,

@@ -3,11 +3,11 @@
  * PartitionDeleted; 404 path.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('DeletePartitionUseCase (integration)', () => {
   let appContext: AppContext;
@@ -25,37 +25,31 @@ describe('DeletePartitionUseCase (integration)', () => {
 
   async function seed(): Promise<{ clientId: string; partitionId: string }> {
     const c = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(c)) throw new Error('client setup failed');
-    const clientId = c.success.event.getData().clientId;
+    if (!isSuccess(c)) throw new Error('client setup failed');
+    const clientId = c.value.getData().clientId;
 
     const p = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createPartition.execute({ clientId, code: 'EU', name: 'Europe' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createPartition.execute({ clientId, code: 'EU', name: 'Europe' }),
       ),
     );
-    if (!Result.isSuccess(p)) throw new Error('partition setup failed');
-    return { clientId, partitionId: p.success.event.getData().partitionId };
+    if (!isSuccess(p)) throw new Error('partition setup failed');
+    return { clientId, partitionId: p.value.getData().partitionId };
   }
 
   it('deletes the row + emits PartitionDeleted', async () => {
     const { clientId, partitionId } = await seed();
 
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.deletePartition.execute({ clientId, partitionId }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.deletePartition.execute({ clientId, partitionId }),
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
 
     expect(await appContext.repositories.partitions.findById(partitionId as never)).toBeNull();
 
@@ -69,14 +63,12 @@ describe('DeletePartitionUseCase (integration)', () => {
   it('404s on a missing partition', async () => {
     const { clientId } = await seed();
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.deletePartition.execute({ clientId, partitionId: 'par_NOPE' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.deletePartition.execute({ clientId, partitionId: 'par_NOPE' }),
       ),
     );
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('NotFoundError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('not_found');
   });
 });

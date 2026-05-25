@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { RejectMasterLocationCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const RejectMasterLocationBodySchema = Type.Object({
   reason: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -67,16 +67,15 @@ export function registerRejectMasterLocationRoute(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.rejectMasterLocation.execute(parsed.data),
-        scope,
       );
 
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
-      const event = result.success.event;
+      const event = result.value;
       return reply.code(200).send({
         masterLocationId,
         rejectedAt: event.time.toISOString(),

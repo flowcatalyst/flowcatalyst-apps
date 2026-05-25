@@ -4,13 +4,13 @@
  * property sets but always empty partitionIds in Rust — preserved here).
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { UpdateLayerCommandSchema } from '@pinpoint/shared';
 import { asLayerId } from '../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const BodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -119,12 +119,11 @@ export function registerBffUpdateLayerRoute(
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.updateLayer.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
       const [layer, propertySets] = await Promise.all([

@@ -20,10 +20,8 @@
  * sequential to avoid contending on the master row or the outbox shared
  * tables.
  */
-import { Result } from 'effect';
-import { ScopeStore } from '@pinpoint/framework';
+import { isFailure } from '@pinpoint/framework';
 import type { AppContext } from '../app-context.js';
-import { asMasterLocationId } from '../domain/locations/ids.js';
 
 export interface ValidateMasterLocationsBatchResult {
   readonly attempted: number;
@@ -51,31 +49,29 @@ export async function runValidateMasterLocationsBatch(
     batchSize,
   );
 
-  const scope = ScopeStore.require();
   const failures: Array<{ masterLocationId: string; error: string }> = [];
   let confirmed = 0;
 
   for (const master of masters) {
     try {
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.confirmMasterLocation.execute({
           masterLocationId: master.id,
           clientId: master.clientId,
         }),
-        scope,
       );
-      if (Result.isFailure(result)) {
+      if (isFailure(result)) {
         failures.push({
           masterLocationId: master.id,
-          error: `${result.failure._tag}:${result.failure.code} ${result.failure.message}`,
+          error: `${result.error.type}:${result.error.code} ${result.error.message}`,
         });
         continue;
       }
       confirmed += 1;
     } catch (err) {
-      // `runWrite` itself can throw on infra failures (DB tx open,
-      // ManagedRuntime errors). Treat the same as a use-case failure
-      // — one bad master must not abort the batch.
+      // `runWrite` itself can throw on infra failures (DB tx open errors).
+      // Treat the same as a use-case failure — one bad master must not
+      // abort the batch.
       failures.push({
         masterLocationId: master.id,
         error: err instanceof Error ? err.message : String(err),

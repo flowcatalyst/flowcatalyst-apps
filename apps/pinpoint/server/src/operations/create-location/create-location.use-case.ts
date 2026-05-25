@@ -16,26 +16,20 @@
  *  10. processing_log rows throughout (fire-and-forget).
  *  11. Persist attributes if the command carried any.
  *
- * Repo deps are yielded from the Effect environment via Tags. The two
- * non-repo service deps (AddressNormalizer, AddressVerifier) stay as
- * constructor args.
+ * Repo deps + UoW + registry come via constructor; the two non-repo
+ * service deps (AddressNormalizer, AddressVerifier) sit alongside them.
  */
-import { Effect } from 'effect';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  BusinessRuleViolation,
-  commitAggregate,
-  InfrastructureError,
-  NotFoundError,
+  Result,
   ScopeStore,
   TransactionStore,
+  UseCaseError,
+  commitAggregate,
+  isFailure,
+  type AggregateRegistryImpl,
   type Scope,
-  ValidationError,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
@@ -65,18 +59,18 @@ import {
 } from '../../domain/services/address-normalizer.js';
 import type { Location } from '../../domain/locations/location.js';
 import type { AddressVerifier } from '../../domain/services/address-verifier.js';
-import { Clients } from '../../domain/tenancy/client.repository.js';
-import { Partitions } from '../../domain/tenancy/partition.repository.js';
-import { Locations } from '../../domain/locations/location.repository.js';
-import { MasterLocations } from '../../domain/locations/master-location.repository.js';
-import { MatchingConfigs } from '../../domain/matching/matching-config.repository.js';
-import { LayerFeatures } from '../../domain/layers/layer-feature.repository.js';
-import { LocationAttributes } from '../../domain/locations/location-attribute.repository.js';
-import { ProcessingLogs } from '../../domain/locations/processing-log.repository.js';
+import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
+import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
+import type { LocationRepository } from '../../domain/locations/location.repository.js';
+import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
+import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
 import type {
+  LayerFeatureRepository,
   LocationFeatureAssociationInput,
   SpatialLookupHit,
 } from '../../domain/layers/layer-feature.repository.js';
+import type { LocationAttributeRepository } from '../../domain/locations/location-attribute.repository.js';
+import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
 const FUZZY_THRESHOLD = 0.3;
@@ -121,213 +115,175 @@ export class CreateLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsLocationCreate;
 
   constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly clients: ClientRepository,
+    private readonly partitions: PartitionRepository,
+    private readonly locations: LocationRepository,
+    private readonly masters: MasterLocationRepository,
+    private readonly matchingConfigs: MatchingConfigRepository,
+    private readonly layerFeatures: LayerFeatureRepository,
+    private readonly locationAttributes: LocationAttributeRepository,
+    private readonly processingLog: ProcessingLogRepository,
     private readonly addressNormalizer: AddressNormalizer,
     private readonly addressVerifier: AddressVerifier,
   ) {}
 
-  execute = (
-    command: CreateLocationCommand,
-  ): Effect.Effect<
-    Sealed<LocationCreated>,
-    UseCaseError,
-    | UnitOfWork
-    | AggregateRegistry
-    | Clients
-    | Partitions
-    | Locations
-    | MasterLocations
-    | MatchingConfigs
-    | LayerFeatures
-    | LocationAttributes
-    | ProcessingLogs
-  > => {
-    const addressNormalizer = this.addressNormalizer;
-    const addressVerifier = this.addressVerifier;
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  async execute(command: CreateLocationCommand): Promise<Result<LocationCreated>> {
+    const scope = ScopeStore.require();
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const clients = yield* Clients;
-      const partitions = yield* Partitions;
-      const locations = yield* Locations;
-      const masters = yield* MasterLocations;
-      const matchingConfigs = yield* MatchingConfigs;
-      const layerFeatures = yield* LayerFeatures;
-      const locationAttributes = yield* LocationAttributes;
-      const processingLog = yield* ProcessingLogs;
-
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.LocationsLocationCreate}.`,
-          }),
-        );
-      }
-
-      const clientId = asClientId(command.clientId.trim());
-      const partitionId =
-        command.partitionId && command.partitionId.trim().length > 0
-          ? asPartitionId(command.partitionId.trim())
-          : null;
-      const externalId = command.externalId?.trim() || null;
-      const name = command.name?.trim() || null;
-      const address = command.address.trim();
-      const countryCode = command.countryCode?.trim() || null;
-
-      if (address.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'ADDRESS_REQUIRED',
-            message: 'Address must not be empty.',
-          }),
-        );
-      }
-
-      // Validate attributes early so a bad payload fails before we hit
-      // libpostal / fuzzy matching.
-      const attributeInputs = command.attributes ?? [];
-      const seenAttrKeys = new Set<string>();
-      for (const a of attributeInputs) {
-        const key = a.key.trim();
-        if (key.length === 0) {
-          return yield* Effect.fail(
-            new ValidationError({
-              code: 'ATTRIBUTE_KEY_REQUIRED',
-              message: 'Attribute keys must not be empty.',
-            }),
-          );
-        }
-        if (seenAttrKeys.has(key)) {
-          return yield* Effect.fail(
-            new BusinessRuleViolation({
-              code: 'DUPLICATE_ATTRIBUTE_KEY',
-              message: `Duplicate attribute key '${key}'.`,
-            }),
-          );
-        }
-        seenAttrKeys.add(key);
-      }
-
-      const client = yield* clients.findById(clientId);
-      if (!client) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'CLIENT_NOT_FOUND',
-            message: `Client '${clientId}' not found.`,
-          }),
-        );
-      }
-
-      if (partitionId) {
-        const partition = yield* partitions.findById(partitionId);
-        if (!partition) {
-          return yield* Effect.fail(
-            new NotFoundError({
-              code: 'PARTITION_NOT_FOUND',
-              message: `Partition '${partitionId}' not found.`,
-            }),
-          );
-        }
-      }
-
-      // Step 2: idempotent dedup.
-      if (externalId) {
-        const existing = yield* locations.findByExternalId(clientId, partitionId, externalId);
-        if (existing) {
-          const event = new LocationCreated(scope, {
-            locationId: existing.id,
-            clientId: existing.clientId,
-            partitionId: existing.partitionId,
-            masterLocationId: existing.masterLocationId ?? '',
-            externalId: existing.externalId,
-            rawCity: existing.rawCity,
-            rawCountry: existing.rawCountry,
-          });
-          return yield* commitAggregate(existing, event, command);
-        }
-      }
-
-      // Step 3: normalize, with a country-code retry on first failure.
-      // AddressNormalizer is the libpostal HTTP service — non-repo, no
-      // Effect Tag. Wrap once with Effect.tryPromise.
-      const normalized: NormalizedAddress = yield* Effect.tryPromise({
-        try: async () => {
-          try {
-            return await addressNormalizer.normalize(address);
-          } catch (firstErr) {
-            if (countryCode === null) throw firstErr;
-            return await addressNormalizer.normalize(`${address}, ${countryCode}`);
-          }
-        },
-        catch: (cause) =>
-          new InfrastructureError({
-            code: 'ADDRESS_NORMALIZATION_FAILED',
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
-      });
-
-      const addressHash = computeAddressHash(normalized);
-      const addressLine = toAddressLine(normalized);
-
-      const config = yield* matchingConfigs.resolve(clientId, partitionId);
-
-      const hashHit = yield* masters.findByHash(clientId, partitionId, addressHash);
-      const validatedHashHit = hashHit && hashHit.status === 'VALIDATED' ? hashHit : null;
-
-      const fuzzyCandidates = yield* masters.findFuzzyCandidates(
-        clientId,
-        partitionId,
-        addressLine,
-        FUZZY_THRESHOLD,
-        FUZZY_LIMIT,
-      );
-
-      const candidates = [
-        ...(validatedHashHit ? [validatedHashHit] : []),
-        ...fuzzyCandidates.filter(
-          (c) => c.status === 'VALIDATED' && (!validatedHashHit || c.id !== validatedHashHit.id),
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.LocationsLocationCreate}.`,
         ),
-      ];
+      );
+    }
 
-      let matchResult = findMatch(normalized, addressHash, candidates, config);
+    const clientId = asClientId(command.clientId.trim());
+    const partitionId =
+      command.partitionId && command.partitionId.trim().length > 0
+        ? asPartitionId(command.partitionId.trim())
+        : null;
+    const externalId = command.externalId?.trim() || null;
+    const name = command.name?.trim() || null;
+    const address = command.address.trim();
+    const countryCode = command.countryCode?.trim() || null;
 
-      // Step 8: optional LLM verifier for fuzzy matches. AddressVerifier is
-      // the LLM service — non-repo, no Effect Tag. Wrap once.
-      if (matchResult !== null && matchResult.method === 'FUZZY') {
-        const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
-        if (candidate) {
-          const candidateLine =
-            candidate.normalizedAddressLine !== null
-              ? candidate.normalizedAddressLine
-              : toAddressLine({
-                  houseNumber: candidate.normalizedHouseNumber,
-                  road: candidate.normalizedRoad,
-                  suburb: candidate.normalizedSuburb,
-                  city: candidate.normalizedCity,
-                  state: candidate.normalizedState,
-                  postalCode: candidate.normalizedPostalCode,
-                  country: candidate.normalizedCountry,
-                });
-          const verdict = yield* Effect.promise(() =>
-            addressVerifier.verify(addressLine, candidateLine),
-          );
-          if (verdict && !verdict.match_confirmed) {
-            matchResult = null;
-          }
+    if (address.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('ADDRESS_REQUIRED', 'Address must not be empty.'),
+      );
+    }
+
+    // Validate attributes early so a bad payload fails before we hit
+    // libpostal / fuzzy matching.
+    const attributeInputs = command.attributes ?? [];
+    const seenAttrKeys = new Set<string>();
+    for (const a of attributeInputs) {
+      const key = a.key.trim();
+      if (key.length === 0) {
+        return Result.failure(
+          UseCaseError.validation('ATTRIBUTE_KEY_REQUIRED', 'Attribute keys must not be empty.'),
+        );
+      }
+      if (seenAttrKeys.has(key)) {
+        return Result.failure(
+          UseCaseError.businessRule('DUPLICATE_ATTRIBUTE_KEY', `Duplicate attribute key '${key}'.`),
+        );
+      }
+      seenAttrKeys.add(key);
+    }
+
+    const client = await this.clients.findById(clientId);
+    if (!client) {
+      return Result.failure(
+        UseCaseError.notFound('CLIENT_NOT_FOUND', `Client '${clientId}' not found.`),
+      );
+    }
+
+    if (partitionId) {
+      const partition = await this.partitions.findById(partitionId);
+      if (!partition) {
+        return Result.failure(
+          UseCaseError.notFound('PARTITION_NOT_FOUND', `Partition '${partitionId}' not found.`),
+        );
+      }
+    }
+
+    // Step 2: idempotent dedup.
+    if (externalId) {
+      const existing = await this.locations.findByExternalId(clientId, partitionId, externalId);
+      if (existing) {
+        const event = new LocationCreated(scope, {
+          locationId: existing.id,
+          clientId: existing.clientId,
+          partitionId: existing.partitionId,
+          masterLocationId: existing.masterLocationId ?? '',
+          externalId: existing.externalId,
+          rawCity: existing.rawCity,
+          rawCountry: existing.rawCountry,
+        });
+        return commitAggregate(this.uow, this.registry, existing, event, command);
+      }
+    }
+
+    // Step 3: normalize, with a country-code retry on first failure.
+    let normalized: NormalizedAddress;
+    try {
+      try {
+        normalized = await this.addressNormalizer.normalize(address);
+      } catch (firstErr) {
+        if (countryCode === null) throw firstErr;
+        normalized = await this.addressNormalizer.normalize(`${address}, ${countryCode}`);
+      }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
+    }
+
+    const addressHash = computeAddressHash(normalized);
+    const addressLine = toAddressLine(normalized);
+
+    const config = await this.matchingConfigs.resolve(clientId, partitionId);
+
+    const hashHit = await this.masters.findByHash(clientId, partitionId, addressHash);
+    const validatedHashHit = hashHit && hashHit.status === 'VALIDATED' ? hashHit : null;
+
+    const fuzzyCandidates = await this.masters.findFuzzyCandidates(
+      clientId,
+      partitionId,
+      addressLine,
+      FUZZY_THRESHOLD,
+      FUZZY_LIMIT,
+    );
+
+    const candidates = [
+      ...(validatedHashHit ? [validatedHashHit] : []),
+      ...fuzzyCandidates.filter(
+        (c) => c.status === 'VALIDATED' && (!validatedHashHit || c.id !== validatedHashHit.id),
+      ),
+    ];
+
+    let matchResult = findMatch(normalized, addressHash, candidates, config);
+
+    // Step 8: optional LLM verifier for fuzzy matches.
+    if (matchResult !== null && matchResult.method === 'FUZZY') {
+      const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
+      if (candidate) {
+        const candidateLine =
+          candidate.normalizedAddressLine !== null
+            ? candidate.normalizedAddressLine
+            : toAddressLine({
+                houseNumber: candidate.normalizedHouseNumber,
+                road: candidate.normalizedRoad,
+                suburb: candidate.normalizedSuburb,
+                city: candidate.normalizedCity,
+                state: candidate.normalizedState,
+                postalCode: candidate.normalizedPostalCode,
+                country: candidate.normalizedCountry,
+              });
+        const verdict = await this.addressVerifier.verify(addressLine, candidateLine);
+        if (verdict && !verdict.match_confirmed) {
+          matchResult = null;
         }
       }
+    }
 
-      const now = new Date();
-      const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
+    const now = new Date();
+    const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
 
-      if (matchResult !== null) {
-        const matchedMaster = candidates.find((c) => c.id === matchResult!.masterLocationId);
+    if (matchResult !== null) {
+      const matchedMaster = candidates.find((c) => c.id === matchResult!.masterLocationId);
 
-        // processing_log writes are fire-and-forget — log failures must
-        // not block the pipeline.
-        yield* Effect.ignore(
-          processingLog.append(asMasterLocationId(matchResult.masterLocationId), 'normalized', {
+      // processing_log writes are fire-and-forget — log failures must
+      // not block the pipeline.
+      try {
+        await this.processingLog.append(
+          asMasterLocationId(matchResult.masterLocationId),
+          'normalized',
+          {
             input: address,
             house_number: normalized.houseNumber,
             road: normalized.road,
@@ -337,162 +293,32 @@ export class CreateLocationUseCase {
             postal_code: normalized.postalCode,
             country: normalized.country,
             address_hash: addressHash,
-          }),
+          },
         );
-        yield* Effect.ignore(
-          processingLog.append(asMasterLocationId(matchResult.masterLocationId), 'matched', {
+      } catch {
+        // swallow
+      }
+      try {
+        await this.processingLog.append(
+          asMasterLocationId(matchResult.masterLocationId),
+          'matched',
+          {
             method: matchResult.method,
             confidence: matchResult.confidence,
             location_id: locationId,
-          }),
+          },
         );
-
-        const masterValidated =
-          matchedMaster !== undefined && matchedMaster.status === 'VALIDATED';
-
-        const location: Location = {
-          id: locationId,
-          clientId,
-          partitionId,
-          masterLocationId: asMasterLocationId(matchResult.masterLocationId),
-          externalId,
-          name,
-          rawAddressLine1: address,
-          rawAddressLine2: null,
-          rawSuburb: normalized.suburb,
-          rawCity: normalized.city,
-          rawState: normalized.state,
-          rawPostalCode: normalized.postalCode,
-          rawCountry: normalized.country,
-          normalizedHouseNumber: normalized.houseNumber,
-          normalizedRoad: normalized.road,
-          normalizedSuburb: normalized.suburb,
-          normalizedCity: normalized.city,
-          normalizedState: normalized.state,
-          normalizedPostalCode: normalized.postalCode,
-          normalizedCountry: normalized.country,
-          addressHash,
-          matchConfidence: matchResult.confidence,
-          matchMethod: matchResult.method,
-          status: masterValidated ? 'VALIDATED' : 'PENDING',
-          createdAt: now,
-          updatedAt: now,
-        };
-
-        const createdEvent = new LocationCreated(scope, {
-          locationId: location.id,
-          clientId: location.clientId,
-          partitionId: location.partitionId,
-          masterLocationId: matchResult.masterLocationId,
-          externalId: location.externalId,
-          rawCity: location.rawCity,
-          rawCountry: location.rawCountry,
-        });
-
-        const primary = yield* commitAggregate(location, createdEvent, command);
-
-        if (attributeInputs.length > 0) {
-          const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
-            id: asLocationAttributeId(`${LOCATION_ATTRIBUTE_ID_PREFIX}_${generateTsid()}`),
-            locationId: location.id,
-            key: a.key.trim(),
-            value: a.value,
-            createdAt: now,
-            updatedAt: now,
-          }));
-          // Bind the attribute write to the current UoW tx so the FK to
-          // the just-created (still-uncommitted) location resolves.
-          const tx = TransactionStore.require();
-          yield* locationAttributes.insertMany(attrs, tx);
-        }
-
-        if (
-          masterValidated &&
-          matchedMaster &&
-          matchedMaster.latitude !== null &&
-          matchedMaster.longitude !== null
-        ) {
-          const lat = matchedMaster.latitude;
-          const lon = matchedMaster.longitude;
-          const hits = yield* layerFeatures.spatialLookup({
-            clientId,
-            partitionId,
-            latitude: lat,
-            longitude: lon,
-            layerCodes: null,
-          });
-          yield* layerFeatures.replaceLocationFeatureAssociations(
-            location.id,
-            hits.map(hitToAssociation),
-          );
-
-          const validatedEvent = new LocationValidated(scope, {
-            locationId: location.id,
-            clientId: location.clientId,
-            masterLocationId: matchResult.masterLocationId,
-            latitude: lat,
-            longitude: lon,
-            layerProperties: hits.map(hitToProperty),
-          });
-          yield* commitAggregate(location, validatedEvent, command);
-        }
-
-        return primary;
+      } catch {
+        // swallow
       }
 
-      // ──── No-match path ─────────────────────────────────────────────
-      const masterId = asMasterLocationId(`${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`);
-      const master = MasterLocation.create({
-        id: masterId,
-        clientId,
-        partitionId,
-        normalizedHouseNumber: normalized.houseNumber,
-        normalizedRoad: normalized.road,
-        normalizedSuburb: normalized.suburb,
-        normalizedCity: normalized.city,
-        normalizedState: normalized.state,
-        normalizedPostalCode: normalized.postalCode,
-        normalizedCountry: normalized.country,
-        addressHash,
-        normalizedAddressLine: addressLine,
-        now,
-      });
-
-      yield* Effect.ignore(
-        processingLog.append(masterId, 'normalized', {
-          input: address,
-          house_number: normalized.houseNumber,
-          road: normalized.road,
-          suburb: normalized.suburb,
-          city: normalized.city,
-          state: normalized.state,
-          postal_code: normalized.postalCode,
-          country: normalized.country,
-          address_hash: addressHash,
-        }),
-      );
-      yield* Effect.ignore(
-        processingLog.append(masterId, 'created', {
-          reason: 'no_match',
-          candidates_checked: candidates.length,
-        }),
-      );
-
-      const masterEvent = new MasterLocationCreated(scope, {
-        masterLocationId: masterId,
-        clientId,
-        partitionId,
-        addressHash,
-        normalizedCity: normalized.city,
-        normalizedCountry: normalized.country,
-      });
-      yield* commitAggregate(master, masterEvent, command);
+      const masterValidated = matchedMaster !== undefined && matchedMaster.status === 'VALIDATED';
 
       const location: Location = {
         id: locationId,
         clientId,
         partitionId,
-        masterLocationId: masterId,
+        masterLocationId: asMasterLocationId(matchResult.masterLocationId),
         externalId,
         name,
         rawAddressLine1: address,
@@ -510,24 +336,31 @@ export class CreateLocationUseCase {
         normalizedPostalCode: normalized.postalCode,
         normalizedCountry: normalized.country,
         addressHash,
-        matchConfidence: null,
-        matchMethod: null,
-        status: 'PENDING',
+        matchConfidence: matchResult.confidence,
+        matchMethod: matchResult.method,
+        status: masterValidated ? 'VALIDATED' : 'PENDING',
         createdAt: now,
         updatedAt: now,
       };
 
-      const locationEvent = new LocationCreated(scope, {
+      const createdEvent = new LocationCreated(scope, {
         locationId: location.id,
         clientId: location.clientId,
         partitionId: location.partitionId,
-        masterLocationId: masterId,
+        masterLocationId: matchResult.masterLocationId,
         externalId: location.externalId,
         rawCity: location.rawCity,
         rawCountry: location.rawCountry,
       });
 
-      const sealed = yield* commitAggregate(location, locationEvent, command);
+      const primary = await commitAggregate(
+        this.uow,
+        this.registry,
+        location,
+        createdEvent,
+        command,
+      );
+      if (isFailure(primary)) return primary;
 
       if (attributeInputs.length > 0) {
         const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
@@ -538,17 +371,165 @@ export class CreateLocationUseCase {
           createdAt: now,
           updatedAt: now,
         }));
+        // Bind the attribute write to the current UoW tx so the FK to
+        // the just-created (still-uncommitted) location resolves.
         const tx = TransactionStore.require();
-        yield* locationAttributes.insertMany(attrs, tx);
+        await this.locationAttributes.insertMany(attrs, tx);
       }
 
-      return sealed;
+      if (
+        masterValidated &&
+        matchedMaster &&
+        matchedMaster.latitude !== null &&
+        matchedMaster.longitude !== null
+      ) {
+        const lat = matchedMaster.latitude;
+        const lon = matchedMaster.longitude;
+        const hits = await this.layerFeatures.spatialLookup({
+          clientId,
+          partitionId,
+          latitude: lat,
+          longitude: lon,
+          layerCodes: null,
+        });
+        await this.layerFeatures.replaceLocationFeatureAssociations(
+          location.id,
+          hits.map(hitToAssociation),
+        );
+
+        const validatedEvent = new LocationValidated(scope, {
+          locationId: location.id,
+          clientId: location.clientId,
+          masterLocationId: matchResult.masterLocationId,
+          latitude: lat,
+          longitude: lon,
+          layerProperties: hits.map(hitToProperty),
+        });
+        const validatedResult = await commitAggregate(
+          this.uow,
+          this.registry,
+          location,
+          validatedEvent,
+          command,
+        );
+        if (isFailure(validatedResult)) return validatedResult;
+      }
+
+      return primary;
+    }
+
+    // ──── No-match path ─────────────────────────────────────────────
+    const masterId = asMasterLocationId(`${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`);
+    const master = MasterLocation.create({
+      id: masterId,
+      clientId,
+      partitionId,
+      normalizedHouseNumber: normalized.houseNumber,
+      normalizedRoad: normalized.road,
+      normalizedSuburb: normalized.suburb,
+      normalizedCity: normalized.city,
+      normalizedState: normalized.state,
+      normalizedPostalCode: normalized.postalCode,
+      normalizedCountry: normalized.country,
+      addressHash,
+      normalizedAddressLine: addressLine,
+      now,
     });
-  };
+
+    try {
+      await this.processingLog.append(masterId, 'normalized', {
+        input: address,
+        house_number: normalized.houseNumber,
+        road: normalized.road,
+        suburb: normalized.suburb,
+        city: normalized.city,
+        state: normalized.state,
+        postal_code: normalized.postalCode,
+        country: normalized.country,
+        address_hash: addressHash,
+      });
+    } catch {
+      // swallow
+    }
+    try {
+      await this.processingLog.append(masterId, 'created', {
+        reason: 'no_match',
+        candidates_checked: candidates.length,
+      });
+    } catch {
+      // swallow
+    }
+
+    const masterEvent = new MasterLocationCreated(scope, {
+      masterLocationId: masterId,
+      clientId,
+      partitionId,
+      addressHash,
+      normalizedCity: normalized.city,
+      normalizedCountry: normalized.country,
+    });
+    const masterCommit = await commitAggregate(this.uow, this.registry, master, masterEvent, command);
+    if (isFailure(masterCommit)) return masterCommit;
+
+    const location: Location = {
+      id: locationId,
+      clientId,
+      partitionId,
+      masterLocationId: masterId,
+      externalId,
+      name,
+      rawAddressLine1: address,
+      rawAddressLine2: null,
+      rawSuburb: normalized.suburb,
+      rawCity: normalized.city,
+      rawState: normalized.state,
+      rawPostalCode: normalized.postalCode,
+      rawCountry: normalized.country,
+      normalizedHouseNumber: normalized.houseNumber,
+      normalizedRoad: normalized.road,
+      normalizedSuburb: normalized.suburb,
+      normalizedCity: normalized.city,
+      normalizedState: normalized.state,
+      normalizedPostalCode: normalized.postalCode,
+      normalizedCountry: normalized.country,
+      addressHash,
+      matchConfidence: null,
+      matchMethod: null,
+      status: 'PENDING',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const locationEvent = new LocationCreated(scope, {
+      locationId: location.id,
+      clientId: location.clientId,
+      partitionId: location.partitionId,
+      masterLocationId: masterId,
+      externalId: location.externalId,
+      rawCity: location.rawCity,
+      rawCountry: location.rawCountry,
+    });
+
+    const sealed = await commitAggregate(this.uow, this.registry, location, locationEvent, command);
+    if (isFailure(sealed)) return sealed;
+
+    if (attributeInputs.length > 0) {
+      const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
+        id: asLocationAttributeId(`${LOCATION_ATTRIBUTE_ID_PREFIX}_${generateTsid()}`),
+        locationId: location.id,
+        key: a.key.trim(),
+        value: a.value,
+        createdAt: now,
+        updatedAt: now,
+      }));
+      const tx = TransactionStore.require();
+      await this.locationAttributes.insertMany(attrs, tx);
+    }
+
+    return sealed;
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(CreateLocationUseCase.requiredPermission);
   }
 }

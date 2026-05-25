@@ -1,10 +1,10 @@
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { UpdatePropertySetCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const UpdatePropertySetBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -71,16 +71,15 @@ export function registerUpdatePropertySetRoute(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.updatePropertySet.execute(parsed.data),
-        scope,
       );
 
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
 
-      const event = result.success.event;
+      const event = result.value;
       const data = event.getData();
       return reply.code(200).send({
         propertySetId: data.propertySetId,

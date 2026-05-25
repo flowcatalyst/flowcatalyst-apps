@@ -1,41 +1,101 @@
-// @pinpoint/framework re-exports @flowcatalyst-apps/app-framework so server
-// code can keep importing from a single "framework" alias even when we later
-// add pinpoint-specific extras (cache, notice, etc.) alongside the shared
-// primitives. Mirrors @fulfil/framework's pattern.
-//
-// MIGRATION NOTE: pinpoint is moving off Effect to plain async/await + the
-// SDK's non-Effect use-case surface. While the sweep is in flight, both
-// surfaces ship side-by-side:
-//   - this file (`@pinpoint/framework`) keeps re-exporting the Effect surface
-//     so un-converted use cases / repos / routes / tests keep compiling
-//   - `@pinpoint/framework/plain` exposes the non-Effect surface for newly
-//     converted code (sealed Result, plain UoW, plainCommitAggregate, etc.)
-// When the sweep finishes, the Effect re-exports here get deleted and the
-// `/plain` subpath is collapsed back into the main entry.
-export * from '@flowcatalyst-apps/app-framework';
+/**
+ * @pinpoint/framework — single-import surface for pinpoint server code.
+ *
+ * Bundles the non-Effect use-case primitives from `@flowcatalyst/sdk/usecase`
+ * (sealed Result, UseCaseError, DomainEvent, etc.) together with the
+ * `@flowcatalyst-apps/app-framework` primitives (Scope, ScopeStore,
+ * TransactionStore, the plain UnitOfWork helpers). The Effect path from
+ * app-framework is intentionally NOT re-exported here — Fulfil keeps using
+ * it directly. Pinpoint's whole surface is plain async/await.
+ */
 
-// Use-case primitives — single source of truth is the SDK; re-exported here
-// for consumer ergonomics.
+// Sealed Result + use-case primitives from the SDK's non-Effect surface.
 export {
-  UnitOfWork,
+  Result,
+  isSuccess,
+  isFailure,
+  UseCaseError,
+  DomainEvent,
+  BaseDomainEvent,
   ExecutionContext,
+  SecuredUseCase,
+  OutboxUnitOfWork,
+  TxScopedOutboxUnitOfWork,
+} from '@flowcatalyst/sdk/usecase';
+export type {
+  Success,
+  Failure,
+  UseCaseErrorBase,
   ValidationError,
   NotFoundError,
   BusinessRuleViolation,
   ConcurrencyError,
   AuthorizationError,
   InfrastructureError,
-  httpStatus,
-  DomainEvent,
-  BaseDomainEvent,
-  OutboxUnitOfWork,
-  TestUnitOfWork,
-} from '@flowcatalyst/sdk/effect/usecase';
-export type {
-  Sealed,
-  UseCaseError,
+  DomainEventBase,
   Command,
   UseCase,
   Aggregate,
-  DomainEventBase,
-} from '@flowcatalyst/sdk/effect/usecase';
+  UnitOfWork,
+  OutboxUnitOfWorkConfig,
+  OutboxUnitOfWorkOptions,
+} from '@flowcatalyst/sdk/usecase';
+
+// Non-Effect UoW + commit helpers from app-framework. Re-exposed under their
+// un-prefixed names since there's no Effect path left to clash with in
+// pinpoint. Fulfil keeps importing the `plain*`-prefixed names directly.
+export {
+  createPlainUnitOfWork as createUnitOfWork,
+  plainCommitAggregate as commitAggregate,
+  plainCommitDelete as commitDelete,
+  plainEmitEvent as emitEvent,
+  toInfrastructureFailure,
+} from '@flowcatalyst-apps/app-framework';
+export type { PlainUnitOfWorkOptions as UnitOfWorkOptions } from '@flowcatalyst-apps/app-framework';
+
+// App-framework primitives that aren't Effect-coupled — Scope / ScopeStore /
+// TransactionStore / etc. Exposed here so route + use-case files import
+// from a single `@pinpoint/framework` entry.
+export {
+  Scope,
+  ScopeStore,
+  TransactionStore,
+  createTransactionManager,
+  resolveDb,
+  DrizzleOutboxDriver,
+  buildOutboxManager,
+  createAggregateRegistry,
+  createAggregateHandler,
+  tagAggregate,
+  isTaggedAggregate,
+  baseEntityColumns,
+  tsidColumn,
+  rawTsidColumn,
+  timestampColumn,
+  auditLogs,
+  createContextLogger,
+  ScopeAwareDrizzleLogger,
+  runJob,
+} from '@flowcatalyst-apps/app-framework';
+export type {
+  RequestToken,
+  RequestScopeOptions,
+  TaskIdentity,
+  ParentEvent,
+  TenantContext,
+  MeasurementContext,
+  CapturedQuery,
+  SqlAuditContext,
+  TransactionContext,
+  TransactionManager,
+  AggregateHandler,
+  AggregateRegistryImpl,
+  TaggedAggregate,
+  BaseEntity,
+  NewEntity,
+  NewAuditLog,
+  AuditLogRow,
+  AuditLog,
+  CreateAuditLogData,
+  JobDescriptor,
+} from '@flowcatalyst-apps/app-framework';

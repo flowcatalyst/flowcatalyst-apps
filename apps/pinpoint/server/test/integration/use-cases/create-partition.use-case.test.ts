@@ -3,11 +3,11 @@
  * client-not-found + duplicate-code-within-client.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('CreatePartitionUseCase (integration)', () => {
   let appContext: AppContext;
@@ -25,34 +25,30 @@ describe('CreatePartitionUseCase (integration)', () => {
 
   async function createClient(): Promise<string> {
     const r = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(r)) throw new Error('setup failed');
-    return r.success.event.getData().clientId;
+    if (!isSuccess(r)) throw new Error('setup failed');
+    return r.value.getData().clientId;
   }
 
   it('persists a partition + emits PartitionCreated', async () => {
     const clientId = await createClient();
 
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createPartition.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createPartition.execute({
           clientId,
           code: 'EU',
           name: 'Europe',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isSuccess(result)).toBe(true);
-    if (!Result.isSuccess(result)) return;
+    expect(isSuccess(result)).toBe(true);
+    if (!isSuccess(result)) return;
 
-    const partitionId = result.success.event.getData().partitionId;
+    const partitionId = result.value.getData().partitionId;
     expect(partitionId).toMatch(/^par_/);
 
     const partition = await appContext.repositories.partitions.findById(partitionId as never);
@@ -68,49 +64,44 @@ describe('CreatePartitionUseCase (integration)', () => {
 
   it('404s when the parent client does not exist', async () => {
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createPartition.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createPartition.execute({
           clientId: 'cli_NOPE',
           code: 'EU',
           name: 'Europe',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('NotFoundError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('not_found');
   });
 
   it('409s a duplicate code within the same client', async () => {
     const clientId = await createClient();
 
     await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createPartition.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createPartition.execute({
           clientId,
           code: 'EU',
           name: 'Europe',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
 
     const second = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWrite(
+      appContext.runWrite(() =>
+
         appContext.useCases.createPartition.execute({
           clientId,
           code: 'EU',
           name: 'Europe (also)',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    expect(Result.isFailure(second)).toBe(true);
-    if (!Result.isFailure(second)) return;
-    expect(second.failure._tag).toBe('BusinessRuleViolation');
+    expect(isFailure(second)).toBe(true);
+    if (!isFailure(second)) return;
+    expect(second.error.type).toBe('business_rule');
   });
 });

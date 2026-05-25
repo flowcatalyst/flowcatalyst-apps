@@ -19,12 +19,12 @@
  *     returns the existing location's LocationCreated.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import { installFetchMock, jsonResponse, type FetchMock } from '../fetch-mock.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isSuccess } from '@pinpoint/framework';
 
 // Stub libpostal responses for a Market Street, San Francisco address.
 const PARSE_RESPONSE = [
@@ -66,34 +66,30 @@ describe('CreateLocationUseCase (integration)', () => {
 
   async function setupClient(): Promise<string> {
     const c = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
+      appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
-    if (!Result.isSuccess(c)) throw new Error('client setup failed');
-    return c.success.event.getData().clientId;
+    if (!isSuccess(c)) throw new Error('client setup failed');
+    return c.value.getData().clientId;
   }
 
   it('no-match path creates a fresh master + location', async () => {
     const clientId = await setupClient();
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createLocation.execute({
           clientId,
           address: '548 Market Street, San Francisco',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
 
-    expect(Result.isSuccess(result)).toBe(true);
-    if (!Result.isSuccess(result)) return;
+    expect(isSuccess(result)).toBe(true);
+    if (!isSuccess(result)) return;
 
-    const data = result.success.event.getData();
+    const data = result.value.getData();
     expect(data.locationId).toMatch(/^loc_/);
     expect(data.masterLocationId).toMatch(/^mlo_/);
 
@@ -128,17 +124,15 @@ describe('CreateLocationUseCase (integration)', () => {
 
     // First create: produces a PENDING master.
     const first = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createLocation.execute({
           clientId,
           address: '548 Market Street, San Francisco',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    if (!Result.isSuccess(first)) throw new Error('first create failed');
-    const firstMasterId = first.success.event.getData().masterLocationId;
+    if (!isSuccess(first)) throw new Error('first create failed');
+    const firstMasterId = first.value.getData().masterLocationId;
 
     // Promote the master straight to VALIDATED (skipping the geocode
     // step that this test isn't exercising — Photon would be the mock).
@@ -160,21 +154,19 @@ describe('CreateLocationUseCase (integration)', () => {
     // Second create of the same address — should hash-match the
     // VALIDATED master and reuse it instead of creating a new one.
     const second = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createLocation.execute({
           clientId,
           address: '548 Market Street, San Francisco',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    if (!Result.isSuccess(second)) throw new Error('second create failed');
-    const secondData = second.success.event.getData();
+    if (!isSuccess(second)) throw new Error('second create failed');
+    const secondData = second.value.getData();
 
     // Same master id reused, different location id.
     expect(secondData.masterLocationId).toBe(firstMasterId);
-    expect(secondData.locationId).not.toBe(first.success.event.getData().locationId);
+    expect(secondData.locationId).not.toBe(first.value.getData().locationId);
 
     // The second location should be VALIDATED (inheriting from the
     // VALIDATED master) and carry an EXACT_HASH match method.
@@ -197,40 +189,36 @@ describe('CreateLocationUseCase (integration)', () => {
     const clientId = await setupClient();
 
     const first = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createLocation.execute({
           clientId,
           externalId: 'ext-123',
           address: '548 Market Street, San Francisco',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    if (!Result.isSuccess(first)) throw new Error('first create failed');
-    const firstLocationId = first.success.event.getData().locationId;
+    if (!isSuccess(first)) throw new Error('first create failed');
+    const firstLocationId = first.value.getData().locationId;
 
     const second = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createLocation.execute({
           clientId,
           externalId: 'ext-123',
           address: 'this address would parse differently but is ignored',
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    if (!Result.isSuccess(second)) throw new Error('second create failed');
-    expect(second.success.event.getData().locationId).toBe(firstLocationId);
+    if (!isSuccess(second)) throw new Error('second create failed');
+    expect(second.value.getData().locationId).toBe(firstLocationId);
   });
 
   it('persists attributes alongside the new location', async () => {
     const clientId = await setupClient();
 
     const result = await runInScope({ sub: 'prn_test' }, () =>
-      appContext.runWrite(
-        appContext.useCases.createLocation.execute({
+      appContext.runWrite(() =>
+appContext.useCases.createLocation.execute({
           clientId,
           address: '548 Market Street, San Francisco',
           attributes: [
@@ -238,12 +226,10 @@ describe('CreateLocationUseCase (integration)', () => {
             { key: 'tags', value: ['retail', 'flagship'] },
           ],
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        undefined as any,
       ),
     );
-    if (!Result.isSuccess(result)) throw new Error('create failed');
-    const locationId = result.success.event.getData().locationId;
+    if (!isSuccess(result)) throw new Error('create failed');
+    const locationId = result.value.getData().locationId;
 
     // Both attribute rows landed inside the runWrite tx — proves the
     // TransactionStore.require + insertMany(attrs, tx) fix. Without it

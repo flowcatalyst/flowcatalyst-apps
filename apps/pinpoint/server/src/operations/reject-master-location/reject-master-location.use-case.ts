@@ -4,18 +4,14 @@
  * candidate lookups — so this hides the master from future automatic
  * matches without losing the row.
  */
-import { Effect } from 'effect';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  BusinessRuleViolation,
-  commitAggregate,
-  NotFoundError,
+  Result,
   ScopeStore,
+  UseCaseError,
+  commitAggregate,
+  type AggregateRegistryImpl,
   type Scope,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
@@ -23,72 +19,65 @@ import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationRejected } from '../../domain/locations/events/master-location-rejected.event.js';
-import { MasterLocations } from '../../domain/locations/master-location.repository.js';
+import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { RejectMasterLocationCommand } from './reject-master-location.command.js';
 
 export class RejectMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationReject;
 
-  execute = (
-    command: RejectMasterLocationCommand,
-  ): Effect.Effect<
-    Sealed<MasterLocationRejected>,
-    UseCaseError,
-    UnitOfWork | AggregateRegistry | MasterLocations
-  > => {
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly masters: MasterLocationRepository,
+  ) {}
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const masters = yield* MasterLocations;
+  async execute(command: RejectMasterLocationCommand): Promise<Result<MasterLocationRejected>> {
+    const scope = ScopeStore.require();
 
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.LocationsMasterLocationReject}.`,
-          }),
-        );
-      }
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.LocationsMasterLocationReject}.`,
+        ),
+      );
+    }
 
-      const clientId = asClientId(command.clientId.trim());
-      const masterLocationId = asMasterLocationId(command.masterLocationId.trim());
-      const reason = command.reason?.trim() || null;
+    const clientId = asClientId(command.clientId.trim());
+    const masterLocationId = asMasterLocationId(command.masterLocationId.trim());
+    const reason = command.reason?.trim() || null;
 
-      const existing = yield* masters.findById(masterLocationId);
-      if (!existing) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'MASTER_LOCATION_NOT_FOUND',
-            message: `Master location '${masterLocationId}' not found.`,
-          }),
-        );
-      }
-      if (existing.clientId !== clientId) {
-        return yield* Effect.fail(
-          new BusinessRuleViolation({
-            code: 'MASTER_LOCATION_CLIENT_MISMATCH',
-            message: 'Master location belongs to a different client.',
-          }),
-        );
-      }
-      // Re-rejecting is idempotent. Re-rejecting a VALIDATED master
-      // un-canonicalises it — gated at the BFF layer if desired.
+    const existing = await this.masters.findById(masterLocationId);
+    if (!existing) {
+      return Result.failure(
+        UseCaseError.notFound(
+          'MASTER_LOCATION_NOT_FOUND',
+          `Master location '${masterLocationId}' not found.`,
+        ),
+      );
+    }
+    if (existing.clientId !== clientId) {
+      return Result.failure(
+        UseCaseError.businessRule(
+          'MASTER_LOCATION_CLIENT_MISMATCH',
+          'Master location belongs to a different client.',
+        ),
+      );
+    }
+    // Re-rejecting is idempotent. Re-rejecting a VALIDATED master
+    // un-canonicalises it — gated at the BFF layer if desired.
 
-      const updated = MasterLocation.rejected(existing, new Date());
-      const event = new MasterLocationRejected(scope, {
-        masterLocationId: updated.id,
-        clientId: updated.clientId,
-        reason,
-      });
-
-      return yield* commitAggregate(updated, event, command);
+    const updated = MasterLocation.rejected(existing, new Date());
+    const event = new MasterLocationRejected(scope, {
+      masterLocationId: updated.id,
+      clientId: updated.clientId,
+      reason,
     });
-  };
+
+    return commitAggregate(this.uow, this.registry, updated, event, command);
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(RejectMasterLocationUseCase.requiredPermission);
   }
 }

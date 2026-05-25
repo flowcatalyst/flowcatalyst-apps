@@ -1,81 +1,70 @@
-import { Effect } from 'effect';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  BusinessRuleViolation,
-  commitDelete,
-  NotFoundError,
+  Result,
   ScopeStore,
+  UseCaseError,
+  commitDelete,
+  type AggregateRegistryImpl,
   type Scope,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
 import { asLayerId, asPropertySetId } from '../../domain/layers/ids.js';
 import { PropertySetDeleted } from '../../domain/layers/events/property-set-deleted.event.js';
-import { PropertySets } from '../../domain/layers/property-set.repository.js';
+import type { PropertySetRepository } from '../../domain/layers/property-set.repository.js';
 import type { DeletePropertySetCommand } from './delete-property-set.command.js';
 
 export class DeletePropertySetUseCase {
   static readonly requiredPermission = PinpointPermission.LayersPropertySetDelete;
 
-  execute = (
-    command: DeletePropertySetCommand,
-  ): Effect.Effect<
-    Sealed<PropertySetDeleted>,
-    UseCaseError,
-    UnitOfWork | AggregateRegistry | PropertySets
-  > => {
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly propertySets: PropertySetRepository,
+  ) {}
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const propertySets = yield* PropertySets;
+  async execute(command: DeletePropertySetCommand): Promise<Result<PropertySetDeleted>> {
+    const scope = ScopeStore.require();
 
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.LayersPropertySetDelete}.`,
-          }),
-        );
-      }
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.LayersPropertySetDelete}.`,
+        ),
+      );
+    }
 
-      const layerId = asLayerId(command.layerId.trim());
-      const propertySetId = asPropertySetId(command.propertySetId.trim());
+    const layerId = asLayerId(command.layerId.trim());
+    const propertySetId = asPropertySetId(command.propertySetId.trim());
 
-      const existing = yield* propertySets.findById(propertySetId);
-      if (!existing) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'PROPERTY_SET_NOT_FOUND',
-            message: `Property set '${propertySetId}' not found.`,
-          }),
-        );
-      }
-      if (existing.layerId !== layerId) {
-        return yield* Effect.fail(
-          new BusinessRuleViolation({
-            code: 'PROPERTY_SET_LAYER_MISMATCH',
-            message: 'Property set belongs to a different layer.',
-          }),
-        );
-      }
+    const existing = await this.propertySets.findById(propertySetId);
+    if (!existing) {
+      return Result.failure(
+        UseCaseError.notFound(
+          'PROPERTY_SET_NOT_FOUND',
+          `Property set '${propertySetId}' not found.`,
+        ),
+      );
+    }
+    if (existing.layerId !== layerId) {
+      return Result.failure(
+        UseCaseError.businessRule(
+          'PROPERTY_SET_LAYER_MISMATCH',
+          'Property set belongs to a different layer.',
+        ),
+      );
+    }
 
-      const event = new PropertySetDeleted(scope, {
-        propertySetId: existing.id,
-        layerId: existing.layerId,
-      });
-
-      return yield* commitDelete(existing, event, command);
+    const event = new PropertySetDeleted(scope, {
+      propertySetId: existing.id,
+      layerId: existing.layerId,
     });
-  };
+
+    return commitDelete(this.uow, this.registry, existing, event, command);
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(DeletePropertySetUseCase.requiredPermission);
   }
 }

@@ -10,11 +10,6 @@
       "types": "./src/index.ts",
       "compiled": "./dist/index.js",
       "default": "./src/index.ts"
-    },
-    "./plain": {
-      "types": "./src/plain.ts",
-      "compiled": "./dist/plain.js",
-      "default": "./src/plain.ts"
     }
   },
   "scripts": {
@@ -31,14 +26,12 @@
     "@flowcatalyst-apps/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-orm": "1.0.0-rc.3",
-    "effect": "catalog:",
     "fastify": "^5.0.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
     "drizzle-orm": "1.0.0-rc.3",
-    "effect": "catalog:",
     "fastify": "^5.0.0"
   }
 }

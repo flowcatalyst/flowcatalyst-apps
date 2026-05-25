@@ -8,10 +8,10 @@
  * across all 22 (they all read `scope.permissions.has(THIS.requiredPermission)`).
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Result } from 'effect';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 
 describe('authorize(scope) gating (integration)', () => {
   let appContext: AppContext;
@@ -30,16 +30,14 @@ describe('authorize(scope) gating (integration)', () => {
       // empty permission set — overrides the default ALL_PERMISSIONS
       { sub: 'prn_test_principal', permissions: new Set() },
       () =>
-        appContext.runWrite(
-          appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          undefined as any,
-        ),
+        appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
+      ),
     );
 
-    expect(Result.isFailure(result)).toBe(true);
-    if (!Result.isFailure(result)) return;
-    expect(result.failure._tag).toBe('AuthorizationError');
+    expect(isFailure(result)).toBe(true);
+    if (!isFailure(result)) return;
+    expect(result.error.type).toBe('authorization');
   });
 
   it('accepts when the scope carries the required permission', async () => {
@@ -49,13 +47,11 @@ describe('authorize(scope) gating (integration)', () => {
         permissions: new Set(['pinpoint:tenancy:client:create']),
       },
       () =>
-        appContext.runWrite(
-          appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          undefined as any,
-        ),
+        appContext.runWrite(() =>
+appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
+      ),
     );
 
-    expect(Result.isSuccess(result)).toBe(true);
+    expect(isSuccess(result)).toBe(true);
   });
 });

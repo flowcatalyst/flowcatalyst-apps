@@ -1,17 +1,12 @@
-import { Effect } from 'effect';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
-  AggregateRegistry,
-  AuthorizationError,
-  BusinessRuleViolation,
-  commitAggregate,
-  NotFoundError,
+  Result,
   ScopeStore,
+  UseCaseError,
+  commitAggregate,
+  type AggregateRegistryImpl,
   type Scope,
-  ValidationError,
-  type Sealed,
   type UnitOfWork,
-  type UseCaseError,
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
@@ -22,110 +17,91 @@ import {
   PARTITION_ID_PREFIX,
 } from '../../domain/tenancy/ids.js';
 import { PartitionCreated } from '../../domain/tenancy/events/partition-created.event.js';
-import { Clients } from '../../domain/tenancy/client.repository.js';
-import { Partitions } from '../../domain/tenancy/partition.repository.js';
+import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
+import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
 import type { CreatePartitionCommand } from './create-partition.command.js';
 
 export class CreatePartitionUseCase {
   static readonly requiredPermission = PinpointPermission.TenancyPartitionCreate;
 
-  execute = (
-    command: CreatePartitionCommand,
-  ): Effect.Effect<
-    Sealed<PartitionCreated>,
-    UseCaseError,
-    UnitOfWork | AggregateRegistry | Clients | Partitions
-  > => {
-    const authorize = (s: Scope): boolean => this.authorize(s);
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly clients: ClientRepository,
+    private readonly partitions: PartitionRepository,
+  ) {}
 
-    return Effect.gen(function* () {
-      const scope = ScopeStore.require();
-      const clients = yield* Clients;
-      const partitions = yield* Partitions;
+  async execute(command: CreatePartitionCommand): Promise<Result<PartitionCreated>> {
+    const scope = ScopeStore.require();
 
-      if (!authorize(scope)) {
-        return yield* Effect.fail(
-          new AuthorizationError({
-            code: 'PERMISSION_DENIED',
-            message: `Missing permission ${PinpointPermission.TenancyPartitionCreate}.`,
-          }),
-        );
-      }
+    if (!this.authorize(scope)) {
+      return Result.failure(
+        UseCaseError.authorization(
+          'PERMISSION_DENIED',
+          `Missing permission ${PinpointPermission.TenancyPartitionCreate}.`,
+        ),
+      );
+    }
 
-      const clientId = asClientId(command.clientId.trim());
-      const code = command.code.trim();
-      const name = command.name.trim();
-      const description = command.description?.trim() || null;
+    const clientId = asClientId(command.clientId.trim());
+    const code = command.code.trim();
+    const name = command.name.trim();
+    const description = command.description?.trim() || null;
 
-      if (clientId.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'PARTITION_CLIENT_REQUIRED',
-            message: 'clientId must not be empty.',
-          }),
-        );
-      }
-      if (code.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'PARTITION_CODE_REQUIRED',
-            message: 'Partition code must not be empty.',
-          }),
-        );
-      }
-      if (name.length === 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            code: 'PARTITION_NAME_REQUIRED',
-            message: 'Partition name must not be empty.',
-          }),
-        );
-      }
+    if (clientId.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('PARTITION_CLIENT_REQUIRED', 'clientId must not be empty.'),
+      );
+    }
+    if (code.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('PARTITION_CODE_REQUIRED', 'Partition code must not be empty.'),
+      );
+    }
+    if (name.length === 0) {
+      return Result.failure(
+        UseCaseError.validation('PARTITION_NAME_REQUIRED', 'Partition name must not be empty.'),
+      );
+    }
 
-      const client = yield* clients.findById(clientId);
-      if (!client) {
-        return yield* Effect.fail(
-          new NotFoundError({
-            code: 'CLIENT_NOT_FOUND',
-            message: `Client '${clientId}' not found.`,
-          }),
-        );
-      }
+    const client = await this.clients.findById(clientId);
+    if (!client) {
+      return Result.failure(
+        UseCaseError.notFound('CLIENT_NOT_FOUND', `Client '${clientId}' not found.`),
+      );
+    }
 
-      const duplicate = yield* partitions.findByClientAndCode(clientId, code);
-      if (duplicate) {
-        return yield* Effect.fail(
-          new BusinessRuleViolation({
-            code: 'PARTITION_CODE_EXISTS',
-            message: `A partition with code '${code}' already exists for client '${clientId}'.`,
-            details: { existingPartitionId: duplicate.id },
-          }),
-        );
-      }
+    const duplicate = await this.partitions.findByClientAndCode(clientId, code);
+    if (duplicate) {
+      return Result.failure(
+        UseCaseError.businessRule(
+          'PARTITION_CODE_EXISTS',
+          `A partition with code '${code}' already exists for client '${clientId}'.`,
+          { existingPartitionId: duplicate.id },
+        ),
+      );
+    }
 
-      const id = asPartitionId(`${PARTITION_ID_PREFIX}_${generateTsid()}`);
-      const partition = Partition.create({
-        id,
-        clientId,
-        code,
-        name,
-        description,
-        now: new Date(),
-      });
-      const event = new PartitionCreated(scope, {
-        partitionId: id,
-        clientId,
-        code,
-        name,
-      });
-
-      return yield* commitAggregate(partition, event, command);
+    const id = asPartitionId(`${PARTITION_ID_PREFIX}_${generateTsid()}`);
+    const partition = Partition.create({
+      id,
+      clientId,
+      code,
+      name,
+      description,
+      now: new Date(),
     });
-  };
+    const event = new PartitionCreated(scope, {
+      partitionId: id,
+      clientId,
+      code,
+      name,
+    });
+
+    return commitAggregate(this.uow, this.registry, partition, event, command);
+  }
 
   private authorize(scope: Scope): boolean {
-    return scope.permissions.has(
-      (this.constructor as unknown as { readonly requiredPermission: string }).requiredPermission,
-    );
+    return scope.permissions.has(CreatePartitionUseCase.requiredPermission);
   }
 }

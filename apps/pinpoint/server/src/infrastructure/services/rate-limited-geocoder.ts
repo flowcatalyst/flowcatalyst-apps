@@ -1,26 +1,16 @@
 /**
  * Rate-limited decorator around any `GeocoderService`. Token-bucket
- * throttling implemented via Effect 4's `RateLimiter` primitive
- * (`effect/unstable/persistence` — still namespaced "unstable" in
- * 4.0.0-beta.67 but the surface is mature; see release notes if it
- * moves out of the namespace).
+ * throttling implemented in plain TS — sustained `requestsPerSecond` rate
+ * with burst capacity equal to `requestsPerSecond` (i.e. the bucket starts
+ * full and refills at a steady drip).
  *
- * Why Effect's primitive instead of porting `governor`/`bottleneck`:
- *  - Token-bucket + fixed-window built-in
- *  - `onExceeded: 'delay'` returns a `Duration` so the decorator can
- *    sleep itself rather than the limiter blocking opaquely
- *  - Same API switches to a Redis store later by swapping ONE layer
- *    (see `docs/spatial-queries.md` adjacent doc for the pattern)
- *
- * Why the decorator exposes Promises (not Effects): the
- * `GeocoderService` interface is plain async (matches the repository
- * pattern in pinpoint). Effect ceremony stays internal to this file.
- * If a use case later wants to compose geocoding with other effects,
- * it can wrap `geocoder.geocode(...)` in `Effect.tryPromise` — same
- * pattern repositories use.
+ * The decorator exposes Promises so call sites stay plain async/await —
+ * consistent with the rest of the post-Effect pinpoint server. Multiple
+ * decorators sharing the same `config.key` would NOT share a bucket here;
+ * the in-process bucket is per-decorator. When a process-shared bucket
+ * becomes a real need we wire a Redis-backed bucket the same way the
+ * earlier Effect-based wrapper described.
  */
-import { Duration, Effect, Layer, ManagedRuntime } from 'effect';
-import { RateLimiter } from 'effect/unstable/persistence';
 import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
 import type {
   GeocoderService,
@@ -32,9 +22,9 @@ export interface RateLimitedGeocoderConfig {
   /** Sustained request rate against the upstream geocoder, requests / second. */
   readonly requestsPerSecond: number;
   /**
-   * Limiter key. Multiple decorators sharing the same key share the same
-   * bucket — useful if you ever wire two `GeocoderService`s against the
-   * same upstream quota. Default `pinpoint:geocoding`.
+   * Limiter key. Reserved for future per-key bucket sharing (e.g. Redis-backed
+   * store across multiple decorators). The current in-process bucket is
+   * per-decorator. Default `pinpoint:geocoding`.
    */
   readonly key?: string;
 }
@@ -43,37 +33,53 @@ export function createRateLimitedGeocoder(
   inner: GeocoderService,
   config: RateLimitedGeocoderConfig,
 ): GeocoderService {
-  const key = config.key ?? 'pinpoint:geocoding';
-  // limit = requestsPerSecond, window = 1 second. Token-bucket semantics
-  // give us a sustained rate with burst-of-1 — same effective shape as
-  // Rust governor's `Quota::with_period`/`allow_burst(1)`.
-  const limit = config.requestsPerSecond;
-  const window: Duration.Duration = Duration.seconds(1);
+  const capacity = Math.max(1, config.requestsPerSecond);
+  const refillIntervalMs = 1000 / capacity;
 
-  const limiterLayer = Layer.provide(RateLimiter.layer, RateLimiter.layerStoreMemory);
-  const runtime = ManagedRuntime.make(limiterLayer);
+  let tokens = capacity;
+  let lastRefillAt = Date.now();
+  // Pending-acquire queue: each call that can't take a token waits its
+  // turn here so concurrent callers see correct burst-then-throttle order.
+  let waitChain: Promise<void> = Promise.resolve();
 
-  const acquire = Effect.gen(function* () {
-    const limiter = yield* RateLimiter.RateLimiter;
-    const result = yield* limiter.consume({
-      algorithm: 'token-bucket',
-      onExceeded: 'delay',
-      window,
-      limit,
-      key,
+  function refill(): void {
+    const now = Date.now();
+    const elapsed = now - lastRefillAt;
+    if (elapsed <= 0) return;
+    const newTokens = elapsed / refillIntervalMs;
+    if (newTokens <= 0) return;
+    tokens = Math.min(capacity, tokens + newTokens);
+    lastRefillAt = now;
+  }
+
+  const acquire = (): Promise<void> => {
+    // Serialize via the wait chain so a burst of concurrent callers
+    // doesn't all race for the same single token.
+    const slot = waitChain.then(async () => {
+      refill();
+      if (tokens >= 1) {
+        tokens -= 1;
+        return;
+      }
+      const needed = 1 - tokens;
+      const waitMs = Math.ceil(needed * refillIntervalMs);
+      await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+      refill();
+      tokens = Math.max(0, tokens - 1);
     });
-    if (!Duration.isZero(result.delay)) {
-      yield* Effect.sleep(result.delay);
-    }
-  });
+    waitChain = slot.catch(() => {
+      // Don't poison the chain on errors.
+    });
+    return slot;
+  };
 
   return {
     async geocode(address: NormalizedAddress): Promise<GeocodingResult> {
-      await runtime.runPromise(acquire);
+      await acquire();
       return inner.geocode(address);
     },
     async reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodingResult> {
-      await runtime.runPromise(acquire);
+      await acquire();
       return inner.reverseGeocode(latitude, longitude);
     },
   };

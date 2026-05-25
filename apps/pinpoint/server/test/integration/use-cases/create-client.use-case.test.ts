@@ -10,11 +10,11 @@
  * row all landed in the same tx.
  *
  * `create-client` is the first use case migrated off Effect — sweep follows
- * the same shape: `Result.failure(UseCaseError.x(...))` + plain async/await
+ * the same shape: `Result.error(UseCaseError.x(...))` + plain async/await
  * + `result.value.getData()` to unwrap success.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { isFailure, isSuccess } from '@pinpoint/framework/plain';
+import { isFailure, isSuccess } from '@pinpoint/framework';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
@@ -36,7 +36,7 @@ describe('CreateClientUseCase (integration)', () => {
 
   it('persists a client and emits a ClientCreated audit-log row in the same tx', async () => {
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWritePlain(() =>
+      appContext.runWrite(() =>
         appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
       ),
     );
@@ -67,13 +67,13 @@ describe('CreateClientUseCase (integration)', () => {
 
   it('rejects a duplicate code with a BusinessRuleViolation', async () => {
     await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWritePlain(() =>
+      appContext.runWrite(() =>
         appContext.useCases.createClient.execute({ name: 'Acme', code: 'DUP' }),
       ),
     );
 
     const second = await runInScope({ sub: 'prn_test_principal' }, () =>
-      appContext.runWritePlain(() =>
+      appContext.runWrite(() =>
         appContext.useCases.createClient.execute({ name: 'Other', code: 'DUP' }),
       ),
     );

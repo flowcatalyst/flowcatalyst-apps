@@ -3,12 +3,12 @@
  * `routes/bff/layer_features.rs::delete_feature`.
  */
 import { Type } from '@sinclair/typebox';
-import { Result } from 'effect';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { DeleteLayerFeatureCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { isFailure } from '@pinpoint/framework';
 
 const ResponseSchema = Type.Object({ success: Type.Literal(true) });
 
@@ -60,12 +60,11 @@ export function registerBffDeleteLayerFeatureRoute(
           .send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
 
-      const result = await appContext.runWrite(
+      const result = await appContext.runWrite(() =>
         appContext.useCases.deleteLayerFeature.execute(parsed.data),
-        scope,
       );
-      if (Result.isFailure(result)) {
-        return sendUseCaseError(reply, result.failure);
+      if (isFailure(result)) {
+        return sendUseCaseError(reply, result.error);
       }
       return reply.code(200).send({ success: true });
     },
