@@ -2,10 +2,10 @@
 
 **Read this first if you're picking up the pinpoint port in a new session.**
 
-## Status (2026-05-25 — post-cutover-hardening)
+## Status (2026-05-25 — post-slice-14)
 
-- **HEAD:** (uncommitted, post-`2ac69e3`) — persistent session-store drivers (Redis + Postgres), Rust ↔ Drizzle parity report, fulfil OIDC perms wiring. Migration plan complete; remaining work is purely deploy-time configuration.
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2 (+ perms wiring + session refresh + live-IdP test), 12.3 (harness + 12.3a/b/c/d/e), 13 + PRE-0a + PRE-0b + schema-sync + cutover hardening (persistent sessions + parity check + fulfil perms)
+- **HEAD:** `65348da` (post-Slice 14b doc update) — pinpoint fully off Effect onto plain async/await + the SDK's non-Effect sealed `Result<T>` surface. Migration plan complete; remaining work is purely deploy-time configuration.
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2 (+ perms wiring + session refresh + live-IdP test), 12.3 (harness + 12.3a/b/c/d/e), 13 (later superseded by 14), 14 (off Effect) + PRE-0a + PRE-0b + schema-sync + cutover hardening (persistent sessions + parity check + fulfil perms)
 - **Slices remaining:** none. Migration plan is functionally complete. Only deploy-time work left: real IdP credentials, production env wiring, hosting infra.
 - **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
 - **Tests:** 90 unit (`pnpm test`) + 116 integration across 37 files (`pnpm test:integration`, needs Docker — Postgres + Redis testcontainers)
@@ -17,13 +17,11 @@
 All in-flight decision points (Slice 4 → 5 → 7 named re-checks) passed on 2026-05-20/21. The Vercel AI SDK / Ollama gemma4 path produced clean structured output with the Rust-ported prompts — no rig-core regression. The Slice 8 matching pipeline matches the Rust pinpoint's behavior end-to-end (PENDING → GEOCODED → VALIDATED with EXACT_HASH dedup on resubmission). The port is now functionally caught up.
 
 Re-evaluate again only if:
-- Effect 4 ships a major rename that breaks the use-case shape before cutover (still beta-pinned at `4.0.0-beta.70`)
 - The BFF surface in Slice 10c turns out to be much heavier than the ~2530 LoC route-triage suggests
 
 Original decision factors (kept for posterity / future re-checks):
 - Supply chain: Rust meaningfully stronger (fewer deps, less npm churn, no beta lock-in)
-- Safety: Rust stronger overall; Effect closes gaps via `Sealed<E>`
-- Effect wins for visibility: typed error channel, automatic span tracing, structured concurrency
+- Safety: Rust stronger overall; the SDK's sealed `Result<T>` closes the "domain event must dispatch" gap at the type level
 - AI ecosystem: rig-core good for focused use; Vercel AI SDK wins for broad/agentic AI
 - Hiring + frontend type sharing are the strongest positive reasons for TS
 
@@ -60,6 +58,9 @@ Original decision factors (kept for posterity / future re-checks):
 | fixes | `8e2fc29` | Small follow-up fixes |
 | 13 | `9b5c05f` | Repo-as-Effect-Tag refactor. All 12 repos export a `Context.Service` Tag + `.layer(port)` factory in addition to the existing Promise-typed interface (kept for `AggregateRegistry`'s plain-async persist callback — SDK `UnitOfWork.commit(persist)` shape is fixed). All 22 use cases drop the constructor and per-call `Effect.tryPromise` wraps, `yield* X` the repo from the environment. Dependencies now surface in the Effect requirement type — a use case can't accidentally require a service it didn't declare. New `UseCaseRequirements` type alias keeps signatures readable. |
 | 12.2 live test | `2ac69e3` | OIDC end-to-end against an in-process fake IdP (`test/integration/auth/fake-idp.ts`). Real OIDC endpoints, RS256 keypair minted per run. 7 integration tests across TokenValidator (valid / expired / wrong-aud), OidcClient (auth-code + refresh + revoked-refresh), tryRefreshSession composed. Production change: `OidcConfig.allowInsecureRequests?: boolean` for plain-HTTP test rigs; no env loader so production configs can't accidentally enable it. |
+| cutover hardening | `405a5c1` | Persistent session store drivers (Redis + Postgres), Rust↔Drizzle parity report, Fulfil OIDC perms wiring. |
+| 14a | `6aa92af` | Proof-of-pattern: `create-client` use case + route + integration test off Effect. New non-Effect UoW surface in `@flowcatalyst-apps/app-framework` (`createPlainUnitOfWork`, `plainCommitAggregate`, `plainCommitDelete`, `plainEmitEvent`) — same `OutboxManager` / `DrizzleOutboxDriver` / `TransactionStore` stack, no Effect wrapper. `@pinpoint/framework/plain` subpath introduced for side-by-side migration. `AppContext.runWritePlain` boundary added alongside the Effect `runWrite`. |
+| 14b | `ec21ec5` | Full sweep — pinpoint fully off Effect. All 20 remaining use cases converted to constructor-injected `(uow, registry, ...repos)` returning `Promise<Result<TEvent>>`. ~50 routes use `runWrite(() => uc.execute(cmd))` + `isFailure(result)` + `result.value` + `result.error.type`. 22 integration tests + scheduling worker test converted. 12 repository files dropped their `Context.Service` Effect adapters (Promise interface stays). `@pinpoint/framework` collapsed: `/plain` subpath removed, main entry exposes the SDK non-Effect primitives + the plain UoW factories under un-prefixed names. `app-context.ts` shed `ManagedRuntime` / `Layer.mergeAll` / repo Tag layers / `UseCaseRequirements` / Effect `runWrite`. `rate-limited-geocoder` rewritten as plain token-bucket (same burst-of-N semantics). `effect` removed from `@pinpoint/server` deps and `@pinpoint/framework` dev/peer deps. All 90 unit + 116 integration tests green; Fulfil unaffected. |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -105,8 +106,8 @@ What's actually left vs. what's already done. Don't re-do completed items.
 ## What the next agent needs to read
 
 In order:
-1. `apps/fulfil/CLAUDE.md` — **canonical pattern reference** for the entire monorepo (UoW + Sealed + Scope + processes + Effect 4 beta renames). All apps follow this.
-2. `apps/pinpoint/docs/MIGRATION_PLAN.md` — pinpoint-specific design + slice ordering
+1. `apps/fulfil/CLAUDE.md` — **canonical pattern reference** for the monorepo's UoW + Sealed + Scope + processes shape. Note: fulfil keeps using Effect 4; pinpoint moved off in Slice 14. The architectural pattern is identical (sealed result, outbox UoW, ALS-bound tx, audit log inside the persist callback); only the use-case + repo call shapes differ. See "Pinpoint diverges from fulfil on the use-case shape" in the Gotchas section below for the line-by-line mapping.
+2. `apps/pinpoint/docs/MIGRATION_PLAN.md` — pinpoint-specific design + slice ordering (Slice 14 description spells out the post-Effect shape with code samples)
 3. This file
 4. `MEMORY.md` — auto-loaded; gives broader context
 
@@ -131,36 +132,118 @@ Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58b
 BFF auth is now OIDC-backed (Slice 12.2); the `x-user-id` dev fallback
 stays available behind `PINPOINT_AUTH_DEV_FALLBACK=true` for local dev.
 
-## Slice 13 status (shipped)
+## Slice 13 status (shipped, then superseded by Slice 14)
 
-**Repo-as-Effect-Tag refactor across all 12 repos + 22 use cases**
-(`9b5c05f`). Each repo file now exports three things instead of one:
+**Historical, no longer the active pattern.** Slice 13 introduced a
+repo-as-Effect-Tag refactor across all 12 repos + 22 use cases
+(`9b5c05f`). Slice 14 (below) removed Effect from pinpoint entirely;
+the `Context.Service` Tags + `.layer(port)` factories described here
+were deleted from every repo file. The Promise-typed `*Repository`
+interface is the only repo surface that remains.
 
-- the existing Promise-typed `XRepository` interface (kept — the
-  AggregateRegistry calls into it from the UoW's plain-async persist
-  callback, and the SDK's `UnitOfWork.commit(persist)` shape is fixed),
-- a `Context.Service` Tag (`Clients`, `Partitions`, `Layers`, …) whose
-  methods return `Effect<T, InfrastructureError>` pre-wrapped,
-- a static `X.layer(port)` factory adapting the Promise port into the
-  Tag once at the boundary.
+The original block read:
 
-`createAppContext` builds the per-Tag layers via `XTag.layer(repo)`
-and merges them into the baseLayer alongside UoW + DispatchJobBroker
-+ AggregateRegistry. A new `UseCaseRequirements` type alias keeps
-individual use-case Effect signatures readable.
+> Repo-as-Effect-Tag refactor across all 12 repos + 22 use cases.
+> Each repo file exports three things: the Promise-typed
+> `XRepository` interface, a `Context.Service` Tag (`Clients`,
+> `Partitions`, `Layers`, …) whose methods return `Effect<T,
+> InfrastructureError>` pre-wrapped, and a static `X.layer(port)`
+> factory. `createAppContext` builds the per-Tag layers and merges
+> them into the baseLayer alongside UoW + DispatchJobBroker +
+> AggregateRegistry; a new `UseCaseRequirements` type alias keeps
+> use-case Effect signatures readable. Use cases drop constructor
+> deps for repos and `yield* X` from the environment instead.
 
-Every use case is converted: constructor dropped (or trimmed to the
-non-repo service deps for create-location + validate-master-
-location), repos `yield* X` from the environment, per-call
-`Effect.tryPromise` wraps removed. Net: ~6 lines saved per repo call
-site, dependencies now surface in the Effect requirement type so a
-use case can no longer accidentally require a service it didn't
-declare. Repo files grow ~50-80 LoC each (Tag + Layer adapter), but
-that cost lives in 12 files instead of 22 × N use-case call sites.
+Kept here so a future archaeologist looking at `9b5c05f` understands
+what landed and what later replaced it.
 
-**This is now the canonical pattern.** New repos and new use cases
-must follow it. Don't reintroduce per-call `Effect.tryPromise` —
-that's what the Tag wrapping exists to amortise.
+## Slice 14 status (shipped)
+
+**Pinpoint off Effect onto plain async/await + the SDK's non-Effect
+sealed `Result<T>` surface.** Two commits — `6aa92af` (proof-of-
+pattern on `create-client`) + `ec21ec5` (full sweep).
+
+The SDK v0.6.15 exposes a non-Effect use-case surface at
+`@flowcatalyst/sdk/usecase`: sealed `Result<T>`, `UseCaseError`
+factory namespace (with `.validation`/`.notFound`/`.businessRule`/
+`.concurrency`/`.authorization`/`.infrastructure`), plain
+`UnitOfWork` interface (`commit`/`commitAggregate`/`commitDelete`/
+`emitEvent`), `OutboxUnitOfWork` class, `ExecutionContext`,
+`SecuredUseCase`. Sealed-`Result<T>` enforces "success only via
+`unitOfWork.commit(...)`" by requiring an internal token at the
+`Result.success(token, value)` call site — the token is exported
+only to UoW implementations.
+
+`@flowcatalyst-apps/app-framework` ships a parallel non-Effect UoW
+path in `unit-of-work-plain.ts` alongside the existing Effect path
+(`unit-of-work.ts`). Both wrap the same `OutboxManager` /
+`DrizzleOutboxDriver` / `TransactionStore` stack — only the call
+shape differs. Fulfil keeps using the Effect names verbatim;
+pinpoint's `@pinpoint/framework` re-exports the `plain*` factories
+under un-prefixed names (`createUnitOfWork`, `commitAggregate`,
+`commitDelete`, `emitEvent`, `toInfrastructureFailure`).
+
+Use case shape (the canonical pinpoint pattern now — fulfil's
+canonical pattern still uses Effect):
+
+```ts
+class CreateClientUseCase {
+  static readonly requiredPermission = PinpointPermission.TenancyClientCreate;
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly clients: ClientRepository,
+  ) {}
+  async execute(cmd: CreateClientCommand): Promise<Result<ClientCreated>> {
+    const scope = ScopeStore.require();
+    if (!this.authorize(scope)) {
+      return Result.failure(UseCaseError.authorization('PERMISSION_DENIED', '…'));
+    }
+    const existing = await this.clients.findByCode(cmd.code);
+    if (existing) {
+      return Result.failure(UseCaseError.businessRule('CLIENT_CODE_EXISTS', '…'));
+    }
+    // build aggregate + event …
+    return commitAggregate(this.uow, this.registry, client, event, cmd);
+  }
+}
+```
+
+`appContext.runWrite(() => uc.execute(cmd))` opens a Drizzle tx,
+binds it on `TransactionStore`, invokes the thunk. Business
+failures (`Result.failure`) commit the (no-op) tx since nothing was
+written; thrown exceptions trigger rollback. Routes do
+`if (isFailure(result)) return sendUseCaseError(reply, result.error);`
+then `result.value.getData()`. Test files use the same boundary
+plus `isSuccess(result)` for assertions.
+
+What got deleted in the sweep:
+- The `*Service` `Context.Service` adapters from all 12 repository
+  files (Promise-typed `*Repository` interface stays).
+- The `ManagedRuntime`, `Layer.mergeAll`, per-repo `.layer(port)`
+  calls, `repoLayer`, `baseLayer`, the Effect `runWrite`, and the
+  `UseCaseRequirements` type alias from `app-context.ts`.
+- The `@pinpoint/framework/plain` subpath (introduced in 14a, used
+  during the sweep, collapsed in 14b — pinpoint now imports
+  everything from `@pinpoint/framework`).
+- The Effect 4 `RateLimiter` in `rate-limited-geocoder.ts`,
+  replaced by a plain in-process token-bucket (same burst-of-N
+  semantics, same tests pass).
+- `effect` from `@pinpoint/server` deps and `@pinpoint/framework`
+  dev/peer deps.
+
+**Fulfil is unaffected.** `pnpm -r typecheck` clean across all 12
+workspaces. Fulfil keeps importing `@flowcatalyst/sdk/effect/usecase`
++ the Effect Tag-flavoured `commitAggregate` / `commitDelete` from
+app-framework directly. The non-Effect surface ships in parallel.
+
+**This is now the canonical pinpoint pattern.** New use cases:
+plain class with constructor-injected `(uow, registry, ...repos)`,
+`async execute(cmd): Promise<Result<TEvent>>`,
+`Result.failure(UseCaseError.x(...))` for errors,
+`commitAggregate(this.uow, this.registry, agg, event, cmd)` for
+the happy path. New repos: Promise-typed interface + Drizzle impl,
+no Effect Tag, no `Effect.tryPromise` wraps anywhere.
 
 ## Slice 12.3 status (closed — a/b/c/d/e all shipped)
 
@@ -466,9 +549,9 @@ dev without an IdP, set `PINPOINT_AUTH_DEV_FALLBACK=true` — the
 
 **Standing rule: run `pnpm update @flowcatalyst/sdk -r` at the start of every new task** before doing anything else. The semver range floats but pnpm only re-resolves on explicit update. The dev SDK ships out-of-band, often weekly. If the update bumps the locked commit, run `pnpm -r --if-present typecheck` immediately so any SDK-induced breakage is attributed to the bump and not to whatever task you're about to start.
 
-**Effect 4 is beta.** Pinned at `4.0.0-beta.70` (was beta.67; bumped post-Slice 12.3). Legacy catalog holds beta.66. Don't bump without checking the renames documented in `apps/fulfil/CLAUDE.md` (Either→Result, Context.Tag→Context.Service, etc.).
+**Pinpoint diverges from fulfil on the use-case shape.** Fulfil still uses Effect 4 + `@flowcatalyst/sdk/effect/usecase` per `apps/fulfil/CLAUDE.md`. Pinpoint moved off Effect in Slice 14 to plain async/await + `@flowcatalyst/sdk/usecase`. When reading `apps/fulfil/CLAUDE.md` as the canonical pattern reference, mentally substitute the pinpoint equivalents: `Effect.Effect<Sealed<E>, UseCaseError, UnitOfWork | ...>` → `Promise<Result<TEvent>>`, `yield* X` → `await this.repo.x()`, `Effect.fail(new XError({...}))` → `Result.failure(UseCaseError.x(code, message, details?))`, `result.success.event` → `result.value`, `result.failure._tag === 'BusinessRuleViolation'` → `result.error.type === 'business_rule'`. UoW + outbox + audit semantics are identical; only the call shape differs.
 
-**Repos are Effect Tags now.** Post-Slice 13, every repo exports `Context.Service` Tag + `.layer(port)` factory in addition to the Promise-typed interface. Use cases `yield* X` from the environment. Don't reintroduce per-call `Effect.tryPromise` wraps — the Tag wrapping exists to amortise that. The Promise interface is kept only because the `AggregateRegistry`'s plain-async persist callback (SDK shape, fixed) calls into it.
+**Pinpoint repos are Promise-typed interfaces only.** Don't reintroduce `Context.Service` Tag + `.layer(port)` adapters — Slice 14 removed them. New repository methods just go on the existing `*Repository` interface, called via `await this.repo.method(args)` from the use case. The `AggregateRegistry`'s plain-async persist callback (SDK shape, fixed) calls into the same interface, so there's no need for a second surface.
 
 **`OidcConfig.allowInsecureRequests` is test-only.** Flag exists to let the in-process fake IdP run over plain HTTP (openid-client v6 refuses non-HTTPS issuers by default). There is **no env loader** for the flag — production configs can't accidentally turn it on. Don't add one without understanding why.
 
@@ -494,7 +577,7 @@ dev without an IdP, set `PINPOINT_AUTH_DEV_FALLBACK=true` — the
 
 **Slice 7 corrected the LLM scope.** The original spec named three LLM services (`AddressNormalizer`, `AddressMatcher`, `AddressVerifier`); only `AddressVerifier` is actually LLM-based in Rust. The other two land with Slice 8: `AddressMatcher` is pure Jaro-Winkler + substitution dictionary, `AddressNormalizer` is the libpostal HTTP sidecar (Pelias). See updated Slice 8 spec.
 
-**The rate-limited geocoder test does wall-clock timing.** It fires 8 calls at 4 rps and asserts `elapsed >= 750ms`. Token-bucket refill timing varies a bit; if this turns out flaky in CI, widen the lower bound or split into "no-delay first burst" + "delay after burst" pairs against a tighter clock. Don't replace with fake timers — Effect 4's `RateLimiter` doesn't respect vitest's `vi.useFakeTimers`.
+**The rate-limited geocoder test does wall-clock timing.** It fires 8 calls at 4 rps and asserts `elapsed >= 750ms`. Token-bucket refill timing varies a bit; if this turns out flaky in CI, widen the lower bound or split into "no-delay first burst" + "delay after burst" pairs against a tighter clock. The decorator is plain JS (Slice 14 rewrote it off Effect 4's `RateLimiter`); fake timers would work in principle, but the wall-clock assertion has been stable so far — don't switch unless flakiness surfaces.
 
 **Two test surfaces, two configs.** `pnpm test` (unit, vitest) covers pure functions, decorator orchestration with fake repos, and the OIDC session-refresh helper — fast, no Docker. `pnpm test:integration` (vitest with `vitest.integration.config.ts`, `fileParallelism: false`) covers every Drizzle repo + every write use case + the OIDC live-IdP suite, all against a single `@testcontainers/postgresql` instance shared across the run. The canonical pattern post-Slice 12.3 is: if your code touches a Drizzle repo or `globalThis.fetch`, write an integration test (via testcontainer DB or `fetch-mock.ts`); otherwise a unit test with fakes is fine. Don't reintroduce DB-touching tests against the dev compose on 5433 — that path is for human smoke-testing.
 
