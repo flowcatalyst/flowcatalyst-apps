@@ -92,6 +92,13 @@ services:
       # MUST be unset in real production.
       PINPOINT_AUTH_DEV_FALLBACK: ${PINPOINT_AUTH_DEV_FALLBACK:-false}
       PINPOINT_AUTH_POST_LOGIN_REDIRECT: ${PINPOINT_AUTH_POST_LOGIN_REDIRECT:-/}
+      # Session store: memory (default, lost on restart, single-instance
+      # only), redis, or postgres. Multi-replica deploys MUST use redis
+      # or postgres so sessions survive restarts and load-balance across
+      # instances. The postgres driver reuses DATABASE_URL — no extra
+      # infra. The redis driver requires PINPOINT_SESSION_REDIS_URL.
+      PINPOINT_SESSION_DRIVER: ${PINPOINT_SESSION_DRIVER:-memory}
+      PINPOINT_SESSION_REDIS_URL: ${PINPOINT_SESSION_REDIS_URL:-}
     ports:
       - "${PINPOINT_HTTP_PORT:-3000}:3000"
 

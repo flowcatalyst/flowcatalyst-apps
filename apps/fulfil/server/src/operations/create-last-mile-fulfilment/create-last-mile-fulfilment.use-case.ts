@@ -3,6 +3,7 @@ import { generateTsid } from '@flowcatalyst/sdk';
 import {
   AuthorizationError,
   BusinessRuleViolation,
+  Scope,
   ScopeStore,
   type UnitOfWork,
   ValidationError,
@@ -30,8 +31,7 @@ import type { CreateLastMileFulfilmentCommand } from './create-last-mile-fulfilm
  * Create a new `LastMileFulfilment` from a fully-hydrated command.
  *
  * Rules this use case enforces:
- *  - Authorization: requires `LastMilePermission.CreateLastMileFulfilment`
- *    (stubbed — see `authorize` below).
+ *  - Authorization: requires `LastMilePermission.CreateLastMileFulfilment`.
  *  - One active fulfilment per `(tenant, sourceNote.system, type, number)`.
  *  - Promised delivery window end must be in the future.
  *  - Each line has positive quantity; line IDs (if caller-provided) are unique.
@@ -59,13 +59,13 @@ export class CreateLastMileFulfilmentUseCase {
     UnitOfWork | AggregateRegistry
   > => {
     const fulfilments = this.fulfilments;
-    const authorize = (): boolean => this.authorize();
+    const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
 
-      // 1. Authorization. Stub for now — see TODO(auth) below.
-      if (!authorize()) {
+      // 1. Authorization.
+      if (!authorize(scope)) {
         return yield* Effect.fail(
           new AuthorizationError({
             code: 'PERMISSION_DENIED',
@@ -231,14 +231,10 @@ export class CreateLastMileFulfilmentUseCase {
     });
   };
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // TODO(auth): replace this stub with a real permission check against the
-  // principal's grants for `LastMilePermission.CreateLastMileFulfilment`,
-  // scoped to `scope.tenant.tenantId`. For now this grants unconditionally
-  // within a tenant context.
-  // ───────────────────────────────────────────────────────────────────────────
-  private authorize(): boolean {
-    return true;
+  private authorize(scope: Scope): boolean {
+    const required = (this.constructor as unknown as { readonly requiredPermission: string })
+      .requiredPermission;
+    return scope.permissions.has(required);
   }
 }
 

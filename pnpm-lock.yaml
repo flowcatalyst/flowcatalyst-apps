@@ -83,7 +83,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
       fastify-plugin:
         specifier: ^5.0.0
         version: 5.1.0
@@ -176,7 +176,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
       '@fulfil/framework':
         specifier: workspace:*
         version: link:../framework
@@ -244,7 +244,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -293,7 +293,7 @@ importers:
         version: link:../../../packages/app-framework
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
       '@pinpoint/framework':
         specifier: workspace:*
         version: link:../framework
@@ -315,6 +315,9 @@ importers:
       fastify:
         specifier: ^5.2.0
         version: 5.8.5
+      ioredis:
+        specifier: ^5.0.0
+        version: 5.10.1
       jose:
         specifier: ^6.2.3
         version: 6.2.3
@@ -332,6 +335,9 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/tsconfig
       '@testcontainers/postgresql':
+        specifier: ^12.0.0
+        version: 12.0.0
+      '@testcontainers/redis':
         specifier: ^12.0.0
         version: 12.0.0
       '@types/node':
@@ -428,7 +434,7 @@ importers:
     dependencies:
       '@flowcatalyst/sdk':
         specifier: github:flowcatalyst/typescript-sdk#semver:>=0.6.7
-        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
+        version: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)
     devDependencies:
       '@flowcatalyst-apps/tsconfig':
         specifier: workspace:*
@@ -1068,9 +1074,9 @@ packages:
     peerDependencies:
       typebox: ^1.0.13
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192':
-    resolution: {gitHosted: true, integrity: sha512-D2+BTldvb2b77X2fmAIwhZUCt9jzSbNYtnw4IA6kpHoRj0rTMlp9FSre+vkGUtQt3WDV4Ew3XBk21mhEHIcEqw==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192}
-    version: 0.6.13
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454':
+    resolution: {gitHosted: true, integrity: sha512-7gVnEulqmH6yoE85puMJQhnom7yAaMkzfWcHZ7J2hGjqutq9+taL5RthFV+KQWXO83CatB2ZCGD5/L96t/AZOw==, tarball: https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454}
+    version: 0.6.14
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@fastify/cookie': ^11.0.0
@@ -1846,6 +1852,9 @@ packages:
 
   '@testcontainers/postgresql@12.0.0':
     resolution: {integrity: sha512-mqGQHwmY+xLKFvFd3XQYaa0vDJRaJAOUfFWYbgjd4wb6hOlrK7xhszaXB7KuGCGTIJf5jvtoEB8/56oVB5s55w==}
+
+  '@testcontainers/redis@12.0.0':
+    resolution: {integrity: sha512-VRQ+saEGKyd2CgbsSG/xi74kPUO1hnEYqUdxlMMeT1gcYpSya5n78w7S0B7yuEyRIQcfQaiHiQrTPASNG+Dz5A==}
 
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
@@ -4313,7 +4322,7 @@ snapshots:
     dependencies:
       typebox: 1.1.38
 
-  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/786326cb8e6ea122e75e63b2d774767b3e709192(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)':
+  '@flowcatalyst/sdk@https://codeload.github.com/flowcatalyst/typescript-sdk/tar.gz/3d2f9d0794d2d8c9b397098b4da752f3e2352454(@fastify/cookie@11.0.2)(effect@4.0.0-beta.70)(fastify@5.8.5)(jose@6.2.3)':
     dependencies:
       fastify-plugin: 5.1.0
       neverthrow: 8.2.0
@@ -4418,8 +4427,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ioredis/commands@1.5.1':
-    optional: true
+  '@ioredis/commands@1.5.1': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -4861,6 +4869,15 @@ snapshots:
   '@standard-schema/spec@1.1.0': {}
 
   '@testcontainers/postgresql@12.0.0':
+    dependencies:
+      testcontainers: 12.0.0
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+
+  '@testcontainers/redis@12.0.0':
     dependencies:
       testcontainers: 12.0.0
     transitivePeerDependencies:
@@ -5373,8 +5390,7 @@ snapshots:
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
 
-  cluster-key-slot@1.1.2:
-    optional: true
+  cluster-key-slot@1.1.2: {}
 
   color-convert@2.0.1:
     dependencies:
@@ -5443,8 +5459,7 @@ snapshots:
 
   define-lazy-prop@2.0.0: {}
 
-  denque@2.1.0:
-    optional: true
+  denque@2.1.0: {}
 
   depd@2.0.0: {}
 
@@ -5796,7 +5811,6 @@ snapshots:
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   ipaddr.js@2.4.0: {}
 
@@ -5929,11 +5943,9 @@ snapshots:
 
   lodash.camelcase@4.3.0: {}
 
-  lodash.defaults@4.2.0:
-    optional: true
+  lodash.defaults@4.2.0: {}
 
-  lodash.isarguments@3.1.0:
-    optional: true
+  lodash.isarguments@3.1.0: {}
 
   lodash@4.18.1: {}
 
@@ -6309,13 +6321,11 @@ snapshots:
 
   real-require@1.0.0: {}
 
-  redis-errors@1.2.0:
-    optional: true
+  redis-errors@1.2.0: {}
 
   redis-parser@3.0.0:
     dependencies:
       redis-errors: 1.2.0
-    optional: true
 
   require-directory@2.1.1: {}
 
@@ -6465,8 +6475,7 @@ snapshots:
 
   stackback@0.0.2: {}
 
-  standard-as-callback@2.1.0:
-    optional: true
+  standard-as-callback@2.1.0: {}
 
   statuses@2.0.2: {}
 

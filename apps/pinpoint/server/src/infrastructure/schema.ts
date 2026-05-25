@@ -80,3 +80,6 @@ export type { NewMasterLocation, MasterLocationRow } from './schema/master-locat
 
 export { processingLog } from './schema/processing-log.js';
 export type { NewProcessingLogEntry, ProcessingLogRow } from './schema/processing-log.js';
+
+export { sessions } from './schema/sessions.js';
+export type { NewSession, SessionRow } from './schema/sessions.js';

@@ -26,6 +26,26 @@ export interface OidcConfig {
   readonly allowInsecureRequests?: boolean;
 }
 
+/**
+ * Session-store driver selection.
+ *
+ * - `memory` (default) — `Map<sessionId, Session>`. Lost on restart, not
+ *   shared across replicas. Fine for single-instance local dev and tests.
+ * - `redis` — `ioredis` client against `PINPOINT_SESSION_REDIS_URL`.
+ *   Sessions survive restarts and are shared across replicas. Required
+ *   for any multi-instance deploy.
+ * - `postgres` — re-uses the app's Drizzle DB connection. Same
+ *   restart/replica properties as Redis, no new infra dependency. Slower
+ *   per-request than Redis but acceptable for low-traffic deployments.
+ */
+export type SessionDriver = 'memory' | 'redis' | 'postgres';
+
+export interface SessionConfig {
+  readonly driver: SessionDriver;
+  /** Required when `driver === 'redis'`. */
+  readonly redisUrl: string | null;
+}
+
 export interface AuthConfig {
   /** When non-null, OIDC is wired and the session-cookie path is enabled. */
   readonly oidc: OidcConfig | null;
@@ -40,6 +60,8 @@ export interface AuthConfig {
    * to override in tests or for embedded deployments.
    */
   readonly postLoginRedirect: string;
+  /** How the session store persists rows. See `SessionDriver`. */
+  readonly session: SessionConfig;
 }
 
 export function loadAuthConfig(): AuthConfig {
@@ -69,5 +91,16 @@ export function loadAuthConfig(): AuthConfig {
         }
       : null;
 
-  return { oidc, devFallback, postLoginRedirect };
+  const rawDriver = (process.env['PINPOINT_SESSION_DRIVER'] ?? 'memory').toLowerCase();
+  const driver: SessionDriver =
+    rawDriver === 'redis' || rawDriver === 'postgres' ? rawDriver : 'memory';
+  const redisUrl = (process.env['PINPOINT_SESSION_REDIS_URL'] ?? '').trim() || null;
+  if (driver === 'redis' && redisUrl === null) {
+    throw new Error(
+      'PINPOINT_SESSION_DRIVER=redis requires PINPOINT_SESSION_REDIS_URL to be set.',
+    );
+  }
+  const session: SessionConfig = { driver, redisUrl };
+
+  return { oidc, devFallback, postLoginRedirect, session };
 }

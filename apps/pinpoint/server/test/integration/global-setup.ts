@@ -14,9 +14,11 @@
  * truth; this file just tears down.
  */
 import { teardownDbFixture } from './db-fixture.js';
+import { teardownRedisFixture } from './auth/redis-fixture.js';
 
 export default function setup(): () => Promise<void> {
   return async () => {
     await teardownDbFixture();
+    await teardownRedisFixture();
   };
 }

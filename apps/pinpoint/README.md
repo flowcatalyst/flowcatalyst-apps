@@ -144,6 +144,8 @@ Server (`apps/pinpoint/server/src/server.ts`):
 | `OIDC_SCOPES`                    | `openid profile email`            | Space-separated scopes requested at /auth/login. Override if the IdP needs more (e.g. `openid profile email roles offline_access`). |
 | `PINPOINT_AUTH_DEV_FALLBACK`     | `false`                           | When `true`, an `x-user-id` header is accepted as the principal id. **Never set in production.** Convenient for local dev (no IdP needed) and integration tests. |
 | `PINPOINT_AUTH_POST_LOGIN_REDIRECT` | `/`                            | Where to redirect after `/auth/callback` succeeds. |
+| `PINPOINT_SESSION_DRIVER`        | `memory`                          | Session store: `memory` (default, lost on restart, single-instance only), `redis`, or `postgres`. **Multi-replica deploys MUST use `redis` or `postgres`** so sessions survive restarts and load-balance. The `postgres` driver reuses `DATABASE_URL` — no extra infra. |
+| `PINPOINT_SESSION_REDIS_URL`     | _unset_                           | Required when `PINPOINT_SESSION_DRIVER=redis`. `redis://[user:pass@]host:port/db` connection string. |
 | `LOG_LEVEL`                      | `info`                            | Fastify log level. |
 
 Web (`apps/pinpoint/web/`) has no runtime env vars — the API base URL is

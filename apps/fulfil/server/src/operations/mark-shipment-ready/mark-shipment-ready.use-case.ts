@@ -2,6 +2,7 @@ import { Effect } from 'effect';
 import {
   AuthorizationError,
   BusinessRuleViolation,
+  Scope,
   ScopeStore,
   ValidationError,
   type Sealed,
@@ -41,13 +42,13 @@ export class MarkShipmentReadyUseCase {
     command: MarkShipmentReadyCommand,
   ): Effect.Effect<Sealed<LastMileShipmentReady>, UseCaseError, UnitOfWork | AggregateRegistry> => {
     const shipments = this.shipments;
-    const authorize = (): boolean => this.authorize();
+    const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
 
       // 1. Authorization.
-      if (!authorize()) {
+      if (!authorize(scope)) {
         return yield* Effect.fail(
           new AuthorizationError({
             code: 'PERMISSION_DENIED',
@@ -112,8 +113,9 @@ export class MarkShipmentReadyUseCase {
     });
   };
 
-  private authorize(): boolean {
-    // TODO(auth): real permission check against the principal's grants.
-    return true;
+  private authorize(scope: Scope): boolean {
+    const required = (this.constructor as unknown as { readonly requiredPermission: string })
+      .requiredPermission;
+    return scope.permissions.has(required);
   }
 }

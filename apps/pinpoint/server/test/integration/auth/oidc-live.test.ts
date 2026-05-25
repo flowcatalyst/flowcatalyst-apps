@@ -208,7 +208,7 @@ describe('OIDC end-to-end against a live IdP', () => {
       // Seed a session that mirrors what /auth/callback writes today.
       const sessionStore = createInMemorySessionStore();
       const id = sessionStore.generateId();
-      const session = sessionStore.create(id, {
+      const session = await sessionStore.create(id, {
         // Force the access token to be obviously bogus so validation
         // fails — this is the runtime trigger for tryRefreshSession.
         accessToken: 'expired.invalid.jwt',
@@ -232,7 +232,7 @@ describe('OIDC end-to-end against a live IdP', () => {
       expect(result?.permissions?.has('pinpoint:tenancy:client:read')).toBe(true);
       expect(result?.permissions?.has('pinpoint:tenancy:client:create')).toBe(false);
 
-      const stored = sessionStore.get(id);
+      const stored = await sessionStore.get(id);
       expect(stored?.accessToken).not.toBe('expired.invalid.jwt');
       expect(stored?.accessToken?.length ?? 0).toBeGreaterThan(0);
       expect(stored?.refreshToken).not.toBe(tokens.refreshToken);

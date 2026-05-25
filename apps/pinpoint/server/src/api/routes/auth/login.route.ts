@@ -37,7 +37,7 @@ export function registerLoginRoute(fastify: FastifyInstance, appContext: AppCont
 
       const { url, state, codeVerifier } = await oidcClient.buildAuthorizeUrl();
       const sessionId = sessionStore.generateId();
-      sessionStore.create(sessionId, { codeVerifier, state });
+      await sessionStore.create(sessionId, { codeVerifier, state });
 
       // `secure: true` requires HTTPS; loosen for plain-HTTP local dev
       // where the redirect URI is http://localhost:... The Set-Cookie

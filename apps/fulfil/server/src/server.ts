@@ -8,6 +8,7 @@ import { createDrizzleSlaSampleRepository } from './infrastructure/sla-sample-re
 import { registerScheduledTasks, scheduledTasks } from './scheduling/index.js';
 import { createAppContext } from './app-context.js';
 import { registerTenantScopeHook } from './api/hooks/tenant-scope.hook.js';
+import { ALL_PERMISSIONS_SET } from './auth/role-permissions.js';
 import { lastMileFulfilmentRoutesPlugin } from './api/routes/last-mile-fulfilments/index.js';
 import { lastMileShipmentRoutesPlugin } from './api/routes/last-mile-shipments/index.js';
 import { processRoutesPlugin } from './api/routes/processes/index.js';
@@ -48,10 +49,14 @@ async function buildServer() {
     slaTracker: createSlaTracker([]),
     slaSampleRepository: createDrizzleSlaSampleRepository(db),
     extractRequestToken: (req) => {
-      // TODO(auth): extract from OIDC token once real auth middleware is added.
+      // Real OIDC token validation is a cutover-track item — see
+      // pinpoint's 6649ef0/`auth/` surface for the pattern. Until then,
+      // the dev fallback grants ALL permissions to whatever `x-user-id`
+      // header is supplied (mirrors pinpoint's PINPOINT_AUTH_DEV_FALLBACK
+      // behaviour). NEVER deploy with this header path enabled.
       const sub = req.headers['x-user-id'];
       if (typeof sub !== 'string') return null;
-      return { sub };
+      return { sub, permissions: ALL_PERMISSIONS_SET };
     },
   });
 

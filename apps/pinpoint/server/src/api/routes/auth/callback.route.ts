@@ -76,7 +76,7 @@ export function registerCallbackRoute(
           message: 'Missing session cookie — start at /auth/login.',
         });
       }
-      const session = sessionStore.get(sessionId);
+      const session = await sessionStore.get(sessionId);
       if (!session) {
         return reply.code(400).send({
           error: 'BadRequest',
@@ -119,7 +119,7 @@ export function registerCallbackRoute(
         userinfo = null;
       }
 
-      sessionStore.update(sessionId, {
+      await sessionStore.update(sessionId, {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         sub: userinfo?.sub ?? session.sub ?? null,

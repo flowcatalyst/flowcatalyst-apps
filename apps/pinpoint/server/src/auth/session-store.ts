@@ -1,9 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
 /**
- * In-memory session store. Matches the Rust pinpoint's `HashMap<String, Session>`
- * shape — sessions live for the lifetime of the process, lost on restart.
- *
  * Sessions hold two distinct payloads:
  *   1. The in-flight auth flow: `codeVerifier` + `state` set at /auth/login
  *      and consumed at /auth/callback. The session row is created at /login
@@ -16,9 +13,10 @@ import { randomBytes } from 'node:crypto';
  * A single sessionId rides both phases; the in-flight fields are cleared
  * after the callback to free memory.
  *
- * For a multi-instance deploy this needs to move to Redis or DB-backed
- * storage so sessions survive restarts and load-balance across replicas;
- * tracked in Slice 12.3+.
+ * Three driver impls live alongside this interface: in-memory (default,
+ * lost on restart), Redis (`createRedisSessionStore`), and Postgres
+ * (`createDrizzleSessionStore`). Driver selection is env-driven in
+ * `createAppContext` — see `PINPOINT_SESSION_DRIVER`.
  */
 export interface Session {
   readonly id: string;
@@ -39,46 +37,59 @@ export interface Session {
 
 export interface SessionStore {
   generateId(): string;
-  create(id: string, init: Partial<Session>): Session;
-  get(id: string): Session | undefined;
-  update(id: string, patch: Partial<Session>): Session | undefined;
-  delete(id: string): boolean;
+  create(id: string, init: Partial<Session>): Promise<Session>;
+  get(id: string): Promise<Session | undefined>;
+  update(id: string, patch: Partial<Session>): Promise<Session | undefined>;
+  delete(id: string): Promise<boolean>;
   /** Size — useful for ops + diagnostics. Not load-bearing. */
-  size(): number;
+  size(): Promise<number>;
+}
+
+/**
+ * 32 bytes → 43 base64url chars. Matches the Rust pinpoint generator.
+ * Shared across all driver impls.
+ */
+export function generateSessionId(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+/**
+ * Build a complete Session row from a partial init. Used by every driver
+ * impl to fill in defaults for the in-flight fields that `/auth/login`
+ * doesn't set yet.
+ */
+export function newSession(id: string, init: Partial<Session>, now: Date = new Date()): Session {
+  return {
+    id,
+    accessToken: init.accessToken ?? '',
+    refreshToken: init.refreshToken ?? null,
+    sub: init.sub ?? null,
+    name: init.name ?? null,
+    email: init.email ?? null,
+    codeVerifier: init.codeVerifier ?? null,
+    state: init.state ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export function createInMemorySessionStore(): SessionStore {
   const sessions = new Map<string, Session>();
 
   return {
-    generateId(): string {
-      // 32 bytes → 43 base64url chars. Matches the Rust pinpoint generator.
-      return randomBytes(32).toString('base64url');
-    },
+    generateId: generateSessionId,
 
-    create(id: string, init: Partial<Session>): Session {
-      const now = new Date();
-      const session: Session = {
-        id,
-        accessToken: init.accessToken ?? '',
-        refreshToken: init.refreshToken ?? null,
-        sub: init.sub ?? null,
-        name: init.name ?? null,
-        email: init.email ?? null,
-        codeVerifier: init.codeVerifier ?? null,
-        state: init.state ?? null,
-        createdAt: now,
-        updatedAt: now,
-      };
+    async create(id: string, init: Partial<Session>): Promise<Session> {
+      const session = newSession(id, init);
       sessions.set(id, session);
       return session;
     },
 
-    get(id: string): Session | undefined {
+    async get(id: string): Promise<Session | undefined> {
       return sessions.get(id);
     },
 
-    update(id: string, patch: Partial<Session>): Session | undefined {
+    async update(id: string, patch: Partial<Session>): Promise<Session | undefined> {
       const existing = sessions.get(id);
       if (!existing) return undefined;
       const updated: Session = { ...existing, ...patch, updatedAt: new Date() };
@@ -86,11 +97,11 @@ export function createInMemorySessionStore(): SessionStore {
       return updated;
     },
 
-    delete(id: string): boolean {
+    async delete(id: string): Promise<boolean> {
       return sessions.delete(id);
     },
 
-    size(): number {
+    async size(): Promise<number> {
       return sessions.size;
     },
   };

@@ -134,7 +134,7 @@ async function extractRequestToken(
 
   const sessionId = req.cookies?.[SESSION_COOKIE_NAME];
   if (sessionId) {
-    const session = sessionStore.get(sessionId);
+    const session = await sessionStore.get(sessionId);
     if (session && session.accessToken.length > 0) {
       if (tokenValidator) {
         try {

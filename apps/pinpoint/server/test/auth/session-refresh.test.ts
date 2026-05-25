@@ -42,7 +42,7 @@ function buildDeps(overrides: {
   } as RefreshSessionDeps & { log: ReturnType<typeof fakeLogger> };
 }
 
-function seedSession(deps: RefreshSessionDeps, init: Partial<Session>): Session {
+async function seedSession(deps: RefreshSessionDeps, init: Partial<Session>): Promise<Session> {
   const id = deps.sessionStore.generateId();
   return deps.sessionStore.create(id, init);
 }
@@ -50,14 +50,14 @@ function seedSession(deps: RefreshSessionDeps, init: Partial<Session>): Session 
 describe('tryRefreshSession', () => {
   it('returns null when oidcClient is not configured', async () => {
     const deps = buildDeps();
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: 'r1' });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: 'r1' });
     const result = await tryRefreshSession(deps, session);
     expect(result).toBeNull();
   });
 
   it('returns null when tokenValidator is not configured', async () => {
     const deps = buildDeps({ oidcClient: { refresh: async () => ({}) } as never });
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: 'r1' });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: 'r1' });
     const result = await tryRefreshSession(deps, session);
     expect(result).toBeNull();
   });
@@ -67,7 +67,7 @@ describe('tryRefreshSession', () => {
       oidcClient: { refresh: async () => ({}) } as never,
       tokenValidator: { validate: async () => ({} as ValidatedToken) },
     });
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: null });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: null });
     const result = await tryRefreshSession(deps, session);
     expect(result).toBeNull();
   });
@@ -96,7 +96,7 @@ describe('tryRefreshSession', () => {
       oidcClient: { refresh } as never,
       tokenValidator: { validate },
     });
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: 'refresh-1' });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: 'refresh-1' });
 
     const result = await tryRefreshSession(deps, session);
 
@@ -104,7 +104,7 @@ describe('tryRefreshSession', () => {
     // admin role → every permission, including TenancyClientCreate
     expect(result?.permissions?.has('pinpoint:tenancy:client:create')).toBe(true);
 
-    const stored = deps.sessionStore.get(session.id);
+    const stored = await deps.sessionStore.get(session.id);
     expect(stored?.accessToken).toBe('new-access');
     expect(stored?.refreshToken).toBe('refresh-2');
   });
@@ -127,11 +127,11 @@ describe('tryRefreshSession', () => {
       oidcClient: { refresh } as never,
       tokenValidator: { validate },
     });
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: 'keep-me' });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: 'keep-me' });
 
     await tryRefreshSession(deps, session);
 
-    const stored = deps.sessionStore.get(session.id);
+    const stored = await deps.sessionStore.get(session.id);
     expect(stored?.refreshToken).toBe('keep-me');
   });
 
@@ -155,10 +155,10 @@ describe('tryRefreshSession', () => {
       oidcClient: { refresh } as never,
       tokenValidator: { validate },
     });
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: 'r1' });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: 'r1' });
     // Simulate the concurrent refresh: another request already swapped
     // the access token in the store.
-    deps.sessionStore.update(session.id, { accessToken: 'rotated-by-other-request' });
+    await deps.sessionStore.update(session.id, { accessToken: 'rotated-by-other-request' });
 
     const result = await tryRefreshSession(deps, session);
 
@@ -180,7 +180,7 @@ describe('tryRefreshSession', () => {
       sessionStore: createInMemorySessionStore(),
       log: logger.log,
     };
-    const session = seedSession(deps, { accessToken: 'old', refreshToken: 'bad-token' });
+    const session = await seedSession(deps, { accessToken: 'old', refreshToken: 'bad-token' });
 
     const result = await tryRefreshSession(deps, session);
 
@@ -189,7 +189,7 @@ describe('tryRefreshSession', () => {
     expect(logger.warns[0]?.msg).toBe('OIDC token refresh failed');
     // Session left untouched so a subsequent request doesn't see partial
     // mutation.
-    const stored = deps.sessionStore.get(session.id);
+    const stored = await deps.sessionStore.get(session.id);
     expect(stored?.accessToken).toBe('old');
     expect(stored?.refreshToken).toBe('bad-token');
   });

@@ -13,7 +13,7 @@ export function registerLogoutRoute(fastify: FastifyInstance, appContext: AppCon
     async (request, reply) => {
       const { sessionStore, config } = appContext.auth;
       const sessionId = request.cookies?.[SESSION_COOKIE_NAME];
-      if (sessionId) sessionStore.delete(sessionId);
+      if (sessionId) await sessionStore.delete(sessionId);
 
       const isSecure = config.oidc?.redirectUri.startsWith('https://') ?? true;
       clearSessionCookie(reply, { secure: isSecure });

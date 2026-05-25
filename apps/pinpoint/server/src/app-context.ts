@@ -36,7 +36,9 @@ import { createLibPostalNormalizer } from './infrastructure/services/libpostal-n
 import { createOidcClient, type OidcClient } from './auth/oidc-client.js';
 import { createTokenValidator, type TokenValidator } from './auth/token-validator.js';
 import { createInMemorySessionStore, type SessionStore } from './auth/session-store.js';
-import type { AuthConfig } from './auth/auth-config.js';
+import { createRedisSessionStore } from './auth/session-store-redis.js';
+import { createDrizzleSessionStore } from './auth/session-store-drizzle.js';
+import type { AuthConfig, SessionConfig } from './auth/auth-config.js';
 import { registerClient } from './infrastructure/register-client.js';
 import { registerPartition } from './infrastructure/register-partition.js';
 import { registerLocation } from './infrastructure/register-location.js';
@@ -376,7 +378,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   // issuer is configured, so a no-IdP local dev run with the dev fallback
   // still boots fine. Discovery failures throw — startup blocks on the
   // IdP being reachable, matching the Rust pinpoint's behaviour.
-  const sessionStore = createInMemorySessionStore();
+  const sessionStore = await buildSessionStore(config.auth.session, db);
   const oidcClient = config.auth.oidc !== null ? await createOidcClient(config.auth.oidc) : null;
   const tokenValidator =
     config.auth.oidc !== null ? createTokenValidator(config.auth.oidc) : null;
@@ -446,6 +448,48 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     },
     runWrite,
   };
+}
+
+/**
+ * Build the configured session store. Driver selection is env-driven via
+ * `PINPOINT_SESSION_DRIVER` (`memory` / `redis` / `postgres`). The Redis
+ * driver lazily imports `ioredis` so the dep isn't required for memory or
+ * postgres deploys.
+ */
+async function buildSessionStore(
+  config: SessionConfig,
+  db: PostgresJsDatabase,
+): Promise<SessionStore> {
+  switch (config.driver) {
+    case 'redis': {
+      // Should have been validated at config load; defensive.
+      if (config.redisUrl === null) {
+        throw new Error('PINPOINT_SESSION_DRIVER=redis requires PINPOINT_SESSION_REDIS_URL.');
+      }
+      const { Redis } = await import('ioredis');
+      const client = new Redis(config.redisUrl);
+      console.info(`[session-store] driver=redis url=${redactRedisUrl(config.redisUrl)}`);
+      return createRedisSessionStore({ client });
+    }
+    case 'postgres': {
+      console.info('[session-store] driver=postgres');
+      return createDrizzleSessionStore(db);
+    }
+    case 'memory':
+    default:
+      console.info('[session-store] driver=memory (sessions lost on restart)');
+      return createInMemorySessionStore();
+  }
+}
+
+function redactRedisUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.password) u.password = '***';
+    return u.toString();
+  } catch {
+    return '<redacted>';
+  }
 }
 
 /**

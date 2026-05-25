@@ -37,6 +37,7 @@ export async function getTestAppContext(): Promise<AppContext> {
           oidc: null,
           devFallback: false,
           postLoginRedirect: '/',
+          session: { driver: 'memory', redisUrl: null },
         },
       });
     })();

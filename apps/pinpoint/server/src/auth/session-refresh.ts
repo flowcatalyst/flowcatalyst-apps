@@ -43,7 +43,7 @@ export async function tryRefreshSession(
   if (!oidcClient || !tokenValidator) return null;
 
   // Re-read in case another concurrent request already refreshed.
-  const latest = sessionStore.get(originalSession.id);
+  const latest = await sessionStore.get(originalSession.id);
   if (!latest) return null;
 
   if (
@@ -66,7 +66,7 @@ export async function tryRefreshSession(
 
   try {
     const tokens = await oidcClient.refresh(latest.refreshToken);
-    sessionStore.update(latest.id, {
+    await sessionStore.update(latest.id, {
       accessToken: tokens.accessToken,
       // Some IdPs rotate refresh tokens, some don't. When the response
       // omits a new refresh_token we keep the old one (the spec allows

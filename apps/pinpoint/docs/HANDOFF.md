@@ -2,13 +2,13 @@
 
 **Read this first if you're picking up the pinpoint port in a new session.**
 
-## Status (2026-05-22)
+## Status (2026-05-25 — post-cutover-hardening)
 
-- **HEAD:** `9782ad4` Slice 12.3d — integration-test backfill closed across four sub-slices (12.3a/b/c/d). All 12 Drizzle repos and 20 of 22 write use cases now have integration coverage. The two skipped use cases (`create-location` and `validate-master-location`) need libpostal + geocoder mocking via global-fetch interception — deferred as a hardening follow-up.
-- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2, 12.3 (harness + 12.3a/b/c/d) + PRE-0a + PRE-0b + schema-sync
-- **Slices remaining:** none against the original plan. Optional hardening: integration tests for create-location + validate-master-location (need fetch-mock layer for libpostal/geocoder/LLM); production cutover items as they come up.
+- **HEAD:** (uncommitted, post-`2ac69e3`) — persistent session-store drivers (Redis + Postgres), Rust ↔ Drizzle parity report, fulfil OIDC perms wiring. Migration plan complete; remaining work is purely deploy-time configuration.
+- **Slices done:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10a, 10b.1, 10b.2, 10b.3, 10c (all sub-slices + hygiene), 11, 12.1, 12.2 (+ perms wiring + session refresh + live-IdP test), 12.3 (harness + 12.3a/b/c/d/e), 13 + PRE-0a + PRE-0b + schema-sync + cutover hardening (persistent sessions + parity check + fulfil perms)
+- **Slices remaining:** none. Migration plan is functionally complete. Only deploy-time work left: real IdP credentials, production env wiring, hosting infra.
 - **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
-- **Tests:** 83 unit (`pnpm test`) + 85 integration across 31 files (`pnpm test:integration`, needs Docker)
+- **Tests:** 90 unit (`pnpm test`) + 116 integration across 37 files (`pnpm test:integration`, needs Docker — Postgres + Redis testcontainers)
 - **Drizzle migrations:** three generated, applied (schema + countries/global-default seed + 10c flashy_ricochet) — see `apps/pinpoint/server/drizzle/`
 - **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`). Production: `docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the repo root brings up the full stack.
 
@@ -17,7 +17,7 @@
 All in-flight decision points (Slice 4 → 5 → 7 named re-checks) passed on 2026-05-20/21. The Vercel AI SDK / Ollama gemma4 path produced clean structured output with the Rust-ported prompts — no rig-core regression. The Slice 8 matching pipeline matches the Rust pinpoint's behavior end-to-end (PENDING → GEOCODED → VALIDATED with EXACT_HASH dedup on resubmission). The port is now functionally caught up.
 
 Re-evaluate again only if:
-- Effect 4 ships a major rename that breaks the use-case shape before cutover (still beta-pinned at `4.0.0-beta.67`)
+- Effect 4 ships a major rename that breaks the use-case shape before cutover (still beta-pinned at `4.0.0-beta.70`)
 - The BFF surface in Slice 10c turns out to be much heavier than the ~2530 LoC route-triage suggests
 
 Original decision factors (kept for posterity / future re-checks):
@@ -54,6 +54,12 @@ Original decision factors (kept for posterity / future re-checks):
 | 10c.3 | `e2b4ea5` | BFF locations (list/detail/create) + spatial-lookup (with `partitionCode` resolution) + `GET /master-locations/unvalidated` (cross-client). Added repo methods: `LayerFeatureRepository.findFeatureAssociations`, `MasterLocationRepository.findUnvalidated`. |
 | 10c.4 | `8cb58bb` | BFF layers (CRUD + partitions + property-sets) + layer-features (CRUD + status flip). 17 routes. Added repo methods: `LayerRepository.findPartitionIds` / `setPartitionIds`, `PropertySetRepository.countByLayerIds`, `LayerFeatureRepository.setStatus`. |
 | 10c.5 | `65b17f0` | BFF master-locations (list/detail/update/validate/geocode/reverse-geocode/processing-log) + matching-config (GET/PUT). `ListMasterLocationsQuery` grew an optional `status` filter. Closes 10c — full BFF surface (~40 routes, 11 mount points) in place. |
+| 12.2 perms | `6649ef0` | Real permission checks across all 22 use cases. `Scope.permissions: ReadonlySet<string>` is now required; `extractRequestToken` populates it from `claims.roles` via new `auth/role-permissions.ts` (admin/operator/viewer wired today). Dev fallback + `SystemIdentity.SCHEDULER` carry ALL permissions. Each use case's `authorize(scope)` now returns `scope.permissions.has(THIS.requiredPermission)`. New `authorization.use-case.test.ts` proves the gate. |
+| 12.2 refresh | `ffbcd33` | In-band session refresh on expired access token. When the session-cookie path of `extractRequestToken` hits a stale token, attempt one refresh-token exchange before falling through to 401. Logic in `auth/session-refresh.ts`. Handles concurrent rotating-refresh-token race via re-read of session before refresh. 7 unit tests. |
+| 12.3e | `c9b650a` | create-location + validate-master-location integration tests via new `test/integration/fetch-mock.ts` (bespoke `globalThis.fetch` router for libpostal + Photon). 7 new tests. Surfaced + fixed real bug: `locationAttributes.insertMany` was running outside the tx, breaking FK to the just-created location row. Both attribute-write sites now thread the tx via `TransactionStore.require()`. |
+| fixes | `8e2fc29` | Small follow-up fixes |
+| 13 | `9b5c05f` | Repo-as-Effect-Tag refactor. All 12 repos export a `Context.Service` Tag + `.layer(port)` factory in addition to the existing Promise-typed interface (kept for `AggregateRegistry`'s plain-async persist callback — SDK `UnitOfWork.commit(persist)` shape is fixed). All 22 use cases drop the constructor and per-call `Effect.tryPromise` wraps, `yield* X` the repo from the environment. Dependencies now surface in the Effect requirement type — a use case can't accidentally require a service it didn't declare. New `UseCaseRequirements` type alias keeps signatures readable. |
+| 12.2 live test | `2ac69e3` | OIDC end-to-end against an in-process fake IdP (`test/integration/auth/fake-idp.ts`). Real OIDC endpoints, RS256 keypair minted per run. 7 integration tests across TokenValidator (valid / expired / wrong-aud), OidcClient (auth-code + refresh + revoked-refresh), tryRefreshSession composed. Production change: `OidcConfig.allowInsecureRequests?: boolean` for plain-HTTP test rigs; no env loader so production configs can't accidentally enable it. |
 
 Chores: `3e5726f`, `a1bcb38` (tsbuildinfo + .gitignore cleanup).
 
@@ -83,15 +89,18 @@ What's actually left vs. what's already done. Don't re-do completed items.
 - ~~BFF surface mount (~40 routes across 11 mount points)~~ → Slice 10c (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58bb`/`65b17f0`)
 - ~~`master-locations/unvalidated` cross-client route~~ → Slice 10c.3 (`e2b4ea5`)
 
-**Still pending:**
+**Still pending (cutover-track, not migration-track):**
 
 - **`layer_partitions` population** → assignment surface ships in 10c.4 via `PUT /bff/clients/:cid/layers/:lid/partitions`. No `assign-layer-to-partition` use case (plain repo method `setPartitionIds`, matches Rust).
-- ~~BFF master-locations hygiene tail (`confirm-geocode`, `match-features` single + bulk)~~ → **shipped as 10c hygiene** (`194d447`). Two new repo methods (`MasterLocationRepository.applyConfirmedGeocode`, `LayerFeatureRepository.findFeaturesContainingPoint`) + three routes.
 - **`fragment_routes` (askama HTML)** → WILL NOT PORT. The Vue SPA owns the UI; nothing calls fragment endpoints.
+- ~~BFF master-locations hygiene tail (`confirm-geocode`, `match-features` single + bulk)~~ → **shipped as 10c hygiene** (`194d447`). Two new repo methods (`MasterLocationRepository.applyConfirmedGeocode`, `LayerFeatureRepository.findFeaturesContainingPoint`) + three routes.
 - ~~**Web lift**~~ → Slice 11 (shipped).
-- ~~**OIDC auth + cookie sessions for BFF**~~ → Slice 12.2 (shipped; in-memory sessions, no token refresh on hot path yet).
+- ~~**OIDC auth + cookie sessions for BFF**~~ → Slice 12.2 (shipped) + perms wiring (`6649ef0`) + in-band session refresh (`ffbcd33`) + live-IdP end-to-end test (`2ac69e3`).
 - ~~**Docker Compose for full stack (postgres + pinpoint server + web + libpostal sidecar) + Dockerfile + README**~~ → Slice 12.1 (shipped).
-- **Infra-repo + use-case integration tests** → final pre-cutover hygiene slice. None of the Drizzle repo implementations (`createDrizzleClientRepository`, `…LayerRepository`, `…MasterLocationRepository`, `…PrincipalRepository`, etc.) and none of the use cases are tested directly. The current 83 tests cover pure functions, service decorators (fetch-mocked), and orchestration with fake repos. Backfill plan: bring in `@testcontainers/postgresql`, write integration tests for every Drizzle repo (~10) + every write use case (~22). Land before Slice 12 cutover.
+- ~~**Infra-repo + use-case integration tests**~~ → Slice 12.3 closed across a/b/c/d/e. All 12 Drizzle repos and all 22 write use cases now have integration coverage (`@testcontainers/postgresql`-backed). 101 integration tests across 35 files.
+- ~~**Persistent session store**~~ → `PINPOINT_SESSION_DRIVER=memory|redis|postgres` (shipped 2026-05-25). Memory (default), Redis (`PINPOINT_SESSION_REDIS_URL`), and Postgres (reuses `DATABASE_URL`) drivers all live behind the same async `SessionStore` interface. 15 new integration tests across the two persistent drivers.
+- ~~**Rust ↔ Drizzle migration parity check**~~ → run 2026-05-25; report at `docs/schema-parity.md`. 17/18 tables in parity; the one TS-only table (`audit_logs`) is platform-level and intentional.
+- **Production cutover items** (not in the migration plan; live work to come): real IdP credentials in deployment + deploy infra.
 
 ## What the next agent needs to read
 
@@ -122,10 +131,41 @@ Slice 10c shipped across five sub-commits (`ca7cbc2`/`4cb02e0`/`e2b4ea5`/`8cb58b
 BFF auth is now OIDC-backed (Slice 12.2); the `x-user-id` dev fallback
 stays available behind `PINPOINT_AUTH_DEV_FALLBACK=true` for local dev.
 
-## Slice 12.3 status (shipped — harness + representative spread)
+## Slice 13 status (shipped)
+
+**Repo-as-Effect-Tag refactor across all 12 repos + 22 use cases**
+(`9b5c05f`). Each repo file now exports three things instead of one:
+
+- the existing Promise-typed `XRepository` interface (kept — the
+  AggregateRegistry calls into it from the UoW's plain-async persist
+  callback, and the SDK's `UnitOfWork.commit(persist)` shape is fixed),
+- a `Context.Service` Tag (`Clients`, `Partitions`, `Layers`, …) whose
+  methods return `Effect<T, InfrastructureError>` pre-wrapped,
+- a static `X.layer(port)` factory adapting the Promise port into the
+  Tag once at the boundary.
+
+`createAppContext` builds the per-Tag layers via `XTag.layer(repo)`
+and merges them into the baseLayer alongside UoW + DispatchJobBroker
++ AggregateRegistry. A new `UseCaseRequirements` type alias keeps
+individual use-case Effect signatures readable.
+
+Every use case is converted: constructor dropped (or trimmed to the
+non-repo service deps for create-location + validate-master-
+location), repos `yield* X` from the environment, per-call
+`Effect.tryPromise` wraps removed. Net: ~6 lines saved per repo call
+site, dependencies now surface in the Effect requirement type so a
+use case can no longer accidentally require a service it didn't
+declare. Repo files grow ~50-80 LoC each (Tag + Layer adapter), but
+that cost lives in 12 files instead of 22 × N use-case call sites.
+
+**This is now the canonical pattern.** New repos and new use cases
+must follow it. Don't reintroduce per-call `Effect.tryPromise` —
+that's what the Tag wrapping exists to amortise.
+
+## Slice 12.3 status (closed — a/b/c/d/e all shipped)
 
 **Testcontainers-backed integration harness.** See
-`docs/integration-testing.md` for the long-form. New surface:
+`docs/integration-testing.md` for the long-form. Surface:
 
 - `test/integration/db-fixture.ts` — one PostGIS testcontainer per
   test run, mirrors `scripts/db-init.ts` (schema + postgis + pg_trgm +
@@ -135,27 +175,29 @@ stays available behind `PINPOINT_AUTH_DEV_FALLBACK=true` for local dev.
   table via a single `TRUNCATE … RESTART IDENTITY CASCADE`.
 - `test/integration/test-app-context.ts` — builds a real `AppContext`
   on the testcontainer DB + a `runInScope` helper that binds a
-  `ScopeStore` around use-case calls.
+  `ScopeStore` around use-case calls. Defaults to `ALL_PERMISSIONS_SET`
+  so existing tests keep passing post-perms-wiring.
+- `test/integration/fetch-mock.ts` (added in 12.3e) — 100-line bespoke
+  router that swaps `globalThis.fetch` in beforeAll and dispatches by
+  URL pattern. Routes unhandled calls to 404 so a stray external
+  request fails loudly. Used by create-location + validate-master-
+  location tests; safe to extend.
 - `vitest.integration.config.ts` — separate config, picks up only
   `test/integration/**/*.test.ts`, `fileParallelism: false` (one
   container shared across the run).
-- New scripts: `pnpm test:integration` (slow, needs Docker),
-  `pnpm test:all` (unit + integration). `pnpm test` stays unit-only.
+- Scripts: `pnpm test:integration` (slow, needs Docker), `pnpm
+  test:all` (unit + integration). `pnpm test` stays unit-only.
 
-Tests added (representative spread, not exhaustive):
-- **Repos**: Client, Partition, Principal (incl. grant/revoke), Layer
-  (PostGIS round-trip).
-- **Use cases**: create-client (happy + duplicate), replace-property-
-  set-properties (happy + cap-6 + duplicate-key).
+Coverage at close: all 12 Drizzle repos, all 22 write use cases, plus
+the OIDC live-IdP suite from `2ac69e3`. 101 integration tests across
+35 files; ~2.5 minutes wall-clock for the full suite.
 
-25 integration tests pass, ~30s total (most of that container boot).
-83 unit tests still pass; full workspace typecheck still clean.
-
-Not yet backfilled (mechanical follow-up — patterns are documented):
-~8 repos (Country, Location, LayerFeature, MatchingConfig,
-MasterLocation, ProcessingLog, LocationAttribute, PropertySet) and
-~18 use cases (the create-location matching pipeline is the chunkiest
-remaining one). Live-IdP end-to-end OIDC smoke also still open.
+**Real bug caught by 12.3e (`c9b650a`):** `create-location`'s inline-
+attribute insert was calling `locationAttributes.insertMany(attrs)`
+without the tx, so the insert ran against the default connection and
+the FK to the just-created (still-uncommitted) location row failed.
+Both attribute-write sites now thread the tx via
+`TransactionStore.require()`. Would have been a silent prod bug.
 
 Three gotchas baked into the harness, worth knowing before you add to
 it:
@@ -172,6 +214,108 @@ it:
   maps.** That tripped a chunk of time in the fixture build — use
   `import.meta.resolve` for ESM-only deps. Documented in the harness
   comment.
+
+## Cutover hardening (2026-05-25)
+
+Three independent gap-closing changes ahead of any real deployment.
+
+**Persistent session store.** The `SessionStore` interface is now async
+(`Promise<...>` on every method except `generateId`). Three drivers
+ship behind the same interface:
+
+- `createInMemorySessionStore` — `Map<sessionId, Session>` (default;
+  lost on restart, single-instance only).
+- `createRedisSessionStore({ client })` — `ioredis`-backed; `size()`
+  uses `SCAN MATCH <prefix>*` so a co-tenanted Redis (e.g. shared with
+  cache) doesn't inflate the count.
+- `createDrizzleSessionStore(db)` — Postgres-backed via a new
+  `sessions` table (see migration `20260525084900_sessions_table`). The
+  migration is hand-rolled (the dev compose Postgres is wedged on the
+  18-volume issue documented above); the migration directory's README
+  flags snapshot regeneration as a follow-up at next
+  `drizzle-kit generate`.
+
+Driver selection via `PINPOINT_SESSION_DRIVER=memory|redis|postgres`,
+defaulting to `memory`. The Redis driver requires
+`PINPOINT_SESSION_REDIS_URL`. Both new drivers have integration tests
+against `@testcontainers/postgresql` + `@testcontainers/redis`
+respectively (15 new tests; mirrored across drivers so semantic drift
+between drivers is obvious).
+
+`compose.prod.yaml` + README env-var reference updated. The lazy
+`await import('ioredis')` in `buildSessionStore` means the dep isn't
+exercised on memory/postgres deploys.
+
+**Rust ↔ Drizzle schema parity check.** Read-only audit at
+`docs/schema-parity.md` (2026-05-25). 17/18 tables in parity; the one
+drift item (`audit_logs` present on TS, absent on Rust) is the
+platform-level table that ships with `@flowcatalyst-apps/app-framework`
+and is intentional. No remediation required pre-cutover.
+
+**Fulfil OIDC perms wiring.** Mirrors pinpoint's `6649ef0` — five of
+the six `TODO(auth)` stubs in fulfil are now cleared (only the
+`tenant-scope.hook.ts` header-extraction TODO remains, since that's
+the larger Slice-12.2-equivalent OIDC token extraction that fulfil
+hasn't done yet). New `apps/fulfil/server/src/auth/role-permissions.ts`
+maps roles → permissions via `DefaultRolePermissions` from
+`@fulfil/shared`. Three use cases (`mark-shipment-ready`,
+`create-last-mile-shipment`, `create-last-mile-fulfilment`) now check
+`scope.permissions.has(THIS.requiredPermission)` via the same constructor
+cast pattern pinpoint uses. Dev fallback in `extractRequestToken` grants
+ALL permissions to `x-user-id` impersonators.
+
+## OIDC hardening (perms + refresh + live-IdP test)
+
+Three follow-ups to 12.2's baseline, all shipped post-`a1a73c1`:
+
+**Permission checks (`6649ef0`).** `Scope.permissions:
+ReadonlySet<string>` is now a required field. `RequestToken` grew an
+optional `permissions?` that `Scope.fromRequest` copies into the
+scope; `JobDescriptor.identity` grew the same so scheduled jobs /
+process webhooks can declare what they're allowed to do. Pinpoint-
+side, new `auth/role-permissions.ts` maps roles → permissions (admin
++ operator: all; viewer: `*:read` subset; unknown roles contribute
+nothing). `extractRequestToken` populates the token's permissions
+from `claims.roles` for JWT-bearer and session-cookie paths. Dev
+fallback (`x-user-id`) and `SystemIdentity.SCHEDULER` carry ALL
+permissions — matches Rust pinpoint's dev behaviour and keeps the
+validation worker unblocked. Every use case's `authorize(scope)` now
+returns `scope.permissions.has(THIS.requiredPermission)` (via a
+`(this.constructor as unknown as { readonly requiredPermission:
+string })` cast so the pattern is symmetric across all 22).
+
+**In-band session refresh (`ffbcd33`).** When the session-cookie path
+of `extractRequestToken` finds an access token that fails validation
+(typically expired), `tryRefreshSession` in `auth/session-refresh.ts`
+attempts one refresh-token exchange before falling through to 401.
+The SPA stays logged in across token-lifetime boundaries instead of
+bouncing through `/auth/login` on every expiry. Re-reads the session
+from the store before refreshing so concurrent rotating-refresh-
+token races don't double-refresh; preserves the existing refresh
+token when the IdP omits a new one (spec allows the old one to keep
+working). On any failure returns null and leaves the session
+untouched — caller treats null as "no token" → 401, identical to
+pre-refresh behaviour. 7 unit tests cover happy path + race + every
+null branch.
+
+**Live-IdP end-to-end (`2ac69e3`).** In-process fake OIDC IdP at
+`test/integration/auth/fake-idp.ts` exposes the real OIDC endpoints
+(discovery / JWKS / authorize / token / userinfo) with tokens signed
+by a freshly-generated RS256 keypair per run. 7 integration tests in
+`test/integration/auth/oidc-live.test.ts` exercise TokenValidator
+(valid / expired / wrong-aud), OidcClient (full auth-code grant /
+refresh / revoked-refresh), and tryRefreshSession composed (seeds a
+session with an intentionally-invalid access token, asserts the
+helper exchanged the refresh token end-to-end against /token,
+persisted the new pair, and returned claims with the right viewer-
+role permission set).
+
+Production code change to support the test rig: `OidcConfig` grew
+`allowInsecureRequests?: boolean` (openid-client v6 refuses non-HTTPS
+issuer URLs by default — correct in production). Honoured inside
+`createOidcClient` via openid-client's `execute` option on
+`discovery()`. **No env loader for the flag** — production configs
+can't accidentally turn it on.
 
 ## Slice 12.2 status (shipped)
 
@@ -231,10 +375,10 @@ Smoke (against `pnpm -F @pinpoint/server dev` with
 - `/auth/login` with no IdP → 503 ✓
 - `/auth/logout` → 302 ✓
 
-Still pending: a real end-to-end OIDC flow against a live IdP — the
-pieces are wired but the integration test belongs in 12.3. Token-refresh
-on session-cookie expiry is also a follow-up (currently the SPA bounces
-through `/auth/login`).
+Follow-ups (now all shipped): real end-to-end OIDC against a live IdP
+(`2ac69e3`); token refresh on session-cookie expiry (`ffbcd33`);
+real permission checks across all 22 use cases (`6649ef0`). See the
+"OIDC hardening" section below.
 
 ## Slice 12.1 status (shipped)
 
@@ -282,15 +426,11 @@ Gotchas baked into the design (and the Dockerfile comments):
   initialised that way and forced re-init is more disruptive than the
   warning.
 
-Still pending in Slice 12:
+Both follow-ups closed:
 
-- **12.2 — OIDC + cookie sessions for BFF.** `extractRequestToken` still
-  on the `x-user-id` dev fallback. Real auth landing is the gate before
-  pinpoint goes behind a real URL.
-- **12.3 — Integration-test backfill.** `@testcontainers/postgresql` +
-  tests for the ~10 Drizzle repos and ~22 write use cases. The current
-  83 tests cover pure functions and decorator orchestration; nothing
-  exercises a real DB or a real use-case-through-route flow.
+- **12.2** shipped (`a1a73c1`) + perms wiring (`6649ef0`) + session
+  refresh (`ffbcd33`) + live-IdP test (`2ac69e3`).
+- **12.3** shipped across the harness commit + 12.3a/b/c/d/e.
 
 ## Slice 11 status (shipped)
 
@@ -315,9 +455,10 @@ What changed vs the Rust source:
   is unchanged (Vue auto-converts).
 
 Vite dev proxies `/bff`, `/api`, `/auth` → `http://localhost:3000` to
-hit the local pinpoint server. The SPA still uses the BFF cookie-auth
-flow; with the dev server fallback (`x-user-id`) it expects real OIDC
-in Slice 12, so most write surfaces will 401 until then.
+hit the local pinpoint server. The SPA uses the BFF cookie-auth flow;
+real OIDC + perms checks shipped in Slice 12.2 + `6649ef0`. For local
+dev without an IdP, set `PINPOINT_AUTH_DEV_FALLBACK=true` — the
+`x-user-id` header path then grants ALL permissions.
 
 ## Gotchas
 
@@ -325,7 +466,15 @@ in Slice 12, so most write surfaces will 401 until then.
 
 **Standing rule: run `pnpm update @flowcatalyst/sdk -r` at the start of every new task** before doing anything else. The semver range floats but pnpm only re-resolves on explicit update. The dev SDK ships out-of-band, often weekly. If the update bumps the locked commit, run `pnpm -r --if-present typecheck` immediately so any SDK-induced breakage is attributed to the bump and not to whatever task you're about to start.
 
-**Effect 4 is beta.** Pinned at `4.0.0-beta.67`. Don't bump without checking the renames documented in `apps/fulfil/CLAUDE.md` (Either→Result, Context.Tag→Context.Service, etc.).
+**Effect 4 is beta.** Pinned at `4.0.0-beta.70` (was beta.67; bumped post-Slice 12.3). Legacy catalog holds beta.66. Don't bump without checking the renames documented in `apps/fulfil/CLAUDE.md` (Either→Result, Context.Tag→Context.Service, etc.).
+
+**Repos are Effect Tags now.** Post-Slice 13, every repo exports `Context.Service` Tag + `.layer(port)` factory in addition to the Promise-typed interface. Use cases `yield* X` from the environment. Don't reintroduce per-call `Effect.tryPromise` wraps — the Tag wrapping exists to amortise that. The Promise interface is kept only because the `AggregateRegistry`'s plain-async persist callback (SDK shape, fixed) calls into it.
+
+**`OidcConfig.allowInsecureRequests` is test-only.** Flag exists to let the in-process fake IdP run over plain HTTP (openid-client v6 refuses non-HTTPS issuers by default). There is **no env loader** for the flag — production configs can't accidentally turn it on. Don't add one without understanding why.
+
+**Fake-IdP gotcha: id_token `aud` ≠ access_token `aud`.** The id_token's `aud` must be the `client_id` per OIDC spec; access tokens carry the resource audience. Conflating them makes openid-client reject the auth-code grant with `OAUTH_JWT_CLAIM_COMPARISON_FAILED`. Built into `test/integration/auth/fake-idp.ts` — preserve when extending.
+
+**Inline-attribute insert requires the tx.** The `create-location` use case writes location attributes inline in the same UoW transaction. Both write sites resolve the tx via `TransactionStore.require()` and pass it through — without that, the insert runs against the default connection and the FK to the just-created (still-uncommitted) location row fails. Caught by Slice 12.3e's integration test (`c9b650a`). If you add another inline-child-entity write site, mirror this pattern.
 
 **`as never` cast on Scope in event constructors.** This is intentional — the SDK's `BaseDomainEvent` expects a structurally-narrower `ExecutionContext`, and pinpoint's `Scope` is a structural superset. The cast satisfies the brand. Don't try to "fix" it without understanding the seal pattern.
 
@@ -347,7 +496,7 @@ in Slice 12, so most write surfaces will 401 until then.
 
 **The rate-limited geocoder test does wall-clock timing.** It fires 8 calls at 4 rps and asserts `elapsed >= 750ms`. Token-bucket refill timing varies a bit; if this turns out flaky in CI, widen the lower bound or split into "no-delay first burst" + "delay after burst" pairs against a tighter clock. Don't replace with fake timers — Effect 4's `RateLimiter` doesn't respect vitest's `vi.useFakeTimers`.
 
-**Drizzle repos + write use cases have ZERO direct test coverage.** The 83 tests today cover (a) pure functions in `domain/services/`, (b) infra-service decorators with mocked fetch, (c) orchestration logic with fake repos. None of `createDrizzle*Repository`, none of the use-case `execute` methods, are exercised against a real DB. This is a deliberate gap — there's no `@testcontainers/postgresql` setup yet. Plan: backfill in a dedicated test-infra slice before Slice 12 cutover. If you're tempted to add a one-off DB test, either (a) bring testcontainers in as the canonical pattern, or (b) use the dev compose DB on 5433 with a clear note that it requires `pnpm db:up` to run.
+**Two test surfaces, two configs.** `pnpm test` (unit, vitest) covers pure functions, decorator orchestration with fake repos, and the OIDC session-refresh helper — fast, no Docker. `pnpm test:integration` (vitest with `vitest.integration.config.ts`, `fileParallelism: false`) covers every Drizzle repo + every write use case + the OIDC live-IdP suite, all against a single `@testcontainers/postgresql` instance shared across the run. The canonical pattern post-Slice 12.3 is: if your code touches a Drizzle repo or `globalThis.fetch`, write an integration test (via testcontainer DB or `fetch-mock.ts`); otherwise a unit test with fakes is fine. Don't reintroduce DB-touching tests against the dev compose on 5433 — that path is for human smoke-testing.
 
 ## Smoke commands
 

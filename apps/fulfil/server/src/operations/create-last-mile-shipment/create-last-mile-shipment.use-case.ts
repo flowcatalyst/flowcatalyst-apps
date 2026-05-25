@@ -3,6 +3,7 @@ import { generateTsid } from '@flowcatalyst/sdk';
 import {
   AuthorizationError,
   BusinessRuleViolation,
+  Scope,
   ScopeStore,
   ValidationError,
   type Sealed,
@@ -55,13 +56,13 @@ export class CreateLastMileShipmentUseCase {
     UnitOfWork | AggregateRegistry
   > => {
     const fulfilments = this.fulfilments;
-    const authorize = (): boolean => this.authorize();
+    const authorize = (s: Scope): boolean => this.authorize(s);
 
     return Effect.gen(function* () {
       const scope = ScopeStore.require();
 
       // 1. Authorization.
-      if (!authorize()) {
+      if (!authorize(scope)) {
         return yield* Effect.fail(
           new AuthorizationError({
             code: 'PERMISSION_DENIED',
@@ -158,8 +159,9 @@ export class CreateLastMileShipmentUseCase {
     });
   };
 
-  private authorize(): boolean {
-    // TODO(auth): real permission check.
-    return true;
+  private authorize(scope: Scope): boolean {
+    const required = (this.constructor as unknown as { readonly requiredPermission: string })
+      .requiredPermission;
+    return scope.permissions.has(required);
   }
 }
