@@ -5,6 +5,7 @@
  * Configuration plumbing.
  */
 import {
+  allowInsecureRequests,
   authorizationCodeGrant,
   buildAuthorizationUrl,
   calculatePKCECodeChallenge,
@@ -72,11 +73,18 @@ export async function createOidcClient(config: OidcConfig): Promise<OidcClient> 
   // client_secret_basic when one is configured. Matches what most IdPs ship.
   const clientAuth = config.clientSecret !== null ? ClientSecretBasic(config.clientSecret) : None();
 
+  // Allow plaintext HTTP only when explicitly opted in (test rigs
+  // against an in-process fake IdP). openid-client v6 refuses
+  // non-HTTPS by default — that's the production-safe behaviour.
+  // The opt-in must be applied via `execute` on the discovery call
+  // itself, because discovery is the first HTTP request and the flag
+  // has no effect retroactively.
   const discovered: Configuration = await discovery(
     new URL(config.issuerUrl),
     config.clientId,
     {},
     clientAuth,
+    config.allowInsecureRequests ? { execute: [allowInsecureRequests] } : undefined,
   );
 
   return {

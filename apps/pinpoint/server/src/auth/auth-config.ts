@@ -16,6 +16,14 @@ export interface OidcConfig {
    * (e.g. `openid profile email roles offline_access`).
    */
   readonly scopes: string;
+  /**
+   * Opt-in to non-HTTPS IdP endpoints. openid-client v6 refuses
+   * plaintext HTTP by default (`OAUTH_HTTP_REQUEST_FORBIDDEN`). Tests
+   * point at an in-process fake IdP on `http://127.0.0.1:<port>/`,
+   * so the test rig flips this to true. NEVER enable in production
+   * — there's no env loader for this flag for that reason.
+   */
+  readonly allowInsecureRequests?: boolean;
 }
 
 export interface AuthConfig {

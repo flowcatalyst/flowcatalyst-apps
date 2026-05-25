@@ -100,15 +100,33 @@ export async function startFakeIdp(options: FakeIdpOptions = {}): Promise<FakeId
   // refresh tokens are revoked.
   const refreshTokens = new Map<string, StoredRefreshToken>();
 
-  async function signToken(user: FakeIdpUser, ttlSeconds: number): Promise<string> {
+  /**
+   * Mint a JWT signed by the IdP keypair. `aud` differs by token
+   * type: access tokens are scoped to the resource audience; id
+   * tokens to the client_id (per OIDC spec, the id_token's `aud`
+   * MUST contain the client_id). openid-client verifies the id_token
+   * audience against `client_id` during the auth-code grant.
+   */
+  async function signToken(
+    user: FakeIdpUser,
+    ttlSeconds: number,
+    aud: string,
+  ): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const payload: Record<string, unknown> = {
       sub: user.sub,
       iss: serverUrl(),
-      aud: audience,
+      aud,
       iat: now,
       exp: now + ttlSeconds,
       roles: user.roles ?? [],
+      // Random per-token jti: without it, two tokens minted in the
+      // same wall-clock second (e.g. auth-code grant immediately
+      // followed by a refresh in a test) would be byte-identical and
+      // assertions like `expect(refreshed).not.toBe(initial)` would
+      // fail. Real IdPs see real elapsed time between mints so this
+      // doesn't matter outside the test rig.
+      jti: randomUUID(),
     };
     if (user.name) payload['name'] = user.name;
     if (user.email) payload['email'] = user.email;
@@ -215,14 +233,15 @@ export async function startFakeIdp(options: FakeIdpOptions = {}): Promise<FakeId
       }
       const user = pendingCodes.get(code)!;
       pendingCodes.delete(code);
-      const accessToken = await signToken(user, accessTokenTtl);
+      const accessToken = await signToken(user, accessTokenTtl, audience);
+      const idToken = await signToken(user, accessTokenTtl, clientId);
       const refreshToken = newRefreshToken(user);
       return reply.send({
         access_token: accessToken,
         refresh_token: refreshToken,
         token_type: 'Bearer',
         expires_in: accessTokenTtl,
-        id_token: accessToken, // simplification — fake IdP reuses the access token shape
+        id_token: idToken,
         scope: 'openid profile email',
       });
     }
@@ -237,7 +256,7 @@ export async function startFakeIdp(options: FakeIdpOptions = {}): Promise<FakeId
         return reply.code(400).send({ error: 'invalid_grant', detail: 'refresh token rejected' });
       }
       stored.revoked = true; // rotate
-      const newAccessToken = await signToken(stored.user, accessTokenTtl);
+      const newAccessToken = await signToken(stored.user, accessTokenTtl, audience);
       const newRefreshTokenStr = newRefreshToken(stored.user);
       return reply.send({
         access_token: newAccessToken,
@@ -275,7 +294,7 @@ export async function startFakeIdp(options: FakeIdpOptions = {}): Promise<FakeId
       authorizedUser = user;
     },
     async signAccessToken(user, opts = {}) {
-      return signToken(user, opts.expiresInSeconds ?? accessTokenTtl);
+      return signToken(user, opts.expiresInSeconds ?? accessTokenTtl, audience);
     },
     invalidateRefreshToken(token) {
       const stored = refreshTokens.get(token);

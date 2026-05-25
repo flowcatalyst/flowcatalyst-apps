@@ -43,7 +43,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
       const token = await idp.signAccessToken({
         sub: 'prn_alice',
@@ -67,7 +67,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
       const token = await idp.signAccessToken(
         { sub: 'prn_bob' },
@@ -84,7 +84,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
       const token = await idp.signAccessToken({ sub: 'prn_alice', roles: [] });
 
@@ -100,7 +100,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
 
       idp.setAuthorizedUser({
@@ -138,7 +138,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
       idp.setAuthorizedUser({ sub: 'prn_carol', roles: ['operator'] });
       const params = await oidc.buildAuthorizeUrl();
@@ -160,7 +160,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
       idp.setAuthorizedUser({ sub: 'prn_dan', roles: [] });
       const params = await oidc.buildAuthorizeUrl();
@@ -183,7 +183,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
       const validator = createTokenValidator({
         issuerUrl: idp.issuerUrl,
@@ -191,7 +191,7 @@ describe('OIDC end-to-end against a live IdP', () => {
         clientId: 'pinpoint-test-client',
         clientSecret: null,
         redirectUri: 'http://pinpoint.test/auth/callback',
-        scopes: 'openid profile email',
+        scopes: 'openid profile email', allowInsecureRequests: true,
       });
 
       idp.setAuthorizedUser({
