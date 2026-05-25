@@ -15,7 +15,7 @@ import type {
   GeocodingResult,
   ReverseGeocodingResult,
 } from '../../domain/services/geocoder.js';
-import { createRateLimitedGeocoder } from './rate-limited-geocoder.js';
+import { createRateLimitedGeocoder, resetRateLimitBuckets } from './rate-limited-geocoder.js';
 
 const ADDRESS: NormalizedAddress = {
   houseNumber: null,
@@ -119,6 +119,55 @@ describe('rate-limited geocoder', () => {
       // 4 calls across two 2-rps buckets should burn no significant time;
       // each bucket has 2 tokens to spend immediately. Keep the bound loose.
       expect(elapsed).toBeLessThan(500);
+    });
+
+    it(
+      'decorators sharing the same key share a bucket',
+      { timeout: 5000 },
+      async () => {
+        const inner = fakeInner();
+        const key = `pinpoint:test:shared:${Math.random()}`;
+        const a = createRateLimitedGeocoder(inner, { requestsPerSecond: 4, key });
+        const b = createRateLimitedGeocoder(inner, { requestsPerSecond: 4, key });
+
+        // 8 calls split across the two decorators against a single 4-rps
+        // bucket should take ~1s of total throttling — same shape as 8
+        // calls through a single 4-rps decorator. If the decorators had
+        // independent buckets, each would drain its 4-token burst
+        // instantly and the total would be < 500ms.
+        const started = Date.now();
+        for (let i = 0; i < 8; i++) {
+          await (i % 2 === 0 ? a : b).geocode(ADDRESS);
+        }
+        const elapsed = Date.now() - started;
+
+        expect(elapsed).toBeGreaterThanOrEqual(750);
+        expect(inner.geocode).toHaveBeenCalledTimes(8);
+      },
+    );
+
+    it('throws when re-registering the same key with a different rate', () => {
+      const inner = fakeInner();
+      const key = `pinpoint:test:conflict:${Math.random()}`;
+      createRateLimitedGeocoder(inner, { requestsPerSecond: 4, key });
+
+      expect(() =>
+        createRateLimitedGeocoder(inner, { requestsPerSecond: 10, key }),
+      ).toThrow(/capacity 4.*capacity 10/);
+    });
+
+    it('resetRateLimitBuckets clears in-process state', () => {
+      const inner = fakeInner();
+      const key = `pinpoint:test:reset:${Math.random()}`;
+      createRateLimitedGeocoder(inner, { requestsPerSecond: 4, key });
+
+      resetRateLimitBuckets();
+
+      // After a reset, re-registering with a different rate is fine —
+      // there's no longer a bucket bound to that key.
+      expect(() =>
+        createRateLimitedGeocoder(inner, { requestsPerSecond: 10, key }),
+      ).not.toThrow();
     });
   });
 });

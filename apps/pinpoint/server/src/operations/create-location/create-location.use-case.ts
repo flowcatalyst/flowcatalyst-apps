@@ -412,7 +412,9 @@ export class CreateLocationUseCase {
           validatedEvent,
           command,
         );
-        if (isFailure(validatedResult)) return validatedResult;
+        // Reconstruct the failure so the return type matches the outer
+        // Result<LocationCreated> instead of Result<LocationValidated>.
+        if (isFailure(validatedResult)) return Result.failure(validatedResult.error);
       }
 
       return primary;
@@ -469,7 +471,9 @@ export class CreateLocationUseCase {
       normalizedCountry: normalized.country,
     });
     const masterCommit = await commitAggregate(this.uow, this.registry, master, masterEvent, command);
-    if (isFailure(masterCommit)) return masterCommit;
+    // Reconstruct the failure so the return type matches the outer
+    // Result<LocationCreated> instead of Result<MasterLocationCreated>.
+    if (isFailure(masterCommit)) return Result.failure(masterCommit.error);
 
     const location: Location = {
       id: locationId,

@@ -164,7 +164,9 @@ export class ConfirmMasterLocationUseCase {
       );
       // Short-circuit on commit failure — surrounding tx will see the
       // returned failure or, on uncaught throws inside persist, roll back.
-      if (isFailure(childResult)) return childResult;
+      // Reconstruct the failure so the return type matches the outer
+      // Result<MasterLocationValidated> instead of Result<LocationValidated>.
+      if (isFailure(childResult)) return Result.failure(childResult.error);
       locationsValidated += 1;
     }
 
