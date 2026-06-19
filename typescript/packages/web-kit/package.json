@@ -1,0 +1,40 @@
+{
+  "name": "@flowcatalyst-apps/web-kit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./styles.css": "./src/styles/main.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@primeuix/themes": "^2.0.3",
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.4",
+    "typescript": "catalog:",
+    "vee-validate": "^4.15.1",
+    "vitest": "catalog:",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0",
+    "vue-tsc": "^2.2.0"
+  },
+  "peerDependencies": {
+    "@primeuix/themes": "^2.0.3",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.4",
+    "vee-validate": "^4.15.1",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
+  }
+}

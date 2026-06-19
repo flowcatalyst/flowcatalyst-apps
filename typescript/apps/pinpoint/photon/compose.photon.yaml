@@ -1,0 +1,40 @@
+# Runtime Photon service — serves a prebuilt index produced by build-index.sh.
+#
+# Extract the dist tarball into ./photon-index first, then bring it up:
+#
+#   mkdir -p photon-index
+#   tar -C photon-index -xzf dist/photon-data-southern-africa-YYYYMMDD.tar.gz
+#   docker compose -f compose.photon.yaml up -d --build
+#
+# Then point pinpoint at it:
+#   PINPOINT_GEOCODING_API_URL=http://photon:2322   (same compose network)
+#   PINPOINT_GEOCODING_API_URL=http://<host>:2322   (separate host)
+#
+# To fold this into the main prod stack instead, copy the service block into
+# compose.prod.yaml and set PINPOINT_GEOCODING_API_URL on the `pinpoint`
+# service to http://photon:2322.
+
+name: pinpoint-photon
+
+services:
+  photon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHOTON_VERSION: ${PHOTON_VERSION:-0.6.2}
+    container_name: pinpoint-photon
+    restart: unless-stopped
+    volumes:
+      # Extracted photon_data dir from the build tarball. Mounted read-write:
+      # the embedded Elasticsearch needs to write its node lock + transient
+      # state on startup, so :ro will fail to boot.
+      - ./photon-index/photon_data:/photon/photon_data
+    ports:
+      - '${PHOTON_HTTP_PORT:-2322}:2322'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS "http://localhost:2322/api?q=test&limit=1" || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s

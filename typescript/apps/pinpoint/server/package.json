@@ -1,0 +1,53 @@
+{
+  "name": "@pinpoint/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "pnpm test && pnpm test:integration",
+    "typecheck": "tsc --noEmit",
+    "db:up": "docker compose -f ../compose.yaml up -d --wait",
+    "db:down": "docker compose -f ../compose.yaml down",
+    "db:init": "tsx scripts/db-init.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "flowcatalyst:sync": "tsx scripts/sync-flowcatalyst.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^8.0.0",
+    "@fastify/swagger": "^9.4.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@flowcatalyst-apps/app-framework": "workspace:*",
+    "@flowcatalyst/sdk": "github:flowcatalyst/typescript-sdk#semver:>=0.6.7",
+    "@pinpoint/framework": "workspace:*",
+    "@pinpoint/shared": "workspace:*",
+    "@sinclair/typebox": "^0.34.49",
+    "drizzle-orm": "1.0.0-rc.3",
+    "fastify": "^5.2.0",
+    "ioredis": "^5.0.0",
+    "jose": "^6.2.3",
+    "openid-client": "^6.8.4",
+    "postgres": "^3.4.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@testcontainers/postgresql": "^12.0.0",
+    "@testcontainers/redis": "^12.0.0",
+    "@types/node": "catalog:",
+    "drizzle-kit": "1.0.0-rc.3",
+    "testcontainers": "^12.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

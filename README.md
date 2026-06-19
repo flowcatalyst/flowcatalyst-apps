@@ -1,6 +1,23 @@
 # flowcatalyst-apps
 
-TypeScript monorepo for apps running on [FlowCatalyst](https://github.com/yourusername/flowcatalyst) with [Effect](https://effect.website) v4.
+Polyglot monorepo for apps running on [FlowCatalyst](https://github.com/yourusername/flowcatalyst). Each language sits in its own subtree at the repo root so toolchains don't collide; today only `typescript/` is populated.
+
+## Repo layout
+
+```
+flowcatalyst-apps/
+└─ typescript/                # pnpm + Vite+ workspace (see below)
+   ├─ apps/
+   ├─ packages/
+   ├─ pnpm-workspace.yaml
+   └─ vite.config.ts
+```
+
+Run any TypeScript command from inside `typescript/` — `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `node_modules/`, and `vite.config.ts` all live there.
+
+## TypeScript workspace
+
+TypeScript apps built on FlowCatalyst (Effect v4 for fulfil; plain async + sealed `Result` for pinpoint).
 
 ## Stack
 
@@ -16,9 +33,10 @@ TypeScript monorepo for apps running on [FlowCatalyst](https://github.com/yourus
 ## Layout
 
 ```
-flowcatalyst-apps/
+typescript/
 ├─ apps/
-│  └─ fulfil/                     # nested sub-monorepo (server, framework, …)
+│  ├─ fulfil/                     # nested sub-monorepo (server, framework, …)
+│  └─ pinpoint/                   # spatial geocoding service + SPA
 └─ packages/
    ├─ tsconfig/                   # @flowcatalyst-apps/tsconfig
    └─ testing/                    # @flowcatalyst-apps/testing
@@ -30,10 +48,13 @@ flowcatalyst-apps/
 # 1. Install Vite+ global CLI (one-time)
 curl -fsSL https://vite.plus | bash
 
-# 2. Install dependencies (vp install delegates to pnpm)
+# 2. Enter the TS workspace
+cd typescript
+
+# 3. Install dependencies (vp install delegates to pnpm)
 pnpm install
 
-# 3. Verify
+# 4. Verify
 vp check       # lint + format + typecheck
 vp test        # run all tests
 ```

@@ -1,0 +1,80 @@
+# Self-contained Photon index build pipeline.
+#
+# NOTHING here touches pinpoint's runtime Postgres. The Nominatim database is a
+# throwaway that lives only long enough to produce the Photon search index,
+# then is destroyed by build-index.sh's `down -v`.
+#
+# Driven by build-index.sh — run that, not this file directly. See README.md.
+
+name: pinpoint-photon-build
+
+services:
+  # [1] Download the per-country Geofabrik extracts + merge into one PBF.
+  #     Writes /work/combined.osm.pbf (bind-mounted to ./work on the host).
+  prep:
+    build:
+      context: .
+      dockerfile: prep.Dockerfile
+    environment:
+      COUNTRIES: ${COUNTRIES:?set COUNTRIES in .env}
+      GEOFABRIK_BASE: ${GEOFABRIK_BASE:-https://download.geofabrik.de/africa}
+      OUT_FILE: /work/combined.osm.pbf
+    volumes:
+      - ./work:/work
+
+  # [2] Throwaway Nominatim — bundles its own Postgres + PostGIS. Imports the
+  #     merged PBF on first boot, reports healthy once /status returns OK.
+  nominatim:
+    image: mediagis/nominatim:${NOMINATIM_VERSION:-4.4}
+    environment:
+      PBF_PATH: /data/combined.osm.pbf
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:-nominatim}
+      IMPORT_STYLE: ${IMPORT_STYLE:-address}
+    volumes:
+      - ./work:/data:ro
+      - nominatim-pg:${NOMINATIM_PGDATA:-/var/lib/postgresql/14/main}
+    shm_size: ${NOMINATIM_SHM_SIZE:-1g}
+    ports:
+      # Exposed only for debugging the import; the pipeline talks over the
+      # compose network, not this port.
+      - '${NOMINATIM_HTTP_PORT:-8088}:8080'
+    healthcheck:
+      # API + DB are not up until the import finishes — hence the high retry
+      # count. /status returns 200 "OK" only once the DB is queryable.
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:8080/status || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 400
+      start_period: 60s
+
+  # [3] Photon importer — connects to the throwaway Nominatim, builds the
+  #     index into /photon/photon_data (bind-mounted to ./data), then exits.
+  #     That directory IS the artifact.
+  photon-import:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHOTON_VERSION: ${PHOTON_VERSION:-0.6.2}
+    depends_on:
+      nominatim:
+        condition: service_healthy
+    command:
+      - -nominatim-import
+      - -host
+      - nominatim
+      - -port
+      - '5432'
+      - -database
+      - nominatim
+      - -user
+      - nominatim
+      - -password
+      - ${NOMINATIM_PASSWORD:-nominatim}
+      - -data-dir
+      - /photon
+    volumes:
+      - ./data:/photon
+
+volumes:
+  nominatim-pg:

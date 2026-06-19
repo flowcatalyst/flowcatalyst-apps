@@ -1,0 +1,58 @@
+# Local dev Postgres + PostGIS for the pinpoint app.
+#
+# Embedded postgres in fc-dev (port 15432) doesn't ship with PostGIS — the
+# theseus-rs binaries it bundles are plain PG. Pinpoint needs PostGIS from
+# Slice 5 onward, so local dev uses this docker container instead.
+#
+# Port 5433 avoids colliding with both a native-installed Postgres (5432)
+# and the fc-dev embedded Postgres (15432). The `pinpoint` schema isolation
+# + role-level search_path are handled by `pnpm db:init`.
+
+services:
+  postgres:
+    # imresamu/postgis is the multi-arch PostGIS image maintained by Imre Samu
+    # (one of the PostGIS project maintainers). The official postgis/postgis
+    # images are amd64-only; this fork ships both linux/amd64 and linux/arm64,
+    # which matters for Apple Silicon. The official docker-postgis README
+    # links here as the recommended source for arm64 dev images.
+    image: imresamu/postgis:18-3.6
+    container_name: pinpoint-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pinpoint
+      POSTGRES_PASSWORD: pinpoint
+      POSTGRES_DB: pinpoint
+    ports:
+      - '5433:5432'
+    volumes:
+      - pinpoint-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pinpoint -d pinpoint']
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  # libpostal sidecar — the address normalizer the matching pipeline calls.
+  # Same image the Rust pinpoint targets (pelias/libpostal-service); the
+  # /parse + /expand endpoints are stable so TS + Rust hashes collide for
+  # identical inputs.
+  #
+  # The image is large (~3GB — includes ~1.7GB of libpostal model data).
+  # Healthcheck waits for /parse to respond rather than just for the port,
+  # because the service takes ~30s on first start to load model data into
+  # memory.
+  libpostal:
+    image: pelias/libpostal-service:latest
+    container_name: pinpoint-libpostal
+    restart: unless-stopped
+    ports:
+      - '4400:4400'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4400/parse?address=test']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  pinpoint-pgdata:

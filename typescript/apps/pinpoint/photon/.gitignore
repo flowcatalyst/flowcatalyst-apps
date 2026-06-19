@@ -1,0 +1,8 @@
+# Local secrets / tuning
+.env
+
+# Build scratch + artifacts — large, regenerable, never commit
+work/
+data/
+dist/
+photon-index/
