@@ -17,8 +17,12 @@
  *      against an up-to-date platform skip the addSchemaVersion call.
  *
  * Required env:
- *   FLOWCATALYST_URL, FLOWCATALYST_CLIENT_ID, FLOWCATALYST_CLIENT_SECRET,
+ *   FLOWCATALYST_URL, FLOWCATALYST_API_CLIENT_ID, FLOWCATALYST_API_CLIENT_SECRET,
  *   PINPOINT_PUBLIC_BASE_URL
+ *
+ * The API client (client_credentials service account) is DISTINCT from the
+ * runtime outbox tenant `FLOWCATALYST_CLIENT_ID` ("pinpoint") — different
+ * client, hence the `_API_` env names.
  *
  * Optional env:
  *   PINPOINT_DISPATCH_POOL (default: "pinpoint-default")
@@ -121,8 +125,8 @@ async function syncEventSchemas(client: FlowCatalystClient): Promise<void> {
 async function main(): Promise<void> {
   const client = new FlowCatalystClient({
     baseUrl: requireEnv('FLOWCATALYST_URL'),
-    clientId: requireEnv('FLOWCATALYST_CLIENT_ID'),
-    clientSecret: requireEnv('FLOWCATALYST_CLIENT_SECRET'),
+    clientId: requireEnv('FLOWCATALYST_API_CLIENT_ID'),
+    clientSecret: requireEnv('FLOWCATALYST_API_CLIENT_SECRET'),
   });
 
   const definitions = buildPinpointDefinitions({
