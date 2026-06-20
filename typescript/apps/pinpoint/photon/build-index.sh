@@ -37,6 +37,11 @@ trap cleanup EXIT
 
 mkdir -p work data dist
 
+# Rebuild local images first — `compose run` reuses a cached image and would
+# otherwise silently run a stale prep/photon-import after a Dockerfile change.
+echo "== [0/4] build local images (prep + photon-import)"
+"${COMPOSE[@]}" build
+
 echo "== [1/4] download + merge extracts: ${COUNTRIES}"
 "${COMPOSE[@]}" run --rm prep
 
