@@ -16,9 +16,14 @@ for c in $COUNTRIES; do
   url="${BASE}/${c}-latest.osm.pbf"
   dest="/work/${c}-latest.osm.pbf"
   echo ">> downloading ${url}"
-  # Geofabrik 404s with a slug change occasionally (e.g. swaziland→eswatini).
-  # --fail makes that a hard error instead of saving an HTML error page.
   curl -fL --retry 3 --retry-delay 2 -o "$dest" "$url"
+  # --fail catches 4xx/5xx, but Geofabrik serves a 200 HTML page for an unknown
+  # slug (e.g. "eswatini" — it's published as "swaziland"). That slips past
+  # curl, so verify each file is actually a PBF before trusting the merge.
+  if ! osmium fileinfo "$dest" >/dev/null 2>&1; then
+    echo "!! '${dest}' is not a valid OSM PBF ($(wc -c <"$dest") bytes) — likely a bad COUNTRIES slug for '${c}'. Geofabrik uses 'swaziland', not 'eswatini'." >&2
+    exit 1
+  fi
   files+=("$dest")
 done
 

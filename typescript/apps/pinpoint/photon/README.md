@@ -5,7 +5,7 @@ geocoder, scoped to pinpoint's operating region. Replaces the free public
 `photon.komoot.io` default (`PINPOINT_GEOCODING_API_URL`) once that endpoint's
 fair-use limits become a constraint.
 
-**Region (Geofabrik slugs):** `south-africa namibia botswana zimbabwe mozambique lesotho eswatini`
+**Region (Geofabrik slugs):** `south-africa namibia botswana zimbabwe mozambique lesotho swaziland`
 
 > You cannot merge Komoot's prebuilt per-country dumps — each is a complete,
 > self-contained search index with no union tooling. Combining arbitrary
@@ -40,7 +40,7 @@ What it does, end to end:
 
 1. **prep** — downloads the 7 Geofabrik extracts and `osmium merge`s them into
    `work/combined.osm.pbf` (dedupes objects shared across extracts, so the
-   Lesotho/Eswatini overlap with neighbouring extracts is harmless).
+   Lesotho/Swaziland overlap with neighbouring extracts is harmless).
 2. **nominatim** — a throwaway `mediagis/nominatim` (bundles its own
    Postgres+PostGIS) imports the merged PBF. **Never touches pinpoint's DB.**
 3. **photon-import** — connects to that Nominatim, builds the index into
@@ -93,9 +93,10 @@ to reason about and these extracts don't churn fast.
 - **`IMPORT_STYLE=address`** keeps the import lean — enough for address
   geocoding, far smaller/faster than `full` (which adds POIs). Switch to `full`
   only if you need POI search.
-- **`eswatini` slug:** Geofabrik renamed Swaziland → Eswatini. If the download
-  404s, the slug changed back/again — adjust `COUNTRIES` in `.env`. `merge.sh`
-  fails hard on a 404 rather than saving an HTML error page.
+- **`swaziland` slug, not `eswatini`:** Geofabrik publishes the extract under the
+  legacy name `swaziland`. Using `eswatini` returns a 200 HTML page (not a 404),
+  which would slip past `curl --fail` — so `merge.sh` validates each download
+  with `osmium fileinfo` and aborts naming the bad slug.
 - **Runtime mount is read-write**, not `:ro` — the embedded Elasticsearch
   writes a node lock on startup and won't boot from a read-only dir.
 - **`work/`, `data/`, `dist/`, `photon-index/`, `.env`** are git-ignored
