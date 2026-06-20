@@ -30,6 +30,15 @@ STAMP="$(date +%Y%m%d)"
 DIST_FILE="dist/${DIST_NAME:-photon-data-southern-africa}-${STAMP}.tar.gz"
 
 cleanup() {
+  local status=$?
+  # On failure, dump Nominatim logs + host resources BEFORE teardown so the
+  # real cause (OOM / disk-full / config) is visible — `down -v` destroys it.
+  if [[ $status -ne 0 ]]; then
+    echo ">> build failed (exit $status) — nominatim logs (tail) + host resources:"
+    "${COMPOSE[@]}" logs --tail=200 nominatim || true
+    echo "---- memory ----"; free -h 2>/dev/null || true
+    echo "---- disk ----"; df -h . 2>/dev/null || true
+  fi
   echo ">> tearing down throwaway Nominatim (down -v)"
   "${COMPOSE[@]}" down -v --remove-orphans || true
 }
