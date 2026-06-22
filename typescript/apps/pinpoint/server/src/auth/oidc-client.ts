@@ -1,24 +1,17 @@
 /**
- * Thin wrapper around openid-client v6 — pinpoint only needs the
- * authorization-code-with-PKCE flow + token refresh + userinfo. Keeps the
- * call sites in our auth routes free of openid-client's discovery /
- * Configuration plumbing.
+ * Minimal OIDC authorization-code-with-PKCE client — a plain `fetch`
+ * implementation that matches the FlowCatalyst platform's hand-rolled OAuth
+ * server exactly (the same body-POST form the SDK's `flowcatalystAuth` uses).
+ *
+ * We deliberately do NOT use openid-client here: it's a strict, spec-compliant
+ * library, and the FC platform's token endpoint is a minimal custom
+ * implementation whose `client_secret_basic` handling isn't RFC-6749-§2.3.1
+ * compliant (it doesn't URL-decode Basic credentials). openid-client's Basic
+ * auth therefore failed against it; the platform's body-POST path works. This
+ * client sends `client_id` + `client_secret` as form fields in the token
+ * request body — the path the platform actually implements correctly.
  */
-import {
-  allowInsecureRequests,
-  authorizationCodeGrant,
-  buildAuthorizationUrl,
-  calculatePKCECodeChallenge,
-  ClientSecretBasic,
-  Configuration,
-  discovery,
-  fetchUserInfo,
-  None,
-  randomPKCECodeVerifier,
-  randomState,
-  refreshTokenGrant,
-  skipSubjectCheck,
-} from 'openid-client';
+import { createHash, randomBytes } from 'node:crypto';
 import type { OidcConfig } from './auth-config.js';
 
 export interface OidcTokens {
@@ -48,90 +41,143 @@ export interface OidcClient {
   fetchUserInfo(accessToken: string, sub: string | null): Promise<OidcUserInfo>;
 }
 
-function toTokens(response: {
-  access_token: string;
+interface DiscoveryDoc {
+  readonly authorization_endpoint: string;
+  readonly token_endpoint: string;
+  readonly userinfo_endpoint: string;
+}
+
+interface TokenResponseBody {
+  access_token?: string;
   refresh_token?: string;
   id_token?: string;
   expires_in?: number;
-}): OidcTokens {
+}
+
+const b64url = (buf: Buffer): string => buf.toString('base64url');
+
+function toTokens(body: TokenResponseBody): OidcTokens {
   return {
-    accessToken: response.access_token,
-    refreshToken: response.refresh_token ?? null,
-    idToken: response.id_token ?? null,
+    accessToken: body.access_token ?? '',
+    refreshToken: body.refresh_token ?? null,
+    idToken: body.id_token ?? null,
     expiresAt:
-      typeof response.expires_in === 'number'
-        ? Math.floor(Date.now() / 1000) + response.expires_in
-        : null,
+      typeof body.expires_in === 'number' ? Math.floor(Date.now() / 1000) + body.expires_in : null,
   };
 }
 
 /**
- * Initialise the OIDC client by discovering the issuer's metadata. Returns
- * a thin object with the four operations we actually use. Throws (rejects)
- * if discovery fails — callers should treat that as a startup failure.
+ * POST to the token endpoint with a form body. On a non-2xx, throws an Error
+ * carrying `.error` / `.error_description` from the OAuth error body so the
+ * callback route can surface the real cause.
+ */
+async function tokenRequest(
+  tokenEndpoint: string,
+  params: Record<string, string>,
+): Promise<OidcTokens> {
+  const res = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+    body: new URLSearchParams(params),
+  });
+
+  if (!res.ok) {
+    let oauthError: string | undefined;
+    let oauthDescription: string | undefined;
+    let detail = '';
+    try {
+      const errBody = (await res.json()) as { error?: string; error_description?: string };
+      oauthError = errBody.error;
+      oauthDescription = errBody.error_description;
+      detail = [errBody.error, errBody.error_description].filter(Boolean).join(': ');
+    } catch {
+      detail = (await res.text().catch(() => '')).slice(0, 200);
+    }
+    const err = new Error(
+      `OIDC token request failed (${res.status})${detail ? ` — ${detail}` : ''}`,
+    ) as Error & { error?: string; error_description?: string };
+    if (oauthError) err.error = oauthError;
+    if (oauthDescription) err.error_description = oauthDescription;
+    throw err;
+  }
+
+  const body = (await res.json()) as TokenResponseBody;
+  if (!body.access_token) {
+    throw new Error('OIDC token response missing access_token');
+  }
+  return toTokens(body);
+}
+
+/**
+ * Initialise the OIDC client by fetching the issuer's discovery document.
+ * Returns the four operations pinpoint's auth routes use. Throws (rejects)
+ * on discovery failure — callers treat that as a startup failure.
  */
 export async function createOidcClient(config: OidcConfig): Promise<OidcClient> {
-  // Client authentication method: public client when no secret (PKCE-only),
-  // client_secret_basic when one is configured. Matches what most IdPs ship.
-  const clientAuth = config.clientSecret !== null ? ClientSecretBasic(config.clientSecret) : None();
+  const wellKnown = `${config.issuerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`;
+  const res = await fetch(wellKnown, { headers: { accept: 'application/json' } });
+  if (!res.ok) {
+    throw new Error(`OIDC discovery failed: ${res.status} ${wellKnown}`);
+  }
+  const meta = (await res.json()) as DiscoveryDoc;
 
-  // Allow plaintext HTTP only when explicitly opted in (test rigs
-  // against an in-process fake IdP). openid-client v6 refuses
-  // non-HTTPS by default — that's the production-safe behaviour.
-  // The opt-in must be applied via `execute` on the discovery call
-  // itself, because discovery is the first HTTP request and the flag
-  // has no effect retroactively.
-  const discovered: Configuration = await discovery(
-    new URL(config.issuerUrl),
-    config.clientId,
-    {},
-    clientAuth,
-    config.allowInsecureRequests ? { execute: [allowInsecureRequests] } : undefined,
-  );
+  const clientSecret = config.clientSecret ?? '';
 
   return {
     async buildAuthorizeUrl(): Promise<OidcAuthorizeParams> {
-      const codeVerifier = randomPKCECodeVerifier();
-      const codeChallenge = await calculatePKCECodeChallenge(codeVerifier);
-      const state = randomState();
+      const codeVerifier = b64url(randomBytes(32));
+      const codeChallenge = b64url(createHash('sha256').update(codeVerifier).digest());
+      const state = b64url(randomBytes(16));
 
-      const url = buildAuthorizationUrl(discovered, {
+      const url = new URL(meta.authorization_endpoint);
+      url.search = new URLSearchParams({
+        response_type: 'code',
+        client_id: config.clientId,
         redirect_uri: config.redirectUri,
         scope: config.scopes,
+        state,
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',
-        state,
-      });
+      }).toString();
 
       return { url, state, codeVerifier };
     },
 
-    async exchangeCode(currentUrl: URL, codeVerifier: string, state: string): Promise<OidcTokens> {
-      const response = await authorizationCodeGrant(discovered, currentUrl, {
-        expectedState: state,
-        pkceCodeVerifier: codeVerifier,
+    async exchangeCode(currentUrl: URL, codeVerifier: string): Promise<OidcTokens> {
+      const code = currentUrl.searchParams.get('code');
+      if (!code) {
+        throw new Error('callback URL is missing the authorization code');
+      }
+      return tokenRequest(meta.token_endpoint, {
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: config.redirectUri,
+        client_id: config.clientId,
+        ...(clientSecret ? { client_secret: clientSecret } : {}),
+        code_verifier: codeVerifier,
       });
-      return toTokens(response);
     },
 
     async refresh(refreshToken: string): Promise<OidcTokens> {
-      const response = await refreshTokenGrant(discovered, refreshToken);
-      return toTokens(response);
+      return tokenRequest(meta.token_endpoint, {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: config.clientId,
+        ...(clientSecret ? { client_secret: clientSecret } : {}),
+      });
     },
 
     async fetchUserInfo(accessToken: string, sub: string | null): Promise<OidcUserInfo> {
-      const response = await fetchUserInfo(
-        discovered,
-        accessToken,
-        sub === null ? skipSubjectCheck : sub,
-      );
-      // openid-client returns OIDC UserInfoResponse which has known string
-      // fields + arbitrary additional claims. Narrow the ones we care about.
-      const claims = response as unknown as Record<string, unknown>;
-      const name = typeof claims['name'] === 'string' ? (claims['name'] as string) : null;
-      const email = typeof claims['email'] === 'string' ? (claims['email'] as string) : null;
-      const resolvedSub =
-        typeof claims['sub'] === 'string' ? (claims['sub'] as string) : (sub ?? '');
+      const uiRes = await fetch(meta.userinfo_endpoint, {
+        headers: { authorization: `Bearer ${accessToken}`, accept: 'application/json' },
+      });
+      if (!uiRes.ok) {
+        throw new Error(`userinfo request failed: ${uiRes.status}`);
+      }
+      const claims = (await uiRes.json()) as Record<string, unknown>;
+      const name = typeof claims['name'] === 'string' ? claims['name'] : null;
+      const email = typeof claims['email'] === 'string' ? claims['email'] : null;
+      const resolvedSub = typeof claims['sub'] === 'string' ? claims['sub'] : (sub ?? '');
       return { sub: resolvedSub, name, email, raw: claims };
     },
   };
