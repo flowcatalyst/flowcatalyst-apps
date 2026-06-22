@@ -80,6 +80,39 @@ With your own endpoint you can also raise/drop `PINPOINT_GEOCODING_RATE_LIMIT`
 - **`NOMINATIM_PGDATA` tracks the Nominatim image's PG major.** `4.4` → PG 14
   (`/var/lib/postgresql/14/main`). A newer tag may be PG 16 — update both.
 
+## Migrating to OpenSearch Photon (1.x) — prepped, not yet executed
+
+We currently run **classic Photon `0.6.2`**, which embeds **Elasticsearch 5.6.16**
+(EOL, unmaintained). It's acceptable because the photon service is internal-only
+(Cloud Map + a task SG that admits only pinpoint) and serves a static,
+rebuildable index — but it's known tech-debt. Photon **≥ 1.0 dropped
+Elasticsearch entirely**; OpenSearch is now the only backend (latest `1.2.0`).
+
+Verified for the switch (2026-06-20):
+- **Single jar `photon-1.2.0.jar`** — same download pattern, so it's a version bump.
+- **Still embedded by default** ("photon starts a private instance of OpenSearch",
+  `photon_data` dir) → the jar + EFS-index + awsvpc-service architecture is
+  unchanged. No OpenSearch cluster to run.
+- **Java 21+** — the `eclipse-temurin:21-jre` base already satisfies it.
+- **Old CLI still works in 1.x** (removed in v2), so the existing
+  `-nominatim-import` / `-data-dir` commands keep working; new subcommands are
+  `import` / `serve` for a later cleanup.
+- **Index format is incompatible** (ES → OpenSearch): the index MUST be rebuilt;
+  the current ES 5.6 index won't load on 1.2.0.
+
+Coordinated switch (image + index move together — do not flip one alone):
+1. Bump `PHOTON_VERSION` to `1.2.0` in `.env`, `build-photon.yml`, and
+   `build-photon-index.yml` (the Dockerfile arg default too if desired).
+2. **Verify Nominatim compatibility** — Photon 1.2.0's required Nominatim
+   version isn't documented; if `build-index.sh` fails on a schema error, bump
+   `NOMINATIM_VERSION` (+ `NOMINATIM_PGDATA` to the new PG major) and retry.
+3. Rebuild the index: run **Build Photon index (prod)** with `photon_version=1.2.0`.
+4. Rebuild the image: run **build-photon** with `photon_version=1.2.0`.
+5. Load the new index (**Load Photon index (prod)**) onto EFS.
+6. `force-new-deployment` on the photon service.
+7. (Later, before Photon v2) switch the Dockerfile/loader commands to the new
+   `serve` / `import` subcommands.
+
 ## Refreshing
 
 Geofabrik extracts update daily. For freshness, re-run `build-index.sh`

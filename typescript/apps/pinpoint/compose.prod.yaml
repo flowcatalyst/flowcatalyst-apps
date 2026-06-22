@@ -77,17 +77,17 @@ services:
       #
       # provider=bedrock targets Gemma 4 over the bedrock-mantle
       # OpenAI-compatible endpoint (default model google.gemma-4-26b-a4b). It
-      # needs a Bedrock API key (AWS_BEARER_TOKEN_BEDROCK) and a region the
-      # model ships in — eu-central-1 (Frankfurt) is closest to southern
-      # Africa; us-east-1 / us-east-2 / us-west-2 also work. Override the
-      # endpoint with PINPOINT_BEDROCK_BASE_URL only if AWS changes the host.
+      # mints a short-term bearer token from the ambient AWS credentials (the
+      # task role in ECS; your `aws` creds locally) — no API key. Set
+      # PINPOINT_BEDROCK_REGION to the region that hosts Gemma (eu-central-1 is
+      # closest to southern Africa; us-east-1/2, us-west-2 also work). Override
+      # the endpoint with PINPOINT_BEDROCK_BASE_URL only if AWS changes the host.
       # provider=ollama keeps the local gemma3 path.
       PINPOINT_LLM_PROVIDER: ${PINPOINT_LLM_PROVIDER:-none}
       PINPOINT_LLM_MODEL: ${PINPOINT_LLM_MODEL:-}
       PINPOINT_OLLAMA_URL: ${PINPOINT_OLLAMA_URL:-}
       AWS_REGION: ${AWS_REGION:-}
-      AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
-      PINPOINT_BEDROCK_API_KEY: ${PINPOINT_BEDROCK_API_KEY:-}
+      PINPOINT_BEDROCK_REGION: ${PINPOINT_BEDROCK_REGION:-}
       PINPOINT_BEDROCK_BASE_URL: ${PINPOINT_BEDROCK_BASE_URL:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # OIDC. Empty OIDC_ISSUER_URL leaves /auth/login disabled (503) and

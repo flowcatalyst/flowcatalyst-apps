@@ -66,31 +66,30 @@ const FLOWCATALYST_SIGNING_SECRET = process.env['FLOWCATALYST_SIGNING_SECRET'];
  *   PINPOINT_LLM_PROVIDER=none|bedrock|ollama   (default: none)
  *   PINPOINT_LLM_MODEL=<model-id>               (provider-specific default)
  *   PINPOINT_OLLAMA_URL=http://...              (ollama only, default localhost)
- *   AWS_REGION=...                              (bedrock only, default us-east-1)
- *   AWS_BEARER_TOKEN_BEDROCK / PINPOINT_BEDROCK_API_KEY  (bedrock only — required)
+ *   PINPOINT_BEDROCK_REGION=...                 (bedrock only — region hosting Gemma, default us-east-1)
  *   PINPOINT_BEDROCK_BASE_URL=...               (bedrock only — overrides the mantle URL)
  *
- * `bedrock` now targets Gemma 4 over the bedrock-mantle OpenAI-compatible
- * endpoint (NOT the native Converse API / Claude — that path was dropped).
- * Default model is google.gemma-4-26b-a4b (MoE). `ollama` still defaults to
- * gemma3. Bumping a default risks invalidating prior matching-quality tuning,
- * so keep changes deliberate.
+ * `bedrock` targets Gemma 4 over the bedrock-mantle OpenAI-compatible endpoint
+ * (NOT the native Converse API / Claude — that path was dropped). It mints a
+ * short-term bearer token from the ambient AWS credentials (the ECS task role)
+ * — no API key env. PINPOINT_BEDROCK_REGION must be the region that hosts Gemma
+ * (it drives the endpoint URL + token signing), independent of the task's
+ * AWS_REGION. Default model is google.gemma-4-26b-a4b (MoE); `ollama` defaults
+ * to gemma3. Bumping a default risks invalidating prior matching-quality
+ * tuning, so keep changes deliberate.
  */
 function buildAddressVerifierConfig(): AddressVerifierConfig {
   const provider = (process.env['PINPOINT_LLM_PROVIDER'] ?? 'none').toLowerCase();
   const model = process.env['PINPOINT_LLM_MODEL'];
 
   if (provider === 'bedrock') {
-    const apiKey =
-      process.env['AWS_BEARER_TOKEN_BEDROCK'] ?? process.env['PINPOINT_BEDROCK_API_KEY'];
     return {
       provider: 'bedrock',
       model: model && model.length > 0 ? model : 'google.gemma-4-26b-a4b',
-      ...(process.env['AWS_REGION'] ? { region: process.env['AWS_REGION'] } : {}),
+      region: process.env['PINPOINT_BEDROCK_REGION'] ?? process.env['AWS_REGION'] ?? 'us-east-1',
       ...(process.env['PINPOINT_BEDROCK_BASE_URL']
         ? { baseUrl: process.env['PINPOINT_BEDROCK_BASE_URL'] }
         : {}),
-      ...(apiKey ? { apiKey } : {}),
     };
   }
   if (provider === 'ollama') {

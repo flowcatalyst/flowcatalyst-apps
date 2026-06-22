@@ -6,20 +6,27 @@
  * runs behind the `bedrock-mantle` inference engine, which exposes an
  * OpenAI-compatible Chat Completions API at
  *   https://bedrock-mantle.{region}.api.aws/openai/v1
- * authenticated with a Bedrock API key (`Authorization: Bearer <key>`; IAM
- * action `bedrock-mantle:CallWithBearerToken`).
+ * authenticated with a bearer token (`Authorization: Bearer <token>`).
  *
- * We therefore POST to /chat/completions directly with `fetch` — the same
- * hand-rolled approach the Ollama verifier uses — rather than the
- * `@ai-sdk/amazon-bedrock` provider, which speaks the native API and cannot
- * reach the mantle endpoint. One fewer dependency, and it keeps the package
- * on zod 3.
+ * Rather than a static API key, we mint a SHORT-TERM Bedrock token from the
+ * ambient AWS credentials (in prod, the ECS task role) via
+ * `@aws/bedrock-token-generator`. The token inherits the role's permissions
+ * (needs `bedrock:InvokeModel` on the model + `bedrock:CallWithBearerToken`),
+ * lasts up to 12h, and the provider caches + auto-refreshes it. No secret to
+ * store or rotate. The token is region-scoped, so it MUST be signed for the
+ * region that actually hosts Gemma (the mantle region) — which is not
+ * necessarily the task's AWS_REGION.
+ *
+ * We POST to /chat/completions directly with `fetch` — the same hand-rolled
+ * approach the Ollama verifier uses — rather than the `@ai-sdk/amazon-bedrock`
+ * provider, which speaks the native API and cannot reach the mantle endpoint.
  *
  * Errors are logged + swallowed (returns null) — same Rust semantics as the
  * other verifiers: a misbehaving LLM must not block the matching pipeline.
  * The algorithmic matcher's verdict still stands; verification is the
  * optional quality layer.
  */
+import { getTokenProvider } from '@aws/bedrock-token-generator';
 import { z } from 'zod';
 import {
   buildVerifierPrompt,
@@ -32,18 +39,17 @@ import {
 export interface BedrockVerifierConfig {
   /** Gemma 4 model id on Bedrock, e.g. `google.gemma-4-26b-a4b`. */
   readonly model: string;
-  /** AWS region for the mantle endpoint. Defaults to AWS_REGION, then us-east-1. */
-  readonly region?: string;
+  /**
+   * AWS region that hosts Gemma / the mantle endpoint (e.g. `eu-central-1`).
+   * Drives BOTH the endpoint URL and the bearer-token signing region — must be
+   * the Gemma region, NOT necessarily the task's AWS_REGION.
+   */
+  readonly region: string;
   /**
    * Full override of the OpenAI-compatible base URL. Defaults to
    * `https://bedrock-mantle.<region>.api.aws/openai/v1`.
    */
   readonly baseUrl?: string;
-  /**
-   * Bedrock API key sent as `Authorization: Bearer <key>`. Resolved from
-   * AWS_BEARER_TOKEN_BEDROCK / PINPOINT_BEDROCK_API_KEY at the call site.
-   */
-  readonly apiKey?: string;
   /** Optional log hook called when verification fails. */
   readonly onError?: (err: unknown) => void;
 }
@@ -73,11 +79,14 @@ function extractJson(content: string): string {
 }
 
 export function createBedrockVerifier(config: BedrockVerifierConfig): AddressVerifier {
-  const region = config.region ?? process.env['AWS_REGION'] ?? 'us-east-1';
-  const baseUrl = (config.baseUrl ?? `https://bedrock-mantle.${region}.api.aws/openai/v1`).replace(
-    /\/$/,
-    '',
-  );
+  const baseUrl = (
+    config.baseUrl ?? `https://bedrock-mantle.${config.region}.api.aws/openai/v1`
+  ).replace(/\/$/, '');
+
+  // Caching token provider over the default AWS credential chain (the ECS task
+  // role in prod). Signed for the Gemma region; returns a cached token while
+  // valid and refreshes automatically.
+  const provideToken = getTokenProvider({ region: config.region });
 
   return {
     async verify(
@@ -85,17 +94,13 @@ export function createBedrockVerifier(config: BedrockVerifierConfig): AddressVer
       candidateAddress: string,
     ): Promise<VerificationResult | null> {
       try {
-        if (!config.apiKey) {
-          throw new Error(
-            'missing Bedrock API key (set AWS_BEARER_TOKEN_BEDROCK or PINPOINT_BEDROCK_API_KEY)',
-          );
-        }
+        const token = await provideToken();
 
         const response = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
-            authorization: `Bearer ${config.apiKey}`,
+            authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             model: config.model,

@@ -152,12 +152,10 @@ export type AddressVerifierConfig =
       readonly provider: 'bedrock';
       /** Gemma 4 model id on Bedrock, e.g. `google.gemma-4-26b-a4b`. */
       readonly model: string;
-      /** AWS region for the bedrock-mantle endpoint. Falls back to AWS_REGION, then us-east-1. */
-      readonly region?: string;
+      /** Region that hosts Gemma / the mantle endpoint (e.g. eu-central-1) — drives the URL + token signing. */
+      readonly region: string;
       /** Optional full override of the OpenAI-compatible base URL. */
       readonly baseUrl?: string;
-      /** Bedrock API key (bearer). From AWS_BEARER_TOKEN_BEDROCK / PINPOINT_BEDROCK_API_KEY. */
-      readonly apiKey?: string;
     }
   | {
       readonly provider: 'ollama';
@@ -467,20 +465,13 @@ function logAddressVerifierError(err: unknown): void {
 function buildAddressVerifier(config: AddressVerifierConfig): AddressVerifier {
   switch (config.provider) {
     case 'bedrock': {
-      const hasKey = Boolean(config.apiKey);
       console.info(
-        `[address-verifier] provider=bedrock(gemma) model=${config.model} region=${config.region ?? process.env['AWS_REGION'] ?? 'us-east-1'} apiKey=${hasKey ? 'set' : 'MISSING'}`,
+        `[address-verifier] provider=bedrock(gemma) model=${config.model} region=${config.region} (bearer token minted from the task role)`,
       );
-      if (!hasKey) {
-        console.warn(
-          '[address-verifier] PINPOINT_LLM_PROVIDER=bedrock but no Bedrock API key found (AWS_BEARER_TOKEN_BEDROCK / PINPOINT_BEDROCK_API_KEY); every verify call will fail and fall back to the algorithmic verdict.',
-        );
-      }
       return createBedrockVerifier({
         model: config.model,
-        ...(config.region ? { region: config.region } : {}),
+        region: config.region,
         ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
-        ...(config.apiKey ? { apiKey: config.apiKey } : {}),
         onError: logAddressVerifierError,
       });
     }
