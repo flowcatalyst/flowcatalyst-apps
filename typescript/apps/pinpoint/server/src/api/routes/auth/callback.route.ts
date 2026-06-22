@@ -98,10 +98,20 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
         const currentUrl = new URL(request.url, `${request.protocol}://${request.hostname}`);
         tokens = await oidcClient.exchangeCode(currentUrl, session.codeVerifier, session.state);
       } catch (err) {
-        request.log.error({ err }, 'OIDC token exchange failed');
+        // openid-client v6 throws a ResponseBodyError carrying the OAuth error
+        // fields from the token endpoint. Surface them (in the log AND folded
+        // into the message) so the failure is diagnosable instead of opaque —
+        // e.g. "invalid_client: client authentication failed".
+        const oauth = err as { error?: unknown; error_description?: unknown };
+        const oauthError = typeof oauth.error === 'string' ? oauth.error : undefined;
+        const oauthDescription =
+          typeof oauth.error_description === 'string' ? oauth.error_description : undefined;
+        const baseMessage = err instanceof Error ? err.message : String(err);
+        const detail = [oauthError, oauthDescription].filter(Boolean).join(': ');
+        request.log.error({ err, oauthError, oauthDescription }, 'OIDC token exchange failed');
         return reply.code(500).send({
           error: 'TokenExchangeFailed',
-          message: err instanceof Error ? err.message : String(err),
+          message: detail ? `${baseMessage} — ${detail}` : baseMessage,
         });
       }
 
