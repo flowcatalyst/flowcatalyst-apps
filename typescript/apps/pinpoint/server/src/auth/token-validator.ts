@@ -15,6 +15,25 @@ export interface ValidatedToken {
   readonly name: string | null;
   readonly email: string | null;
   readonly roles: readonly string[];
+  /**
+   * Principal tier from the FlowCatalyst token (`tier` claim), e.g.
+   * `"ANCHOR"` for a super-admin. Used by permission resolution to grant
+   * anchors every permission. Null when absent.
+   */
+  readonly tier: string | null;
+  /**
+   * Clients the principal can act on (`clients` claim). `["*"]` marks an
+   * anchor (all clients) — the SDK's canonical super-admin signal.
+   */
+  readonly clients: readonly string[];
+  /**
+   * Granted permission strings from the space-delimited `scope` claim. The
+   * platform expands a principal's assigned roles into this list; pinpoint
+   * keeps the entries that are real `pinpoint:*` permissions.
+   */
+  readonly scopes: readonly string[];
+  /** `all_applications` claim — true for principals with access to every app. */
+  readonly allApplications: boolean;
   readonly raw: JWTPayload;
 }
 
@@ -33,6 +52,12 @@ const JWKS_TIMEOUT_MS = 5_000;
  */
 export function createTokenValidator(config: OidcConfig): TokenValidator {
   let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+  // Issuer the tokens are actually stamped with — taken from the discovery
+  // document, NOT from `config.issuerUrl`. They usually match, but the
+  // discovery `issuer` is the authoritative value the IdP signs into the
+  // `iss` claim, so we verify against it (this is what the FlowCatalyst SDK
+  // does — see @flowcatalyst/sdk/fastify/oidc/discovery).
+  let discoveryIssuer: string | null = null;
   let initPromise: Promise<void> | null = null;
 
   async function init(): Promise<void> {
@@ -46,10 +71,11 @@ export function createTokenValidator(config: OidcConfig): TokenValidator {
         `OIDC discovery failed at ${discoveryUrl.toString()}: ${response.status} ${response.statusText}`,
       );
     }
-    const doc = (await response.json()) as { jwks_uri?: string };
+    const doc = (await response.json()) as { jwks_uri?: string; issuer?: string };
     if (!doc.jwks_uri) {
       throw new Error(`OIDC discovery document missing jwks_uri (issuer ${config.issuerUrl}).`);
     }
+    discoveryIssuer = doc.issuer ?? config.issuerUrl;
     jwks = createRemoteJWKSet(new URL(doc.jwks_uri), {
       cooldownDuration: JWKS_COOLDOWN_MS,
       cacheMaxAge: JWKS_REFRESH_MS,
@@ -74,9 +100,18 @@ export function createTokenValidator(config: OidcConfig): TokenValidator {
   return {
     async validate(token: string): Promise<ValidatedToken> {
       const keySet = await getJwks();
+      // Audience IS enforced. The FlowCatalyst platform mints ACCESS tokens
+      // with `aud == iss == <platform base URL>` (flowcatalyst-go
+      // wire_services.go), and stamps ID tokens with `aud == client_id`
+      // instead — both signed with the same key — specifically so that
+      // enforcing `aud == issuer` rejects an ID token presented as a bearer.
+      // So the expected audience defaults to the discovery issuer (== the
+      // access-token `aud`); OIDC_AUDIENCE overrides for other deployments.
+      const expectedAudience =
+        config.audience.length > 0 ? config.audience : (discoveryIssuer ?? config.issuerUrl);
       const { payload } = await jwtVerify(token, keySet, {
-        issuer: config.issuerUrl,
-        audience: config.audience,
+        issuer: discoveryIssuer ?? config.issuerUrl,
+        audience: expectedAudience,
       });
       const sub = typeof payload.sub === 'string' ? payload.sub : null;
       if (!sub) throw new Error('JWT missing `sub` claim.');
@@ -86,7 +121,16 @@ export function createTokenValidator(config: OidcConfig): TokenValidator {
       const roles = Array.isArray(rolesClaim)
         ? rolesClaim.filter((r): r is string => typeof r === 'string')
         : [];
-      return { sub, name, email, roles, raw: payload };
+      const tier = typeof payload['tier'] === 'string' ? (payload['tier'] as string) : null;
+      const clientsClaim = payload['clients'];
+      const clients = Array.isArray(clientsClaim)
+        ? clientsClaim.filter((c): c is string => typeof c === 'string')
+        : [];
+      const scopeClaim = payload['scope'];
+      const scopes =
+        typeof scopeClaim === 'string' ? scopeClaim.split(/\s+/).filter((s) => s.length > 0) : [];
+      const allApplications = payload['all_applications'] === true;
+      return { sub, name, email, roles, tier, clients, scopes, allApplications, raw: payload };
     },
   };
 }

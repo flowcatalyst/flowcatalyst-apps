@@ -13,9 +13,15 @@
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
+import { ScopeStore, UseCaseError } from '@pinpoint/framework';
+import { PinpointPermission } from '@pinpoint/shared';
 import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+
+// Reverse geocoding is part of the geocode/validate workflow, so it shares the
+// master-location validate permission (the same one the "Geocode" action uses).
+const REQUIRED_PERMISSION = PinpointPermission.LocationsMasterLocationValidate;
 
 const ResponseSchema = Type.Object({
   houseNumber: Type.Union([Type.String(), Type.Null()]),
@@ -52,6 +58,7 @@ export function registerBffReverseGeocodeMasterLocationRoute(
           200: ResponseSchema,
           400: ErrorSchema,
           401: ErrorSchema,
+          403: ErrorSchema,
           404: ErrorSchema,
           409: ErrorSchema,
           500: ErrorSchema,
@@ -63,6 +70,12 @@ export function registerBffReverseGeocodeMasterLocationRoute(
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(REQUIRED_PERMISSION)) {
+        return sendUseCaseError(
+          reply,
+          UseCaseError.authorization('PERMISSION_DENIED', `Missing permission ${REQUIRED_PERMISSION}.`),
+        );
       }
 
       const { masterLocationId } = request.params as {

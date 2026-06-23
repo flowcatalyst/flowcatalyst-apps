@@ -14,8 +14,10 @@
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
+import { ScopeStore, UseCaseError } from '@pinpoint/framework';
+import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
+import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
 const VerifyMatchBodySchema = Type.Object({
   inputAddress: Type.String({ minLength: 1 }),
@@ -45,6 +47,7 @@ export function registerVerifyMatchRoute(fastify: FastifyInstance, appContext: A
           204: Type.Null(),
           400: ErrorSchema,
           401: ErrorSchema,
+          403: ErrorSchema,
           500: ErrorSchema,
         },
       },
@@ -53,6 +56,15 @@ export function registerVerifyMatchRoute(fastify: FastifyInstance, appContext: A
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(PinpointPermission.MatchingSpatialLookup)) {
+        return sendUseCaseError(
+          reply,
+          UseCaseError.authorization(
+            'PERMISSION_DENIED',
+            `Missing permission ${PinpointPermission.MatchingSpatialLookup}.`,
+          ),
+        );
       }
 
       const { inputAddress, candidateAddress } = request.body as {

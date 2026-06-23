@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
+    "dev:pinpoint": "pnpm --parallel --filter @pinpoint/server --filter @pinpoint/web dev",
     "build": "vp build",
     "test": "vp test",
     "check": "vp check",

@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -22,6 +23,7 @@ interface PartitionListResponse {
 
 const router = useRouter();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const partitions = ref<Partition[]>([]);
 const loading = ref(true);
 const showCreateDialog = ref(false);
@@ -96,7 +98,12 @@ watch(clientId, loadPartitions);
           {{ clientStore.selectedClient?.name ?? 'Select a client' }}
         </p>
       </div>
-      <Button v-if="clientId" label="New Partition" icon="pi pi-plus" @click="openCreateDialog" />
+      <Button
+        v-if="clientId && authStore.can('pinpoint:tenancy:partition:create')"
+        label="New Partition"
+        icon="pi pi-plus"
+        @click="openCreateDialog"
+      />
     </div>
 
     <div v-if="!clientId" class="fc-card" style="text-align: center; padding: 48px">

@@ -1,12 +1,34 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { MainLayout } from '@flowcatalyst-apps/web-kit';
 import { NAVIGATION_CONFIG } from '@/config/navigation';
+import { useAuthStore } from '@/stores/auth';
 import UserMenu from '@/components/layout/UserMenu.vue';
 import ClientSelector from '@/components/layout/ClientSelector.vue';
+
+const authStore = useAuthStore();
+
+// Nav entries that require a specific permission to be shown at all. Pages
+// that are pure tools/actions (vs. read views everyone with the app can see)
+// belong here so we don't render a dead link that just bounces to the
+// Access Denied modal. Extend as needed.
+const NAV_PERMISSIONS: Record<string, string> = {
+  '/spatial-lookup': 'pinpoint:matching:spatial:lookup',
+};
+
+const navigation = computed(() =>
+  NAVIGATION_CONFIG.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      const required = item.route ? NAV_PERMISSIONS[item.route] : undefined;
+      return !required || authStore.can(required);
+    }),
+  })).filter((group) => group.items.length > 0),
+);
 </script>
 
 <template>
-  <MainLayout :navigation="NAVIGATION_CONFIG" storage-key="pp:sidebar-collapsed" version="0.0.1">
+  <MainLayout :navigation="navigation" storage-key="pp:sidebar-collapsed" version="0.0.1">
     <template #logo>
       <span class="pp-logo">
         <span class="pp-logo-icon">

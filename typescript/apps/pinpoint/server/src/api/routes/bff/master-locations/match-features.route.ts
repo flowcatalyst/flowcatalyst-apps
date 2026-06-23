@@ -18,12 +18,18 @@
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
+import { ScopeStore, UseCaseError } from '@pinpoint/framework';
+import { PinpointPermission } from '@pinpoint/shared';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { MasterLocation } from '../../../../domain/locations/master-location.js';
 import type { FeatureAssociation } from '../../../../domain/layers/layer-feature.repository.js';
 import type { AppContext } from '../../../../app-context.js';
+import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+
+// Spatial feature matching mutates location↔feature associations; gate it on
+// the same permission as the interactive spatial-lookup tool.
+const REQUIRED_PERMISSION = PinpointPermission.MatchingSpatialLookup;
 
 const MatchedFeatureSchema = Type.Object({
   layerFeatureId: Type.String(),
@@ -96,6 +102,7 @@ export function registerBffMatchFeaturesRoutes(
         response: {
           200: SingleResponseSchema,
           401: ErrorSchema,
+          403: ErrorSchema,
           404: ErrorSchema,
           409: ErrorSchema,
           500: ErrorSchema,
@@ -106,6 +113,12 @@ export function registerBffMatchFeaturesRoutes(
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(REQUIRED_PERMISSION)) {
+        return sendUseCaseError(
+          reply,
+          UseCaseError.authorization('PERMISSION_DENIED', `Missing permission ${REQUIRED_PERMISSION}.`),
+        );
       }
 
       const { masterLocationId } = request.params as {
@@ -154,13 +167,19 @@ export function registerBffMatchFeaturesRoutes(
       schema: {
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
-        response: { 200: BulkResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: BulkResponseSchema, 401: ErrorSchema, 403: ErrorSchema, 500: ErrorSchema },
       },
     },
     async (request, reply) => {
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(REQUIRED_PERMISSION)) {
+        return sendUseCaseError(
+          reply,
+          UseCaseError.authorization('PERMISSION_DENIED', `Missing permission ${REQUIRED_PERMISSION}.`),
+        );
       }
 
       const { clientId } = request.params as { clientId: string };

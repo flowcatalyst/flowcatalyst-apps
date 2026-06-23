@@ -14,7 +14,7 @@ import { VERIFIER_SYSTEM_PROMPT } from '../../domain/services/address-verifier.j
 import { createOllamaVerifier } from './ollama-verifier.js';
 
 const BASE_URL = 'http://localhost:11434';
-const MODEL = 'gemma3';
+const MODEL = 'gemma4';
 
 function jsonResponse(body: unknown, init?: { status?: number }): Response {
   return new Response(JSON.stringify(body), {

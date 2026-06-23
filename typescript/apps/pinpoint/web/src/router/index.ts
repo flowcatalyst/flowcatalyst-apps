@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import { authGuard } from './guards';
+import { authGuard, requirePermission } from './guards';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +28,7 @@ const router = createRouter({
           path: 'clients/new',
           name: 'client-create',
           component: () => import('@/pages/clients/ClientCreatePage.vue'),
+          beforeEnter: requirePermission('pinpoint:tenancy:client:create'),
         },
         {
           path: 'clients/:id',
@@ -44,6 +45,7 @@ const router = createRouter({
           path: 'locations/new',
           name: 'location-create',
           component: () => import('@/pages/locations/LocationCreatePage.vue'),
+          beforeEnter: requirePermission('pinpoint:locations:location:create'),
         },
         {
           path: 'locations/:id',
@@ -71,6 +73,7 @@ const router = createRouter({
           path: 'spatial-lookup',
           name: 'spatial-lookup',
           component: () => import('@/pages/tools/SpatialLookupPage.vue'),
+          beforeEnter: requirePermission('pinpoint:matching:spatial:lookup'),
         },
         // Layers
         {
@@ -87,6 +90,7 @@ const router = createRouter({
           path: 'layers/new',
           name: 'layer-create',
           component: () => import('@/pages/layers/LayerCreatePage.vue'),
+          beforeEnter: requirePermission('pinpoint:layers:layer:create'),
         },
         {
           path: 'layers/:id',

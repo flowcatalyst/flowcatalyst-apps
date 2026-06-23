@@ -1,8 +1,10 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
+import { ScopeStore, UseCaseError } from '@pinpoint/framework';
+import { PinpointPermission } from '@pinpoint/shared';
 import { asClientId, asPartitionId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
 const ParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
@@ -53,6 +55,7 @@ export function registerSpatialLookupRoute(fastify: FastifyInstance, appContext:
           200: SpatialLookupResponseSchema,
           400: ErrorSchema,
           401: ErrorSchema,
+          403: ErrorSchema,
           500: ErrorSchema,
         },
       },
@@ -61,6 +64,15 @@ export function registerSpatialLookupRoute(fastify: FastifyInstance, appContext:
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(PinpointPermission.MatchingSpatialLookup)) {
+        return sendUseCaseError(
+          reply,
+          UseCaseError.authorization(
+            'PERMISSION_DENIED',
+            `Missing permission ${PinpointPermission.MatchingSpatialLookup}.`,
+          ),
+        );
       }
 
       const { clientId } = request.params as { clientId: string };

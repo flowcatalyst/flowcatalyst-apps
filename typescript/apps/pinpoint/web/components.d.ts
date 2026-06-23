@@ -21,6 +21,7 @@ declare module 'vue' {
     InputNumber: typeof import('primevue/inputnumber')['default']
     InputText: typeof import('primevue/inputtext')['default']
     MultiSelect: typeof import('primevue/multiselect')['default']
+    PermissionDeniedDialog: typeof import('./src/components/PermissionDeniedDialog.vue')['default']
     PpLayerEditor: typeof import('./src/components/map/PpLayerEditor.vue')['default']
     PpMapView: typeof import('./src/components/map/PpMapView.vue')['default']
     ProgressSpinner: typeof import('primevue/progressspinner')['default']

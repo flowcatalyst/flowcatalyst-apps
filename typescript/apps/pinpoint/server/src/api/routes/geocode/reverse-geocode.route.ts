@@ -4,8 +4,10 @@
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
+import { ScopeStore, UseCaseError } from '@pinpoint/framework';
+import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
+import { sendUseCaseError } from '../../plugins/error-mapper.js';
 
 const ReverseGeocodeBodySchema = Type.Object({
   latitude: Type.Number({ minimum: -90, maximum: 90 }),
@@ -42,6 +44,7 @@ export function registerReverseGeocodeRoute(
         response: {
           200: ReverseGeocodeResponseSchema,
           401: ErrorSchema,
+          403: ErrorSchema,
           404: ErrorSchema,
           500: ErrorSchema,
           502: ErrorSchema,
@@ -52,6 +55,15 @@ export function registerReverseGeocodeRoute(
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(PinpointPermission.MatchingSpatialLookup)) {
+        return sendUseCaseError(
+          reply,
+          UseCaseError.authorization(
+            'PERMISSION_DENIED',
+            `Missing permission ${PinpointPermission.MatchingSpatialLookup}.`,
+          ),
+        );
       }
 
       const { latitude, longitude } = request.body as { latitude: number; longitude: number };

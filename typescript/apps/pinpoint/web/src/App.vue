@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GlobalToast from '@/components/GlobalToast.vue';
+import PermissionDeniedDialog from '@/components/PermissionDeniedDialog.vue';
 </script>
 
 <template>
@@ -7,4 +8,5 @@ import GlobalToast from '@/components/GlobalToast.vue';
   <Toast />
   <ConfirmDialog />
   <GlobalToast />
+  <PermissionDeniedDialog />
 </template>

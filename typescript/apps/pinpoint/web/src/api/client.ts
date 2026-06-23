@@ -31,6 +31,17 @@ function emitApiError(status: number, message: string) {
   errorListeners.forEach((listener) => listener(status, message));
 }
 
+/**
+ * Trigger the global "Access Denied" modal from non-HTTP contexts (e.g. a
+ * router guard blocking navigation to a page the user lacks permission for).
+ * Reuses the same 403 bus the api client emits on.
+ */
+export function notifyPermissionDenied(
+  message = 'You do not have permission to access that page.',
+): void {
+  emitApiError(403, message);
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -50,20 +61,34 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
       string,
       unknown
     >;
+    // Prefer the human-readable `message`; fall back to the machine `error`
+    // type only when there's no message. (Server errors carry both:
+    // `{ error: 'authorization', message: 'Missing permission …' }`.)
     const message =
-      (error['error'] as string | undefined) ??
       (error['message'] as string | undefined) ??
+      (error['error'] as string | undefined) ??
       'Request failed';
+    const code = error['code'] as string | undefined;
 
-    if (response.status === 401 || response.status === 403) {
-      emitApiError(response.status, message);
+    emitApiError(response.status, message);
+
+    if (response.status === 401) {
+      // Session missing or expired — the server already attempted an in-band
+      // refresh before returning 401, so re-authentication is required. This
+      // is the ONLY status that redirects to login. A 403 is
+      // authenticated-but-forbidden (a permission gap, not a session
+      // problem) and must NOT redirect, or a user lacking one permission
+      // gets bounced through login on a loop.
+      window.location.href = '/auth/login';
+      throw new ApiError(message, response.status, code);
     }
 
-    if (response.status !== 401) {
+    // 403 is surfaced by the global PermissionDeniedDialog (it subscribes to
+    // emitApiError above), so skip the toast to avoid a double notification.
+    if (response.status !== 403) {
       toast.error('Request Failed', message);
     }
-
-    throw new ApiError(message, response.status, error['code'] as string | undefined);
+    throw new ApiError(message, response.status, code);
   }
 
   if (response.status === 204) {

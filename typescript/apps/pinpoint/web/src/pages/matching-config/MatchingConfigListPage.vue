@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -20,6 +21,7 @@ interface MatchingConfig {
 }
 
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const config = ref<MatchingConfig | null>(null);
 const loading = ref(true);
 const editing = ref(false);
@@ -111,7 +113,7 @@ watch(clientId, loadConfig);
         </p>
       </div>
       <Button
-        v-if="config && !editing"
+        v-if="config && !editing && authStore.can('pinpoint:matching:config:manage')"
         label="Edit Thresholds"
         icon="pi pi-pencil"
         severity="secondary"

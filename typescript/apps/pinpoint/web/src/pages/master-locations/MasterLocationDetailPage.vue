@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -65,6 +66,7 @@ interface MatchFeaturesResult {
 const route = useRoute();
 const router = useRouter();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const masterLocation = ref<MasterLocation | null>(null);
 const loading = ref(true);
 const reverseResult = ref<ReverseGeocodeResult | null>(null);
@@ -399,14 +401,17 @@ function dismissResult() {
             "
           />
           <Button
-            v-if="!editing"
+            v-if="!editing && authStore.can('pinpoint:locations:master_location:update')"
             label="Edit"
             icon="pi pi-pencil"
             severity="secondary"
             @click="startEdit"
           />
           <Button
-            v-if="masterLocation.status === 'PENDING'"
+            v-if="
+              masterLocation.status === 'PENDING' &&
+              authStore.can('pinpoint:locations:master_location:validate')
+            "
             label="Geocode"
             icon="pi pi-map-marker"
             severity="secondary"
@@ -414,14 +419,18 @@ function dismissResult() {
             @click="handleGeocode"
           />
           <Button
-            v-if="masterLocation.status !== 'VALIDATED' && masterLocation.status !== 'PENDING'"
+            v-if="
+              masterLocation.status !== 'VALIDATED' &&
+              masterLocation.status !== 'PENDING' &&
+              authStore.can('pinpoint:locations:master_location:confirm')
+            "
             label="Validate"
             icon="pi pi-check"
             :loading="validating"
             @click="handleValidate"
           />
           <Button
-            v-if="masterLocation.latitude != null"
+            v-if="masterLocation.latitude != null && authStore.can('pinpoint:matching:spatial:lookup')"
             label="Match Features"
             icon="pi pi-sitemap"
             severity="secondary"
@@ -429,7 +438,11 @@ function dismissResult() {
             @click="handleMatchFeatures"
           />
           <Button
-            v-if="masterLocation.latitude != null && masterLocation.status !== 'VALIDATED'"
+            v-if="
+              masterLocation.latitude != null &&
+              masterLocation.status !== 'VALIDATED' &&
+              authStore.can('pinpoint:locations:master_location:validate')
+            "
             label="Reverse Geocode"
             icon="pi pi-map"
             severity="secondary"
@@ -608,6 +621,7 @@ function dismissResult() {
         <div style="display: flex; gap: 8px; justify-content: flex-end">
           <Button label="Dismiss" severity="secondary" @click="dismissResult" />
           <Button
+            v-if="authStore.can('pinpoint:locations:master_location:confirm')"
             label="Confirm & Validate"
             icon="pi pi-check"
             :loading="confirming"

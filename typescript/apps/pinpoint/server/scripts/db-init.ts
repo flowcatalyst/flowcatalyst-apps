@@ -15,6 +15,7 @@
  * Safe to re-run. Uses the same DATABASE_URL the app + drizzle-kit read.
  */
 import postgres from 'postgres';
+import { applyOutboxTableMigration } from '../src/infrastructure/migrate.js';
 
 const DEFAULT_URL = 'postgresql://pinpoint:pinpoint@localhost:5433/pinpoint';
 const SCHEMA = 'pinpoint';
@@ -56,6 +57,15 @@ async function main(): Promise<void> {
       `ALTER ROLE "${role}" IN DATABASE "${database}" SET search_path TO "${SCHEMA}", public`,
     );
     console.log(`[db:init] role ${role} default search_path → "${SCHEMA}", public`);
+
+    // SDK-owned outbox table (ships as a standalone .sql, not in the Drizzle
+    // journal). Every commitAggregate writes to it, so provision it here too.
+    const createdOutbox = await applyOutboxTableMigration(sql, SCHEMA);
+    console.log(
+      createdOutbox
+        ? `[db:init] outbox_messages table created in "${SCHEMA}"`
+        : `[db:init] outbox_messages already present`,
+    );
 
     console.log('[db:init] done');
   } finally {

@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
@@ -36,6 +37,7 @@ const statusOptions = [
 ];
 
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 
 const { page, pageSize, first, searchQuery, onPage } = useListState({
   search: { queryKey: 'q' },
@@ -145,7 +147,7 @@ async function handleBulkMatch() {
         </p>
       </div>
       <Button
-        v-if="clientId"
+        v-if="clientId && authStore.can('pinpoint:matching:spatial:lookup')"
         label="Re-match All Features"
         icon="pi pi-sitemap"
         severity="secondary"

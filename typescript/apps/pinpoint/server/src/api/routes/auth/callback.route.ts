@@ -39,7 +39,7 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
       },
     },
     async (request, reply) => {
-      const { oidcClient, sessionStore, config } = appContext.auth;
+      const { oidcClient, sessionStore, tokenValidator, config } = appContext.auth;
       if (!oidcClient) {
         return reply.code(503).send({
           error: 'OidcNotConfigured',
@@ -115,6 +115,22 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
         });
       }
 
+      // The access-token claims are the authoritative identity source — the
+      // FlowCatalyst platform always stamps `name`/`email`/`sub`, and they
+      // don't depend on the userinfo endpoint (which some IdPs 401 on). Use
+      // them as the base; userinfo (best-effort) supplements/overrides.
+      let claims = null;
+      if (tokenValidator) {
+        try {
+          claims = await tokenValidator.validate(tokens.accessToken);
+        } catch (err) {
+          request.log.warn(
+            { err },
+            'access-token validation failed in callback; falling back to userinfo only',
+          );
+        }
+      }
+
       // userinfo is best-effort: some IdPs return everything in the
       // id_token / access_token and the userinfo endpoint returns 401
       // for older sessions. Don't fail the login on a userinfo miss.
@@ -126,12 +142,16 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
         userinfo = null;
       }
 
+      const resolvedSub = userinfo?.sub ?? claims?.sub ?? session.sub ?? null;
+      const resolvedName = userinfo?.name ?? claims?.name ?? null;
+      const resolvedEmail = userinfo?.email ?? claims?.email ?? null;
+
       await sessionStore.update(sessionId, {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        sub: userinfo?.sub ?? session.sub ?? null,
-        name: userinfo?.name ?? null,
-        email: userinfo?.email ?? null,
+        sub: resolvedSub,
+        name: resolvedName,
+        email: resolvedEmail,
         // Clear the in-flight fields — they're consumed.
         codeVerifier: null,
         state: null,
@@ -141,14 +161,14 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
       // resolve it without waiting for the user's first /me call. The
       // upsert is a raw repo write (no ScopeStore required) so we can
       // call it directly outside of `runWrite`.
-      if (userinfo?.sub) {
-        const principalId = asPrincipalId(userinfo.sub);
+      if (resolvedSub) {
+        const principalId = asPrincipalId(resolvedSub);
         try {
           await appContext.repositories.principals.upsert({
             id: principalId,
             principalType: 'USER',
-            name: userinfo.name ?? userinfo.sub,
-            email: userinfo.email ?? null,
+            name: resolvedName ?? resolvedSub,
+            email: resolvedEmail,
           });
         } catch (err) {
           request.log.warn({ err }, 'principal upsert failed; /me will retry on first call');

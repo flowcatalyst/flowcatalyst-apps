@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -54,6 +55,7 @@ const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const layer = ref<LayerDetail | null>(null);
 const features = ref<FeatureItem[]>([]);
 const loading = ref(true);
@@ -393,14 +395,14 @@ async function saveSchema() {
         </div>
         <div style="display: flex; gap: 8px">
           <Button
-            v-if="!editing"
+            v-if="!editing && authStore.can('pinpoint:layers:layer:update')"
             label="Edit"
             icon="pi pi-pencil"
             severity="secondary"
             @click="startEdit"
           />
           <Button
-            v-if="!editing"
+            v-if="!editing && authStore.can('pinpoint:layers:layer:delete')"
             label="Delete"
             icon="pi pi-trash"
             severity="danger"
@@ -443,7 +445,7 @@ async function saveSchema() {
         >
           <h3 style="margin: 0; font-size: 16px; color: #243b53">Property Schema</h3>
           <Button
-            v-if="propertySet"
+            v-if="propertySet && authStore.can('pinpoint:layers:property_set:delete')"
             icon="pi pi-trash"
             severity="danger"
             text
@@ -458,6 +460,7 @@ async function saveSchema() {
             Define what data each feature in this layer carries (up to 6 columns).
           </p>
           <Button
+            v-if="authStore.can('pinpoint:layers:property_set:create')"
             label="Define Properties"
             icon="pi pi-plus"
             severity="secondary"
@@ -494,7 +497,13 @@ async function saveSchema() {
               @click="addSchemaKey"
             />
             <span v-else style="font-size: 12px; color: #94a3b8">Max 6 columns</span>
-            <Button label="Save Schema" size="small" severity="secondary" @click="saveSchema" />
+            <Button
+              v-if="authStore.can('pinpoint:layers:property_set:update')"
+              label="Save Schema"
+              size="small"
+              severity="secondary"
+              @click="saveSchema"
+            />
           </div>
         </template>
       </div>
@@ -531,6 +540,7 @@ async function saveSchema() {
             style="flex: 1"
           />
           <Button
+            v-if="authStore.can('pinpoint:layers:layer:update')"
             label="Save"
             icon="pi pi-save"
             :loading="savingPartitions"
@@ -553,7 +563,12 @@ async function saveSchema() {
             Features
             <span style="color: #94a3b8; font-weight: normal">({{ features.length }})</span>
           </h3>
-          <Button label="Add Feature" icon="pi pi-plus" @click="openAddFeature" />
+          <Button
+            v-if="authStore.can('pinpoint:layers:feature:create')"
+            label="Add Feature"
+            icon="pi pi-plus"
+            @click="openAddFeature"
+          />
         </div>
 
         <div v-if="features.length > 0" style="margin-bottom: 12px">
@@ -606,17 +621,24 @@ async function saveSchema() {
           <Column header="Status" style="width: 120px">
             <template #body="{ data }">
               <Button
+                v-if="authStore.can('pinpoint:layers:feature:update')"
                 :label="(data as FeatureItem).status === 'ACTIVE' ? 'Active' : 'Inactive'"
                 :severity="(data as FeatureItem).status === 'ACTIVE' ? 'success' : 'warn'"
                 size="small"
                 text
                 @click="toggleFeatureStatus(data as FeatureItem)"
               />
+              <Tag
+                v-else
+                :value="(data as FeatureItem).status === 'ACTIVE' ? 'Active' : 'Inactive'"
+                :severity="(data as FeatureItem).status === 'ACTIVE' ? 'success' : 'warn'"
+              />
             </template>
           </Column>
           <Column header="" style="width: 60px">
             <template #body="{ data }">
               <Button
+                v-if="authStore.can('pinpoint:layers:feature:delete')"
                 icon="pi pi-trash"
                 severity="danger"
                 text
@@ -749,6 +771,11 @@ async function saveSchema() {
         <template #footer>
           <Button label="Cancel" severity="secondary" @click="showFeatureDialog = false" />
           <Button
+            v-if="
+              editingFeature
+                ? authStore.can('pinpoint:layers:feature:update')
+                : authStore.can('pinpoint:layers:feature:create')
+            "
             :label="editingFeature ? 'Update' : 'Create'"
             :loading="featureSaving"
             @click="handleSaveFeature"

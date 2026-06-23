@@ -11,7 +11,7 @@ import { db } from './infrastructure/db.js';
 import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
-import { ALL_PERMISSIONS_SET, permissionsForRoles } from './auth/role-permissions.js';
+import { ALL_PERMISSIONS_SET, resolvePermissions } from './auth/role-permissions.js';
 import { SESSION_COOKIE_NAME } from './auth/session-cookie.js';
 import { tryRefreshSession } from './auth/session-refresh.js';
 import { registerAuthRoutes } from './api/routes/auth/index.js';
@@ -75,7 +75,7 @@ const FLOWCATALYST_SIGNING_SECRET = process.env['FLOWCATALYST_SIGNING_SECRET'];
  * — no API key env. PINPOINT_BEDROCK_REGION must be the region that hosts Gemma
  * (it drives the endpoint URL + token signing), independent of the task's
  * AWS_REGION. Default model is google.gemma-4-26b-a4b (MoE); `ollama` defaults
- * to gemma3. Bumping a default risks invalidating prior matching-quality
+ * to gemma4. Bumping a default risks invalidating prior matching-quality
  * tuning, so keep changes deliberate.
  */
 function buildAddressVerifierConfig(): AddressVerifierConfig {
@@ -96,7 +96,7 @@ function buildAddressVerifierConfig(): AddressVerifierConfig {
     return {
       provider: 'ollama',
       baseUrl: process.env['PINPOINT_OLLAMA_URL'] ?? 'http://localhost:11434',
-      model: model && model.length > 0 ? model : 'gemma3',
+      model: model && model.length > 0 ? model : 'gemma4',
     };
   }
   return { provider: 'none' };
@@ -133,7 +133,7 @@ async function extractRequestToken(
         const claims = await tokenValidator.validate(token);
         return {
           sub: claims.sub,
-          permissions: permissionsForRoles(claims.roles),
+          permissions: resolvePermissions(claims),
         };
       } catch (err) {
         req.log.warn({ err }, 'JWT validation failed');
@@ -150,7 +150,7 @@ async function extractRequestToken(
           const claims = await tokenValidator.validate(session.accessToken);
           return {
             sub: claims.sub,
-            permissions: permissionsForRoles(claims.roles),
+            permissions: resolvePermissions(claims),
           };
         } catch (err) {
           // Access token failed to validate — typically expired. If

@@ -2,10 +2,12 @@
 import { onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useClientStore, type Client } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 
 const router = useRouter();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 
 const { searchQuery } = useListState({
   search: { queryKey: 'q' },
@@ -29,7 +31,12 @@ watch(searchQuery, () => clientStore.loadClients());
         <h1 class="page-title">Clients</h1>
         <p class="page-subtitle">Manage client accounts</p>
       </div>
-      <Button label="New Client" icon="pi pi-plus" @click="router.push('/clients/new')" />
+      <Button
+        v-if="authStore.can('pinpoint:tenancy:client:create')"
+        label="New Client"
+        icon="pi pi-plus"
+        @click="router.push('/clients/new')"
+      />
     </div>
 
     <div class="fc-card">

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -20,6 +21,7 @@ const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const partition = ref<PartitionDetail | null>(null);
 const loading = ref(true);
 const editing = ref(false);
@@ -129,14 +131,14 @@ async function handleDelete() {
         </div>
         <div style="display: flex; gap: 8px">
           <Button
-            v-if="!editing"
+            v-if="!editing && authStore.can('pinpoint:tenancy:partition:update')"
             label="Edit"
             icon="pi pi-pencil"
             severity="secondary"
             @click="startEdit"
           />
           <Button
-            v-if="!editing"
+            v-if="!editing && authStore.can('pinpoint:tenancy:partition:delete')"
             label="Delete"
             icon="pi pi-trash"
             severity="danger"

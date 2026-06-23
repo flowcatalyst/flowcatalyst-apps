@@ -77,14 +77,19 @@ export function loadAuthConfig(): AuthConfig {
     (process.env['PINPOINT_AUTH_DEV_FALLBACK'] ?? 'false').toLowerCase() === 'true';
   const postLoginRedirect = (process.env['PINPOINT_AUTH_POST_LOGIN_REDIRECT'] ?? '/').trim();
 
-  // OIDC is only wired when the issuer URL is set. Audience is required
-  // for JWT verification (audience claim check); we don't fall back to a
-  // default because an empty audience is a security footgun.
+  // OIDC is only wired when the issuer URL is set. Audience IS enforced, but
+  // the expected value defaults (in the token validator) to the discovery
+  // issuer: the FlowCatalyst platform stamps access tokens with
+  // `aud == iss == <base URL>` and ID tokens with `aud == client_id`, so
+  // enforcing `aud == issuer` is exactly what rejects an ID token presented
+  // as a bearer. We must NOT fall back to the client_id here (that's the
+  // ID-token aud — it would reject every access token). Leave audience empty
+  // when OIDC_AUDIENCE is unset; only set it to override the issuer default.
   const oidc: OidcConfig | null =
     issuerUrl.length > 0
       ? {
           issuerUrl,
-          audience: audience.length > 0 ? audience : clientId,
+          audience,
           clientId,
           clientSecret,
           redirectUri,

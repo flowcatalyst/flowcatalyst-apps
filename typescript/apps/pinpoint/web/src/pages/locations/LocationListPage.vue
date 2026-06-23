@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 
 interface Location {
@@ -27,6 +28,7 @@ interface Partition {
 }
 
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 
 const { page, pageSize, first, searchQuery, onPage } = useListState({
   search: { queryKey: 'q' },
@@ -107,7 +109,11 @@ function statusSeverity(status: string) {
         </p>
       </div>
       <RouterLink v-if="clientId" to="/locations/new">
-        <Button label="New Location" icon="pi pi-plus" />
+        <Button
+          v-if="authStore.can('pinpoint:locations:location:create')"
+          label="New Location"
+          icon="pi pi-plus"
+        />
       </RouterLink>
     </div>
 
@@ -163,7 +169,12 @@ function statusSeverity(status: string) {
           <div style="text-align: center; padding: 48px">
             <i class="pi pi-map-marker" style="font-size: 48px; color: #bcccdc"></i>
             <p style="color: #64748b; margin-top: 16px">No locations found</p>
-            <RouterLink to="/locations/new" class="link">Create your first location</RouterLink>
+            <RouterLink
+              v-if="authStore.can('pinpoint:locations:location:create')"
+              to="/locations/new"
+              class="link"
+              >Create your first location</RouterLink
+            >
           </div>
         </template>
       </DataTable>

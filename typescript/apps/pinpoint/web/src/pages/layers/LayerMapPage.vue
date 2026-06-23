@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -40,6 +41,7 @@ interface LayerDetail {
 }
 
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const clientId = computed(() => clientStore.selectedClientId);
 
 const layers = ref<LayerItem[]>([]);
@@ -249,7 +251,7 @@ async function handleSave() {
           </h3>
           <div style="display: flex; gap: 4px">
             <Button
-              v-if="!editing"
+              v-if="!editing && authStore.can('pinpoint:layers:feature:update')"
               icon="pi pi-pencil"
               severity="secondary"
               text

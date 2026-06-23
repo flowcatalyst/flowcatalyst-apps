@@ -4,6 +4,11 @@ import Components from 'unplugin-vue-components/vite';
 import { PrimeVueResolver } from '@primevue/auto-import-resolver';
 import { fileURLToPath, URL } from 'node:url';
 
+// Backend target the dev server proxies /api /auth /bff to. Defaults to :3100
+// so it doesn't collide with fc-dev on :3000. Must match the server's PORT
+// (see apps/pinpoint/server/.env). Override with PINPOINT_DEV_API_TARGET.
+const apiTarget = process.env['PINPOINT_DEV_API_TARGET'] ?? 'http://localhost:3100';
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -26,15 +31,15 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/bff': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/api': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/auth': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         changeOrigin: true,
       },
     },

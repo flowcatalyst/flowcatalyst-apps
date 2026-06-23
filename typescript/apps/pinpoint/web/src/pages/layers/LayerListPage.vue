@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 
 interface Layer {
@@ -22,6 +23,7 @@ interface LayerListResponse {
 
 const router = useRouter();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 
 const { page, pageSize, first, searchQuery, onPage } = useListState({
   search: { queryKey: 'q' },
@@ -78,7 +80,12 @@ watch([page, pageSize, searchQuery, clientId], loadLayers);
           severity="secondary"
           @click="router.push('/layers/map')"
         />
-        <Button label="New Layer" icon="pi pi-plus" @click="router.push('/layers/new')" />
+        <Button
+          v-if="authStore.can('pinpoint:layers:layer:create')"
+          label="New Layer"
+          icon="pi pi-plus"
+          @click="router.push('/layers/new')"
+        />
       </div>
     </div>
 

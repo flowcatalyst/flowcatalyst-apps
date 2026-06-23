@@ -24,7 +24,7 @@ import {
 export interface OllamaVerifierConfig {
   /** Base URL of the Ollama server, e.g. `http://localhost:11434`. No trailing slash. */
   readonly baseUrl: string;
-  /** Model tag, e.g. `gemma3` (Rust default). */
+  /** Model tag, e.g. `gemma4` (Rust default). */
   readonly model: string;
   /** Optional log hook called when verification fails. */
   readonly onError?: (err: unknown) => void;
