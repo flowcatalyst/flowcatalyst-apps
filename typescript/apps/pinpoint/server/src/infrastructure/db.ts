@@ -3,17 +3,19 @@ import postgres from 'postgres';
 import { ScopeAwareDrizzleLogger } from '@flowcatalyst-apps/app-framework';
 
 /**
- * Pinpoint's tables live in a Postgres schema named `pinpoint` (not `public`).
+ * Pinpoint owns a dedicated `pinpoint` database with its tables in the `public`
+ * schema — it does NOT share a database or sit in a named schema. postgis /
+ * pg_trgm are installed in that database's `public` schema, so table refs and
+ * spatial functions (ST_*, similarity) both resolve unqualified with the
+ * default search_path.
  *
- * Locally, `pnpm db:init` sets the dev role's default search_path. In prod we
- * share the platform's RDS instance + master role, so we must NOT touch that
- * role's default search_path (it's used by other apps too). Instead we set
- * search_path PER CONNECTION via the startup parameter below — every pooled
- * connection lands on `pinpoint, public`, with `public` kept on the path so
- * postgis / pg_trgm functions (ST_*, similarity) resolve unqualified.
+ * PINPOINT_DB_SCHEMA (default `public`) exists only as an escape hatch if the DB
+ * ever has to be shared; leave it unset. We still pin search_path per connection
+ * via the startup parameter so behaviour is deterministic regardless of any
+ * role-level default.
  */
-export const DB_SCHEMA = process.env['PINPOINT_DB_SCHEMA'] ?? 'pinpoint';
-const SEARCH_PATH = `${DB_SCHEMA}, public`;
+export const DB_SCHEMA = process.env['PINPOINT_DB_SCHEMA'] ?? 'public';
+const SEARCH_PATH = DB_SCHEMA === 'public' ? 'public' : `${DB_SCHEMA}, public`;
 
 function resolveSsl(): 'require' | { rejectUnauthorized: boolean } | undefined {
   // RDS requires TLS. PINPOINT_DB_SSL=require verifies the chain (needs the
@@ -29,8 +31,9 @@ function resolveSsl(): 'require' | { rejectUnauthorized: boolean } | undefined {
  * Build a postgres-js client. Connection source, in priority order:
  *   1. DATABASE_URL — local/dev + drizzle-kit parity.
  *   2. discrete DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD — prod, where ECS
- *      injects DB_PASSWORD from the RDS-managed Secrets Manager secret and the
- *      rest as plain env (reusing the shared `flowcatalyst` DB + master role).
+ *      injects DB_PASSWORD from a Secrets Manager secret and the rest as plain
+ *      env. Pinpoint connects to its OWN `pinpoint` database as its OWN
+ *      `pinpoint_server` role with a static (non-rotated) password.
  *   3. the local dev container fallback (matches `pnpm db:up`).
  *
  * `opts.max` lets callers (e.g. the migrator) cap the pool size.
@@ -57,8 +60,8 @@ export function makeSql(opts: { max?: number } = {}) {
     return postgres({
       host: hostname,
       port: Number(process.env['DB_PORT'] ?? hostPort ?? 5432),
-      database: process.env['DB_NAME'] ?? 'flowcatalyst',
-      username: process.env['DB_USER'] ?? 'inhance_admin',
+      database: process.env['DB_NAME'] ?? 'pinpoint',
+      username: process.env['DB_USER'] ?? 'pinpoint_server',
       password: process.env['DB_PASSWORD'] ?? '',
       ...base,
     });

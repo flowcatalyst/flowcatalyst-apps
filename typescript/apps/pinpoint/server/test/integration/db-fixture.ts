@@ -22,7 +22,9 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres, { type Sql } from 'postgres';
 
-const SCHEMA = 'pinpoint';
+// Pinpoint's tables live in the `public` schema of its dedicated `pinpoint`
+// database. Kept as a constant so the outbox qualification below stays in sync.
+const SCHEMA = 'public';
 const DRIZZLE_DIR = resolve(import.meta.dirname, '../../drizzle');
 
 interface DbFixtureState {

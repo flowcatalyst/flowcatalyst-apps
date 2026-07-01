@@ -258,7 +258,7 @@ no Effect Tag, no `Effect.tryPromise` wraps anywhere.
 - `test/integration/db-fixture.ts` — one PostGIS testcontainer per
   test run, mirrors `scripts/db-init.ts` (schema + postgis + pg_trgm +
   role search_path) then applies the SDK's `outbox_messages` migration
-  (rewritten on the fly to fully-qualify into the `pinpoint` schema)
+  (rewritten on the fly to fully-qualify into the `public` schema)
   and the pinpoint drizzle migrations. `cleanDb()` truncates every
   table via a single `TRUNCATE … RESTART IDENTITY CASCADE`.
 - `test/integration/test-app-context.ts` — builds a real `AppContext`
@@ -295,7 +295,7 @@ it:
   `require.resolve(...package.json)` — the SDK's exports map doesn't
   expose package.json) and walks two dirs up from the resolved
   `dist/index.js`. The SQL is rewritten on the fly to qualify the
-  table into the `pinpoint` schema so cleanDb truncates it.
+  table into the `public` schema so cleanDb truncates it.
 - **`outbox_messages.type` is the message-kind discriminator**
   (`EVENT` / `AUDIT_LOG` / `DISPATCH_JOB`). The CloudEvents event-type
   code lives in `payload::jsonb->>'type'`. Filter on both.

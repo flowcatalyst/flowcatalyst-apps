@@ -7,18 +7,18 @@
  *   3. the pg_trgm extension installed (used by Slice 8 fuzzy address
  *      matching; created up front so the extension is available before
  *      any migration that depends on it)
- *   4. the role's default search_path set to `pinpoint, public` so every
- *      subsequent connection from this role (the app, drizzle-kit, psql)
- *      naturally resolves unqualified table references to the pinpoint
- *      schema without us having to prefix every pgTable call.
+ *   4. the role's default search_path set to `public` so every subsequent
+ *      connection from this role (the app, drizzle-kit, psql) resolves
+ *      unqualified table references to the public schema.
  *
+ * Pinpoint owns a dedicated `pinpoint` database; its tables live in `public`.
  * Safe to re-run. Uses the same DATABASE_URL the app + drizzle-kit read.
  */
 import postgres from 'postgres';
 import { applyOutboxTableMigration } from '../src/infrastructure/migrate.js';
 
 const DEFAULT_URL = 'postgresql://pinpoint:pinpoint@localhost:5433/pinpoint';
-const SCHEMA = 'pinpoint';
+const SCHEMA = 'public';
 
 async function main(): Promise<void> {
   const url = process.env['DATABASE_URL'] ?? DEFAULT_URL;
