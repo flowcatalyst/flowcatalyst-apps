@@ -46,11 +46,9 @@ import type { LocationAttribute } from '../../domain/locations/location-attribut
 import { asClientId, asPartitionId } from '../../domain/tenancy/ids.js';
 import { LocationCreated } from '../../domain/locations/events/location-created.event.js';
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
-import {
-  LocationValidated,
-  type LayerPropertyAssignment,
-} from '../../domain/locations/events/location-validated.event.js';
+import { LocationValidated } from '../../domain/locations/events/location-validated.event.js';
 import { findMatch } from '../../domain/services/address-matcher.js';
+import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
 import {
   addressHash as computeAddressHash,
   toAddressLine,
@@ -64,52 +62,13 @@ import type { PartitionRepository } from '../../domain/tenancy/partition.reposit
 import type { LocationRepository } from '../../domain/locations/location.repository.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
-import type {
-  LayerFeatureRepository,
-  LocationFeatureAssociationInput,
-  SpatialLookupHit,
-} from '../../domain/layers/layer-feature.repository.js';
+import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
 import type { LocationAttributeRepository } from '../../domain/locations/location-attribute.repository.js';
 import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
 const FUZZY_THRESHOLD = 0.3;
 const FUZZY_LIMIT = 50;
-
-function hitToProperty(hit: SpatialLookupHit): LayerPropertyAssignment {
-  return {
-    layerId: hit.layerId,
-    layerCode: hit.layerCode,
-    layerName: hit.layerName,
-    layerType: hit.layerType,
-    featureId: hit.featureId,
-    featureLabel: hit.featureLabel,
-    distanceMeters: hit.distanceMeters,
-    geometry: {
-      geometryType: hit.layerType,
-      longitude: hit.centerLon,
-      latitude: hit.centerLat,
-      radiusMeters: hit.radiusMeters,
-      polygonPoints:
-        hit.polygonPoints !== null
-          ? hit.polygonPoints
-              .split(';')
-              .map((p) => p.split(','))
-              .filter((parts) => parts.length === 2)
-              .map((parts): [number, number] => [Number(parts[0]), Number(parts[1])])
-          : null,
-    },
-    properties: Object.entries(hit.propertyValues).map(([key, value]) => ({ key, value })),
-  };
-}
-
-function hitToAssociation(hit: SpatialLookupHit): LocationFeatureAssociationInput {
-  return {
-    layerId: hit.layerId,
-    featureId: hit.featureId,
-    distanceMeters: hit.distanceMeters,
-  };
-}
 
 export class CreateLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsLocationCreate;

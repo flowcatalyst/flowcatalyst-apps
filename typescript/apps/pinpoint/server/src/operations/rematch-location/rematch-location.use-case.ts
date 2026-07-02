@@ -41,6 +41,7 @@ import { LocationValidated } from '../../domain/locations/events/location-valida
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
 import { MasterLocationDeleted } from '../../domain/locations/events/master-location-deleted.event.js';
 import { findMatch } from '../../domain/services/address-matcher.js';
+import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
 import {
   addressHash as computeAddressHash,
   toAddressLine,
@@ -52,19 +53,11 @@ import type { AddressVerifier } from '../../domain/services/address-verifier.js'
 import type { LocationRepository } from '../../domain/locations/location.repository.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
-import type {
-  LayerFeatureRepository,
-  LocationFeatureAssociationInput,
-  SpatialLookupHit,
-} from '../../domain/layers/layer-feature.repository.js';
+import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
 import type { RematchLocationCommand } from './rematch-location.command.js';
 
 const FUZZY_THRESHOLD = 0.3;
 const FUZZY_LIMIT = 50;
-
-function hitToAssociation(hit: SpatialLookupHit): LocationFeatureAssociationInput {
-  return { layerId: hit.layerId, featureId: hit.featureId, distanceMeters: hit.distanceMeters };
-}
 
 export class RematchLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsLocationUpdate;
@@ -278,7 +271,7 @@ export class RematchLocationUseCase {
           masterLocationId: newMasterId,
           latitude: matchedMaster.latitude,
           longitude: matchedMaster.longitude,
-          layerProperties: [],
+          layerProperties: hits.map(hitToProperty),
         });
         const validatedResult = await commitAggregate(
           this.uow,
