@@ -29,19 +29,19 @@ const ErrorSchema = Type.Object({
 });
 
 /**
- * Derive a client code from its display name: uppercase, non-alphanumerics
- * collapsed to underscores, trimmed, capped at 32 chars. Falls back to
- * `CLIENT` if the name has no usable characters. Collisions surface as the
+ * Derive a client code from its display name: lowercase, whitespace runs
+ * collapsed to a single hyphen, trimmed, capped at 32 chars. Falls back to
+ * `client` if the name has no usable characters. Collisions surface as the
  * use case's `CLIENT_CODE_EXISTS` business-rule failure (HTTP 409).
  */
 function deriveCode(name: string): string {
   const slug = name
     .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 32);
-  return slug.length > 0 ? slug : 'CLIENT';
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .slice(0, 32)
+    .replace(/-+$/, '');
+  return slug.length > 0 ? slug : 'client';
 }
 
 export function registerBffCreateClientRoute(

@@ -51,6 +51,7 @@ watch(searchQuery, () => clientStore.loadClients());
         @row-select="onRowSelect"
       >
         <Column field="name" header="Name" />
+        <Column field="code" header="Code" />
         <Column field="status" header="Status">
           <template #body="{ data }">
             <Tag

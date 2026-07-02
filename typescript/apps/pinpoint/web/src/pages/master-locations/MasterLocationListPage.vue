@@ -124,6 +124,7 @@ async function handleBulkMatch() {
     const result = await apiFetch<{ mastersProcessed: number; totalAssociations: number }>(
       `/clients/${clientId.value}/master-locations/match-features`,
       { method: 'POST' },
+      { suppressErrorToast: true },
     );
     toast.success(
       'Spatial Matching Complete',

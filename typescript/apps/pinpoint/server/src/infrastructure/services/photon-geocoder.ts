@@ -49,6 +49,24 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
   const baseUrl = config.baseUrl.replace(/\/$/, '');
   const userAgent = config.userAgent ?? 'pinpoint-geocoder/0.1';
 
+  // Node's global fetch throws a bare `TypeError: fetch failed` on any network
+  // failure; the actionable detail (ENOTFOUND / ECONNREFUSED / timeout) is
+  // buried in the `.cause` chain (and AggregateError.errors for happy-eyeballs).
+  // Wrap it so the thrown message names the target host + the underlying code —
+  // otherwise a Photon outage surfaces to the caller as an opaque "fetch failed".
+  async function photonFetch(url: URL): Promise<Response> {
+    try {
+      return await fetch(url, { headers: { 'user-agent': userAgent } });
+    } catch (cause) {
+      const code = networkErrorCode(cause);
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(
+        `Photon request to ${url.origin} failed${code ? ` (${code})` : ''}: ${detail}`,
+        { cause },
+      );
+    }
+  }
+
   return {
     async geocode(address: NormalizedAddress): Promise<GeocodingResult> {
       const query = buildSearchQuery(address);
@@ -56,7 +74,7 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
       url.searchParams.set('q', query);
       url.searchParams.set('limit', '1');
 
-      const response = await fetch(url, { headers: { 'user-agent': userAgent } });
+      const response = await photonFetch(url);
       if (!response.ok) {
         const body = await response.text().catch(() => '');
         throw new Error(`Photon search returned ${response.status}: ${body.slice(0, 200)}`);
@@ -81,7 +99,7 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
       url.searchParams.set('lon', String(longitude));
       url.searchParams.set('limit', '1');
 
-      const response = await fetch(url, { headers: { 'user-agent': userAgent } });
+      const response = await photonFetch(url);
       if (!response.ok) {
         const body = await response.text().catch(() => '');
         throw new Error(`Photon reverse returned ${response.status}: ${body.slice(0, 200)}`);
@@ -109,6 +127,29 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
       };
     },
   };
+}
+
+/**
+ * Dig the OS-level error code (ENOTFOUND, ECONNREFUSED, ETIMEDOUT,
+ * UND_ERR_CONNECT_TIMEOUT, …) out of a failed-fetch error. Node wraps the real
+ * cause under `.cause`, and happy-eyeballs surfaces multiple attempts as an
+ * `AggregateError` whose `.errors[]` hold the codes. Returns the first found.
+ */
+function networkErrorCode(err: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  let cur: unknown = err;
+  while (cur && typeof cur === 'object' && !seen.has(cur)) {
+    seen.add(cur);
+    const code = (cur as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+    const errors = (cur as { errors?: unknown }).errors;
+    if (Array.isArray(errors) && errors.length > 0) {
+      cur = errors[0];
+      continue;
+    }
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return undefined;
 }
 
 /**

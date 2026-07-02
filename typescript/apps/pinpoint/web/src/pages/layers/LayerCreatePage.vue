@@ -31,7 +31,7 @@ async function handleSubmit() {
     const result = await apiFetch<{ id: string }>(`/clients/${clientId.value}/layers`, {
       method: 'POST',
       body: JSON.stringify(form.value),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Layer Created', `Layer "${form.value.name}" has been created.`);
     await router.push(`/layers/${result.id}`);
   } catch (e) {

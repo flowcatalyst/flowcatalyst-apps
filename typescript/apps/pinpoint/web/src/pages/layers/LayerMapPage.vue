@@ -203,6 +203,7 @@ async function handleSave() {
     const updated = await apiFetch<FeatureItem>(
       `/clients/${clientId.value}/layers/${selectedLayerId.value}/features/${selectedFeature.value.id}`,
       { method: 'PUT', body: JSON.stringify(selectedFeature.value) },
+      { suppressErrorToast: true },
     );
     const idx = features.value.findIndex((f) => f.id === updated.id);
     if (idx >= 0) features.value[idx] = updated;

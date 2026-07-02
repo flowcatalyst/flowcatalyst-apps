@@ -70,7 +70,7 @@ async function handleCreate() {
         name: createForm.value.name,
         description: createForm.value.description || null,
       }),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Partition Created', `Partition "${createForm.value.name}" has been created.`);
     showCreateDialog.value = false;
     await loadPartitions();

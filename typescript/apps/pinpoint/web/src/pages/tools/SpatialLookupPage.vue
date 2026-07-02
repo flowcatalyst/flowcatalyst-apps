@@ -72,7 +72,7 @@ async function handleLookup() {
     const resp = await apiFetch<LookupResponse>(`/clients/${clientId.value}/spatial-lookup`, {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }, { suppressErrorToast: true });
     results.value = resp.results;
     lookupCoords.value = { lat: resp.latitude, lon: resp.longitude };
     if (resp.results.length === 0) {

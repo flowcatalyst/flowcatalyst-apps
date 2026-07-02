@@ -137,7 +137,7 @@ async function handleSavePartitions() {
     await apiFetch(layerPath('/partitions'), {
       method: 'PUT',
       body: JSON.stringify({ partitionIds: selectedPartitionIds.value }),
-    });
+    }, { suppressErrorToast: true });
     if (layer.value) layer.value.partitionIds = [...selectedPartitionIds.value];
     toast.success(
       'Updated',
@@ -174,7 +174,7 @@ async function handleSave() {
         radiusMeters: layer.value.radiusMeters,
         polygonGeojson: layer.value.polygonGeojson,
       }),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Saved', 'Layer updated.');
     editing.value = false;
   } catch (e) {
@@ -192,7 +192,7 @@ function confirmDeleteLayer() {
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
-        await apiFetch(layerPath(), { method: 'DELETE' });
+        await apiFetch(layerPath(), { method: 'DELETE' }, { suppressErrorToast: true });
         toast.success('Deleted', 'Layer deleted.');
         await router.push('/layers');
       } catch (e) {
@@ -285,7 +285,7 @@ function confirmDeleteFeature(f: FeatureItem) {
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
-        await apiFetch(layerPath(`/features/${f.id}`), { method: 'DELETE' });
+        await apiFetch(layerPath(`/features/${f.id}`), { method: 'DELETE' }, { suppressErrorToast: true });
         features.value = features.value.filter((x) => x.id !== f.id);
         toast.success('Deleted', 'Feature deleted.');
       } catch (e) {
@@ -301,7 +301,7 @@ async function toggleFeatureStatus(f: FeatureItem) {
     const updated = await apiFetch<FeatureItem>(layerPath(`/features/${f.id}/status`), {
       method: 'PUT',
       body: JSON.stringify({ status: newStatus }),
-    });
+    }, { suppressErrorToast: true });
     const idx = features.value.findIndex((x) => x.id === f.id);
     if (idx >= 0) features.value[idx] = updated;
     toast.success('Updated', `Feature "${f.label}" is now ${newStatus.toLowerCase()}.`);
@@ -318,7 +318,7 @@ async function createSchema() {
     const ps = await apiFetch<PropertySetItem>(layerPath('/property-sets'), {
       method: 'POST',
       body: JSON.stringify({ name: 'Properties' }),
-    });
+    }, { suppressErrorToast: true });
     if (layer.value) layer.value.propertySets = [ps];
   } catch (e) {
     toast.error('Failed to create schema', getErrorMessage(e, 'Unknown error'));
@@ -331,7 +331,7 @@ async function deleteSchema() {
   const ps = propertySet.value;
   if (!ps) return;
   try {
-    await apiFetch(layerPath(`/property-sets/${ps.id}`), { method: 'DELETE' });
+    await apiFetch(layerPath(`/property-sets/${ps.id}`), { method: 'DELETE' }, { suppressErrorToast: true });
     if (layer.value) layer.value.propertySets = [];
   } catch (e) {
     toast.error('Failed to delete', getErrorMessage(e, 'Unknown error'));
@@ -362,7 +362,7 @@ async function saveSchema() {
     await apiFetch(layerPath(`/property-sets/${ps.id}/properties`), {
       method: 'PUT',
       body: JSON.stringify({ properties: ps.properties.filter((p) => p.key.trim()) }),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Saved', 'Property schema updated.');
   } catch (e) {
     toast.error('Failed to save', getErrorMessage(e, 'Unknown error'));

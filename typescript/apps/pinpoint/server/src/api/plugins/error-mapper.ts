@@ -12,6 +12,17 @@ export async function sendUseCaseError(
   error: UseCaseErrorType,
 ): Promise<void> {
   const status = UseCaseError.httpStatus(error);
+  // 5xx are handled-but-returned (not thrown), so Fastify's own error logging
+  // never fires — a bare `statusCode: 500` with no detail lands in the logs.
+  // Log the mapped error here so infrastructure failures (GEOCODER_FAILED, DB
+  // errors, …) surface their code + message + details. 4xx are client faults;
+  // leave them out of the error log to avoid noise.
+  if (status >= 500) {
+    reply.log.error(
+      { err: { type: error.type, code: error.code, message: error.message, details: error.details } },
+      `use-case error → ${status}: ${error.code} ${error.message}`,
+    );
+  }
   await reply.code(status).send({
     error: error.type,
     code: error.code,

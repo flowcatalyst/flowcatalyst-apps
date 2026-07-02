@@ -54,7 +54,7 @@ async function handleSubmit() {
     const result = await apiFetch<{ id: string }>(`/clients/${clientId.value}/locations`, {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Location Created', 'The location has been created and is being processed.');
     await router.push(`/locations/${result.id}`);
   } catch (e) {

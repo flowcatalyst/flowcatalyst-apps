@@ -88,7 +88,7 @@ async function handleSave() {
         addressNameThreshold: editForm.value.addressNameThreshold / 100,
         overallThreshold: editForm.value.overallThreshold / 100,
       }),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Saved', 'Matching configuration updated.');
     editing.value = false;
     await loadConfig();

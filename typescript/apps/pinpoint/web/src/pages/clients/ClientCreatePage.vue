@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiFetch } from '@/api/client';
 import { toast } from '@flowcatalyst-apps/web-kit';
@@ -10,7 +10,31 @@ const saving = ref(false);
 
 const form = ref({
   name: '',
+  code: '',
 });
+
+// The code defaults to a slug of the name (lowercase, spaces -> "-"), matching
+// the BFF's server-side derivation. We keep syncing it as the user types the
+// name until they edit the code field themselves, then leave it alone.
+const codeEdited = ref(false);
+
+function deriveClientCode(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .slice(0, 32)
+    .replace(/-+$/, '');
+}
+
+watch(
+  () => form.value.name,
+  (name) => {
+    if (!codeEdited.value) {
+      form.value.code = deriveClientCode(name);
+    }
+  },
+);
 
 async function handleSubmit() {
   saving.value = true;
@@ -18,7 +42,7 @@ async function handleSubmit() {
     const result = await apiFetch<{ id: string }>('/clients', {
       method: 'POST',
       body: JSON.stringify(form.value),
-    });
+    }, { suppressErrorToast: true });
     toast.success('Client Created', `Client "${form.value.name}" has been created.`);
     await router.push(`/clients/${result.id}`);
   } catch (e) {
@@ -51,6 +75,22 @@ async function handleSubmit() {
             class="w-full"
             required
           />
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <label for="code" style="display: block; margin-bottom: 6px; font-weight: 500"
+            >Code</label
+          >
+          <InputText
+            id="code"
+            v-model="form.code"
+            placeholder="auto-generated from name"
+            class="w-full"
+            @input="codeEdited = true"
+          />
+          <small style="display: block; margin-top: 4px; color: var(--text-color-secondary)">
+            Defaults to the name in lowercase with spaces replaced by "-". Edit to override.
+          </small>
         </div>
 
         <div style="display: flex; gap: 8px; justify-content: flex-end">

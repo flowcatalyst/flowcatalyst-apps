@@ -130,6 +130,7 @@ async function handleReverseGeocode() {
     const result = await apiFetch<ReverseGeocodeResult>(
       `/clients/${clientId}/master-locations/${masterLocation.value.id}/reverse-geocode`,
       { method: 'POST' },
+      { suppressErrorToast: true },
     );
     // Backfill: keep existing values where reverse geocode returned nothing
     const ml = masterLocation.value;
@@ -183,6 +184,7 @@ async function handleConfirm() {
           longitude: masterLocation.value.longitude,
         }),
       },
+      { suppressErrorToast: true },
     );
     toast.success('Validated', 'Master location has been validated with the confirmed address.');
     reverseResult.value = null;
@@ -200,6 +202,7 @@ async function handleMatchFeatures() {
     const result = await apiFetch<MatchFeaturesResult>(
       `/clients/${clientId}/master-locations/${masterLocation.value.id}/match-features`,
       { method: 'POST' },
+      { suppressErrorToast: true },
     );
     masterLocation.value.features = result.featuresMatched;
     const count = result.featuresMatched.length;
@@ -246,6 +249,7 @@ async function handleSaveEdit() {
           country: editForm.value.country,
         }),
       },
+      { suppressErrorToast: true },
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     editing.value = false;
@@ -265,6 +269,7 @@ async function handleGeocode() {
     const updated = await apiFetch<MasterLocation>(
       `/clients/${clientId}/master-locations/${masterLocation.value.id}/geocode`,
       { method: 'POST' },
+      { suppressErrorToast: true },
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     processingLog.value = [];
@@ -283,6 +288,7 @@ async function handleValidate() {
     const updated = await apiFetch<MasterLocation>(
       `/clients/${clientId}/master-locations/${masterLocation.value.id}/validate`,
       { method: 'POST' },
+      { suppressErrorToast: true },
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     processingLog.value = [];
@@ -301,6 +307,8 @@ async function toggleProcessingLog() {
     try {
       processingLog.value = await apiFetch<ProcessingLogEntry[]>(
         `/clients/${clientId}/master-locations/${masterLocation.value.id}/processing-log`,
+        {},
+        { suppressErrorToast: true },
       );
     } catch (e) {
       toast.error('Failed to load log', getErrorMessage(e, 'Unknown error'));

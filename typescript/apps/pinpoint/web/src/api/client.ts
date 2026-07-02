@@ -42,7 +42,21 @@ export function notifyPermissionDenied(
   emitApiError(403, message);
 }
 
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+/** Per-call knobs for apiFetch that aren't part of the fetch RequestInit. */
+export interface ApiFetchConfig {
+  /**
+   * Skip the generic "Request Failed" toast on error. Pass this when the caller
+   * shows its own contextual toast (e.g. `toast.error('Geocoding failed', …)`),
+   * so the two don't stack into a duplicate. 401/403 handling still runs.
+   */
+  suppressErrorToast?: boolean;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+  config: ApiFetchConfig = {},
+): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
@@ -85,7 +99,9 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
     // 403 is surfaced by the global PermissionDeniedDialog (it subscribes to
     // emitApiError above), so skip the toast to avoid a double notification.
-    if (response.status !== 403) {
+    // suppressErrorToast lets a caller that renders its own contextual toast
+    // opt out of this generic one (same anti-duplication reason).
+    if (response.status !== 403 && !config.suppressErrorToast) {
       toast.error('Request Failed', message);
     }
     throw new ApiError(message, response.status, code);
