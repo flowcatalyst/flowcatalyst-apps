@@ -209,8 +209,14 @@ export class CreateLocationUseCase {
       }
     }
 
-    // Step 3: normalize, with a country-code retry on first failure.
+    // Step 3: normalize. Strict passes first (best-quality parse, using the
+    // country-code hint as a retry). If libpostal can't identify the city /
+    // country, fall back to a best-effort pass so the address is still INGESTED
+    // (it lands PENDING for geocoding/review) rather than dropped. A genuine
+    // libpostal outage (HTTP / timeout) still throws in best-effort mode and
+    // surfaces as ADDRESS_NORMALIZATION_FAILED.
     let normalized: NormalizedAddress;
+    let normalizationBestEffort = false;
     try {
       try {
         normalized = await this.addressNormalizer.normalize(address);
@@ -218,9 +224,17 @@ export class CreateLocationUseCase {
         if (countryCode === null) throw firstErr;
         normalized = await this.addressNormalizer.normalize(`${address}, ${countryCode}`);
       }
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
-      return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
+    } catch {
+      try {
+        const beInput = countryCode !== null ? `${address}, ${countryCode}` : address;
+        normalized = await this.addressNormalizer.normalize(beInput, { strict: false });
+        normalizationBestEffort = true;
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        return Result.failure(
+          UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message),
+        );
+      }
     }
 
     const addressHash = computeAddressHash(normalized);
@@ -293,6 +307,7 @@ export class CreateLocationUseCase {
             postal_code: normalized.postalCode,
             country: normalized.country,
             address_hash: addressHash,
+            best_effort: normalizationBestEffort,
           },
         );
       } catch {
@@ -449,6 +464,7 @@ export class CreateLocationUseCase {
         postal_code: normalized.postalCode,
         country: normalized.country,
         address_hash: addressHash,
+        best_effort: normalizationBestEffort,
       });
     } catch {
       // swallow

@@ -31,12 +31,18 @@ export interface NormalizedAddress {
  * GeocoderService / AddressVerifier). Composed at the AppContext
  * composition root.
  *
- * Throws on failure. The caller (create-location pipeline) catches +
- * retries with the country code appended; if that retry also fails the
- * caller surfaces an InfrastructureError.
+ * In strict mode (default) it throws when the city or country can't be
+ * identified; the create-location pipeline retries with the country code
+ * appended, then falls back to a best-effort (`strict: false`) pass so the
+ * address is ingested (as PENDING, for geocoding/review) rather than dropped.
+ * Infrastructure failures (HTTP / timeout) always throw regardless of the flag.
  */
+export interface NormalizeOptions {
+  readonly strict?: boolean;
+}
+
 export interface AddressNormalizer {
-  normalize(address: string): Promise<NormalizedAddress>;
+  normalize(address: string, options?: NormalizeOptions): Promise<NormalizedAddress>;
 }
 
 /**
