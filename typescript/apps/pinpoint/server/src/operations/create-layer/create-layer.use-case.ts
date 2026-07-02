@@ -57,30 +57,13 @@ export class CreateLayerUseCase {
       );
     }
 
-    if (layerType === 'RADIUS') {
-      if (command.centerLat == null || command.centerLon == null) {
-        return Result.failure(
-          UseCaseError.validation(
-            'RADIUS_CENTER_REQUIRED',
-            'Radius layers require centerLat and centerLon.',
-          ),
-        );
-      }
-      if (command.radiusMeters == null) {
-        return Result.failure(
-          UseCaseError.validation('RADIUS_METERS_REQUIRED', 'Radius layers require radiusMeters.'),
-        );
-      }
-    } else if (layerType === 'POLYGON') {
-      if (!command.polygonGeojson || command.polygonGeojson.trim().length === 0) {
-        return Result.failure(
-          UseCaseError.validation(
-            'POLYGON_GEOJSON_REQUIRED',
-            'Polygon layers require polygonGeojson.',
-          ),
-        );
-      }
-    }
+    // NOTE: A layer is a container; its geometry lives on its FEATURES (points),
+    // which carry their own center/radius/boundary and are what the spatial
+    // lookup actually matches. The layer-level center/radius/geojson is stored
+    // but never read (true in the Rust original too), so we do NOT require it
+    // for any layer type — you create the layer, then add features to it.
+    // Any layer-level geometry the command happens to carry is still persisted
+    // below as an optional default.
 
     const client = await this.clients.findById(clientId);
     if (!client) {

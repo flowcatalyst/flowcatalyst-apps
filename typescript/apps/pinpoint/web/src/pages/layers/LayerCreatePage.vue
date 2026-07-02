@@ -17,43 +17,32 @@ const layerTypeOptions = [
   { label: 'Point', value: 'POINT' },
 ];
 
-// Default to POINT: a layer is a container whose features carry their own
-// geometry (matches the backend — "Point layers don't require geometry at the
-// layer level"). RADIUS/POLYGON layers set an optional default geometry, so we
-// only collect + send those fields when the matching type is selected.
+// A layer is just a container + a type label; its geometry lives on the
+// features (points) you add to it afterward. So creation needs only
+// code / name / description / type — no layer-level center/radius/geojson.
 const form = ref({
   code: '',
   name: '',
   description: '',
   layerType: 'POINT' as 'POINT' | 'RADIUS' | 'POLYGON',
-  centerLat: null as number | null,
-  centerLon: null as number | null,
-  radius: 1000 as number | null,
-  geometry: '',
 });
 
 async function handleSubmit() {
   if (!clientId.value) return;
   const f = form.value;
-  const payload: Record<string, unknown> = {
-    code: f.code,
-    name: f.name,
-    description: f.description.trim() || null,
-    layerType: f.layerType,
-  };
-  if (f.layerType === 'RADIUS') {
-    payload['centerLat'] = f.centerLat;
-    payload['centerLon'] = f.centerLon;
-    payload['radius'] = f.radius;
-  } else if (f.layerType === 'POLYGON') {
-    payload['geometry'] = f.geometry.trim() || null;
-  }
-
   saving.value = true;
   try {
     const result = await apiFetch<{ id: string }>(
       `/clients/${clientId.value}/layers`,
-      { method: 'POST', body: JSON.stringify(payload) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          code: f.code,
+          name: f.name,
+          description: f.description.trim() || null,
+          layerType: f.layerType,
+        }),
+      },
       { suppressErrorToast: true },
     );
     toast.success('Layer Created', `Layer "${f.name}" has been created.`);
@@ -131,63 +120,10 @@ async function handleSubmit() {
               option-value="value"
               class="w-full"
             />
-          </div>
-
-          <!-- POINT: no layer-level geometry; features provide their own coordinates. -->
-          <small v-if="form.layerType === 'POINT'" style="color: #64748b">
-            Point layers hold no geometry of their own — add features with their own coordinates
-            after creating the layer.
-          </small>
-
-          <!-- RADIUS: default center + radius applied to the layer. -->
-          <template v-else-if="form.layerType === 'RADIUS'">
-            <div style="display: flex; gap: 16px">
-              <div style="flex: 1">
-                <label style="display: block; margin-bottom: 6px; font-weight: 500">Center Latitude</label>
-                <InputNumber
-                  v-model="form.centerLat"
-                  :min="-90"
-                  :max="90"
-                  :max-fraction-digits="7"
-                  placeholder="e.g. -26.2041"
-                  class="w-full"
-                />
-              </div>
-              <div style="flex: 1">
-                <label style="display: block; margin-bottom: 6px; font-weight: 500">Center Longitude</label>
-                <InputNumber
-                  v-model="form.centerLon"
-                  :min="-180"
-                  :max="180"
-                  :max-fraction-digits="7"
-                  placeholder="e.g. 28.0473"
-                  class="w-full"
-                />
-              </div>
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 6px; font-weight: 500"
-                >Default Radius (meters)</label
-              >
-              <InputNumber v-model="form.radius" :min="1" :max="100000" suffix=" m" class="w-full" />
-              <small style="color: #64748b">All features in this layer default to this radius.</small>
-            </div>
-          </template>
-
-          <!-- POLYGON: GeoJSON boundary. -->
-          <div v-else-if="form.layerType === 'POLYGON'">
-            <label for="geometry" style="display: block; margin-bottom: 6px; font-weight: 500"
-              >Polygon GeoJSON</label
-            >
-            <Textarea
-              id="geometry"
-              v-model="form.geometry"
-              rows="6"
-              placeholder='{"type":"Polygon","coordinates":[[[lon,lat], ...]]}'
-              class="w-full"
-              style="font-family: monospace"
-            />
-            <small style="color: #64748b">A GeoJSON Polygon geometry defining the layer boundary.</small>
+            <small style="color: #64748b">
+              A label for the features this layer holds. Add features (points, with their own
+              coordinates) after creating the layer — the layer itself carries no geometry.
+            </small>
           </div>
 
           <div style="display: flex; gap: 8px; justify-content: flex-end">

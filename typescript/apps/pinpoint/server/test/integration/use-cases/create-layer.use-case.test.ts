@@ -67,39 +67,43 @@ describe('CreateLayerUseCase (integration)', () => {
     expect(events.length).toBe(1);
   });
 
-  it('rejects RADIUS without center lat/lon', async () => {
+  // A layer is a container; its geometry lives on features. Layer-level
+  // center/radius/geojson is never read, so it is NOT required for any type —
+  // you create the layer, then add features to it.
+  it('creates a RADIUS layer without center lat/lon (geometry lives on features)', async () => {
     const clientId = await createClient();
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
       appContext.runWrite(() =>
         appContext.useCases.createLayer.execute({
           clientId,
-          code: 'bad',
-          name: 'Bad',
+          code: 'radius-container',
+          name: 'Radius Container',
           layerType: 'RADIUS',
-          radiusMeters: 100,
         }),
       ),
     );
-    expect(isFailure(result)).toBe(true);
-    if (!isFailure(result)) return;
-    expect(result.error.type).toBe('validation');
+    expect(isSuccess(result)).toBe(true);
+    if (!isSuccess(result)) return;
+    const layer = await appContext.repositories.layers.findById(
+      result.value.getData().layerId as never,
+    );
+    expect(layer?.layerType).toBe('RADIUS');
+    expect(layer?.centerLat).toBeNull();
   });
 
-  it('rejects POLYGON without geojson', async () => {
+  it('creates a POLYGON layer without geojson', async () => {
     const clientId = await createClient();
     const result = await runInScope({ sub: 'prn_test_principal' }, () =>
       appContext.runWrite(() =>
         appContext.useCases.createLayer.execute({
           clientId,
-          code: 'bad-poly',
-          name: 'Bad Poly',
+          code: 'poly-container',
+          name: 'Poly Container',
           layerType: 'POLYGON',
         }),
       ),
     );
-    expect(isFailure(result)).toBe(true);
-    if (!isFailure(result)) return;
-    expect(result.error.type).toBe('validation');
+    expect(isSuccess(result)).toBe(true);
   });
 
   it('409s a duplicate code within the same client', async () => {
