@@ -7,11 +7,14 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
+  asLocationId,
   asMasterLocationId,
+  LOCATION_ID_PREFIX,
   MASTER_LOCATION_ID_PREFIX,
 } from '../../../src/domain/locations/ids.js';
 import { asClientId } from '../../../src/domain/tenancy/ids.js';
 import { MasterLocation } from '../../../src/domain/locations/master-location.js';
+import type { Location } from '../../../src/domain/locations/location.js';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
 import type { AppContext } from '../../../src/app-context.js';
@@ -97,6 +100,67 @@ describe('UpdateMasterLocationUseCase (integration)', () => {
       WHERE type = 'EVENT' AND payload::jsonb->>'type' = 'pinpoint:locations:master_location:updated'
     `);
     expect(events.length).toBe(1);
+  });
+
+  it('resets status to PENDING and reports the linked locations', async () => {
+    const { clientId, masterLocationId } = await seed();
+
+    // Promote the seeded master to VALIDATED so the reset is observable.
+    const master = await appContext.repositories.masterLocations.findById(masterLocationId as never);
+    if (!master) throw new Error('master not found');
+    const geocoded = MasterLocation.geocoded(master, { latitude: 1, longitude: 2 }, new Date());
+    await appContext.repositories.masterLocations.persist(MasterLocation.confirmed(geocoded, new Date()));
+
+    // Link a location to it.
+    const loc: Location = {
+      id: asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`),
+      clientId: asClientId(clientId),
+      partitionId: null,
+      masterLocationId: asMasterLocationId(masterLocationId),
+      externalId: null,
+      name: null,
+      rawAddressLine1: 'Market St, San Francisco',
+      matchAddress: 'Market St, San Francisco',
+      rawAddressLine2: null,
+      rawSuburb: null,
+      rawCity: 'san francisco',
+      rawState: null,
+      rawPostalCode: null,
+      rawCountry: 'usa',
+      normalizedHouseNumber: null,
+      normalizedRoad: null,
+      normalizedSuburb: null,
+      normalizedCity: null,
+      normalizedState: null,
+      normalizedPostalCode: null,
+      normalizedCountry: null,
+      addressHash: null,
+      matchConfidence: null,
+      matchMethod: null,
+      status: 'VALIDATED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    await appContext.repositories.locations.persist(loc);
+
+    const result = await runInScope({ sub: 'prn_test' }, () =>
+      appContext.runWrite(() =>
+        appContext.useCases.updateMasterLocation.execute({
+          clientId,
+          masterLocationId,
+          normalizedCity: 'San Francisco',
+          normalizedCountry: 'United States',
+        }),
+      ),
+    );
+    expect(isSuccess(result)).toBe(true);
+    if (!isSuccess(result)) return;
+    const data = result.value.getData();
+    expect(data.status).toBe('PENDING');
+    expect(data.linkedLocationIds).toContain(loc.id);
+
+    const after = await appContext.repositories.masterLocations.findById(masterLocationId as never);
+    expect(after?.status).toBe('PENDING');
   });
 
   it('404s on a missing master', async () => {
