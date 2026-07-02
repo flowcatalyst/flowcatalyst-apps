@@ -59,30 +59,8 @@ export class UpdateLayerUseCase {
       );
     }
 
-    if (existing.layerType === 'RADIUS') {
-      if (command.centerLat == null || command.centerLon == null) {
-        return Result.failure(
-          UseCaseError.validation(
-            'RADIUS_CENTER_REQUIRED',
-            'Radius layers require centerLat and centerLon.',
-          ),
-        );
-      }
-      if (command.radiusMeters == null) {
-        return Result.failure(
-          UseCaseError.validation('RADIUS_METERS_REQUIRED', 'Radius layers require radiusMeters.'),
-        );
-      }
-    } else if (existing.layerType === 'POLYGON') {
-      if (!command.polygonGeojson || command.polygonGeojson.trim().length === 0) {
-        return Result.failure(
-          UseCaseError.validation(
-            'POLYGON_GEOJSON_REQUIRED',
-            'Polygon layers require polygonGeojson.',
-          ),
-        );
-      }
-    }
+    // Layer-level geometry is an unused optional default (features carry the
+    // real geometry), so no layer type requires it here — mirror create-layer.
 
     const updated = Layer.update(existing, {
       name,
