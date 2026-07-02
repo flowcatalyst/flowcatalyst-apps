@@ -4,10 +4,12 @@ import { registerBffListLocationsRoute } from './list-locations.route.js';
 import { registerBffGetLocationRoute } from './get-location.route.js';
 import { registerBffCreateLocationRoute } from './create-location.route.js';
 import { registerBffDeleteLocationRoute } from './delete-location.route.js';
+import { registerBffRematchLocationRoute } from './rematch-location.route.js';
 
 export function registerBffLocationRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   registerBffListLocationsRoute(fastify, appContext);
   registerBffGetLocationRoute(fastify, appContext);
   registerBffCreateLocationRoute(fastify, appContext);
   registerBffDeleteLocationRoute(fastify, appContext);
+  registerBffRematchLocationRoute(fastify, appContext);
 }

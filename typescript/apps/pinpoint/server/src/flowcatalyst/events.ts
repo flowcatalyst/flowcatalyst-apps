@@ -35,6 +35,7 @@ import { PropertySetPropertiesReplacedEventType } from '../domain/layers/events/
 import { LocationCreatedEventType } from '../domain/locations/events/location-created.event.js';
 import { LocationValidatedEventType } from '../domain/locations/events/location-validated.event.js';
 import { LocationDeletedEventType } from '../domain/locations/events/location-deleted.event.js';
+import { LocationRematchedEventType } from '../domain/locations/events/location-rematched.event.js';
 import { MasterLocationCreatedEventType } from '../domain/locations/events/master-location-created.event.js';
 import { MasterLocationGeocodedEventType } from '../domain/locations/events/master-location-geocoded.event.js';
 import { MasterLocationValidatedEventType } from '../domain/locations/events/master-location-validated.event.js';
@@ -78,6 +79,7 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   LocationCreatedEventType,
   LocationValidatedEventType,
   LocationDeletedEventType,
+  LocationRematchedEventType,
   MasterLocationCreatedEventType,
   MasterLocationGeocodedEventType,
   MasterLocationValidatedEventType,

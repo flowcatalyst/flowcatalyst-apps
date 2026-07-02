@@ -23,6 +23,10 @@ const ResponseSchema = Type.Object({
   id: Type.String(),
   name: Type.Union([Type.String(), Type.Null()]),
   address: Type.String(),
+  /** Immutable received address (raw_address_line1). */
+  receivedAddress: Type.String(),
+  /** Editable match address that drives normalization + matching. */
+  matchAddress: Type.String(),
   city: Type.String(),
   country: Type.String(),
   status: Type.String(),
@@ -75,6 +79,8 @@ export function registerBffGetLocationRoute(
         id: location.id,
         name: location.name,
         address: location.rawAddressLine1,
+        receivedAddress: location.rawAddressLine1,
+        matchAddress: location.matchAddress,
         city: location.rawCity,
         country: location.rawCountry,
         status: location.status,

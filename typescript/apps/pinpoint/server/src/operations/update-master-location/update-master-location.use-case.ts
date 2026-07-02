@@ -4,8 +4,10 @@
  * Recomputes `addressHash` + `normalizedAddressLine` from the new
  * components so future matches dedupe correctly.
  *
- * Doesn't touch status — that's `confirm-master-location` /
- * `reject-master-location`'s job.
+ * Editing a master is "fixing" it, so the status is reset to PENDING (it flows
+ * back through geocode/validate). The emitted event carries the IDs of every
+ * location currently linked to this master, so downstream consumers know which
+ * locations the fix affects.
  */
 import {
   Result,
@@ -27,6 +29,7 @@ import {
   toAddressLine,
 } from '../../domain/services/address-normalizer.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
+import type { LocationRepository } from '../../domain/locations/location.repository.js';
 import type { UpdateMasterLocationCommand } from './update-master-location.command.js';
 
 export class UpdateMasterLocationUseCase {
@@ -36,6 +39,7 @@ export class UpdateMasterLocationUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly masters: MasterLocationRepository,
+    private readonly locations: LocationRepository,
   ) {}
 
   async execute(command: UpdateMasterLocationCommand): Promise<Result<MasterLocationUpdated>> {
@@ -83,23 +87,32 @@ export class UpdateMasterLocationUseCase {
     const newHash = computeAddressHash(normalized);
     const newAddressLine = toAddressLine(normalized);
 
-    const updated = MasterLocation.updated(existing, {
-      normalizedHouseNumber: normalized.houseNumber,
-      normalizedRoad: normalized.road,
-      normalizedSuburb: normalized.suburb,
-      normalizedCity: normalized.city,
-      normalizedState: normalized.state,
-      normalizedPostalCode: normalized.postalCode,
-      normalizedCountry: normalized.country,
-      addressHash: newHash,
-      normalizedAddressLine: newAddressLine,
-      now: new Date(),
-    });
+    // Editing a master is "fixing" it → reset to PENDING so it flows back
+    // through geocode/validate.
+    const updated: MasterLocation = {
+      ...MasterLocation.updated(existing, {
+        normalizedHouseNumber: normalized.houseNumber,
+        normalizedRoad: normalized.road,
+        normalizedSuburb: normalized.suburb,
+        normalizedCity: normalized.city,
+        normalizedState: normalized.state,
+        normalizedPostalCode: normalized.postalCode,
+        normalizedCountry: normalized.country,
+        addressHash: newHash,
+        normalizedAddressLine: newAddressLine,
+        now: new Date(),
+      }),
+      status: 'PENDING',
+    };
+
+    const linked = await this.locations.listByMaster(masterLocationId);
 
     const event = new MasterLocationUpdated(scope, {
       masterLocationId: updated.id,
       clientId: updated.clientId,
       addressHash: updated.addressHash,
+      status: updated.status,
+      linkedLocationIds: linked.map((l) => l.id),
     });
 
     return commitAggregate(this.uow, this.registry, updated, event, command);

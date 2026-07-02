@@ -7,6 +7,10 @@ export const MasterLocationUpdatedDataSchema = Type.Object({
   clientId: Type.String(),
   /** New address_hash after the manual edit (may have changed if components shifted). */
   addressHash: Type.String(),
+  /** Status after the edit — reset to PENDING so the fix is re-geocoded/validated. */
+  status: Type.String(),
+  /** IDs of every location currently linked to this master (affected by the edit). */
+  linkedLocationIds: Type.Array(Type.String()),
 });
 
 export type MasterLocationUpdatedData = Static<typeof MasterLocationUpdatedDataSchema>;

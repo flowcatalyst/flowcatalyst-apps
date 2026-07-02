@@ -19,6 +19,8 @@ interface LocationDetail {
   id: string;
   name: string | null;
   address: string;
+  receivedAddress: string;
+  matchAddress: string;
   city: string;
   country: string;
   status: string;
@@ -36,8 +38,38 @@ const authStore = useAuthStore();
 const location = ref<LocationDetail | null>(null);
 const loading = ref(true);
 const deleting = ref(false);
+const matchAddressInput = ref('');
+const rematching = ref(false);
 
 const clientId = clientStore.selectedClientId;
+
+async function handleRematch() {
+  const loc = location.value;
+  if (!loc || !clientId) return;
+  const value = matchAddressInput.value.trim();
+  if (value.length === 0) return;
+  rematching.value = true;
+  try {
+    const res = await apiFetch<{ previousMasterDeleted: boolean; status: string }>(
+      `/clients/${clientId}/locations/${loc.id}/rematch`,
+      { method: 'POST', body: JSON.stringify({ matchAddress: value }) },
+      { suppressErrorToast: true },
+    );
+    // Refresh so the new master link + status + associations render.
+    location.value = await apiFetch<LocationDetail>(`/clients/${clientId}/locations/${loc.id}`);
+    matchAddressInput.value = location.value.matchAddress;
+    toast.success(
+      'Rematched',
+      res.previousMasterDeleted
+        ? `Re-matched (status ${res.status}); the previous unused master location was removed.`
+        : `Re-matched (status ${res.status}).`,
+    );
+  } catch (e) {
+    toast.error('Rematch failed', getErrorMessage(e, 'Unknown error'));
+  } finally {
+    rematching.value = false;
+  }
+}
 
 function handleDelete() {
   const loc = location.value;
@@ -78,6 +110,7 @@ onMounted(async () => {
     location.value = await apiFetch<LocationDetail>(
       `/clients/${clientId}/locations/${route.params['id'] as string}`,
     );
+    matchAddressInput.value = location.value.matchAddress;
   } catch {
     // handled by global error toast
   } finally {
@@ -129,6 +162,39 @@ function statusSeverity(status: string) {
             :loading="deleting"
             @click="handleDelete"
           />
+        </div>
+      </div>
+
+      <div class="fc-card" style="margin-bottom: 16px">
+        <div style="margin-bottom: 16px">
+          <label style="display: block; margin-bottom: 6px; font-weight: 500">Received Address</label>
+          <InputText :model-value="location.receivedAddress" class="w-full" disabled />
+          <small style="color: #64748b">The address as received. Immutable.</small>
+        </div>
+        <div>
+          <label for="match_address" style="display: block; margin-bottom: 6px; font-weight: 500"
+            >Match Address</label
+          >
+          <div style="display: flex; gap: 8px; align-items: flex-start">
+            <InputText
+              id="match_address"
+              v-model="matchAddressInput"
+              class="w-full"
+              :disabled="!authStore.can('pinpoint:locations:location:update')"
+            />
+            <Button
+              v-if="authStore.can('pinpoint:locations:location:update')"
+              label="Re-run Matching"
+              icon="pi pi-refresh"
+              :loading="rematching"
+              :disabled="matchAddressInput.trim().length === 0 || matchAddressInput === location.matchAddress"
+              @click="handleRematch"
+            />
+          </div>
+          <small style="color: #64748b">
+            Edit and re-run to re-match this location. All matching/processing runs against this
+            value. Resolving to a different master re-links it; an unused PENDING master is removed.
+          </small>
         </div>
       </div>
 

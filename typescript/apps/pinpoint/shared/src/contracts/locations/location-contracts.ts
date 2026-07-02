@@ -48,3 +48,16 @@ export const DeleteLocationCommandSchema = z.object({
   locationId: z.string().trim().min(1),
 });
 export type DeleteLocationCommand = z.infer<typeof DeleteLocationCommandSchema>;
+
+/**
+ * Edit a location's match address and re-run matching. Resolves the edited
+ * address against existing validated masters; on a different result the
+ * location is re-pointed, and the previous auto-created PENDING master is
+ * deleted if nothing else links to it.
+ */
+export const RematchLocationCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  locationId: z.string().trim().min(1),
+  matchAddress: z.string().trim().min(1),
+});
+export type RematchLocationCommand = z.infer<typeof RematchLocationCommandSchema>;

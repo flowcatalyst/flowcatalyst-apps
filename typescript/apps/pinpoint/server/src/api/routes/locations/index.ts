@@ -4,10 +4,12 @@ import { registerCreateLocationRoute } from './create-location.route.js';
 import { registerGetLocationRoute } from './get-location.route.js';
 import { registerListLocationsRoute } from './list-locations.route.js';
 import { registerDeleteLocationRoute } from './delete-location.route.js';
+import { registerRematchLocationRoute } from './rematch-location.route.js';
 
 export function registerLocationRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   registerCreateLocationRoute(fastify, appContext);
   registerGetLocationRoute(fastify, appContext);
   registerListLocationsRoute(fastify, appContext);
   registerDeleteLocationRoute(fastify, appContext);
+  registerRematchLocationRoute(fastify, appContext);
 }

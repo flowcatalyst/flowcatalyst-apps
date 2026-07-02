@@ -19,10 +19,12 @@ export {
 export {
   CreateLocationCommandSchema,
   DeleteLocationCommandSchema,
+  RematchLocationCommandSchema,
   AttributeInputSchema,
   AttributeValueSchema,
   type CreateLocationCommand,
   type DeleteLocationCommand,
+  type RematchLocationCommand,
   type AttributeInput,
   type AttributeValue,
 } from './contracts/locations/location-contracts.js';
