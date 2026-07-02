@@ -23,6 +23,8 @@ export interface Location {
   readonly name: string | null;
 
   readonly rawAddressLine1: string;
+  /** Editable address that drives normalization + matching. Starts = rawAddressLine1. */
+  readonly matchAddress: string;
   readonly rawAddressLine2: string | null;
   readonly rawSuburb: string | null;
   readonly rawCity: string;
@@ -54,6 +56,8 @@ export interface CreateLocationInput {
   readonly externalId: string | null;
   readonly name: string | null;
   readonly rawAddressLine1: string;
+  /** Defaults to rawAddressLine1 (the received address) when omitted. */
+  readonly matchAddress?: string;
   readonly rawAddressLine2: string | null;
   readonly rawSuburb: string | null;
   readonly rawCity: string;
@@ -79,6 +83,7 @@ export const Location = {
       externalId: input.externalId,
       name: input.name,
       rawAddressLine1: input.rawAddressLine1,
+      matchAddress: input.matchAddress ?? input.rawAddressLine1,
       rawAddressLine2: input.rawAddressLine2,
       rawSuburb: input.rawSuburb,
       rawCity: input.rawCity,

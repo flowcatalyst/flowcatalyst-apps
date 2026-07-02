@@ -28,6 +28,11 @@ export const locations = pgTable(
     name: text('name'),
 
     rawAddressLine1: text('raw_address_line1').notNull(),
+    // The editable "match address": initialised to the received address
+    // (raw_address_line1) but drives all normalization + matching. Editing it +
+    // re-running matching is the rematch-location flow. raw_address_line1 stays
+    // the immutable "received address".
+    matchAddress: text('match_address').notNull(),
     rawAddressLine2: text('raw_address_line2'),
     rawSuburb: text('raw_suburb'),
     rawCity: text('raw_city').notNull(),

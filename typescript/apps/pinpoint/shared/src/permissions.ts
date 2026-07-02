@@ -23,6 +23,8 @@ export const PinpointPermission = {
   TenancyPartitionDelete: 'pinpoint:tenancy:partition:delete',
   LocationsLocationCreate: 'pinpoint:locations:location:create',
   LocationsLocationRead: 'pinpoint:locations:location:read',
+  /** Edit a location's match address + re-run matching (rematch-location). */
+  LocationsLocationUpdate: 'pinpoint:locations:location:update',
   /** Delete a location. Cascades to its feature/attribute/layer associations. */
   LocationsLocationDelete: 'pinpoint:locations:location:delete',
   LayersLayerCreate: 'pinpoint:layers:layer:create',

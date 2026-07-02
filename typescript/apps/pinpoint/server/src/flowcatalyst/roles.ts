@@ -42,6 +42,7 @@ export const pinpointRoles: readonly sync.RoleDefinition[] = [
       P.TenancyPartitionRead,
       P.LocationsLocationCreate,
       P.LocationsLocationRead,
+      P.LocationsLocationUpdate,
       P.LocationsLocationDelete,
       P.LocationsMasterLocationRead,
       P.LocationsMasterLocationValidate,
