@@ -34,11 +34,13 @@ import { PropertySetPropertiesReplacedEventType } from '../domain/layers/events/
 
 import { LocationCreatedEventType } from '../domain/locations/events/location-created.event.js';
 import { LocationValidatedEventType } from '../domain/locations/events/location-validated.event.js';
+import { LocationDeletedEventType } from '../domain/locations/events/location-deleted.event.js';
 import { MasterLocationCreatedEventType } from '../domain/locations/events/master-location-created.event.js';
 import { MasterLocationGeocodedEventType } from '../domain/locations/events/master-location-geocoded.event.js';
 import { MasterLocationValidatedEventType } from '../domain/locations/events/master-location-validated.event.js';
 import { MasterLocationUpdatedEventType } from '../domain/locations/events/master-location-updated.event.js';
 import { MasterLocationRejectedEventType } from '../domain/locations/events/master-location-rejected.event.js';
+import { MasterLocationDeletedEventType } from '../domain/locations/events/master-location-deleted.event.js';
 
 import { MatchingConfigUpdatedEventType } from '../domain/matching/events/matching-config-updated.event.js';
 
@@ -75,10 +77,12 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   PropertySetPropertiesReplacedEventType,
   LocationCreatedEventType,
   LocationValidatedEventType,
+  LocationDeletedEventType,
   MasterLocationCreatedEventType,
   MasterLocationGeocodedEventType,
   MasterLocationValidatedEventType,
   MasterLocationUpdatedEventType,
   MasterLocationRejectedEventType,
+  MasterLocationDeletedEventType,
   MatchingConfigUpdatedEventType,
 ];

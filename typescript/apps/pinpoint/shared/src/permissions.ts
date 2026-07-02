@@ -23,6 +23,8 @@ export const PinpointPermission = {
   TenancyPartitionDelete: 'pinpoint:tenancy:partition:delete',
   LocationsLocationCreate: 'pinpoint:locations:location:create',
   LocationsLocationRead: 'pinpoint:locations:location:read',
+  /** Delete a location. Cascades to its feature/attribute/layer associations. */
+  LocationsLocationDelete: 'pinpoint:locations:location:delete',
   LayersLayerCreate: 'pinpoint:layers:layer:create',
   LayersLayerRead: 'pinpoint:layers:layer:read',
   LayersLayerUpdate: 'pinpoint:layers:layer:update',
@@ -47,6 +49,8 @@ export const PinpointPermission = {
   LocationsMasterLocationUpdate: 'pinpoint:locations:master_location:update',
   /** Manually mark a master location as REJECTED (junk, duplicate, etc.). */
   LocationsMasterLocationReject: 'pinpoint:locations:master_location:reject',
+  /** Delete a master location. Cascades to its child locations + processing log. */
+  LocationsMasterLocationDelete: 'pinpoint:locations:master_location:delete',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];

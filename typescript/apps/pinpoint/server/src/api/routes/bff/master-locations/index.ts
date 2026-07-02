@@ -9,6 +9,7 @@ import { registerBffGeocodeMasterLocationRoute } from './geocode-master-location
 import { registerBffReverseGeocodeMasterLocationRoute } from './reverse-geocode-master-location.route.js';
 import { registerBffConfirmGeocodeRoute } from './confirm-geocode.route.js';
 import { registerBffMatchFeaturesRoutes } from './match-features.route.js';
+import { registerBffDeleteMasterLocationRoute } from './delete-master-location.route.js';
 
 export function registerBffMasterLocationRoutes(
   fastify: FastifyInstance,
@@ -23,4 +24,5 @@ export function registerBffMasterLocationRoutes(
   registerBffReverseGeocodeMasterLocationRoute(fastify, appContext);
   registerBffConfirmGeocodeRoute(fastify, appContext);
   registerBffMatchFeaturesRoutes(fastify, appContext);
+  registerBffDeleteMasterLocationRoute(fastify, appContext);
 }

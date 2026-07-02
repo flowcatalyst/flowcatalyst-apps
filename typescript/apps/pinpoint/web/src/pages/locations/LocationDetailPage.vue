@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useConfirm } from 'primevue/useconfirm';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
+import { useAuthStore } from '@/stores/auth';
+import { toast, getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
 interface FeatureAssociation {
   layerFeatureId: string;
@@ -27,11 +30,44 @@ interface LocationDetail {
 
 const route = useRoute();
 const router = useRouter();
+const confirm = useConfirm();
 const clientStore = useClientStore();
+const authStore = useAuthStore();
 const location = ref<LocationDetail | null>(null);
 const loading = ref(true);
+const deleting = ref(false);
 
 const clientId = clientStore.selectedClientId;
+
+function handleDelete() {
+  const loc = location.value;
+  if (!loc || !clientId) return;
+  confirm.require({
+    message:
+      `Delete location "${loc.name ?? loc.address}"? This is a CASCADE — it also removes ` +
+      `this location's feature, attribute, and layer association rows. This cannot be undone.`,
+    header: 'Delete Location',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    acceptLabel: 'Delete',
+    accept: async () => {
+      deleting.value = true;
+      try {
+        await apiFetch(
+          `/clients/${clientId}/locations/${loc.id}`,
+          { method: 'DELETE' },
+          { suppressErrorToast: true },
+        );
+        toast.success('Deleted', 'Location deleted.');
+        await router.push('/locations');
+      } catch (e) {
+        toast.error('Failed to delete', getErrorMessage(e, 'Unknown error'));
+      } finally {
+        deleting.value = false;
+      }
+    },
+  });
+}
 
 onMounted(async () => {
   if (!clientId) {
@@ -83,7 +119,17 @@ function statusSeverity(status: string) {
           <h1 class="page-title">{{ location.name ?? location.address }}</h1>
           <p class="page-subtitle">{{ location.address }}, {{ location.city }}</p>
         </div>
-        <Tag :value="location.status" :severity="statusSeverity(location.status)" />
+        <div style="display: flex; align-items: center; gap: 12px">
+          <Tag :value="location.status" :severity="statusSeverity(location.status)" />
+          <Button
+            v-if="authStore.can('pinpoint:locations:location:delete')"
+            label="Delete"
+            icon="pi pi-trash"
+            severity="danger"
+            :loading="deleting"
+            @click="handleDelete"
+          />
+        </div>
       </div>
 
       <div class="fc-card" style="margin-bottom: 16px">

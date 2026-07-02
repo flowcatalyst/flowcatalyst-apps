@@ -18,9 +18,11 @@ export {
 } from './contracts/tenancy/partition-contracts.js';
 export {
   CreateLocationCommandSchema,
+  DeleteLocationCommandSchema,
   AttributeInputSchema,
   AttributeValueSchema,
   type CreateLocationCommand,
+  type DeleteLocationCommand,
   type AttributeInput,
   type AttributeValue,
 } from './contracts/locations/location-contracts.js';
@@ -29,10 +31,12 @@ export {
   ConfirmMasterLocationCommandSchema,
   UpdateMasterLocationCommandSchema,
   RejectMasterLocationCommandSchema,
+  DeleteMasterLocationCommandSchema,
   type ValidateMasterLocationCommand,
   type ConfirmMasterLocationCommand,
   type UpdateMasterLocationCommand,
   type RejectMasterLocationCommand,
+  type DeleteMasterLocationCommand,
 } from './contracts/locations/master-location-contracts.js';
 export {
   CreateLayerCommandSchema,

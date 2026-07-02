@@ -79,6 +79,7 @@ import { CreatePartitionUseCase } from './operations/create-partition/create-par
 import { UpdatePartitionUseCase } from './operations/update-partition/update-partition.use-case.js';
 import { DeletePartitionUseCase } from './operations/delete-partition/delete-partition.use-case.js';
 import { CreateLocationUseCase } from './operations/create-location/create-location.use-case.js';
+import { DeleteLocationUseCase } from './operations/delete-location/delete-location.use-case.js';
 import { CreateLayerUseCase } from './operations/create-layer/create-layer.use-case.js';
 import { UpdateLayerUseCase } from './operations/update-layer/update-layer.use-case.js';
 import { DeleteLayerUseCase } from './operations/delete-layer/delete-layer.use-case.js';
@@ -94,6 +95,7 @@ import { ValidateMasterLocationUseCase } from './operations/validate-master-loca
 import { ConfirmMasterLocationUseCase } from './operations/confirm-master-location/confirm-master-location.use-case.js';
 import { UpdateMasterLocationUseCase } from './operations/update-master-location/update-master-location.use-case.js';
 import { RejectMasterLocationUseCase } from './operations/reject-master-location/reject-master-location.use-case.js';
+import { DeleteMasterLocationUseCase } from './operations/delete-master-location/delete-master-location.use-case.js';
 
 /**
  * Composition root for the pinpoint server. Wires the repository graph, a
@@ -173,6 +175,7 @@ export interface AppContextUseCases {
   readonly updatePartition: UpdatePartitionUseCase;
   readonly deletePartition: DeletePartitionUseCase;
   readonly createLocation: CreateLocationUseCase;
+  readonly deleteLocation: DeleteLocationUseCase;
   readonly createLayer: CreateLayerUseCase;
   readonly updateLayer: UpdateLayerUseCase;
   readonly deleteLayer: DeleteLayerUseCase;
@@ -188,6 +191,7 @@ export interface AppContextUseCases {
   readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
   readonly updateMasterLocation: UpdateMasterLocationUseCase;
   readonly rejectMasterLocation: RejectMasterLocationUseCase;
+  readonly deleteMasterLocation: DeleteMasterLocationUseCase;
 }
 
 export interface AppContext {
@@ -349,6 +353,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         addressNormalizer,
         addressVerifier,
       ),
+      deleteLocation: new DeleteLocationUseCase(uow, aggregateRegistry, locationRepo),
       createLayer: new CreateLayerUseCase(uow, aggregateRegistry, clientRepo, layerRepo),
       updateLayer: new UpdateLayerUseCase(uow, aggregateRegistry, layerRepo),
       deleteLayer: new DeleteLayerUseCase(uow, aggregateRegistry, layerRepo),
@@ -398,6 +403,12 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         masterLocationRepo,
+      ),
+      deleteMasterLocation: new DeleteMasterLocationUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+        locationRepo,
       ),
     },
     auth: {

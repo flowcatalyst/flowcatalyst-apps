@@ -56,3 +56,14 @@ export const RejectMasterLocationCommandSchema = z.object({
   reason: z.string().trim().optional().nullable(),
 });
 export type RejectMasterLocationCommand = z.infer<typeof RejectMasterLocationCommandSchema>;
+
+/**
+ * Delete a master location. This is a CASCADE: it first deletes every child
+ * location linked to this master (each cascading its own association rows), then
+ * the master location itself (and its processing-log rows via DB FK).
+ */
+export const DeleteMasterLocationCommandSchema = z.object({
+  masterLocationId: z.string().trim().min(1),
+  clientId: z.string().trim().min(1),
+});
+export type DeleteMasterLocationCommand = z.infer<typeof DeleteMasterLocationCommandSchema>;

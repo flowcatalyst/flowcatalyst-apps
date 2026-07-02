@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useConfirm } from 'primevue/useconfirm';
 import { apiFetch } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
@@ -65,6 +66,7 @@ interface MatchFeaturesResult {
 
 const route = useRoute();
 const router = useRouter();
+const confirm = useConfirm();
 const clientStore = useClientStore();
 const authStore = useAuthStore();
 const masterLocation = ref<MasterLocation | null>(null);
@@ -77,6 +79,7 @@ const geocoding = ref(false);
 const validating = ref(false);
 const editing = ref(false);
 const saving = ref(false);
+const deleting = ref(false);
 const editForm = ref({
   houseNumber: '',
   road: '',
@@ -304,6 +307,41 @@ async function handleValidate() {
   }
 }
 
+function handleDelete() {
+  const ml = masterLocation.value;
+  if (!ml || !clientId) return;
+  confirm.require({
+    message:
+      `Delete master location "${ml.address}"? This is a CASCADE — it also deletes every ` +
+      `location linked to this master (and each location's feature/attribute/layer ` +
+      `associations) plus the processing log. This cannot be undone.`,
+    header: 'Delete Master Location',
+    icon: 'pi pi-exclamation-triangle',
+    acceptClass: 'p-button-danger',
+    acceptLabel: 'Delete',
+    accept: async () => {
+      deleting.value = true;
+      try {
+        const res = await apiFetch<{ success: true; locationsDeleted: number }>(
+          `/clients/${clientId}/master-locations/${ml.id}`,
+          { method: 'DELETE' },
+          { suppressErrorToast: true },
+        );
+        const n = res.locationsDeleted;
+        toast.success(
+          'Deleted',
+          `Master location deleted (${n} linked location${n === 1 ? '' : 's'} removed).`,
+        );
+        await router.push('/master-locations');
+      } catch (e) {
+        toast.error('Failed to delete', getErrorMessage(e, 'Unknown error'));
+      } finally {
+        deleting.value = false;
+      }
+    },
+  });
+}
+
 async function toggleProcessingLog() {
   showLog.value = !showLog.value;
   if (showLog.value && processingLog.value.length === 0 && masterLocation.value && clientId) {
@@ -460,6 +498,14 @@ function dismissResult() {
             severity="secondary"
             :loading="reversingGeocode"
             @click="handleReverseGeocode"
+          />
+          <Button
+            v-if="authStore.can('pinpoint:locations:master_location:delete')"
+            label="Delete"
+            icon="pi pi-trash"
+            severity="danger"
+            :loading="deleting"
+            @click="handleDelete"
           />
         </div>
       </div>

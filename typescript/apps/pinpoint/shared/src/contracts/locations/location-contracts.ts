@@ -38,3 +38,13 @@ export const CreateLocationCommandSchema = z.object({
   attributes: z.array(AttributeInputSchema).optional(),
 });
 export type CreateLocationCommand = z.infer<typeof CreateLocationCommandSchema>;
+
+/**
+ * Delete a location. Cascades (via DB FK ON DELETE CASCADE) to the location's
+ * feature/attribute/layer association rows.
+ */
+export const DeleteLocationCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  locationId: z.string().trim().min(1),
+});
+export type DeleteLocationCommand = z.infer<typeof DeleteLocationCommandSchema>;
