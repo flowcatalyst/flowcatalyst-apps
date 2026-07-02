@@ -169,7 +169,7 @@ async function handleConfirm() {
   if (!masterLocation.value || !clientId || !reverseResult.value) return;
   confirming.value = true;
   try {
-    masterLocation.value = await apiFetch<MasterLocation>(
+    const updated = await apiFetch<MasterLocation>(
       `/clients/${clientId}/master-locations/${masterLocation.value.id}/confirm-geocode`,
       {
         method: 'POST',
@@ -186,6 +186,10 @@ async function handleConfirm() {
       },
       { suppressErrorToast: true },
     );
+    // Merge (don't replace): the confirm-geocode response omits `features`, so a
+    // straight assignment would blank the features list and crash the render.
+    masterLocation.value = { ...masterLocation.value, ...updated };
+    processingLog.value = [];
     toast.success('Validated', 'Master location has been validated with the confirmed address.');
     reverseResult.value = null;
   } catch (e) {
