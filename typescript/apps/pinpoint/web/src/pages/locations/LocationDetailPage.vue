@@ -26,6 +26,7 @@ interface LocationDetail {
   status: string;
   masterLocationId: string | null;
   matchConfidence: number | null;
+  matchMethod: string | null;
   createdAt: string;
   features: FeatureAssociation[];
 }
@@ -42,6 +43,17 @@ const matchAddressInput = ref('');
 const rematching = ref(false);
 
 const clientId = clientStore.selectedClientId;
+
+function matchMethodLabel(method: string | null): string {
+  switch (method) {
+    case 'EXACT_HASH':
+      return 'Exact (address hash)';
+    case 'FUZZY':
+      return 'Fuzzy (similarity match)';
+    default:
+      return '—';
+  }
+}
 
 async function handleRematch() {
   const loc = location.value;
@@ -229,6 +241,10 @@ function statusSeverity(status: string) {
                   : '—'
               }}
             </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Match Method</span>
+            <span class="detail-value">{{ matchMethodLabel(location.matchMethod) }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Master Location</span>

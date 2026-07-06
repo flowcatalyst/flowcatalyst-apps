@@ -25,6 +25,7 @@ import { getTestAppContext, runInScope } from '../test-app-context.js';
 import { installFetchMock, jsonResponse, type FetchMock } from '../fetch-mock.js';
 import type { AppContext } from '../../../src/app-context.js';
 import { isSuccess } from '@pinpoint/framework';
+import { ProcessingStep } from '../../../src/domain/locations/processing-log.repository.js';
 
 // Stub libpostal responses for a Market Street, San Francisco address.
 const PARSE_RESPONSE = [
@@ -104,6 +105,15 @@ describe('CreateLocationUseCase (integration)', () => {
     );
     expect(master?.status).toBe('PENDING');
     expect(master?.normalizedCity).toBe('san francisco');
+
+    // Trail entries for the fresh master land now that `append` rides the
+    // use-case tx (previously the FK to the uncommitted master row failed
+    // silently and the rows were lost).
+    const trail = await appContext.repositories.processingLog.listByMaster(
+      data.masterLocationId as never,
+    );
+    expect(trail.map((e) => e.step)).toEqual([ProcessingStep.Normalized, ProcessingStep.Created]);
+    expect(trail[1]?.data['reason']).toBe('no_match');
 
     // Both events landed in the outbox.
     const events = await db.execute(sql`

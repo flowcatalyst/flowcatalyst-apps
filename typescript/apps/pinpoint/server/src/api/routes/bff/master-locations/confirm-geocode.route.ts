@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { ConfirmMasterLocationCommandSchema } from '@pinpoint/shared';
 import { asMasterLocationId } from '../../../../domain/locations/ids.js';
+import { ProcessingStep } from '../../../../domain/locations/processing-log.repository.js';
 import {
   addressHash as computeAddressHash,
   toAddressLine,
@@ -147,7 +148,7 @@ export function registerBffConfirmGeocodeRoute(
       // Best-effort processing log — failures must not block (matches
       // pattern across the rest of the matching pipeline).
       try {
-        await appContext.repositories.processingLog.append(mid, 'confirm-geocode', {
+        await appContext.repositories.processingLog.append(mid, ProcessingStep.ConfirmGeocode, {
           houseNumber: normalized.houseNumber,
           road: normalized.road,
           suburb: normalized.suburb,

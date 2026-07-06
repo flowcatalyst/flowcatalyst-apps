@@ -54,6 +54,10 @@ import type { LocationRepository } from '../../domain/locations/location.reposit
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
 import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
+import {
+  ProcessingStep,
+  type ProcessingLogRepository,
+} from '../../domain/locations/processing-log.repository.js';
 import type { RematchLocationCommand } from './rematch-location.command.js';
 
 const FUZZY_THRESHOLD = 0.3;
@@ -69,6 +73,7 @@ export class RematchLocationUseCase {
     private readonly masters: MasterLocationRepository,
     private readonly matchingConfigs: MatchingConfigRepository,
     private readonly layerFeatures: LayerFeatureRepository,
+    private readonly processingLog: ProcessingLogRepository,
     private readonly addressNormalizer: AddressNormalizer,
     private readonly addressVerifier: AddressVerifier,
   ) {}
@@ -116,11 +121,13 @@ export class RematchLocationUseCase {
     // Normalize the new match address: strict, then best-effort so an
     // unparseable address still resolves (lands PENDING) rather than blocking.
     let normalized: NormalizedAddress;
+    let normalizationBestEffort = false;
     try {
       normalized = await this.addressNormalizer.normalize(matchAddress);
     } catch {
       try {
         normalized = await this.addressNormalizer.normalize(matchAddress, { strict: false });
+        normalizationBestEffort = true;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
         return Result.failure(
@@ -150,6 +157,11 @@ export class RematchLocationUseCase {
     ];
 
     let matchResult = findMatch(normalized, addressHash, candidates, config);
+
+    // Optional LLM verifier for fuzzy matches — the verdict lands on the
+    // candidate master's processing log (step `llm_verified`) whether it
+    // confirms, rejects, or abstains, same as create-location.
+    let llmRejectedMasterId: string | null = null;
     if (matchResult !== null && matchResult.method === 'FUZZY') {
       const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
       if (candidate) {
@@ -165,7 +177,26 @@ export class RematchLocationUseCase {
             country: candidate.normalizedCountry,
           });
         const verdict = await this.addressVerifier.verify(addressLine, candidateLine);
-        if (verdict && !verdict.match_confirmed) matchResult = null;
+        try {
+          await this.processingLog.append(candidate.id, ProcessingStep.LlmVerified, {
+            input_address: addressLine,
+            candidate_address: candidateLine,
+            location_id: locationId,
+            trigger: 'rematch',
+            algorithmic_confidence: matchResult.confidence,
+            outcome:
+              verdict === null ? 'no_opinion' : verdict.match_confirmed ? 'confirmed' : 'rejected',
+            match_confirmed: verdict?.match_confirmed ?? null,
+            confidence: verdict?.confidence ?? null,
+            reasoning: verdict?.reasoning ?? null,
+          });
+        } catch {
+          // swallow
+        }
+        if (verdict && !verdict.match_confirmed) {
+          llmRejectedMasterId = candidate.id;
+          matchResult = null;
+        }
       }
     }
 
@@ -175,6 +206,16 @@ export class RematchLocationUseCase {
     if (matchResult !== null) {
       newMasterId = matchResult.masterLocationId;
       matchedValidated = true; // candidates are VALIDATED-only
+      try {
+        await this.processingLog.append(asMasterLocationId(newMasterId), ProcessingStep.Matched, {
+          method: matchResult.method,
+          confidence: matchResult.confidence,
+          location_id: locationId,
+          trigger: 'rematch',
+        });
+      } catch {
+        // swallow
+      }
     } else {
       const created = asMasterLocationId(`${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`);
       const master = MasterLocation.create({
@@ -203,6 +244,39 @@ export class RematchLocationUseCase {
       const masterCommit = await commitAggregate(this.uow, this.registry, master, masterEvent, command);
       if (isFailure(masterCommit)) return Result.failure(masterCommit.error);
       newMasterId = created;
+
+      // Trail entries append AFTER the master commit — the FK to the
+      // master row is checked per-statement even inside the shared tx.
+      try {
+        await this.processingLog.append(created, ProcessingStep.Normalized, {
+          input: matchAddress,
+          house_number: normalized.houseNumber,
+          road: normalized.road,
+          suburb: normalized.suburb,
+          city: normalized.city,
+          state: normalized.state,
+          postal_code: normalized.postalCode,
+          country: normalized.country,
+          address_hash: addressHash,
+          best_effort: normalizationBestEffort,
+          trigger: 'rematch',
+        });
+      } catch {
+        // swallow
+      }
+      try {
+        await this.processingLog.append(created, ProcessingStep.Created, {
+          reason: llmRejectedMasterId !== null ? 'llm_rejected' : 'no_match',
+          candidates_checked: candidates.length,
+          location_id: locationId,
+          trigger: 'rematch',
+          ...(llmRejectedMasterId !== null
+            ? { rejected_master_location_id: llmRejectedMasterId }
+            : {}),
+        });
+      } catch {
+        // swallow
+      }
     }
 
     // Re-point + re-normalize the location.

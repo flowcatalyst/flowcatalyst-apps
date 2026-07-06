@@ -32,7 +32,10 @@ import type {
   LocationFeatureAssociationInput,
   SpatialLookupHit,
 } from '../../domain/layers/layer-feature.repository.js';
-import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
+import {
+  ProcessingStep,
+  type ProcessingLogRepository,
+} from '../../domain/locations/processing-log.repository.js';
 import type { ConfirmMasterLocationCommand } from './confirm-master-location.command.js';
 
 function spatialHitToLayerProperty(hit: SpatialLookupHit): LayerPropertyAssignment {
@@ -173,7 +176,7 @@ export class ConfirmMasterLocationUseCase {
     // Fire-and-forget audit row — a logging failure must not block the
     // confirm flow.
     try {
-      await this.processingLog.append(master.id, 'validated', {
+      await this.processingLog.append(master.id, ProcessingStep.Validated, {
         method: 'direct',
         locations_validated: locationsValidated,
         features_matched: associations.length,

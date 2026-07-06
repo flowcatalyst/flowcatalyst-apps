@@ -363,6 +363,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         masterLocationRepo,
         matchingConfigRepo,
         layerFeatureRepo,
+        processingLogRepo,
         addressNormalizer,
         addressVerifier,
       ),

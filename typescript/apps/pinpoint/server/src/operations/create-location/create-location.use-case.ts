@@ -64,7 +64,10 @@ import type { MasterLocationRepository } from '../../domain/locations/master-loc
 import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
 import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
 import type { LocationAttributeRepository } from '../../domain/locations/location-attribute.repository.js';
-import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
+import {
+  ProcessingStep,
+  type ProcessingLogRepository,
+} from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
 const FUZZY_THRESHOLD = 0.3;
@@ -221,7 +224,14 @@ export class CreateLocationUseCase {
 
     let matchResult = findMatch(normalized, addressHash, candidates, config);
 
-    // Step 8: optional LLM verifier for fuzzy matches.
+    const now = new Date();
+    const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
+
+    // Step 8: optional LLM verifier for fuzzy matches. The verdict is
+    // recorded on the candidate master's processing log (step
+    // `llm_verified`) whether it confirms, rejects, or abstains — the
+    // trail is the only place the LLM's reasoning survives.
+    let llmRejectedMasterId: string | null = null;
     if (matchResult !== null && matchResult.method === 'FUZZY') {
       const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
       if (candidate) {
@@ -238,14 +248,27 @@ export class CreateLocationUseCase {
                 country: candidate.normalizedCountry,
               });
         const verdict = await this.addressVerifier.verify(addressLine, candidateLine);
+        try {
+          await this.processingLog.append(candidate.id, ProcessingStep.LlmVerified, {
+            input_address: addressLine,
+            candidate_address: candidateLine,
+            location_id: locationId,
+            algorithmic_confidence: matchResult.confidence,
+            outcome:
+              verdict === null ? 'no_opinion' : verdict.match_confirmed ? 'confirmed' : 'rejected',
+            match_confirmed: verdict?.match_confirmed ?? null,
+            confidence: verdict?.confidence ?? null,
+            reasoning: verdict?.reasoning ?? null,
+          });
+        } catch {
+          // swallow
+        }
         if (verdict && !verdict.match_confirmed) {
+          llmRejectedMasterId = candidate.id;
           matchResult = null;
         }
       }
     }
-
-    const now = new Date();
-    const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
 
     if (matchResult !== null) {
       const matchedMaster = candidates.find((c) => c.id === matchResult!.masterLocationId);
@@ -255,7 +278,7 @@ export class CreateLocationUseCase {
       try {
         await this.processingLog.append(
           asMasterLocationId(matchResult.masterLocationId),
-          'normalized',
+          ProcessingStep.Normalized,
           {
             input: address,
             house_number: normalized.houseNumber,
@@ -275,7 +298,7 @@ export class CreateLocationUseCase {
       try {
         await this.processingLog.append(
           asMasterLocationId(matchResult.masterLocationId),
-          'matched',
+          ProcessingStep.Matched,
           {
             method: matchResult.method,
             confidence: matchResult.confidence,
@@ -413,31 +436,6 @@ export class CreateLocationUseCase {
       now,
     });
 
-    try {
-      await this.processingLog.append(masterId, 'normalized', {
-        input: address,
-        house_number: normalized.houseNumber,
-        road: normalized.road,
-        suburb: normalized.suburb,
-        city: normalized.city,
-        state: normalized.state,
-        postal_code: normalized.postalCode,
-        country: normalized.country,
-        address_hash: addressHash,
-        best_effort: normalizationBestEffort,
-      });
-    } catch {
-      // swallow
-    }
-    try {
-      await this.processingLog.append(masterId, 'created', {
-        reason: 'no_match',
-        candidates_checked: candidates.length,
-      });
-    } catch {
-      // swallow
-    }
-
     const masterEvent = new MasterLocationCreated(scope, {
       masterLocationId: masterId,
       clientId,
@@ -456,6 +454,36 @@ export class CreateLocationUseCase {
     // Reconstruct the failure so the return type matches the outer
     // Result<LocationCreated> instead of Result<MasterLocationCreated>.
     if (isFailure(masterCommit)) return Result.failure(masterCommit.error);
+
+    // Trail entries append AFTER the master commit — the FK to the
+    // master row is checked per-statement even inside the shared tx.
+    try {
+      await this.processingLog.append(masterId, ProcessingStep.Normalized, {
+        input: address,
+        house_number: normalized.houseNumber,
+        road: normalized.road,
+        suburb: normalized.suburb,
+        city: normalized.city,
+        state: normalized.state,
+        postal_code: normalized.postalCode,
+        country: normalized.country,
+        address_hash: addressHash,
+        best_effort: normalizationBestEffort,
+      });
+    } catch {
+      // swallow
+    }
+    try {
+      await this.processingLog.append(masterId, ProcessingStep.Created, {
+        reason: llmRejectedMasterId !== null ? 'llm_rejected' : 'no_match',
+        candidates_checked: candidates.length,
+        ...(llmRejectedMasterId !== null
+          ? { rejected_master_location_id: llmRejectedMasterId }
+          : {}),
+      });
+    } catch {
+      // swallow
+    }
 
     const location: Location = {
       id: locationId,

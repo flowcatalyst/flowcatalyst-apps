@@ -21,6 +21,8 @@ const LocationSchema = Type.Object({
   status: Type.String(),
   masterLocationId: Type.Union([Type.String(), Type.Null()]),
   matchConfidence: Type.Union([Type.Number(), Type.Null()]),
+  /** How the master was matched: EXACT_HASH | FUZZY | null (no match). */
+  matchMethod: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String({ format: 'date-time' }),
 });
 
@@ -81,6 +83,7 @@ export function registerBffListLocationsRoute(
           status: l.status,
           masterLocationId: l.masterLocationId,
           matchConfidence: l.matchConfidence,
+          matchMethod: l.matchMethod,
           createdAt: l.createdAt.toISOString(),
         })),
         total,

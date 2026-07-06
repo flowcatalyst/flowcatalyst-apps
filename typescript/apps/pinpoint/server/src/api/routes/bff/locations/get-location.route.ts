@@ -32,6 +32,8 @@ const ResponseSchema = Type.Object({
   status: Type.String(),
   masterLocationId: Type.Union([Type.String(), Type.Null()]),
   matchConfidence: Type.Union([Type.Number(), Type.Null()]),
+  /** How the master was matched: EXACT_HASH | FUZZY | null (no match). */
+  matchMethod: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String({ format: 'date-time' }),
   features: Type.Array(FeatureSchema),
 });
@@ -86,6 +88,7 @@ export function registerBffGetLocationRoute(
         status: location.status,
         masterLocationId: location.masterLocationId,
         matchConfidence: location.matchConfidence,
+        matchMethod: location.matchMethod,
         createdAt: location.createdAt.toISOString(),
         features: [...features],
       });
