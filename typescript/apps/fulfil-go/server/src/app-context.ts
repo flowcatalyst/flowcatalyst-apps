@@ -26,15 +26,23 @@ import type { FulfilmentProcessingLogRepository } from './infrastructure/fulfilm
 import { FULFILMENT_ID_PREFIX } from './domain/fulfilments/ids.js';
 import { FULFILMENT_TYPE } from './domain/fulfilments/fulfilment.js';
 import type { FulfilmentRepository } from './domain/fulfilments/fulfilment.repository.js';
+import { createDrizzlePickerUserRepository } from './infrastructure/picker-user-repository.js';
+import { registerPickerUser } from './infrastructure/register-picker-user.js';
+import { PICKER_USER_ID_PREFIX } from './domain/pick-identity/ids.js';
+import { PICKER_USER_TYPE } from './domain/pick-identity/picker-user.js';
+import type { PickerUserRepository } from './domain/pick-identity/picker-user.repository.js';
 import { CreateFulfilmentUseCase } from './operations/create-fulfilment/create-fulfilment.use-case.js';
 import { CancelFulfilmentUseCase } from './operations/cancel-fulfilment/cancel-fulfilment.use-case.js';
 import { ReleasePartForPickUseCase } from './operations/release-part-for-pick/release-part-for-pick.use-case.js';
+import { CreatePickerUseCase } from './operations/create-picker/create-picker.use-case.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
 import { createSseBroker, type SseBroker } from './sse/sse-broker.js';
 import { createTokenValidator, type TokenValidator } from './auth/token-validator.js';
 import { createMobileOidcBroker, type MobileOidcBroker } from './auth/oidc-client.js';
+import { createPickerTokenService, type PickerTokenService } from './auth/picker-token.js';
+import { createPickerAuthService, type PickerAuthService } from './auth/picker-auth-service.js';
 import type { AuthConfig } from './auth/auth-config.js';
 import { CreateJobUseCase } from './operations/create-job/create-job.use-case.js';
 import { AssignJobUseCase } from './operations/assign-job/assign-job.use-case.js';
@@ -57,12 +65,14 @@ export interface AppContextRepositories {
   readonly syncEvents: SyncEventRepository;
   readonly telemetry: TelemetryRepository;
   readonly idempotency: IdempotencyRepository;
+  readonly pickerUsers: PickerUserRepository;
 }
 
 export interface AppContextUseCases {
   readonly createFulfilment: CreateFulfilmentUseCase;
   readonly cancelFulfilment: CancelFulfilmentUseCase;
   readonly releasePartForPick: ReleasePartForPickUseCase;
+  readonly createPicker: CreatePickerUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -78,6 +88,8 @@ export interface AppContextAuth {
   readonly tokenValidator: TokenValidator | null;
   /** Mobile PKCE brokering (per-app OAuth clients) — null when no OIDC issuer is configured. */
   readonly oidcBroker: MobileOidcBroker | null;
+  /** Fulfil-go-issued picker session tokens (shared-station picking app). */
+  readonly pickerTokenService: PickerTokenService;
 }
 
 export interface AppContext {
@@ -87,6 +99,8 @@ export interface AppContext {
   readonly repositories: AppContextRepositories;
   readonly useCases: AppContextUseCases;
   readonly auth: AppContextAuth;
+  /** Picker station login (PIN/QR → session token). */
+  readonly pickAuth: PickerAuthService;
   /** Started by server.ts on boot; routes nudge it after successful writes. */
   readonly sseBroker: SseBroker;
   /**
@@ -117,6 +131,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const aggregateRegistry = createAggregateRegistry({
     [JOB_ID_PREFIX]: JOB_TYPE,
     [FULFILMENT_ID_PREFIX]: FULFILMENT_TYPE,
+    [PICKER_USER_ID_PREFIX]: PICKER_USER_TYPE,
   });
 
   const jobRepo = createDrizzleJobRepository(db);
@@ -127,9 +142,11 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const fulfilmentRepo = createDrizzleFulfilmentRepository(db);
   const fulfilmentLogRepo = createDrizzleFulfilmentProcessingLogRepository(db);
   const shortIdAllocator = createShortIdAllocator(db);
+  const pickerUserRepo = createDrizzlePickerUserRepository(db);
 
   registerJob(aggregateRegistry, jobRepo);
   registerFulfilment(aggregateRegistry, fulfilmentRepo);
+  registerPickerUser(aggregateRegistry, pickerUserRepo);
 
   // One OutboxManager backs the UoW so events + local audit logs ride the
   // same ALS-bound Drizzle tx as the aggregate writes.
@@ -145,6 +162,12 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const tokenValidator = config.auth.oidc !== null ? createTokenValidator(config.auth.oidc) : null;
   const oidcBroker =
     config.auth.oidc !== null ? await createMobileOidcBroker(config.auth.oidc) : null;
+  const pickerTokenService = createPickerTokenService(config.auth.picker);
+  const pickerAuthService = createPickerAuthService(
+    pickerUserRepo,
+    pickerTokenService,
+    config.auth.picker,
+  );
 
   const sseBroker = createSseBroker(syncEventRepo, console);
 
@@ -160,6 +183,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       syncEvents: syncEventRepo,
       telemetry: telemetryRepo,
       idempotency: idempotencyRepo,
+      pickerUsers: pickerUserRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -183,6 +207,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         outboxManager,
         { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
       ),
+      createPicker: new CreatePickerUseCase(uow, aggregateRegistry, pickerUserRepo),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
       acceptJob: new AcceptJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
@@ -192,7 +217,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       config: config.auth,
       tokenValidator,
       oidcBroker,
+      pickerTokenService,
     },
+    pickAuth: pickerAuthService,
     sseBroker,
     runWrite,
   };

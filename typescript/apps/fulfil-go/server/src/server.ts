@@ -21,6 +21,8 @@ import { registerAuthRoutes } from './api/routes/auth/index.js';
 import { registerTelemetryRoutes } from './api/routes/telemetry/index.js';
 import { registerScheduledJobRoutes } from './api/routes/scheduled-jobs/index.js';
 import { registerPickRoutes } from './api/routes/picks/index.js';
+import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
+import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { schedulePruneTask } from './scheduling/prune-events.js';
 
 declare module 'fastify' {
@@ -61,20 +63,41 @@ async function extractRequestToken(
   req: FastifyRequest,
   appContext: AppContext,
 ): Promise<RequestToken | null> {
-  const { tokenValidator, config } = appContext.auth;
+  const { tokenValidator, pickerTokenService, config } = appContext.auth;
 
   const authHeader = req.headers['authorization'];
   if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
     const token = authHeader.slice('bearer '.length).trim();
-    if (token.length > 0 && tokenValidator) {
-      try {
-        const claims = await tokenValidator.validate(token);
-        return {
-          sub: claims.sub,
-          permissions: resolvePermissions(claims),
-        };
-      } catch (err) {
-        req.log.warn({ err }, 'JWT validation failed');
+    if (token.length > 0) {
+      // Route by the (unverified) issuer: a fulfil-go-issued picker session
+      // token goes to the picker verifier; everything else to the platform
+      // JWKS validator — so a picker token never triggers a failed JWKS fetch.
+      if (pickerTokenService.isPickerToken(token)) {
+        try {
+          const claims = await pickerTokenService.verifyAccess(token);
+          const attributes: Record<string, string> = {
+            clientId: claims.clientId,
+            storeRef: claims.storeRef,
+          };
+          if (claims.deviceId) attributes['deviceId'] = claims.deviceId;
+          return {
+            sub: claims.pickerId,
+            permissions: new Set(claims.permissions),
+            attributes,
+          };
+        } catch (err) {
+          req.log.warn({ err }, 'picker session token validation failed');
+        }
+      } else if (tokenValidator) {
+        try {
+          const claims = await tokenValidator.validate(token);
+          return {
+            sub: claims.sub,
+            permissions: resolvePermissions(claims),
+          };
+        } catch (err) {
+          req.log.warn({ err }, 'JWT validation failed');
+        }
       }
     }
   }
@@ -182,6 +205,8 @@ async function buildServer() {
         },
         { name: 'Sync', description: 'SSE push + delta-sync catch-up' },
         { name: 'Telemetry', description: 'Driver location ingest (Transistorsoft uploader)' },
+        { name: 'Pickers', description: 'Pick-context picker admin (provision store staff)' },
+        { name: 'PickAuth', description: 'Picker station auth: device-bound PIN/QR login' },
       ],
     },
   });
@@ -206,6 +231,14 @@ async function buildServer() {
   registerPickRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });
+  registerPickerAdminRoutes(server, appContext);
+  registerPickAuthRoutes(server, appContext);
+
+  if (appContext.auth.config.picker.usingDevSecret) {
+    server.log.warn(
+      'PICKER_SESSION_SECRET is unset — using the built-in dev secret. NEVER run this in production.',
+    );
+  }
 
   appContext.sseBroker.start();
   const pruneTask = schedulePruneTask(db, server.log);

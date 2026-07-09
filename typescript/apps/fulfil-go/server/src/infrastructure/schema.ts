@@ -45,3 +45,6 @@ export type {
   NewFulfilmentLogEntry,
   FulfilmentLogRow,
 } from './schema/fulfilment-processing-log.js';
+
+export { pickerUsers } from './schema/picker-users.js';
+export type { NewPickerUser, PickerUserRow } from './schema/picker-users.js';

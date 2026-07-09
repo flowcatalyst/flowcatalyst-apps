@@ -38,6 +38,16 @@ export interface Scope {
    * type is `ReadonlySet<string>` to make that compile-checked.
    */
   readonly permissions: ReadonlySet<string>;
+
+  /**
+   * Optional principal attributes carried alongside identity — flat string
+   * key/values an app populates from its own token/claims that don't fit the
+   * common fields above. Deliberately generic: the platform-OIDC path leaves
+   * it empty; app-issued sessions (e.g. fulfil-go's store-scoped picker
+   * tokens) use it for `storeRef` / `deviceId` so use cases can scope on
+   * `scope.attributes.storeRef`. Empty object when unset.
+   */
+  readonly attributes: Readonly<Record<string, string>>;
 }
 
 export interface RequestToken {
@@ -51,6 +61,12 @@ export interface RequestToken {
    * granted.
    */
   readonly permissions?: ReadonlySet<string> | undefined;
+  /**
+   * Optional flat principal attributes (e.g. `storeRef`, `deviceId`) an app
+   * carries from its own session token. Copied verbatim onto
+   * `Scope.attributes`; omitted = empty. See Scope.attributes.
+   */
+  readonly attributes?: Readonly<Record<string, string>> | undefined;
 }
 
 export interface RequestScopeOptions {
@@ -88,6 +104,7 @@ function fromRequest(token: RequestToken, options: RequestScopeOptions = {}): Sc
       ? SqlAuditContextFactory.capturing()
       : SqlAuditContextFactory.inactive(),
     permissions: token.permissions ?? EMPTY_PERMISSIONS,
+    attributes: token.attributes ?? EMPTY_ATTRIBUTES,
   };
 }
 
@@ -108,6 +125,7 @@ function forScheduledTask(identity: TaskIdentity): Scope {
     // full permission set or skip authorize() entirely (compare with
     // Rust's `SystemIdentity::SCHEDULER`).
     permissions: identity.permissions ?? EMPTY_PERMISSIONS,
+    attributes: EMPTY_ATTRIBUTES,
   };
 }
 
@@ -123,10 +141,12 @@ function fromParentEvent(parentEvent: ParentEvent, identity: TaskIdentity): Scop
     measurement: createMeasurementContext(),
     sqlAudit: SqlAuditContextFactory.inactive(),
     permissions: identity.permissions ?? EMPTY_PERMISSIONS,
+    attributes: EMPTY_ATTRIBUTES,
   };
 }
 
 const EMPTY_PERMISSIONS: ReadonlySet<string> = new Set();
+const EMPTY_ATTRIBUTES: Readonly<Record<string, string>> = Object.freeze({});
 
 export const Scope = {
   fromRequest,

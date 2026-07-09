@@ -34,6 +34,26 @@ export interface OidcConfig {
   readonly clients: Partial<Record<FulfilGoApp | 'default', OidcClientConfig>>;
 }
 
+/**
+ * Picker session config — the fulfil-go-issued token plane for the shared
+ * picking station (separate from platform OIDC above). See
+ * `docs/pick-context-auth.md`.
+ */
+export interface PickerAuthConfig {
+  /** HS256 signing secret. Dev default used when unset — NEVER in production. */
+  readonly secret: string;
+  /** JWT `iss` — also the routing key that distinguishes picker tokens. */
+  readonly issuer: string;
+  readonly accessTtlSeconds: number;
+  readonly refreshTtlSeconds: number;
+  /** Failed-PIN attempts before a picker locks out. */
+  readonly pinMaxAttempts: number;
+  /** Lockout duration (ms) once pinMaxAttempts is hit. */
+  readonly lockoutMs: number;
+  /** True when falling back to the built-in dev secret (unset env) — warn on boot. */
+  readonly usingDevSecret: boolean;
+}
+
 export interface AuthConfig {
   /** When non-null, OIDC is wired: token validation + the mobile auth routes. */
   readonly oidc: OidcConfig | null;
@@ -43,7 +63,13 @@ export interface AuthConfig {
    * production.
    */
   readonly devFallback: boolean;
+  /** Picker session token plane (always present; secret may be the dev default). */
+  readonly picker: PickerAuthConfig;
 }
+
+// Fixed, obviously-insecure secret so local dev / tests run without env setup.
+// server.ts logs a warning when this is in use.
+const DEV_PICKER_SECRET = 'dev-insecure-picker-session-secret-change-me';
 
 const DEFAULT_REDIRECTS: Record<FulfilGoApp, readonly string[]> = {
   execution: ['fulfilgo-exec://auth/callback', 'http://localhost:5175/auth/callback'],
@@ -77,12 +103,23 @@ export function loadAuthConfig(): AuthConfig {
   const devFallback =
     (process.env['FULFILGO_AUTH_DEV_FALLBACK'] ?? 'false').toLowerCase() === 'true';
 
+  const pickerSecret = (process.env['PICKER_SESSION_SECRET'] ?? '').trim();
+  const picker: PickerAuthConfig = {
+    secret: pickerSecret.length > 0 ? pickerSecret : DEV_PICKER_SECRET,
+    issuer: (process.env['PICKER_SESSION_ISSUER'] ?? '').trim() || 'fulfilgo-pick',
+    accessTtlSeconds: Number(process.env['PICKER_ACCESS_TTL'] ?? 900), // 15 min
+    refreshTtlSeconds: Number(process.env['PICKER_REFRESH_TTL'] ?? 12 * 3600), // 12 h
+    pinMaxAttempts: Number(process.env['PICKER_PIN_MAX_ATTEMPTS'] ?? 5),
+    lockoutMs: Number(process.env['PICKER_LOCK_MINUTES'] ?? 5) * 60_000,
+    usingDevSecret: pickerSecret.length === 0,
+  };
+
   // OIDC is only wired when the issuer URL is set. Audience defaults (in the
   // token validator) to the discovery issuer: the FlowCatalyst platform
   // stamps access tokens with `aud == iss == <base URL>` — NOT the client_id
   // (that's the ID-token aud). Only set OIDC_AUDIENCE to override.
   if (issuerUrl.length === 0) {
-    return { oidc: null, devFallback };
+    return { oidc: null, devFallback, picker };
   }
 
   const clients: Partial<Record<FulfilGoApp | 'default', OidcClientConfig>> = {};
@@ -104,5 +141,6 @@ export function loadAuthConfig(): AuthConfig {
   return {
     oidc: { issuerUrl, audience, scopes, clients },
     devFallback,
+    picker,
   };
 }

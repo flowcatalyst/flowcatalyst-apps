@@ -8,6 +8,11 @@ export const FulfilGoPermission = {
   AcceptJob: 'acceptJob',
   CompleteJob: 'completeJob',
   WriteTelemetry: 'writeTelemetry',
+  // Pick-context identity administration (platform-OIDC admins).
+  ManagePickers: 'managePickers',
+  // Store-scoped picker permission — NOT granted via platform claims; the
+  // picker session token issues it after QR/PIN login (see pick-context-auth).
+  ViewStorePicks: 'viewStorePicks',
 } as const;
 export type FulfilGoPermission = (typeof FulfilGoPermission)[keyof typeof FulfilGoPermission];
 
@@ -30,6 +35,7 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
       FulfilGoPermission.CancelFulfilment,
       FulfilGoPermission.CreateJob,
       FulfilGoPermission.AssignJob,
+      FulfilGoPermission.ManagePickers,
     ],
     [FulfilGoRole.FieldWorker]: [
       FulfilGoPermission.AcceptJob,
@@ -38,3 +44,14 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
     ],
     [FulfilGoRole.ReadOnly]: [],
   };
+
+/**
+ * Permissions a picker holds for the duration of a station session. Granted by
+ * the picker login use case and stamped into the session token — pickers are
+ * NOT platform principals, so these never flow through `resolvePermissions`.
+ * Store scoping (which store's picks) is enforced separately from
+ * `scope.attributes.storeRef`, not by permission membership.
+ */
+export const PICKER_SESSION_PERMISSIONS: readonly FulfilGoPermission[] = [
+  FulfilGoPermission.ViewStorePicks,
+];
