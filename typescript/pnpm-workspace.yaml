@@ -13,6 +13,9 @@ allowBuilds:
   msgpackr-extract: true
   protobufjs: true
   ssh2: true
+  # vue-demi (transitive via @nuxt/ui) — postinstall only switches its entry
+  # files to the Vue 3 build; no native code, long-established package.
+  vue-demi: true
 
 # Centralised dependency versions. Reference with `"effect": "catalog:"` etc.
 # Bump here once instead of in every package.

@@ -1,0 +1,46 @@
+{
+  "name": "@fulfil-go/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:up": "docker compose -f ../compose.yaml up -d --wait",
+    "db:down": "docker compose -f ../compose.yaml down",
+    "db:init": "tsx --env-file-if-exists=.env scripts/db-init.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "flowcatalyst:sync": "tsx --env-file-if-exists=.env scripts/sync-flowcatalyst.ts"
+  },
+  "dependencies": {
+    "@fastify/swagger": "^9.4.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@flowcatalyst-apps/app-framework": "workspace:*",
+    "@flowcatalyst/sdk": "github:flowcatalyst/typescript-sdk#semver:>=0.6.7",
+    "@fulfil-go/framework": "workspace:*",
+    "@fulfil-go/shared": "workspace:*",
+    "@sinclair/typebox": "^0.34.49",
+    "croner": "^9.0.0",
+    "drizzle-orm": "1.0.0-rc.3",
+    "effect": "catalog:",
+    "fastify": "^5.2.0",
+    "jose": "^6.2.3",
+    "postgres": "^3.4.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-kit": "1.0.0-rc.3",
+    "tsx": "^4.19.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

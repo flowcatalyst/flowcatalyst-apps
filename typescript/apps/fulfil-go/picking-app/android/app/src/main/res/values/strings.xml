@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FulfilGo Pick</string>
+    <string name="title_activity_main">FulfilGo Pick</string>
+    <string name="package_name">io.flowcatalyst.fulfilgo.picking</string>
+    <string name="custom_url_scheme">io.flowcatalyst.fulfilgo.picking</string>
+</resources>

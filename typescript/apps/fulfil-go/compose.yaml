@@ -1,0 +1,28 @@
+# Local dev Postgres for the fulfil-go app.
+#
+# Port 5434 avoids colliding with a native Postgres (5432), pinpoint's
+# container (5433) and the fc-dev embedded Postgres (15432). Plain Postgres —
+# fulfil-go has no spatial queries; driver telemetry is lat/lng doubles.
+services:
+  postgres:
+    image: postgres:18
+    container_name: fulfilgo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fulfilgo
+      POSTGRES_PASSWORD: fulfilgo
+      POSTGRES_DB: fulfilgo
+    ports:
+      - '5434:5432'
+    volumes:
+      # postgres:18+ images want the mount at /var/lib/postgresql (data lands
+      # in a versioned subdirectory) — mounting .../data breaks startup.
+      - fulfilgo-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U fulfilgo -d fulfilgo']
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+volumes:
+  fulfilgo-pgdata:

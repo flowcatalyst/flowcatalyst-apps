@@ -1,0 +1,2602 @@
+[
+  {
+    "ref": "store-001",
+    "name": "MetroFoods Bloemfontein 1",
+    "chain": "MetroFoods",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "216 Rivonia Road",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "1698",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.157793,
+      "lng": 26.226187
+    },
+    "contact": {
+      "phone": "+27877595214"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-001",
+      "name": "MetroFoods Bloemfontein 1 Collection Point"
+    }
+  },
+  {
+    "ref": "store-002",
+    "name": "DailyGrocer Cape Town 2",
+    "chain": "DailyGrocer",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "125 Main Road",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "6308",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.880147,
+      "lng": 18.469087
+    },
+    "contact": {
+      "phone": "+27846192153"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-002",
+      "name": "DailyGrocer Cape Town 2 Collection Point"
+    }
+  },
+  {
+    "ref": "store-003",
+    "name": "QuickShop Gqeberha 3",
+    "chain": "QuickShop",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "66 Oxford Street",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "4969",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -34.021341,
+      "lng": 25.526293
+    },
+    "contact": {
+      "phone": "+27753132834"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-003",
+      "name": "QuickShop Gqeberha 3 Collection Point"
+    }
+  },
+  {
+    "ref": "store-004",
+    "name": "QuickShop Johannesburg 4",
+    "chain": "QuickShop",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "129 Oxford Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "8050",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.152945,
+      "lng": 28.028976
+    },
+    "contact": {
+      "phone": "+27797883878"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-004",
+      "name": "QuickShop Johannesburg 4 Collection Point"
+    }
+  },
+  {
+    "ref": "store-005",
+    "name": "FreshMart Cape Town 5",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "172 Beach Road",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "8243",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.999533,
+      "lng": 18.495736
+    },
+    "contact": {
+      "phone": "+27614360427"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-005",
+      "name": "FreshMart Cape Town 5 Collection Point"
+    }
+  },
+  {
+    "ref": "store-006",
+    "name": "FreshMart Mbombela 6",
+    "chain": "FreshMart",
+    "city": "Mbombela",
+    "region": "Mpumalanga",
+    "address": {
+      "line1": "160 Main Road",
+      "city": "Mbombela",
+      "region": "Mpumalanga",
+      "postalCode": "8161",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.549506,
+      "lng": 31.036173
+    },
+    "contact": {
+      "phone": "+27785989664"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-006",
+      "name": "FreshMart Mbombela 6 Collection Point"
+    }
+  },
+  {
+    "ref": "store-007",
+    "name": "MetroFoods Pretoria 7",
+    "chain": "MetroFoods",
+    "city": "Pretoria",
+    "region": "Gauteng",
+    "address": {
+      "line1": "356 Jan Smuts Avenue",
+      "city": "Pretoria",
+      "region": "Gauteng",
+      "postalCode": "7027",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.64458,
+      "lng": 28.214534
+    },
+    "contact": {
+      "phone": "+27843757937"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-007",
+      "name": "MetroFoods Pretoria 7 Collection Point"
+    }
+  },
+  {
+    "ref": "store-008",
+    "name": "MetroFoods Durban 8",
+    "chain": "MetroFoods",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "117 Rivonia Road",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "2704",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.892839,
+      "lng": 31.119835
+    },
+    "contact": {
+      "phone": "+27653585766"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-008",
+      "name": "MetroFoods Durban 8 Collection Point"
+    }
+  },
+  {
+    "ref": "store-009",
+    "name": "MetroFoods Bloemfontein 9",
+    "chain": "MetroFoods",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "327 Church Street",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "4450",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.055752,
+      "lng": 26.097789
+    },
+    "contact": {
+      "phone": "+27813294499"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-009",
+      "name": "MetroFoods Bloemfontein 9 Collection Point"
+    }
+  },
+  {
+    "ref": "store-010",
+    "name": "MetroFoods Gqeberha 10",
+    "chain": "MetroFoods",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "211 Long Street",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "8489",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.88993,
+      "lng": 25.570164
+    },
+    "contact": {
+      "phone": "+27672098260"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-010",
+      "name": "MetroFoods Gqeberha 10 Collection Point"
+    }
+  },
+  {
+    "ref": "store-011",
+    "name": "MetroFoods Cape Town 11",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "61 Beach Road",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "9654",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.828644,
+      "lng": 18.4688
+    },
+    "contact": {
+      "phone": "+27851193342"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-011",
+      "name": "MetroFoods Cape Town 11 Collection Point"
+    }
+  },
+  {
+    "ref": "store-012",
+    "name": "FreshMart Pretoria 12",
+    "chain": "FreshMart",
+    "city": "Pretoria",
+    "region": "Gauteng",
+    "address": {
+      "line1": "354 Rivonia Road",
+      "city": "Pretoria",
+      "region": "Gauteng",
+      "postalCode": "8683",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.688111,
+      "lng": 28.317747
+    },
+    "contact": {
+      "phone": "+27696051411"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-012",
+      "name": "FreshMart Pretoria 12 Collection Point"
+    }
+  },
+  {
+    "ref": "store-013",
+    "name": "DailyGrocer Gqeberha 13",
+    "chain": "DailyGrocer",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "370 Oxford Street",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "5854",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -34.042735,
+      "lng": 25.556635
+    },
+    "contact": {
+      "phone": "+27615049249"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-013",
+      "name": "DailyGrocer Gqeberha 13 Collection Point"
+    }
+  },
+  {
+    "ref": "store-014",
+    "name": "QuickShop Mbombela 14",
+    "chain": "QuickShop",
+    "city": "Mbombela",
+    "region": "Mpumalanga",
+    "address": {
+      "line1": "81 Church Street",
+      "city": "Mbombela",
+      "region": "Mpumalanga",
+      "postalCode": "7680",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.464384,
+      "lng": 30.971209
+    },
+    "contact": {
+      "phone": "+27824971449"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-014",
+      "name": "QuickShop Mbombela 14 Collection Point"
+    }
+  },
+  {
+    "ref": "store-015",
+    "name": "QuickShop Gqeberha 15",
+    "chain": "QuickShop",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "32 Beach Road",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "7701",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.916337,
+      "lng": 25.547942
+    },
+    "contact": {
+      "phone": "+27846618480"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-015",
+      "name": "QuickShop Gqeberha 15 Collection Point"
+    }
+  },
+  {
+    "ref": "store-016",
+    "name": "GreenBasket Kimberley 16",
+    "chain": "GreenBasket",
+    "city": "Kimberley",
+    "region": "Northern Cape",
+    "address": {
+      "line1": "190 Church Street",
+      "city": "Kimberley",
+      "region": "Northern Cape",
+      "postalCode": "6104",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -28.642005,
+      "lng": 24.723281
+    },
+    "contact": {
+      "phone": "+27640391015"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-016",
+      "name": "GreenBasket Kimberley 16 Collection Point"
+    }
+  },
+  {
+    "ref": "store-017",
+    "name": "GreenBasket Gqeberha 17",
+    "chain": "GreenBasket",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "30 Umhlanga Rocks Drive",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "1501",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -34.061349,
+      "lng": 25.605106
+    },
+    "contact": {
+      "phone": "+27772969614"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-017",
+      "name": "GreenBasket Gqeberha 17 Collection Point"
+    }
+  },
+  {
+    "ref": "store-018",
+    "name": "MetroFoods Johannesburg 18",
+    "chain": "MetroFoods",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "355 Church Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "8701",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.21874,
+      "lng": 27.974677
+    },
+    "contact": {
+      "phone": "+27878701790"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-018",
+      "name": "MetroFoods Johannesburg 18 Collection Point"
+    }
+  },
+  {
+    "ref": "store-019",
+    "name": "MetroFoods Durban 19",
+    "chain": "MetroFoods",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "49 Rivonia Road",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "8567",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.824828,
+      "lng": 31.038059
+    },
+    "contact": {
+      "phone": "+27801357661"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-019",
+      "name": "MetroFoods Durban 19 Collection Point"
+    }
+  },
+  {
+    "ref": "store-020",
+    "name": "GreenBasket Johannesburg 20",
+    "chain": "GreenBasket",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "145 Church Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "5494",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.254222,
+      "lng": 28.087261
+    },
+    "contact": {
+      "phone": "+27660197182"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-020",
+      "name": "GreenBasket Johannesburg 20 Collection Point"
+    }
+  },
+  {
+    "ref": "store-021",
+    "name": "QuickShop Johannesburg 21",
+    "chain": "QuickShop",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "186 Church Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "2599",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.14134,
+      "lng": 28.113659
+    },
+    "contact": {
+      "phone": "+27857484899"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-021",
+      "name": "QuickShop Johannesburg 21 Collection Point"
+    }
+  },
+  {
+    "ref": "store-022",
+    "name": "FreshMart Cape Town 22",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "335 Church Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "4792",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.885651,
+      "lng": 18.449312
+    },
+    "contact": {
+      "phone": "+27637790004"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-022",
+      "name": "FreshMart Cape Town 22 Collection Point"
+    }
+  },
+  {
+    "ref": "store-023",
+    "name": "MetroFoods Durban 23",
+    "chain": "MetroFoods",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "201 Beach Road",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "9439",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.888412,
+      "lng": 30.926494
+    },
+    "contact": {
+      "phone": "+27679194387"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-023",
+      "name": "MetroFoods Durban 23 Collection Point"
+    }
+  },
+  {
+    "ref": "store-024",
+    "name": "FreshMart Pretoria 24",
+    "chain": "FreshMart",
+    "city": "Pretoria",
+    "region": "Gauteng",
+    "address": {
+      "line1": "238 Beach Road",
+      "city": "Pretoria",
+      "region": "Gauteng",
+      "postalCode": "1013",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.728026,
+      "lng": 28.290732
+    },
+    "contact": {
+      "phone": "+27834863409"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-024",
+      "name": "FreshMart Pretoria 24 Collection Point"
+    }
+  },
+  {
+    "ref": "store-025",
+    "name": "QuickShop Bloemfontein 25",
+    "chain": "QuickShop",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "274 Church Street",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "3953",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.028531,
+      "lng": 26.061524
+    },
+    "contact": {
+      "phone": "+27875437965"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-025",
+      "name": "QuickShop Bloemfontein 25 Collection Point"
+    }
+  },
+  {
+    "ref": "store-026",
+    "name": "GreenBasket Johannesburg 26",
+    "chain": "GreenBasket",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "185 Voortrekker Road",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "3341",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.14639,
+      "lng": 27.97121
+    },
+    "contact": {
+      "phone": "+27704086342"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-026",
+      "name": "GreenBasket Johannesburg 26 Collection Point"
+    }
+  },
+  {
+    "ref": "store-027",
+    "name": "QuickShop Johannesburg 27",
+    "chain": "QuickShop",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "244 Umhlanga Rocks Drive",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "4949",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.244814,
+      "lng": 28.029119
+    },
+    "contact": {
+      "phone": "+27750070614"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-027",
+      "name": "QuickShop Johannesburg 27 Collection Point"
+    }
+  },
+  {
+    "ref": "store-028",
+    "name": "QuickShop Bloemfontein 28",
+    "chain": "QuickShop",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "330 Kloof Street",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "4923",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.071882,
+      "lng": 26.172492
+    },
+    "contact": {
+      "phone": "+27832889709"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-028",
+      "name": "QuickShop Bloemfontein 28 Collection Point"
+    }
+  },
+  {
+    "ref": "store-029",
+    "name": "FreshMart Mbombela 29",
+    "chain": "FreshMart",
+    "city": "Mbombela",
+    "region": "Mpumalanga",
+    "address": {
+      "line1": "43 Rivonia Road",
+      "city": "Mbombela",
+      "region": "Mpumalanga",
+      "postalCode": "4194",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.510695,
+      "lng": 31.009876
+    },
+    "contact": {
+      "phone": "+27796501127"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-029",
+      "name": "FreshMart Mbombela 29 Collection Point"
+    }
+  },
+  {
+    "ref": "store-030",
+    "name": "DailyGrocer Johannesburg 30",
+    "chain": "DailyGrocer",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "301 Main Road",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "4652",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.189513,
+      "lng": 27.934884
+    },
+    "contact": {
+      "phone": "+27768191633"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-030",
+      "name": "DailyGrocer Johannesburg 30 Collection Point"
+    }
+  },
+  {
+    "ref": "store-031",
+    "name": "DailyGrocer Gqeberha 31",
+    "chain": "DailyGrocer",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "254 Long Street",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "3384",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.894059,
+      "lng": 25.577475
+    },
+    "contact": {
+      "phone": "+27675601280"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-031",
+      "name": "DailyGrocer Gqeberha 31 Collection Point"
+    }
+  },
+  {
+    "ref": "store-032",
+    "name": "FreshMart East London 32",
+    "chain": "FreshMart",
+    "city": "East London",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "136 Main Road",
+      "city": "East London",
+      "region": "Eastern Cape",
+      "postalCode": "1983",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.071506,
+      "lng": 27.78619
+    },
+    "contact": {
+      "phone": "+27618258632"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-032",
+      "name": "FreshMart East London 32 Collection Point"
+    }
+  },
+  {
+    "ref": "store-033",
+    "name": "GreenBasket Pretoria 33",
+    "chain": "GreenBasket",
+    "city": "Pretoria",
+    "region": "Gauteng",
+    "address": {
+      "line1": "215 Voortrekker Road",
+      "city": "Pretoria",
+      "region": "Gauteng",
+      "postalCode": "3775",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.728743,
+      "lng": 28.243817
+    },
+    "contact": {
+      "phone": "+27698151417"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-033",
+      "name": "GreenBasket Pretoria 33 Collection Point"
+    }
+  },
+  {
+    "ref": "store-034",
+    "name": "DailyGrocer Polokwane 34",
+    "chain": "DailyGrocer",
+    "city": "Polokwane",
+    "region": "Limpopo",
+    "address": {
+      "line1": "303 Jan Smuts Avenue",
+      "city": "Polokwane",
+      "region": "Limpopo",
+      "postalCode": "2776",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -23.958312,
+      "lng": 29.417904
+    },
+    "contact": {
+      "phone": "+27768604144"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-034",
+      "name": "DailyGrocer Polokwane 34 Collection Point"
+    }
+  },
+  {
+    "ref": "store-035",
+    "name": "DailyGrocer Mbombela 35",
+    "chain": "DailyGrocer",
+    "city": "Mbombela",
+    "region": "Mpumalanga",
+    "address": {
+      "line1": "88 Beach Road",
+      "city": "Mbombela",
+      "region": "Mpumalanga",
+      "postalCode": "6848",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.554931,
+      "lng": 31.00971
+    },
+    "contact": {
+      "phone": "+27816014017"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-035",
+      "name": "DailyGrocer Mbombela 35 Collection Point"
+    }
+  },
+  {
+    "ref": "store-036",
+    "name": "MetroFoods Cape Town 36",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "2 Umhlanga Rocks Drive",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "4401",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.987139,
+      "lng": 18.38233
+    },
+    "contact": {
+      "phone": "+27744902002"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-036",
+      "name": "MetroFoods Cape Town 36 Collection Point"
+    }
+  },
+  {
+    "ref": "store-037",
+    "name": "GreenBasket Kimberley 37",
+    "chain": "GreenBasket",
+    "city": "Kimberley",
+    "region": "Northern Cape",
+    "address": {
+      "line1": "156 Rivonia Road",
+      "city": "Kimberley",
+      "region": "Northern Cape",
+      "postalCode": "1020",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -28.799972,
+      "lng": 24.768539
+    },
+    "contact": {
+      "phone": "+27678988545"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-037",
+      "name": "GreenBasket Kimberley 37 Collection Point"
+    }
+  },
+  {
+    "ref": "store-038",
+    "name": "DailyGrocer Mbombela 38",
+    "chain": "DailyGrocer",
+    "city": "Mbombela",
+    "region": "Mpumalanga",
+    "address": {
+      "line1": "219 Church Street",
+      "city": "Mbombela",
+      "region": "Mpumalanga",
+      "postalCode": "2493",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.559358,
+      "lng": 31.008737
+    },
+    "contact": {
+      "phone": "+27673960049"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-038",
+      "name": "DailyGrocer Mbombela 38 Collection Point"
+    }
+  },
+  {
+    "ref": "store-039",
+    "name": "MetroFoods Cape Town 39",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "158 Oxford Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "9102",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.929288,
+      "lng": 18.303798
+    },
+    "contact": {
+      "phone": "+27819843023"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-039",
+      "name": "MetroFoods Cape Town 39 Collection Point"
+    }
+  },
+  {
+    "ref": "store-040",
+    "name": "MetroFoods East London 40",
+    "chain": "MetroFoods",
+    "city": "East London",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "15 Umhlanga Rocks Drive",
+      "city": "East London",
+      "region": "Eastern Cape",
+      "postalCode": "7190",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.00572,
+      "lng": 27.739518
+    },
+    "contact": {
+      "phone": "+27608449399"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-040",
+      "name": "MetroFoods East London 40 Collection Point"
+    }
+  },
+  {
+    "ref": "store-041",
+    "name": "MetroFoods Cape Town 41",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "133 Kloof Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "6676",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.846005,
+      "lng": 18.483828
+    },
+    "contact": {
+      "phone": "+27776579319"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-041",
+      "name": "MetroFoods Cape Town 41 Collection Point"
+    }
+  },
+  {
+    "ref": "store-042",
+    "name": "GreenBasket Cape Town 42",
+    "chain": "GreenBasket",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "66 Kloof Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "7936",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.930413,
+      "lng": 18.366487
+    },
+    "contact": {
+      "phone": "+27644675777"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-042",
+      "name": "GreenBasket Cape Town 42 Collection Point"
+    }
+  },
+  {
+    "ref": "store-043",
+    "name": "GreenBasket Mbombela 43",
+    "chain": "GreenBasket",
+    "city": "Mbombela",
+    "region": "Mpumalanga",
+    "address": {
+      "line1": "262 Rivonia Road",
+      "city": "Mbombela",
+      "region": "Mpumalanga",
+      "postalCode": "5863",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.428054,
+      "lng": 30.9703
+    },
+    "contact": {
+      "phone": "+27813318264"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-043",
+      "name": "GreenBasket Mbombela 43 Collection Point"
+    }
+  },
+  {
+    "ref": "store-044",
+    "name": "MetroFoods Pietermaritzburg 44",
+    "chain": "MetroFoods",
+    "city": "Pietermaritzburg",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "109 Kloof Street",
+      "city": "Pietermaritzburg",
+      "region": "KwaZulu-Natal",
+      "postalCode": "9623",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.527787,
+      "lng": 30.303914
+    },
+    "contact": {
+      "phone": "+27721599573"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-044",
+      "name": "MetroFoods Pietermaritzburg 44 Collection Point"
+    }
+  },
+  {
+    "ref": "store-045",
+    "name": "FreshMart Polokwane 45",
+    "chain": "FreshMart",
+    "city": "Polokwane",
+    "region": "Limpopo",
+    "address": {
+      "line1": "334 Jan Smuts Avenue",
+      "city": "Polokwane",
+      "region": "Limpopo",
+      "postalCode": "6790",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -23.96158,
+      "lng": 29.450274
+    },
+    "contact": {
+      "phone": "+27603603448"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-045",
+      "name": "FreshMart Polokwane 45 Collection Point"
+    }
+  },
+  {
+    "ref": "store-046",
+    "name": "GreenBasket Bloemfontein 46",
+    "chain": "GreenBasket",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "119 Long Street",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "2313",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.175331,
+      "lng": 26.220048
+    },
+    "contact": {
+      "phone": "+27607798230"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-046",
+      "name": "GreenBasket Bloemfontein 46 Collection Point"
+    }
+  },
+  {
+    "ref": "store-047",
+    "name": "FreshMart Cape Town 47",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "49 Umhlanga Rocks Drive",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "8660",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.895737,
+      "lng": 18.346653
+    },
+    "contact": {
+      "phone": "+27695137681"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-047",
+      "name": "FreshMart Cape Town 47 Collection Point"
+    }
+  },
+  {
+    "ref": "store-048",
+    "name": "MetroFoods Cape Town 48",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "203 Umhlanga Rocks Drive",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "9891",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.884945,
+      "lng": 18.446596
+    },
+    "contact": {
+      "phone": "+27652192991"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-048",
+      "name": "MetroFoods Cape Town 48 Collection Point"
+    }
+  },
+  {
+    "ref": "store-049",
+    "name": "GreenBasket Gqeberha 49",
+    "chain": "GreenBasket",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "340 Beach Road",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "3983",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.877429,
+      "lng": 25.630451
+    },
+    "contact": {
+      "phone": "+27704719125"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-049",
+      "name": "GreenBasket Gqeberha 49 Collection Point"
+    }
+  },
+  {
+    "ref": "store-050",
+    "name": "GreenBasket Johannesburg 50",
+    "chain": "GreenBasket",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "398 Beach Road",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "1113",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.157462,
+      "lng": 28.023809
+    },
+    "contact": {
+      "phone": "+27616990430"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-050",
+      "name": "GreenBasket Johannesburg 50 Collection Point"
+    }
+  },
+  {
+    "ref": "store-051",
+    "name": "DailyGrocer Durban 51",
+    "chain": "DailyGrocer",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "38 Voortrekker Road",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "8596",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.775586,
+      "lng": 31.091142
+    },
+    "contact": {
+      "phone": "+27877378723"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-051",
+      "name": "DailyGrocer Durban 51 Collection Point"
+    }
+  },
+  {
+    "ref": "store-052",
+    "name": "QuickShop East London 52",
+    "chain": "QuickShop",
+    "city": "East London",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "234 Long Street",
+      "city": "East London",
+      "region": "Eastern Cape",
+      "postalCode": "7420",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.06758,
+      "lng": 27.944194
+    },
+    "contact": {
+      "phone": "+27892947290"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-052",
+      "name": "QuickShop East London 52 Collection Point"
+    }
+  },
+  {
+    "ref": "store-053",
+    "name": "DailyGrocer Cape Town 53",
+    "chain": "DailyGrocer",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "34 Beach Road",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "6824",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.969054,
+      "lng": 18.382789
+    },
+    "contact": {
+      "phone": "+27689139093"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-053",
+      "name": "DailyGrocer Cape Town 53 Collection Point"
+    }
+  },
+  {
+    "ref": "store-054",
+    "name": "FreshMart Cape Town 54",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "288 Kloof Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "2135",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.930417,
+      "lng": 18.320689
+    },
+    "contact": {
+      "phone": "+27691276520"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-054",
+      "name": "FreshMart Cape Town 54 Collection Point"
+    }
+  },
+  {
+    "ref": "store-055",
+    "name": "MetroFoods Johannesburg 55",
+    "chain": "MetroFoods",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "201 Jan Smuts Avenue",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "9125",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.123432,
+      "lng": 28.041486
+    },
+    "contact": {
+      "phone": "+27678375258"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-055",
+      "name": "MetroFoods Johannesburg 55 Collection Point"
+    }
+  },
+  {
+    "ref": "store-056",
+    "name": "GreenBasket Cape Town 56",
+    "chain": "GreenBasket",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "227 Oxford Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "1597",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.882864,
+      "lng": 18.360113
+    },
+    "contact": {
+      "phone": "+27805066798"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-056",
+      "name": "GreenBasket Cape Town 56 Collection Point"
+    }
+  },
+  {
+    "ref": "store-057",
+    "name": "GreenBasket Polokwane 57",
+    "chain": "GreenBasket",
+    "city": "Polokwane",
+    "region": "Limpopo",
+    "address": {
+      "line1": "55 Voortrekker Road",
+      "city": "Polokwane",
+      "region": "Limpopo",
+      "postalCode": "7837",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -23.883247,
+      "lng": 29.441711
+    },
+    "contact": {
+      "phone": "+27838961122"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-057",
+      "name": "GreenBasket Polokwane 57 Collection Point"
+    }
+  },
+  {
+    "ref": "store-058",
+    "name": "QuickShop East London 58",
+    "chain": "QuickShop",
+    "city": "East London",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "74 Voortrekker Road",
+      "city": "East London",
+      "region": "Eastern Cape",
+      "postalCode": "5050",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.109209,
+      "lng": 27.850526
+    },
+    "contact": {
+      "phone": "+27696414631"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-058",
+      "name": "QuickShop East London 58 Collection Point"
+    }
+  },
+  {
+    "ref": "store-059",
+    "name": "DailyGrocer Bloemfontein 59",
+    "chain": "DailyGrocer",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "382 Church Street",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "2534",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -28.983027,
+      "lng": 26.139233
+    },
+    "contact": {
+      "phone": "+27808432148"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-059",
+      "name": "DailyGrocer Bloemfontein 59 Collection Point"
+    }
+  },
+  {
+    "ref": "store-060",
+    "name": "DailyGrocer Johannesburg 60",
+    "chain": "DailyGrocer",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "173 Church Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "7072",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.287743,
+      "lng": 28.060356
+    },
+    "contact": {
+      "phone": "+27760038605"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-060",
+      "name": "DailyGrocer Johannesburg 60 Collection Point"
+    }
+  },
+  {
+    "ref": "store-061",
+    "name": "MetroFoods Johannesburg 61",
+    "chain": "MetroFoods",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "72 Oxford Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "9421",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.159947,
+      "lng": 28.021827
+    },
+    "contact": {
+      "phone": "+27899802451"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-061",
+      "name": "MetroFoods Johannesburg 61 Collection Point"
+    }
+  },
+  {
+    "ref": "store-062",
+    "name": "MetroFoods Johannesburg 62",
+    "chain": "MetroFoods",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "31 Church Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "2301",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.100829,
+      "lng": 28.059453
+    },
+    "contact": {
+      "phone": "+27895852344"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-062",
+      "name": "MetroFoods Johannesburg 62 Collection Point"
+    }
+  },
+  {
+    "ref": "store-063",
+    "name": "GreenBasket Cape Town 63",
+    "chain": "GreenBasket",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "39 Rivonia Road",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "3195",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.848257,
+      "lng": 18.459195
+    },
+    "contact": {
+      "phone": "+27882925993"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-063",
+      "name": "GreenBasket Cape Town 63 Collection Point"
+    }
+  },
+  {
+    "ref": "store-064",
+    "name": "MetroFoods Pietermaritzburg 64",
+    "chain": "MetroFoods",
+    "city": "Pietermaritzburg",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "107 Oxford Street",
+      "city": "Pietermaritzburg",
+      "region": "KwaZulu-Natal",
+      "postalCode": "3501",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.549791,
+      "lng": 30.483108
+    },
+    "contact": {
+      "phone": "+27712743195"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-064",
+      "name": "MetroFoods Pietermaritzburg 64 Collection Point"
+    }
+  },
+  {
+    "ref": "store-065",
+    "name": "GreenBasket Gqeberha 65",
+    "chain": "GreenBasket",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "307 Umhlanga Rocks Drive",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "5795",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.97844,
+      "lng": 25.507257
+    },
+    "contact": {
+      "phone": "+27750754519"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-065",
+      "name": "GreenBasket Gqeberha 65 Collection Point"
+    }
+  },
+  {
+    "ref": "store-066",
+    "name": "DailyGrocer Bloemfontein 66",
+    "chain": "DailyGrocer",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "137 Beach Road",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "4330",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.120261,
+      "lng": 26.144775
+    },
+    "contact": {
+      "phone": "+27649450851"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-066",
+      "name": "DailyGrocer Bloemfontein 66 Collection Point"
+    }
+  },
+  {
+    "ref": "store-067",
+    "name": "GreenBasket Bloemfontein 67",
+    "chain": "GreenBasket",
+    "city": "Bloemfontein",
+    "region": "Free State",
+    "address": {
+      "line1": "62 Kloof Street",
+      "city": "Bloemfontein",
+      "region": "Free State",
+      "postalCode": "7211",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.058212,
+      "lng": 26.25606
+    },
+    "contact": {
+      "phone": "+27789895468"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-067",
+      "name": "GreenBasket Bloemfontein 67 Collection Point"
+    }
+  },
+  {
+    "ref": "store-068",
+    "name": "MetroFoods Kimberley 68",
+    "chain": "MetroFoods",
+    "city": "Kimberley",
+    "region": "Northern Cape",
+    "address": {
+      "line1": "243 Jan Smuts Avenue",
+      "city": "Kimberley",
+      "region": "Northern Cape",
+      "postalCode": "4540",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -28.686745,
+      "lng": 24.773125
+    },
+    "contact": {
+      "phone": "+27802787921"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-068",
+      "name": "MetroFoods Kimberley 68 Collection Point"
+    }
+  },
+  {
+    "ref": "store-069",
+    "name": "QuickShop Cape Town 69",
+    "chain": "QuickShop",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "189 Umhlanga Rocks Drive",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "4848",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.853311,
+      "lng": 18.344801
+    },
+    "contact": {
+      "phone": "+27667846989"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-069",
+      "name": "QuickShop Cape Town 69 Collection Point"
+    }
+  },
+  {
+    "ref": "store-070",
+    "name": "DailyGrocer Johannesburg 70",
+    "chain": "DailyGrocer",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "193 Rivonia Road",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "6699",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.244727,
+      "lng": 27.951826
+    },
+    "contact": {
+      "phone": "+27686997974"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-070",
+      "name": "DailyGrocer Johannesburg 70 Collection Point"
+    }
+  },
+  {
+    "ref": "store-071",
+    "name": "MetroFoods Durban 71",
+    "chain": "MetroFoods",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "122 Long Street",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "7591",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.91658,
+      "lng": 31.057094
+    },
+    "contact": {
+      "phone": "+27726776687"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-071",
+      "name": "MetroFoods Durban 71 Collection Point"
+    }
+  },
+  {
+    "ref": "store-072",
+    "name": "FreshMart Johannesburg 72",
+    "chain": "FreshMart",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "121 Kloof Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "4578",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.274429,
+      "lng": 27.979657
+    },
+    "contact": {
+      "phone": "+27881338690"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-072",
+      "name": "FreshMart Johannesburg 72 Collection Point"
+    }
+  },
+  {
+    "ref": "store-073",
+    "name": "QuickShop Gqeberha 73",
+    "chain": "QuickShop",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "363 Long Street",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "3059",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.985405,
+      "lng": 25.583999
+    },
+    "contact": {
+      "phone": "+27751944076"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-073",
+      "name": "QuickShop Gqeberha 73 Collection Point"
+    }
+  },
+  {
+    "ref": "store-074",
+    "name": "DailyGrocer Polokwane 74",
+    "chain": "DailyGrocer",
+    "city": "Polokwane",
+    "region": "Limpopo",
+    "address": {
+      "line1": "189 Beach Road",
+      "city": "Polokwane",
+      "region": "Limpopo",
+      "postalCode": "8670",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -23.896505,
+      "lng": 29.558196
+    },
+    "contact": {
+      "phone": "+27873903011"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-074",
+      "name": "DailyGrocer Polokwane 74 Collection Point"
+    }
+  },
+  {
+    "ref": "store-075",
+    "name": "FreshMart Cape Town 75",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "378 Voortrekker Road",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "9618",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.943598,
+      "lng": 18.361525
+    },
+    "contact": {
+      "phone": "+27719960588"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-075",
+      "name": "FreshMart Cape Town 75 Collection Point"
+    }
+  },
+  {
+    "ref": "store-076",
+    "name": "DailyGrocer Cape Town 76",
+    "chain": "DailyGrocer",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "321 Long Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "2073",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.91318,
+      "lng": 18.331277
+    },
+    "contact": {
+      "phone": "+27715227560"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-076",
+      "name": "DailyGrocer Cape Town 76 Collection Point"
+    }
+  },
+  {
+    "ref": "store-077",
+    "name": "DailyGrocer Cape Town 77",
+    "chain": "DailyGrocer",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "294 Church Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "8436",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.91614,
+      "lng": 18.515351
+    },
+    "contact": {
+      "phone": "+27848345575"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-077",
+      "name": "DailyGrocer Cape Town 77 Collection Point"
+    }
+  },
+  {
+    "ref": "store-078",
+    "name": "DailyGrocer Durban 78",
+    "chain": "DailyGrocer",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "216 Voortrekker Road",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "6863",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.816618,
+      "lng": 31.063647
+    },
+    "contact": {
+      "phone": "+27886133916"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-078",
+      "name": "DailyGrocer Durban 78 Collection Point"
+    }
+  },
+  {
+    "ref": "store-079",
+    "name": "DailyGrocer Cape Town 79",
+    "chain": "DailyGrocer",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "233 Oxford Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "9886",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.88456,
+      "lng": 18.414132
+    },
+    "contact": {
+      "phone": "+27743802102"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-079",
+      "name": "DailyGrocer Cape Town 79 Collection Point"
+    }
+  },
+  {
+    "ref": "store-080",
+    "name": "FreshMart Polokwane 80",
+    "chain": "FreshMart",
+    "city": "Polokwane",
+    "region": "Limpopo",
+    "address": {
+      "line1": "117 Umhlanga Rocks Drive",
+      "city": "Polokwane",
+      "region": "Limpopo",
+      "postalCode": "2638",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -23.835788,
+      "lng": 29.534832
+    },
+    "contact": {
+      "phone": "+27699334475"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-080",
+      "name": "FreshMart Polokwane 80 Collection Point"
+    }
+  },
+  {
+    "ref": "store-081",
+    "name": "QuickShop Johannesburg 81",
+    "chain": "QuickShop",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "152 Rivonia Road",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "1410",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.197993,
+      "lng": 27.954848
+    },
+    "contact": {
+      "phone": "+27720670825"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-081",
+      "name": "QuickShop Johannesburg 81 Collection Point"
+    }
+  },
+  {
+    "ref": "store-082",
+    "name": "FreshMart Cape Town 82",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "51 Jan Smuts Avenue",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "9207",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.979752,
+      "lng": 18.369331
+    },
+    "contact": {
+      "phone": "+27650049764"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-082",
+      "name": "FreshMart Cape Town 82 Collection Point"
+    }
+  },
+  {
+    "ref": "store-083",
+    "name": "MetroFoods Gqeberha 83",
+    "chain": "MetroFoods",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "253 Voortrekker Road",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "4681",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.886138,
+      "lng": 25.657177
+    },
+    "contact": {
+      "phone": "+27806068765"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-083",
+      "name": "MetroFoods Gqeberha 83 Collection Point"
+    }
+  },
+  {
+    "ref": "store-084",
+    "name": "MetroFoods Gqeberha 84",
+    "chain": "MetroFoods",
+    "city": "Gqeberha",
+    "region": "Eastern Cape",
+    "address": {
+      "line1": "236 Oxford Street",
+      "city": "Gqeberha",
+      "region": "Eastern Cape",
+      "postalCode": "1465",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.964828,
+      "lng": 25.503759
+    },
+    "contact": {
+      "phone": "+27607924442"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-084",
+      "name": "MetroFoods Gqeberha 84 Collection Point"
+    }
+  },
+  {
+    "ref": "store-085",
+    "name": "QuickShop Durban 85",
+    "chain": "QuickShop",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "89 Umhlanga Rocks Drive",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "8912",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.89099,
+      "lng": 31.008865
+    },
+    "contact": {
+      "phone": "+27756402982"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-085",
+      "name": "QuickShop Durban 85 Collection Point"
+    }
+  },
+  {
+    "ref": "store-086",
+    "name": "MetroFoods Pretoria 86",
+    "chain": "MetroFoods",
+    "city": "Pretoria",
+    "region": "Gauteng",
+    "address": {
+      "line1": "203 Rivonia Road",
+      "city": "Pretoria",
+      "region": "Gauteng",
+      "postalCode": "9845",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.677374,
+      "lng": 28.293667
+    },
+    "contact": {
+      "phone": "+27858187783"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-086",
+      "name": "MetroFoods Pretoria 86 Collection Point"
+    }
+  },
+  {
+    "ref": "store-087",
+    "name": "FreshMart Kimberley 87",
+    "chain": "FreshMart",
+    "city": "Kimberley",
+    "region": "Northern Cape",
+    "address": {
+      "line1": "281 Main Road",
+      "city": "Kimberley",
+      "region": "Northern Cape",
+      "postalCode": "1809",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -28.624837,
+      "lng": 24.763372
+    },
+    "contact": {
+      "phone": "+27725474427"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-087",
+      "name": "FreshMart Kimberley 87 Collection Point"
+    }
+  },
+  {
+    "ref": "store-088",
+    "name": "GreenBasket Durban 88",
+    "chain": "GreenBasket",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "178 Long Street",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "9769",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.925993,
+      "lng": 31.044468
+    },
+    "contact": {
+      "phone": "+27899945524"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-088",
+      "name": "GreenBasket Durban 88 Collection Point"
+    }
+  },
+  {
+    "ref": "store-089",
+    "name": "DailyGrocer Johannesburg 89",
+    "chain": "DailyGrocer",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "101 Kloof Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "8554",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.299255,
+      "lng": 27.993423
+    },
+    "contact": {
+      "phone": "+27602696210"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-089",
+      "name": "DailyGrocer Johannesburg 89 Collection Point"
+    }
+  },
+  {
+    "ref": "store-090",
+    "name": "GreenBasket Johannesburg 90",
+    "chain": "GreenBasket",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "67 Oxford Street",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "8039",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.144148,
+      "lng": 27.957696
+    },
+    "contact": {
+      "phone": "+27881997217"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-090",
+      "name": "GreenBasket Johannesburg 90 Collection Point"
+    }
+  },
+  {
+    "ref": "store-091",
+    "name": "MetroFoods Cape Town 91",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "20 Long Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "4831",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.884146,
+      "lng": 18.324914
+    },
+    "contact": {
+      "phone": "+27842609096"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-091",
+      "name": "MetroFoods Cape Town 91 Collection Point"
+    }
+  },
+  {
+    "ref": "store-092",
+    "name": "QuickShop Cape Town 92",
+    "chain": "QuickShop",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "39 Umhlanga Rocks Drive",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "4555",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.88775,
+      "lng": 18.518072
+    },
+    "contact": {
+      "phone": "+27823843394"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-092",
+      "name": "QuickShop Cape Town 92 Collection Point"
+    }
+  },
+  {
+    "ref": "store-093",
+    "name": "QuickShop Johannesburg 93",
+    "chain": "QuickShop",
+    "city": "Johannesburg",
+    "region": "Gauteng",
+    "address": {
+      "line1": "309 Main Road",
+      "city": "Johannesburg",
+      "region": "Gauteng",
+      "postalCode": "7494",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -26.14639,
+      "lng": 27.978821
+    },
+    "contact": {
+      "phone": "+27680814384"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-093",
+      "name": "QuickShop Johannesburg 93 Collection Point"
+    }
+  },
+  {
+    "ref": "store-094",
+    "name": "GreenBasket Kimberley 94",
+    "chain": "GreenBasket",
+    "city": "Kimberley",
+    "region": "Northern Cape",
+    "address": {
+      "line1": "152 Oxford Street",
+      "city": "Kimberley",
+      "region": "Northern Cape",
+      "postalCode": "8648",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -28.683983,
+      "lng": 24.831832
+    },
+    "contact": {
+      "phone": "+27814337388"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-094",
+      "name": "GreenBasket Kimberley 94 Collection Point"
+    }
+  },
+  {
+    "ref": "store-095",
+    "name": "QuickShop Cape Town 95",
+    "chain": "QuickShop",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "184 Church Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "4022",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.866613,
+      "lng": 18.328247
+    },
+    "contact": {
+      "phone": "+27796479664"
+    },
+    "instructions": "Ask for the online-orders desk at customer service.",
+    "collectionPoint": {
+      "ref": "cp-store-095",
+      "name": "QuickShop Cape Town 95 Collection Point"
+    }
+  },
+  {
+    "ref": "store-096",
+    "name": "GreenBasket Durban 96",
+    "chain": "GreenBasket",
+    "city": "Durban",
+    "region": "KwaZulu-Natal",
+    "address": {
+      "line1": "372 Voortrekker Road",
+      "city": "Durban",
+      "region": "KwaZulu-Natal",
+      "postalCode": "3620",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -29.886765,
+      "lng": 31.055706
+    },
+    "contact": {
+      "phone": "+27665520296"
+    },
+    "instructions": "Ring the bell at goods receiving.",
+    "collectionPoint": {
+      "ref": "cp-store-096",
+      "name": "GreenBasket Durban 96 Collection Point"
+    }
+  },
+  {
+    "ref": "store-097",
+    "name": "GreenBasket Pretoria 97",
+    "chain": "GreenBasket",
+    "city": "Pretoria",
+    "region": "Gauteng",
+    "address": {
+      "line1": "377 Long Street",
+      "city": "Pretoria",
+      "region": "Gauteng",
+      "postalCode": "6653",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -25.692917,
+      "lng": 28.245386
+    },
+    "contact": {
+      "phone": "+27712678380"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-097",
+      "name": "GreenBasket Pretoria 97 Collection Point"
+    }
+  },
+  {
+    "ref": "store-098",
+    "name": "FreshMart Cape Town 98",
+    "chain": "FreshMart",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "206 Long Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "6319",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -33.856963,
+      "lng": 18.346063
+    },
+    "contact": {
+      "phone": "+27648607710"
+    },
+    "instructions": "Parking bay 1-3 reserved for collections.",
+    "collectionPoint": {
+      "ref": "cp-store-098",
+      "name": "FreshMart Cape Town 98 Collection Point"
+    }
+  },
+  {
+    "ref": "store-099",
+    "name": "QuickShop Polokwane 99",
+    "chain": "QuickShop",
+    "city": "Polokwane",
+    "region": "Limpopo",
+    "address": {
+      "line1": "165 Voortrekker Road",
+      "city": "Polokwane",
+      "region": "Limpopo",
+      "postalCode": "1407",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -23.961217,
+      "lng": 29.436063
+    },
+    "contact": {
+      "phone": "+27709947692"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-099",
+      "name": "QuickShop Polokwane 99 Collection Point"
+    }
+  },
+  {
+    "ref": "store-100",
+    "name": "MetroFoods Cape Town 100",
+    "chain": "MetroFoods",
+    "city": "Cape Town",
+    "region": "Western Cape",
+    "address": {
+      "line1": "163 Kloof Street",
+      "city": "Cape Town",
+      "region": "Western Cape",
+      "postalCode": "5952",
+      "countryCode": "ZA"
+    },
+    "geo": {
+      "lat": -34.031161,
+      "lng": 18.405388
+    },
+    "contact": {
+      "phone": "+27719864654"
+    },
+    "instructions": "Collection at the back-of-store dispatch counter.",
+    "collectionPoint": {
+      "ref": "cp-store-100",
+      "name": "MetroFoods Cape Town 100 Collection Point"
+    }
+  }
+]

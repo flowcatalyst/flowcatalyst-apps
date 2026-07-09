@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FulfilGo Drive</string>
+    <string name="title_activity_main">FulfilGo Drive</string>
+    <string name="package_name">io.flowcatalyst.fulfilgo.execution</string>
+    <string name="custom_url_scheme">io.flowcatalyst.fulfilgo.execution</string>
+</resources>

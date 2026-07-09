@@ -39,7 +39,10 @@ declare module 'fastify' {
 
 const PORT = Number(process.env['PORT'] ?? 3000);
 const HOST = process.env['HOST'] ?? '0.0.0.0';
-const CLIENT_ID = process.env['FLOWCATALYST_CLIENT_ID'] ?? 'pinpoint';
+// LOCAL tag on outbox rows (never forwarded — platform ingest identity is
+// the bearer token). Renamed from FLOWCATALYST_CLIENT_ID: that env name is
+// the fc-dev outbox poller's OAuth client id, so apps must not reuse it.
+const CLIENT_ID = process.env['FLOWCATALYST_APPLICATION_CODE'] ?? 'pinpoint';
 const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://localhost:${PORT}`;
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';

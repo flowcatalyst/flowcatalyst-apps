@@ -1,0 +1,66 @@
+{
+  "name": "@fulfil-go/mobile-kit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./telemetry": {
+      "types": "./src/telemetry/telemetry.ts",
+      "default": "./src/telemetry/telemetry.ts"
+    },
+    "./api": {
+      "types": "./src/http/api-client.ts",
+      "default": "./src/http/api-client.ts"
+    },
+    "./sse": {
+      "types": "./src/sse/sse-client.ts",
+      "default": "./src/sse/sse-client.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@fulfil-go/shared": "workspace:*",
+    "@transistorsoft/capacitor-background-geolocation": "^9.2.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0",
+    "vue-tsc": "^2.2.0"
+  },
+  "peerDependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@fulfil-go/shared": "workspace:*",
+    "@transistorsoft/capacitor-background-geolocation": "^9.2.0",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@transistorsoft/capacitor-background-geolocation": {
+      "optional": true
+    },
+    "@capacitor-community/sqlite": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "@fulfil-go/framework",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "compiled": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@flowcatalyst-apps/app-framework": "workspace:*",
+    "@flowcatalyst/sdk": "github:flowcatalyst/typescript-sdk#semver:>=0.6.7"
+  },
+  "devDependencies": {
+    "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "1.0.0-rc.3",
+    "fastify": "^5.0.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "1.0.0-rc.3",
+    "fastify": "^5.0.0"
+  }
+}

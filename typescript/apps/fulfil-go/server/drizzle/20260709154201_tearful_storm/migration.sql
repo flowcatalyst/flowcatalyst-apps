@@ -1,0 +1,2 @@
+ALTER TABLE "fulfilment_parts" ADD COLUMN "release_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_fulfilment_parts_release" ON "fulfilment_parts" ("status","release_at");

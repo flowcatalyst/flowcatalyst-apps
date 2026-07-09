@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vp dev",
     "dev:pinpoint": "pnpm --parallel --filter @pinpoint/server --filter @pinpoint/web dev",
+    "dev:fulfil-go": "pnpm --parallel --filter @fulfil-go/server --filter @fulfil-go/execution-app --filter @fulfil-go/picking-app --filter @fulfil-go/management-app dev",
     "build": "vp build",
     "test": "vp test",
     "check": "vp check",

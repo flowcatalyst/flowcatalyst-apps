@@ -101,7 +101,8 @@ async function buildServer() {
   // Composition root.
   const appContext = createAppContext({
     db,
-    clientId: process.env['FLOWCATALYST_CLIENT_ID'] ?? 'fulfil',
+    // Local outbox-row tag; FLOWCATALYST_CLIENT_ID is the fc-dev poller's OAuth id.
+    clientId: process.env['FLOWCATALYST_APPLICATION_CODE'] ?? 'fulfil',
     publicBaseUrl: process.env['FULFIL_PUBLIC_BASE_URL'] ?? 'http://localhost:3000',
     dispatchPoolCode: process.env['FULFIL_DISPATCH_POOL'] ?? 'fulfil-default',
   });
