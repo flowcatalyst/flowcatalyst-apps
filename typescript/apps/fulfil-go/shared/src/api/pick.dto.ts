@@ -24,6 +24,12 @@ export const PickDtoSchema = Type.Object({
   releasedLate: Type.Boolean(),
   claimedBy: Type.Union([Type.String(), Type.Null()]),
   claimedAt: Type.Union([Type.String(), Type.Null()]),
+  lineResults: Type.Union([
+    Type.Array(Type.Object({ externalLineRef: Type.String(), pickedQuantity: Type.Integer() })),
+    Type.Null(),
+  ]),
+  completedAt: Type.Union([Type.String(), Type.Null()]),
+  failReason: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });

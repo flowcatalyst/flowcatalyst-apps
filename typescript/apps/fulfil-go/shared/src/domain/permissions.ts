@@ -16,6 +16,7 @@ export const FulfilGoPermission = {
   // picker session token issues them after QR/PIN login (see pick-context-auth).
   ViewStorePicks: 'viewStorePicks',
   ClaimPick: 'claimPick',
+  ReportPickOutcome: 'reportPickOutcome',
 } as const;
 export type FulfilGoPermission = (typeof FulfilGoPermission)[keyof typeof FulfilGoPermission];
 
@@ -59,4 +60,5 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
 export const PICKER_SESSION_PERMISSIONS: readonly FulfilGoPermission[] = [
   FulfilGoPermission.ViewStorePicks,
   FulfilGoPermission.ClaimPick,
+  FulfilGoPermission.ReportPickOutcome,
 ];

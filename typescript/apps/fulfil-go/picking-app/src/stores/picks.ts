@@ -20,6 +20,7 @@ export interface PicksStore {
   hydrate(): Promise<void>;
   applySse(event: SseEvent): void;
   claim(pickId: string): Promise<void>;
+  byId(id: string): PickDto | undefined;
   reset(): void;
 }
 
@@ -108,6 +109,8 @@ export function createPicksStore(
         await this.hydrate();
       }
     },
+
+    byId: (id) => picks.value.find((p) => p.id === id),
 
     reset(): void {
       picks.value = [];

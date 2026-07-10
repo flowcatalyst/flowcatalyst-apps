@@ -9,7 +9,12 @@ import type {
   ServiceLevel,
 } from '@fulfil-go/shared';
 import { asPickId, type PickId } from '../domain/picks/ids.js';
-import { PICK_TYPE, type Pick, type PickStatus } from '../domain/picks/pick.js';
+import {
+  PICK_TYPE,
+  type Pick,
+  type PickLineResult,
+  type PickStatus,
+} from '../domain/picks/pick.js';
 import type { PickRepository } from '../domain/picks/pick.repository.js';
 import { picks, type PickRow } from './schema/picks.js';
 
@@ -34,6 +39,9 @@ function toDomain(row: PickRow): Pick {
     releasedLate: row.releasedLate,
     claimedBy: row.claimedBy,
     claimedAt: row.claimedAt,
+    lineResults: (row.lineResults as PickLineResult[] | null) ?? null,
+    completedAt: row.completedAt,
+    failReason: row.failReason,
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -68,6 +76,9 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             releasedLate: aggregate.releasedLate,
             claimedBy: aggregate.claimedBy,
             claimedAt: aggregate.claimedAt,
+            lineResults: aggregate.lineResults,
+            completedAt: aggregate.completedAt,
+            failReason: aggregate.failReason,
             version: aggregate.version,
             createdAt: aggregate.createdAt,
             updatedAt: aggregate.updatedAt,
@@ -82,6 +93,9 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             status: aggregate.status,
             claimedBy: aggregate.claimedBy,
             claimedAt: aggregate.claimedAt,
+            lineResults: aggregate.lineResults,
+            completedAt: aggregate.completedAt,
+            failReason: aggregate.failReason,
             version: aggregate.version,
             updatedAt: aggregate.updatedAt,
           })

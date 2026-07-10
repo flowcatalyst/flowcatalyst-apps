@@ -103,7 +103,13 @@ function units(pick: PickDto): number {
 
     <h2 class="mt-2 font-semibold">Mine ({{ mine.length }})</h2>
     <p v-if="mine.length === 0" class="text-sm text-neutral-500">Nothing claimed yet.</p>
-    <UCard v-for="pick in mine" :key="pick.id" @click="toggle(pick.id)">
+    <!-- Tap opens the picking workflow (count/scan → complete or fail). -->
+    <UCard
+      v-for="pick in mine"
+      :key="pick.id"
+      class="cursor-pointer"
+      @click="$router.push(`/picks/${pick.id}`)"
+    >
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
           <p class="font-mono text-lg font-semibold">#{{ pick.shortId }}</p>
@@ -111,27 +117,16 @@ function units(pick: PickDto): number {
             {{ pick.lines.length }} line(s) · {{ units(pick) }} units · slot {{ slot(pick) }}
           </p>
         </div>
-        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-          claimed
-        </span>
-      </div>
-      <ul v-if="expanded === pick.id" class="mt-3 divide-y divide-neutral-100 text-sm">
-        <li
-          v-for="(line, i) in pick.lines"
-          :key="i"
-          class="flex items-center justify-between gap-2 py-1.5"
-        >
-          <span class="truncate">
-            <span class="font-medium">{{ line.quantity }}×</span> {{ line.description }}
-          </span>
+        <div class="flex shrink-0 items-center gap-2">
           <span
-            v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
-            class="shrink-0 text-xs text-cyan-600"
+            v-if="pick.requireFullPick"
+            class="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700"
           >
-            {{ line.temperatureClass }}
+            FULL
           </span>
-        </li>
-      </ul>
+          <UButton size="lg" variant="soft">Pick →</UButton>
+        </div>
+      </div>
     </UCard>
   </div>
 </template>

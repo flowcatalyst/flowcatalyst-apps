@@ -16,6 +16,9 @@ export const SyncEventType = {
   JobCompleted: 'job.completed',
   PickCreated: 'pick.created',
   PickClaimed: 'pick.claimed',
+  /** Completed = picked OR short_picked; the payload's status distinguishes. */
+  PickCompleted: 'pick.completed',
+  PickFailed: 'pick.failed',
 } as const;
 export type SyncEventType = (typeof SyncEventType)[keyof typeof SyncEventType];
 

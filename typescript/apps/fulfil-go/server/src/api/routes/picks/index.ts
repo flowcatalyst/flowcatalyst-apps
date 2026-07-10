@@ -12,10 +12,17 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore, isFailure, runJob } from '@fulfil-go/framework';
-import { CreatePickRequestSchema, FulfilGoPermission, PickDtoSchema } from '@fulfil-go/shared';
+import {
+  CompletePickCommandSchema,
+  CreatePickRequestSchema,
+  FailPickCommandSchema,
+  FulfilGoPermission,
+  PickDtoSchema,
+} from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
 import { toPickDto } from '../../../domain/picks/pick-dto.js';
 import type { PickStatus } from '../../../domain/picks/pick.js';
+import { PickShortPicked } from '../../../domain/picks/events/pick-outcome.events.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import {
   flowcatalystWebhookAuthHook,
@@ -109,7 +116,13 @@ export function registerPickRoutes(
         params: Type.Object({ clientId: Type.String() }),
         querystring: Type.Object({
           status: Type.Optional(
-            Type.Union([Type.Literal('requested'), Type.Literal('claimed')]),
+            Type.Union([
+              Type.Literal('requested'),
+              Type.Literal('claimed'),
+              Type.Literal('picked'),
+              Type.Literal('short_picked'),
+              Type.Literal('failed'),
+            ]),
           ),
         }),
         response: {
@@ -169,6 +182,81 @@ export function registerPickRoutes(
       appContext.sseBroker.nudge();
 
       return reply.code(200).send({ pickId: result.value.getData().pickId, status: 'claimed' });
+    },
+  );
+
+  // Complete a claimed pick with per-line picked quantities (claimer only).
+  // Short quantities are rejected when the pick requires a full pick.
+  fastify.post(
+    '/clients/:clientId/picks/:pickId/complete',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String(), pickId: Type.String() }),
+        body: Type.Any(),
+        response: {
+          200: Type.Object({ pickId: Type.String(), status: Type.String() }),
+          ...WRITE_RESPONSES,
+        },
+      },
+    },
+    async (request, reply) => {
+      const params = request.params as { clientId: string; pickId: string };
+      const parsed = CompletePickCommandSchema.safeParse({
+        ...(request.body as object | null),
+        clientId: params.clientId,
+        pickId: params.pickId,
+      });
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
+      }
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.completePick.execute(parsed.data),
+      );
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
+      appContext.sseBroker.nudge();
+
+      const status = result.value instanceof PickShortPicked ? 'short_picked' : 'picked';
+      return reply.code(200).send({ pickId: result.value.getData().pickId, status });
+    },
+  );
+
+  fastify.post(
+    '/clients/:clientId/picks/:pickId/fail',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String(), pickId: Type.String() }),
+        body: Type.Any(),
+        response: {
+          200: Type.Object({ pickId: Type.String(), status: Type.String() }),
+          ...WRITE_RESPONSES,
+        },
+      },
+    },
+    async (request, reply) => {
+      const params = request.params as { clientId: string; pickId: string };
+      const parsed = FailPickCommandSchema.safeParse({
+        ...(request.body as object | null),
+        clientId: params.clientId,
+        pickId: params.pickId,
+      });
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
+      }
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.failPick.execute(parsed.data),
+      );
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
+      appContext.sseBroker.nudge();
+
+      return reply.code(200).send({ pickId: result.value.getData().pickId, status: 'failed' });
     },
   );
 }

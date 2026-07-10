@@ -9,10 +9,19 @@ import type { PickId } from './ids.js';
 export const PICK_TYPE = 'Pick' as const;
 
 /**
- * Pick lifecycle. This slice implements requested → claimed; the picking
- * flow (picking/picked/short_picked/…) lands with the scan workflow.
+ * Pick lifecycle: requested → claimed → picked | short_picked | failed.
+ * `short_picked` is only reachable when `requireFullPick` is false — the
+ * boundary translation of the fulfilment's allowPartialFulfilment policy.
+ * With requireFullPick, the picker's only out is an explicit fail (which the
+ * future process manager turns into failing the whole fulfilment).
  */
-export type PickStatus = 'requested' | 'claimed';
+export type PickStatus = 'requested' | 'claimed' | 'picked' | 'short_picked' | 'failed';
+
+/** What actually got picked, per line — recorded at completion. */
+export interface PickLineResult {
+  readonly externalLineRef: string;
+  readonly pickedQuantity: number;
+}
 
 /**
  * The pick context's work item — one part's pick at one store, created from
@@ -43,6 +52,11 @@ export interface Pick {
   /** Picker (pkr_…) who claimed this pick. */
   readonly claimedBy: string | null;
   readonly claimedAt: Date | null;
+  /** Per-line outcome, set when the pick completes (picked/short_picked). */
+  readonly lineResults: readonly PickLineResult[] | null;
+  readonly completedAt: Date | null;
+  /** Why the pick failed (picker-supplied), when status = failed. */
+  readonly failReason: string | null;
   readonly version: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -89,6 +103,9 @@ export const Pick = {
       releasedLate: input.releasedLate,
       claimedBy: null,
       claimedAt: null,
+      lineResults: null,
+      completedAt: null,
+      failReason: null,
       version: 1,
       createdAt: input.now,
       updatedAt: input.now,
@@ -102,6 +119,43 @@ export const Pick = {
       status: 'claimed',
       claimedBy: pickerId,
       claimedAt: now,
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /** True when every line was picked in full. */
+  isFullPick(prior: Pick, results: readonly PickLineResult[]): boolean {
+    return prior.lines.every(
+      (line) =>
+        results.find((r) => r.externalLineRef === line.externalLineRef)?.pickedQuantity ===
+        line.quantity,
+    );
+  },
+
+  /**
+   * `claimed → picked | short_picked` — derived from the line results. The
+   * use case guards that short completion is only allowed when
+   * `!requireFullPick`; this transition just records the facts.
+   */
+  complete(prior: Pick, results: readonly PickLineResult[], now: Date): Pick {
+    return {
+      ...prior,
+      status: Pick.isFullPick(prior, results) ? 'picked' : 'short_picked',
+      lineResults: results,
+      completedAt: now,
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /** `claimed → failed` — the picker cannot fulfil (out of stock under requireFullPick, etc.). */
+  fail(prior: Pick, reason: string, now: Date): Pick {
+    return {
+      ...prior,
+      status: 'failed',
+      failReason: reason,
+      completedAt: now,
       version: prior.version + 1,
       updatedAt: now,
     };

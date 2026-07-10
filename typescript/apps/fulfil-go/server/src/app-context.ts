@@ -50,6 +50,10 @@ import {
 } from './operations/manage-picker/manage-picker.use-cases.js';
 import { ReceivePickUseCase } from './operations/receive-pick/receive-pick.use-case.js';
 import { ClaimPickUseCase } from './operations/claim-pick/claim-pick.use-case.js';
+import {
+  CompletePickUseCase,
+  FailPickUseCase,
+} from './operations/report-pick-outcome/report-pick-outcome.use-cases.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -96,6 +100,8 @@ export interface AppContextUseCases {
   readonly deletePicker: DeletePickerUseCase;
   readonly receivePick: ReceivePickUseCase;
   readonly claimPick: ClaimPickUseCase;
+  readonly completePick: CompletePickUseCase;
+  readonly failPick: FailPickUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -249,6 +255,20 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         syncEventRepo,
       ),
       claimPick: new ClaimPickUseCase(
+        uow,
+        aggregateRegistry,
+        pickRepo,
+        fulfilmentLogRepo,
+        syncEventRepo,
+      ),
+      completePick: new CompletePickUseCase(
+        uow,
+        aggregateRegistry,
+        pickRepo,
+        fulfilmentLogRepo,
+        syncEventRepo,
+      ),
+      failPick: new FailPickUseCase(
         uow,
         aggregateRegistry,
         pickRepo,

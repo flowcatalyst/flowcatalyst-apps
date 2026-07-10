@@ -19,6 +19,14 @@ const lines: FulfilmentLine[] = [
     volumetric: { weightGrams: 2060 },
     temperatureClass: 'refrigerated',
   },
+  {
+    externalLineRef: 'L2',
+    sku: 'SKU2',
+    description: 'Bread',
+    quantity: 3,
+    volumetric: { weightGrams: 700 },
+    temperatureClass: 'normal',
+  },
 ];
 
 function make() {
@@ -59,5 +67,48 @@ describe('Pick', () => {
     expect(claimed.claimedAt).toEqual(later);
     expect(claimed.version).toBe(2);
     expect(claimed.updatedAt).toEqual(later);
+  });
+
+  it('complete with all quantities full → picked', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const done = Pick.complete(
+      claimed,
+      [
+        { externalLineRef: 'L1', pickedQuantity: 2 },
+        { externalLineRef: 'L2', pickedQuantity: 3 },
+      ],
+      NOW,
+    );
+    expect(done.status).toBe('picked');
+    expect(done.lineResults).toHaveLength(2);
+    expect(done.completedAt).toEqual(NOW);
+    expect(done.version).toBe(3);
+  });
+
+  it('complete with any line short → short_picked', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const done = Pick.complete(
+      claimed,
+      [
+        { externalLineRef: 'L1', pickedQuantity: 2 },
+        { externalLineRef: 'L2', pickedQuantity: 1 },
+      ],
+      NOW,
+    );
+    expect(done.status).toBe('short_picked');
+  });
+
+  it('a missing line result reads as not-full', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    expect(Pick.isFullPick(claimed, [{ externalLineRef: 'L1', pickedQuantity: 2 }])).toBe(false);
+  });
+
+  it('fail records the reason', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const failed = Pick.fail(claimed, 'Out of stock', NOW);
+    expect(failed.status).toBe('failed');
+    expect(failed.failReason).toBe('Out of stock');
+    expect(failed.completedAt).toEqual(NOW);
+    expect(failed.version).toBe(3);
   });
 });

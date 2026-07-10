@@ -1,0 +1,251 @@
+<script setup lang="ts">
+import { computed, reactive, ref, watch } from 'vue';
+import { Capacitor } from '@capacitor/core';
+import { useRoute, useRouter } from 'vue-router';
+import type { PickDto } from '@fulfil-go/shared';
+import { useAppCtx } from '../context.js';
+
+/**
+ * The post-claim workflow: count each line (tap or scan), then Complete.
+ * Short totals are only completable when the pick doesn't require a full
+ * pick (`requireFullPick` = the fulfilment forbade partial fulfilment) —
+ * otherwise the picker's only out is an explicit Fail with a reason.
+ */
+const ctx = useAppCtx();
+const route = useRoute();
+const router = useRouter();
+
+const pickId = computed(() => route.params['pickId'] as string);
+const pick = computed<PickDto | undefined>(() => ctx.picks.byId(pickId.value));
+
+/** externalLineRef → counted quantity. */
+const counts = reactive<Record<string, number>>({});
+const busy = ref(false);
+const error = ref<string | null>(null);
+const failMode = ref(false);
+const failReason = ref('');
+const isNative = Capacitor.isNativePlatform();
+const scanBusy = ref(false);
+
+watch(
+  pick,
+  (p) => {
+    if (!p) return;
+    for (const line of p.lines as { externalLineRef: string }[]) {
+      counts[line.externalLineRef] ??= 0;
+    }
+  },
+  { immediate: true },
+);
+
+type Line = {
+  externalLineRef: string;
+  sku: string;
+  gtin?: string;
+  description: string;
+  quantity: number;
+  temperatureClass?: string;
+};
+const lines = computed(() => (pick.value?.lines ?? []) as Line[]);
+
+function bump(line: Line, delta: number): void {
+  const next = (counts[line.externalLineRef] ?? 0) + delta;
+  counts[line.externalLineRef] = Math.min(Math.max(next, 0), line.quantity);
+}
+function fillLine(line: Line): void {
+  counts[line.externalLineRef] = line.quantity;
+}
+function fillAll(): void {
+  for (const line of lines.value) fillLine(line);
+}
+
+const totalOrdered = computed(() => lines.value.reduce((s, l) => s + l.quantity, 0));
+const totalCounted = computed(() =>
+  lines.value.reduce((s, l) => s + (counts[l.externalLineRef] ?? 0), 0),
+);
+const isShort = computed(() => totalCounted.value < totalOrdered.value);
+const shortBlocked = computed(() => isShort.value && pick.value?.requireFullPick === true);
+
+/** Native barcode scan → +1 on the matching line (gtin, falling back to sku). */
+async function scan(): Promise<void> {
+  scanBusy.value = true;
+  error.value = null;
+  try {
+    const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning');
+    const { camera } = await BarcodeScanner.requestPermissions();
+    if (camera !== 'granted' && camera !== 'limited') throw new Error('camera permission denied');
+    const { barcodes } = await BarcodeScanner.scan();
+    const code = barcodes[0]?.rawValue;
+    if (!code) return;
+    const line = lines.value.find((l) => l.gtin === code || l.sku === code);
+    if (!line) {
+      error.value = `No line matches barcode '${code}'.`;
+      return;
+    }
+    bump(line, 1);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    scanBusy.value = false;
+  }
+}
+
+async function complete(): Promise<void> {
+  if (!pick.value) return;
+  busy.value = true;
+  error.value = null;
+  try {
+    await ctx.api.json(`/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/complete`, {
+      method: 'POST',
+      body: {
+        lines: lines.value.map((l) => ({
+          externalLineRef: l.externalLineRef,
+          pickedQuantity: counts[l.externalLineRef] ?? 0,
+        })),
+      },
+    });
+    await ctx.picks.hydrate();
+    await router.push('/picks');
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function fail(): Promise<void> {
+  if (!pick.value || !failReason.value.trim()) return;
+  busy.value = true;
+  error.value = null;
+  try {
+    await ctx.api.json(`/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/fail`, {
+      method: 'POST',
+      body: { reason: failReason.value.trim() },
+    });
+    await ctx.picks.hydrate();
+    await router.push('/picks');
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    busy.value = false;
+  }
+}
+</script>
+
+<template>
+  <div v-if="!pick" class="p-6 text-center text-neutral-400">
+    Pick not found — it may have been completed elsewhere.
+  </div>
+  <div v-else class="flex flex-col gap-4 p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-mono text-2xl font-semibold">#{{ pick.shortId }}</p>
+        <p class="text-xs text-neutral-500">{{ totalCounted }} / {{ totalOrdered }} units</p>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span
+          v-if="pick.serviceLevel === 'ASAP'"
+          class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+        >
+          ASAP
+        </span>
+        <span
+          v-if="pick.requireFullPick"
+          class="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700"
+          title="The fulfilment does not allow partial fulfilment"
+        >
+          FULL PICK REQUIRED
+        </span>
+      </div>
+    </div>
+
+    <UAlert v-if="error" :description="error" color="error" variant="soft" />
+
+    <div class="flex gap-2">
+      <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="scan">
+        📷 Scan item
+      </UButton>
+      <UButton variant="ghost" size="sm" @click="fillAll">Mark all picked</UButton>
+    </div>
+
+    <UCard v-for="line in lines" :key="line.externalLineRef">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="truncate font-medium">{{ line.description }}</p>
+          <p class="font-mono text-[11px] text-neutral-400">{{ line.sku }}</p>
+          <span
+            v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
+            class="text-xs text-cyan-600"
+          >
+            {{ line.temperatureClass }}
+          </span>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <UButton
+            size="lg"
+            color="neutral"
+            variant="soft"
+            :disabled="(counts[line.externalLineRef] ?? 0) === 0"
+            @click="bump(line, -1)"
+          >
+            −
+          </UButton>
+          <button
+            class="min-w-14 text-center font-mono text-lg"
+            :class="
+              (counts[line.externalLineRef] ?? 0) === line.quantity
+                ? 'text-emerald-600 font-semibold'
+                : ''
+            "
+            title="Tap to mark line fully picked"
+            @click="fillLine(line)"
+          >
+            {{ counts[line.externalLineRef] ?? 0 }}/{{ line.quantity }}
+          </button>
+          <UButton
+            size="lg"
+            variant="soft"
+            :disabled="(counts[line.externalLineRef] ?? 0) >= line.quantity"
+            @click="bump(line, 1)"
+          >
+            +
+          </UButton>
+        </div>
+      </div>
+    </UCard>
+
+    <UAlert
+      v-if="shortBlocked"
+      title="Full pick required"
+      description="This fulfilment doesn't allow partial fulfilment — pick every line in full, or fail
+        the pick if items are unavailable."
+      color="warning"
+      variant="soft"
+    />
+
+    <UButton size="xl" block :loading="busy" :disabled="shortBlocked" @click="complete">
+      {{ isShort ? `Complete short (${totalCounted}/${totalOrdered})` : 'Complete pick' }}
+    </UButton>
+
+    <div v-if="!failMode" class="text-center">
+      <UButton variant="link" color="error" size="sm" @click="failMode = true">
+        Can't fulfil — fail this pick
+      </UButton>
+    </div>
+    <div v-else class="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
+      <UTextarea v-model="failReason" placeholder="Why can't this pick be fulfilled?" :rows="2" />
+      <div class="flex gap-2">
+        <UButton
+          color="error"
+          :loading="busy"
+          :disabled="!failReason.trim()"
+          class="flex-1"
+          @click="fail"
+        >
+          Fail pick
+        </UButton>
+        <UButton color="neutral" variant="soft" @click="failMode = false">Cancel</UButton>
+      </div>
+    </div>
+  </div>
+</template>

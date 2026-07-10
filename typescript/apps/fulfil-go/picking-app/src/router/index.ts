@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type Router } from 'vue-router';
 import PicksPage from '../pages/PicksPage.vue';
+import PickDetailPage from '../pages/PickDetailPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
 import type { AppCtx } from '../context.js';
@@ -10,6 +11,7 @@ export const router = createRouter({
     { path: '/', redirect: '/picks' },
     { path: '/login', component: LoginPage, meta: { title: 'Sign in' } },
     { path: '/picks', component: PicksPage, meta: { title: 'Picks' } },
+    { path: '/picks/:pickId', component: PickDetailPage, meta: { title: 'Pick' } },
     { path: '/settings', component: SettingsPage, meta: { title: 'Settings' } },
   ],
 });
