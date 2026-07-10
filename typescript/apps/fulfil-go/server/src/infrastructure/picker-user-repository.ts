@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { TransactionStore, resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { ConcurrencyConflictError } from '@fulfil-go/framework';
 import {
   asPickerUserId,
@@ -34,6 +34,9 @@ function toDomain(row: PickerUserRow): PickerUser {
 }
 
 export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): PickerUserRepository {
+  // Reads join the ambient use-case tx (ALS) — see pick-repository for why
+  // (in-tx visibility + pool self-deadlock under concurrent write bursts).
+  const current = () => resolveDb(db, TransactionStore.get());
   return {
     async persist(aggregate: PickerUser, tx?: TransactionContext): Promise<PickerUser> {
       const client = resolveDb(db, tx);
@@ -93,7 +96,7 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
     },
 
     async findById(clientId: string, id: PickerUserId): Promise<PickerUser | null> {
-      const [row] = await db
+      const [row] = await current()
         .select()
         .from(pickerUsers)
         .where(and(eq(pickerUsers.clientId, clientId), eq(pickerUsers.id, id)))
@@ -106,7 +109,7 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
       storeRef: string,
       staffCode: string,
     ): Promise<PickerUser | null> {
-      const [row] = await db
+      const [row] = await current()
         .select()
         .from(pickerUsers)
         .where(
@@ -124,7 +127,7 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
       const where = storeRef
         ? and(eq(pickerUsers.clientId, clientId), eq(pickerUsers.storeRef, storeRef))
         : eq(pickerUsers.clientId, clientId);
-      const rows = await db
+      const rows = await current()
         .select()
         .from(pickerUsers)
         .where(where)
@@ -134,7 +137,7 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
 
     async findByIds(clientId: string, ids: readonly string[]): Promise<readonly PickerUser[]> {
       if (ids.length === 0) return [];
-      const rows = await db
+      const rows = await current()
         .select()
         .from(pickerUsers)
         .where(and(eq(pickerUsers.clientId, clientId), inArray(pickerUsers.id, [...ids])));
@@ -143,7 +146,7 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
 
     async insertManyIfAbsent(pickers: readonly PickerUser[]): Promise<number> {
       if (pickers.length === 0) return 0;
-      const rows = await db
+      const rows = await current()
         .insert(pickerUsers)
         .values(
           pickers.map((p) => ({

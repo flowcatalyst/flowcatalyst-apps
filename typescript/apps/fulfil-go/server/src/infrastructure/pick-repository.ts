@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { TransactionStore, resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { ConcurrencyConflictError } from '@fulfil-go/framework';
 import type {
   FulfilmentLine,
@@ -49,6 +49,11 @@ function toDomain(row: PickRow): Pick {
 }
 
 export function createDrizzlePickRepository(db: PostgresJsDatabase): PickRepository {
+  // Reads join the ambient use-case tx when one is bound (ALS). A read on a
+  // SECOND pool connection inside runWrite both misses in-tx writes and
+  // self-deadlocks the pool under concurrent write bursts: every tx holds a
+  // connection at `begin` while queueing for another that never frees.
+  const current = () => resolveDb(db, TransactionStore.get());
   return {
     async persist(aggregate: Pick, tx?: TransactionContext): Promise<Pick> {
       const client = resolveDb(db, tx);
@@ -116,7 +121,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
     },
 
     async findById(clientId: string, id: PickId): Promise<Pick | null> {
-      const [row] = await db
+      const [row] = await current()
         .select()
         .from(picks)
         .where(and(eq(picks.clientId, clientId), eq(picks.id, id)))
@@ -125,7 +130,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
     },
 
     async findByPartId(clientId: string, partId: string): Promise<Pick | null> {
-      const [row] = await db
+      const [row] = await current()
         .select()
         .from(picks)
         .where(and(eq(picks.clientId, clientId), eq(picks.partId, partId)))
@@ -140,7 +145,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
     ): Promise<readonly Pick[]> {
       const conditions = [eq(picks.clientId, clientId), eq(picks.storeRef, storeRef)];
       if (status) conditions.push(eq(picks.status, status));
-      const rows = await db
+      const rows = await current()
         .select()
         .from(picks)
         .where(and(...conditions))
@@ -155,7 +160,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
       const conditions = [eq(picks.clientId, clientId)];
       if (options?.status) conditions.push(eq(picks.status, options.status));
       if (options?.storeRef) conditions.push(eq(picks.storeRef, options.storeRef));
-      const rows = await db
+      const rows = await current()
         .select()
         .from(picks)
         .where(and(...conditions))

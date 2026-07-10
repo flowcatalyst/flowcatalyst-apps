@@ -1,6 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { TransactionStore, resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import type { JobStatus } from '@fulfil-go/shared';
 import { asJobId, type JobId } from '../domain/jobs/ids.js';
 import type { Job } from '../domain/jobs/job.js';
@@ -24,6 +24,8 @@ function toDomain(row: JobRow): Job {
 }
 
 export function createDrizzleJobRepository(db: PostgresJsDatabase): JobRepository {
+  // Reads join the ambient use-case tx (ALS) — see pick-repository for why.
+  const current = () => resolveDb(db, TransactionStore.get());
   return {
     async persist(aggregate: Job, tx?: TransactionContext): Promise<Job> {
       const client = resolveDb(db, tx);
@@ -69,7 +71,7 @@ export function createDrizzleJobRepository(db: PostgresJsDatabase): JobRepositor
     },
 
     async findById(id: JobId): Promise<Job | null> {
-      const [row] = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+      const [row] = await current().select().from(jobs).where(eq(jobs.id, id)).limit(1);
       return row ? toDomain(row) : null;
     },
 

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { TransactionStore, resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { ConcurrencyConflictError } from '@fulfil-go/framework';
 import type {
   AdditionalData,
@@ -64,8 +64,12 @@ function toDomain(row: FulfilmentRow, partRows: readonly FulfilmentPartRow[]): F
 }
 
 export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): FulfilmentRepository {
+  // Reads join the ambient use-case tx (ALS) — see pick-repository for why
+  // (in-tx visibility + pool self-deadlock under concurrent write bursts).
+  const current = () => resolveDb(db, TransactionStore.get());
+
   async function loadParts(fulfilmentId: string): Promise<FulfilmentPartRow[]> {
-    return db
+    return current()
       .select()
       .from(fulfilmentParts)
       .where(eq(fulfilmentParts.fulfilmentId, fulfilmentId))
@@ -165,7 +169,7 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
     },
 
     async findById(clientId: string, id: FulfilmentId): Promise<Fulfilment | null> {
-      const [row] = await db
+      const [row] = await current()
         .select()
         .from(fulfilments)
         .where(and(eq(fulfilments.id, id), eq(fulfilments.clientId, clientId)))
@@ -175,7 +179,7 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
     },
 
     async listDueParts(now: Date, limit: number): Promise<readonly DuePartRef[]> {
-      const rows = await db
+      const rows = await current()
         .select({
           clientId: fulfilmentParts.clientId,
           fulfilmentId: fulfilmentParts.fulfilmentId,
@@ -224,7 +228,7 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
           ),
         );
       }
-      const rows = await db
+      const rows = await current()
         .select()
         .from(fulfilments)
         .where(and(...conditions))
@@ -232,7 +236,7 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
         .limit(limit)
         .offset(offset);
       if (rows.length === 0) return [];
-      const partRows = await db
+      const partRows = await current()
         .select()
         .from(fulfilmentParts)
         .where(
@@ -256,7 +260,7 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
       externalSource: string,
       externalRef: string,
     ): Promise<Fulfilment | null> {
-      const [row] = await db
+      const [row] = await current()
         .select()
         .from(fulfilments)
         .where(
