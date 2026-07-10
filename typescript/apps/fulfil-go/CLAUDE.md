@@ -102,6 +102,12 @@ pnpm --filter @fulfil-go/server db:init && pnpm --filter @fulfil-go/server db:mi
 pnpm dev:fulfil-go                       # server :3200 + apps :5175/:5176
 ```
 
+Pick release is platform-driven (the every-minute `fulfil-go-release-picks`
+scheduled job). If fc-dev's scheduler isn't firing, set
+`FULFILGO_DEV_RELEASE_SWEEP=true` for a LOUD in-process fallback — it warns
+whenever it releases anything the platform cron should have (dev-only; part
+of the point of local dev is proving the platform loop).
+
 To have the platform drain fulfil-go's outbox, run fc-dev with its outbox
 poller pointed at our db:
 `fc-dev --outbox-enabled --outbox-db-type postgres --outbox-db-url postgresql://postgres:postgres@localhost:15432/fulfilgo`

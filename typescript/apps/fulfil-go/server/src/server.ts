@@ -25,6 +25,7 @@ import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
 import { schedulePruneTask } from './scheduling/prune-events.js';
+import { scheduleDevReleaseSweep } from './scheduling/dev-release-sweep.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -246,8 +247,21 @@ async function buildServer() {
 
   appContext.sseBroker.start();
   const pruneTask = schedulePruneTask(db, server.log);
+  // Dev-only, loud fallback for the platform release-picks cron — see
+  // scheduling/dev-release-sweep.ts. Off unless explicitly enabled.
+  const devSweep =
+    (process.env['FULFILGO_DEV_RELEASE_SWEEP'] ?? '').toLowerCase() === 'true'
+      ? scheduleDevReleaseSweep(appContext, server.log)
+      : null;
+  if (devSweep) {
+    server.log.warn(
+      'FULFILGO_DEV_RELEASE_SWEEP is ON — local fallback will release due picks if the ' +
+        'platform cron does not. NEVER enable in production.',
+    );
+  }
   server.addHook('onClose', async () => {
     pruneTask.stop();
+    devSweep?.stop();
     await appContext.sseBroker.stop();
   });
 
