@@ -1,21 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { PickDto } from '@fulfil-go/shared';
 import { useAppCtx } from '../context.js';
 
+// Live-updated over the store SSE channel (hydrate happens on login and on
+// every stream open) — the Refresh button is just a manual reconcile.
 const ctx = useAppCtx();
 const expanded = ref<string | null>(null);
 const claiming = ref<string | null>(null);
-
-/** Poll while the page is open — SSE for picks is a follow-up. */
-const REFRESH_MS = 30_000;
-let timer: ReturnType<typeof setInterval> | undefined;
-
-onMounted(() => {
-  void ctx.picks.load();
-  timer = setInterval(() => void ctx.picks.load(), REFRESH_MS);
-});
-onUnmounted(() => clearInterval(timer));
 
 const available = computed(() => ctx.picks.available.value);
 const mine = computed(() => ctx.picks.mine.value);
@@ -55,7 +47,7 @@ function units(pick: PickDto): number {
         size="xs"
         variant="soft"
         :loading="ctx.picks.loading.value"
-        @click="ctx.picks.load()"
+        @click="ctx.picks.hydrate()"
       >
         Refresh
       </UButton>

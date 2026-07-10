@@ -6,12 +6,17 @@ import {
   type AggregateRegistryImpl,
   type UnitOfWork,
 } from '@fulfil-go/framework';
-import type { CreatePickRequest } from '@fulfil-go/shared';
+import { SyncEventType, type CreatePickRequest } from '@fulfil-go/shared';
 import { Pick } from '../../domain/picks/pick.js';
 import { newPickId } from '../../domain/picks/ids.js';
+import { toPickDto } from '../../domain/picks/pick-dto.js';
 import { PickCreated } from '../../domain/picks/events/pick-created.event.js';
 import type { PickRepository } from '../../domain/picks/pick.repository.js';
 import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import {
+  storeChannel,
+  type SyncEventRepository,
+} from '../../infrastructure/sync-event-repository.js';
 
 /**
  * PICK CONTEXT INTAKE: accept a create-pick command (delivered by the
@@ -32,6 +37,7 @@ export class ReceivePickUseCase {
     private readonly registry: AggregateRegistryImpl,
     private readonly picks: PickRepository,
     private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
+    private readonly syncEvents: SyncEventRepository,
   ) {}
 
   async execute(command: CreatePickRequest): Promise<Result<PickCreated>> {
@@ -85,6 +91,14 @@ export class ReceivePickUseCase {
       message: `Pick ${pick.id} registered for part #${pick.shortId} at ${pick.storeRef}.`,
       data: { pickId: pick.id, partId: pick.partId },
     });
+
+    // Same ALS-bound tx as the aggregate write — the station stream never
+    // sees a pick whose commit rolled back.
+    await this.syncEvents.append(
+      storeChannel(pick.clientId, pick.storeRef),
+      SyncEventType.PickCreated,
+      { pick: toPickDto(pick) },
+    );
 
     return commitAggregate(this.uow, this.registry, pick, event, command);
   }

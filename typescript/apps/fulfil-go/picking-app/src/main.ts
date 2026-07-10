@@ -11,7 +11,7 @@ async function bootstrap(): Promise<void> {
 
   // Resume a live person session across reloads (shared station stays put).
   if (await ctx.session.isAuthenticated()) {
-    await ctx.loadMe().catch(() => ctx.session.signOut());
+    await ctx.startShift().catch(() => ctx.session.signOut());
   }
 
   const app = createApp(App);

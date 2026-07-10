@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { MobileHeader, MobileShell } from '@fulfil-go/mobile-kit';
+import { ConnectionBadge, MobileHeader, MobileShell } from '@fulfil-go/mobile-kit';
 import { TABS } from './config/tabs.js';
 import { useAppCtx } from './context.js';
 
@@ -45,15 +45,10 @@ onUnmounted(() => {
       <template #header>
         <MobileHeader :title="title">
           <template #right>
-            <UButton
-              v-if="ctx.signedIn.value"
-              size="xs"
-              color="neutral"
-              variant="soft"
-              @click="exit"
-            >
-              Exit
-            </UButton>
+            <div v-if="ctx.signedIn.value" class="flex items-center gap-3">
+              <ConnectionBadge :state="ctx.picks.sseState.value" :pending="0" :dead="0" />
+              <UButton size="xs" color="neutral" variant="soft" @click="exit">Exit</UButton>
+            </div>
           </template>
         </MobileHeader>
       </template>

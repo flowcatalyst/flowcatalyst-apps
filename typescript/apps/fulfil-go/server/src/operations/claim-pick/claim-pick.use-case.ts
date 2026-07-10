@@ -7,12 +7,17 @@ import {
   type Scope,
   type UnitOfWork,
 } from '@fulfil-go/framework';
-import { FulfilGoPermission } from '@fulfil-go/shared';
+import { FulfilGoPermission, SyncEventType } from '@fulfil-go/shared';
 import { Pick } from '../../domain/picks/pick.js';
 import { isPickId, asPickId } from '../../domain/picks/ids.js';
+import { toPickDto } from '../../domain/picks/pick-dto.js';
 import { PickClaimed } from '../../domain/picks/events/pick-claimed.event.js';
 import type { PickRepository } from '../../domain/picks/pick.repository.js';
 import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import {
+  storeChannel,
+  type SyncEventRepository,
+} from '../../infrastructure/sync-event-repository.js';
 
 export interface ClaimPickCommand {
   readonly clientId: string;
@@ -34,6 +39,7 @@ export class ClaimPickUseCase {
     private readonly registry: AggregateRegistryImpl,
     private readonly picks: PickRepository,
     private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
+    private readonly syncEvents: SyncEventRepository,
   ) {}
 
   async execute(command: ClaimPickCommand): Promise<Result<PickClaimed>> {
@@ -115,6 +121,14 @@ export class ClaimPickUseCase {
       message: `Part #${pick.shortId} claimed for picking at ${pick.storeRef}.`,
       data: { pickId: pick.id, partId: pick.partId, pickerId: scope.principalId },
     });
+
+    // Store-channel push (same tx): every station at the store sees the pick
+    // leave "available" the moment the claim commits.
+    await this.syncEvents.append(
+      storeChannel(pick.clientId, pick.storeRef),
+      SyncEventType.PickClaimed,
+      { pick: toPickDto(pick) },
+    );
 
     return commitAggregate(this.uow, this.registry, pick, event, command);
   }

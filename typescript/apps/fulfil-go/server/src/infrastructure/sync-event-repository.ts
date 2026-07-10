@@ -9,6 +9,15 @@ export function userChannel(principalId: string): string {
   return `user:${principalId}`;
 }
 
+/**
+ * Per-store SSE channel — pick events fan out to every station/picker at the
+ * store (a pick is store work, not one person's). Picker sessions subscribe
+ * here (their scope carries clientId + storeRef attributes).
+ */
+export function storeChannel(clientId: string, storeRef: string): string {
+  return `store:${clientId}:${storeRef}`;
+}
+
 export interface SyncEventRecord {
   readonly id: number;
   readonly channel: string;

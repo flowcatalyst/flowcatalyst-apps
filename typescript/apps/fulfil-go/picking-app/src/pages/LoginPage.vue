@@ -22,7 +22,7 @@ async function signIn(): Promise<void> {
       pin: form.pin,
     });
     await ctx.session.setSession(tokens);
-    await ctx.loadMe();
+    await ctx.startShift();
     form.staffCode = '';
     form.pin = '';
     await router.push('/picks');

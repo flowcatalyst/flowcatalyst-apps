@@ -90,6 +90,7 @@ export function registerPickRoutes(
         return sendUseCaseError(reply, result.error);
       }
 
+      appContext.sseBroker.nudge();
       request.log.info(
         { pickId: result.value.getData().pickId, partId: parsed.data.partId },
         'create-pick registered',
@@ -165,6 +166,7 @@ export function registerPickRoutes(
         appContext.useCases.claimPick.execute({ clientId, pickId }),
       );
       if (isFailure(result)) return sendUseCaseError(reply, result.error);
+      appContext.sseBroker.nudge();
 
       return reply.code(200).send({ pickId: result.value.getData().pickId, status: 'claimed' });
     },

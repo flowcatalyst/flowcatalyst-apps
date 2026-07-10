@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@fulfil-go/framework';
 import type { AppContext } from '../../../app-context.js';
 import {
+  storeChannel,
   userChannel,
   type SyncEventRecord,
 } from '../../../infrastructure/sync-event-repository.js';
@@ -32,7 +33,16 @@ export function registerSseRoutes(fastify: FastifyInstance, appContext: AppConte
     if (!scope) {
       return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
     }
-    const channel = userChannel(scope.principalId);
+    // Channel selection by session kind: a picker session (store-bound
+    // attributes on the scope) streams its STORE's channel — pick events are
+    // store work shared by every station; everyone else gets their personal
+    // channel. One channel per connection keeps replay/high-water simple.
+    const storeRef = scope.attributes['storeRef'];
+    const scopeClientId = scope.attributes['clientId'];
+    const channel =
+      storeRef && scopeClientId
+        ? storeChannel(scopeClientId, storeRef)
+        : userChannel(scope.principalId);
 
     const headerId = request.headers['last-event-id'];
     const queryId = (request.query as { lastEventId?: string }).lastEventId;

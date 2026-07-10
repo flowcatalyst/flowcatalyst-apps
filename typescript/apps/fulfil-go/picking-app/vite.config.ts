@@ -34,6 +34,10 @@ export default defineConfig({
     port: 5176,
     proxy: {
       '/auth': API_PROXY,
+      // All pick-context routes (pick-auth login/refresh, picks, sync/picks)
+      // are client-scoped under /clients/… — without this entry the login
+      // POST gets Vite's SPA fallback instead of the server.
+      '/clients': API_PROXY,
       '/jobs': API_PROXY,
       '/sse': API_PROXY,
       '/sync': API_PROXY,

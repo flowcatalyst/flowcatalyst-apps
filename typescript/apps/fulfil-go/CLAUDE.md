@@ -120,8 +120,13 @@ Picking flow: management app → Pickers page → "Sync stores from fixtures" �
 fulfilments → release sweep marks parts pick_requested → the platform
 dispatcher POSTs create-pick back to `/clients/:id/picks` (needs fc-dev
 `--outbox-enabled`, see above) → picking app: Settings (bind station to
-clientId + storeRef) → login staff code + PIN → claim. Picks list is
-poll-based for now (SSE for picks needs a store channel — follow-up).
+clientId + storeRef) → login staff code + PIN → claim. Picks are LIVE over
+SSE: pick events publish on the STORE channel `store:<clientId>:<storeRef>`
+(every station at the store shares one stream; /sse/channel routes picker
+sessions there by the token's storeRef attribute); snapshot-then-stream via
+GET /clients/:id/sync/picks. NOTE: any new client-scoped API surface needs a
+`/clients` entry in each consuming app's vite dev proxy — the picking app was
+missing it and login 404'd against the SPA fallback.
 
 Native: `pnpm build && npx cap sync` in the app dir, then open ios/android in
 Xcode/Android Studio. Device-only verifications: native uploader while
