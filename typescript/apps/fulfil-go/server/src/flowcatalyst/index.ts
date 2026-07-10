@@ -38,7 +38,10 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
         description:
           'Pick-release sweep: finds pending fulfilment parts whose releaseAt ' +
           'has passed and dispatches create-pick to the pick context.',
-        crons: ['* * * * *'],
+        // 6-field, SECONDS-FIRST (platform cron parser): fires at second 0 of
+        // every minute. NB a 5-field cron passes the platform's shape check
+        // and shows ACTIVE but NEVER fires — bit us 2026-07-10.
+        crons: ['0 * * * * *'],
         timezone: 'UTC',
         concurrent: false,
         tracksCompletion: false,

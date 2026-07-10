@@ -86,6 +86,13 @@ prior` and throws `ConcurrencyConflictError` (framework) on mismatch — the
   ignored). Tailwind must `@source` mobile-kit's src (see apps' main.css).
 - postgres:18 docker image mounts its volume at `/var/lib/postgresql`
   (NOT `.../data`).
+- Platform cron expressions are 6-FIELD, SECONDS-FIRST (`0 * * * * *` =
+  every minute). A 5-field cron passes the platform's shape validation and
+  the job shows ACTIVE — but it NEVER fires (silent). Bit us 2026-07-10.
+- Repo READ methods must join the ambient tx: `const current = () =>
+  resolveDb(db, TransactionStore.get())` — a bare `db.select()` inside
+  runWrite grabs a second pool connection and self-deadlocks the pool under
+  ≥10 concurrent writes (e.g. platform dispatch-callback bursts).
 
 ## Dev loop
 

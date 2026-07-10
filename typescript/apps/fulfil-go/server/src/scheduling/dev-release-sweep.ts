@@ -1,7 +1,15 @@
 import { Cron } from 'croner';
 import { runJob } from '@fulfil-go/framework';
 import type { AppContext } from '../app-context.js';
-import { runReleasePicksSweep, SystemIdentity } from './release-picks.js';
+import { runReleasePicksSweep } from './release-picks.js';
+
+/**
+ * Distinct from SystemIdentity.SCHEDULER on purpose: processing-log entries
+ * carry the actor, so releases attribute to the platform cron
+ * (fulfil-go:system:scheduler, via the webhook) vs this local fallback —
+ * queryable proof of which path did the work.
+ */
+const DEV_SWEEP_IDENTITY = { principalId: 'fulfil-go:system:dev-sweep' } as const;
 
 interface SweepLogger {
   warn: (obj: unknown, msg?: string) => void;
@@ -23,7 +31,7 @@ export function scheduleDevReleaseSweep(appContext: AppContext, log: SweepLogger
   return new Cron('* * * * *', async () => {
     try {
       const result = await runJob(
-        { name: 'dev-release-sweep', identity: SystemIdentity.SCHEDULER },
+        { name: 'dev-release-sweep', identity: DEV_SWEEP_IDENTITY },
         () => runReleasePicksSweep(appContext),
       );
       if (result.released > 0 || result.failed > 0) {

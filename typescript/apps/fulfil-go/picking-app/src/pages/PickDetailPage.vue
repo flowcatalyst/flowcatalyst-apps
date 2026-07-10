@@ -29,7 +29,7 @@ const stage = ref<'pick' | 'pack'>('pick');
 const counts = reactive<Record<string, number>>({});
 const busy = ref(false);
 const error = ref<string | null>(null);
-const failMode = ref(false);
+const failOpen = ref(false);
 const failReason = ref('');
 const isNative = Capacitor.isNativePlatform();
 const scanBusy = ref(false);
@@ -268,6 +268,7 @@ async function fail(): Promise<void> {
       method: 'POST',
       body: { reason: failReason.value.trim() },
     });
+    failOpen.value = false;
     await ctx.picks.hydrate();
     await router.push('/picks');
   } catch (err) {
@@ -566,26 +567,49 @@ async function fail(): Promise<void> {
       </div>
     </template>
 
-    <!-- Fail (available in both stages) -->
-    <div v-if="!failMode" class="text-center">
-      <UButton variant="link" color="error" size="sm" @click="failMode = true">
-        Can't fulfil — fail this pick
-      </UButton>
-    </div>
-    <div v-else class="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50/50 p-3">
-      <UTextarea v-model="failReason" placeholder="Why can't this pick be fulfilled?" :rows="2" />
-      <div class="flex gap-2">
-        <UButton
-          color="error"
-          :loading="busy"
-          :disabled="!failReason.trim()"
-          class="flex-1"
-          @click="fail"
-        >
-          Fail pick
+    <!-- Fail (available in both stages): a real button with clear separation
+         from the happy path, and the destructive confirm lives in a drawer —
+         two deliberate taps + a reason, so it can't be hit accidentally. -->
+    <div class="mt-8 border-t border-neutral-200 pt-6">
+      <UDrawer v-model:open="failOpen" title="Fail this pick">
+        <UButton color="error" size="lg" block class="font-bold">
+          Can't fulfil — fail this pick
         </UButton>
-        <UButton color="neutral" variant="soft" @click="failMode = false">Cancel</UButton>
-      </div>
+        <template #body>
+          <div class="flex flex-col gap-3 p-1">
+            <UAlert
+              color="error"
+              variant="soft"
+              title="This ends the pick"
+              :description="
+                pick.requireFullPick
+                  ? 'This fulfilment is all-or-nothing — failing this pick will fail the whole order.'
+                  : 'The order continues with its other parts (partial fulfilment is allowed).'
+              "
+            />
+            <UTextarea
+              v-model="failReason"
+              placeholder="Why can't this pick be fulfilled? (required)"
+              :rows="3"
+              autofocus
+            />
+            <UButton
+              color="error"
+              size="xl"
+              block
+              class="font-bold"
+              :loading="busy"
+              :disabled="!failReason.trim()"
+              @click="fail"
+            >
+              Fail pick
+            </UButton>
+            <UButton color="neutral" variant="soft" block @click="failOpen = false">
+              Cancel — back to picking
+            </UButton>
+          </div>
+        </template>
+      </UDrawer>
     </div>
   </div>
 </template>
