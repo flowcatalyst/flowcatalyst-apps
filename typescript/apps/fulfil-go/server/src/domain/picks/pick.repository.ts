@@ -11,4 +11,10 @@ export interface PickRepository {
   findByPartId(clientId: string, partId: string): Promise<Pick | null>;
   /** Store-scoped listing for pickers — oldest slot first. */
   listByStore(clientId: string, storeRef: string, status?: PickStatus): Promise<readonly Pick[]>;
+
+  /** Admin listing across stores — oldest slot first; optional narrowing. */
+  listByClient(
+    clientId: string,
+    options?: { status?: PickStatus; storeRef?: string; limit?: number },
+  ): Promise<readonly Pick[]>;
 }

@@ -107,6 +107,8 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
         querystring: Type.Object({
           limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
           offset: Type.Optional(Type.Integer({ minimum: 0 })),
+          /** Comma-separated storeRefs — fulfilments with any part at any of them. */
+          stores: Type.Optional(Type.String()),
         }),
         response: {
           200: Type.Object({ fulfilments: Type.Array(FulfilmentDtoSchema) }),
@@ -119,11 +121,20 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { clientId } = request.params as { clientId: string };
-      const { limit, offset } = request.query as { limit?: number; offset?: number };
+      const { limit, offset, stores } = request.query as {
+        limit?: number;
+        offset?: number;
+        stores?: string;
+      };
+      const storeRefs = stores
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
       const rows = await appContext.repositories.fulfilments.listByClient(
         clientId,
         limit ?? 50,
         offset ?? 0,
+        storeRefs,
       );
       return reply.code(200).send({ fulfilments: rows.map(toFulfilmentDto) });
     },

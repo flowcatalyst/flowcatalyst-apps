@@ -19,6 +19,9 @@ export interface PickerUserRepository {
   /** Admin listing; optionally narrowed to one store. Ordered by store, staffCode. */
   listByClient(clientId: string, storeRef?: string): Promise<readonly PickerUser[]>;
 
+  /** Batch lookup for display-name enrichment (admin pick views). */
+  findByIds(clientId: string, ids: readonly string[]): Promise<readonly PickerUser[]>;
+
   /**
    * Dev/test seeding: plain batch insert, skipping rows whose staff code
    * already exists (idempotent re-runs). Deliberately NOT the aggregate path —

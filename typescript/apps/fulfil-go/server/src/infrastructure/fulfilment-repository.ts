@@ -199,11 +199,35 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
       }));
     },
 
-    async listByClient(clientId: string, limit: number, offset: number) {
+    async listByClient(
+      clientId: string,
+      limit: number,
+      offset: number,
+      storeRefs?: readonly string[],
+    ) {
+      const conditions = [eq(fulfilments.clientId, clientId)];
+      if (storeRefs && storeRefs.length > 0) {
+        // "Any part at any of these stores" — semi-join on the indexed
+        // origin_ref column rather than digging into the jsonb origin.
+        conditions.push(
+          inArray(
+            fulfilments.id,
+            db
+              .select({ id: fulfilmentParts.fulfilmentId })
+              .from(fulfilmentParts)
+              .where(
+                and(
+                  eq(fulfilmentParts.clientId, clientId),
+                  inArray(fulfilmentParts.originRef, [...storeRefs]),
+                ),
+              ),
+          ),
+        );
+      }
       const rows = await db
         .select()
         .from(fulfilments)
-        .where(eq(fulfilments.clientId, clientId))
+        .where(and(...conditions))
         .orderBy(desc(fulfilments.createdAt))
         .limit(limit)
         .offset(offset);

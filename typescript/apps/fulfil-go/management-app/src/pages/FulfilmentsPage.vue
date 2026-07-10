@@ -13,6 +13,14 @@ interface LogEntry {
   data: unknown;
 }
 
+interface StoreSummary {
+  id: string;
+  storeRef: string;
+  name: string;
+  city: string | null;
+  region: string | null;
+}
+
 const route = useRoute();
 const router = useRouter();
 const rows = ref<FulfilmentDto[]>([]);
@@ -21,6 +29,23 @@ const error = ref<string | null>(null);
 const log = ref<LogEntry[]>([]);
 const cancelReason = ref('');
 const cancelBusy = ref(false);
+const stores = ref<StoreSummary[]>([]);
+/** Multi-select store filter — a fulfilment matches when ANY part is at a selected store. */
+const storeFilter = ref<string[]>([]);
+
+const storeOptions = computed(() =>
+  stores.value.map((s) => ({ label: `${s.storeRef} · ${s.name}`, value: s.storeRef })),
+);
+const storeNames = computed(() => new Map(stores.value.map((s) => [s.storeRef, s.name])));
+
+async function loadStores(): Promise<void> {
+  try {
+    const res = await api.json<{ stores: StoreSummary[] }>(`/clients/${clientId.value}/stores`);
+    stores.value = res.stores;
+  } catch {
+    stores.value = []; // registry empty/unreachable — filter just stays empty
+  }
+}
 
 /** Panel selection lives in the route query — deep links + back/forward work. */
 const selectedId = computed(() => (route.query['selected'] as string | undefined) ?? null);
@@ -30,8 +55,12 @@ async function refresh(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
+    const storesParam =
+      storeFilter.value.length > 0
+        ? `&stores=${encodeURIComponent(storeFilter.value.join(','))}`
+        : '';
     const res = await api.json<{ fulfilments: FulfilmentDto[] }>(
-      `/clients/${clientId.value}/fulfilments?limit=100`,
+      `/clients/${clientId.value}/fulfilments?limit=100${storesParam}`,
     );
     rows.value = res.fulfilments;
   } catch (err) {
@@ -39,6 +68,11 @@ async function refresh(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+/** Distinct part origin refs for the grid's Store(s) column. */
+function fulfilmentStores(f: FulfilmentDto): string[] {
+  return [...new Set(f.parts.map((p) => (p.origin as { ref?: string }).ref ?? '?'))];
 }
 
 async function loadLog(id: string): Promise<void> {
@@ -76,11 +110,17 @@ async function cancelSelected(): Promise<void> {
   }
 }
 
-onMounted(() => void refresh());
-watch(clientId, () => {
-  closePanel();
+onMounted(() => {
+  void loadStores();
   void refresh();
 });
+watch(clientId, () => {
+  closePanel();
+  storeFilter.value = [];
+  void loadStores();
+  void refresh();
+});
+watch(storeFilter, () => void refresh());
 watch(selectedId, (id) => {
   if (id) void loadLog(id);
 });
@@ -93,11 +133,15 @@ const collectionPointRef = computed(() => {
   const dest = selected.value?.destination as { collectionPointRef?: string } | undefined;
   return dest?.collectionPointRef ?? '';
 });
-/** "Store name · Suburb, City" — the part's origin at a glance. */
+/** "store-001 · Store name · City" — the part's origin, ref first (the system-wide handle). */
 function originSummary(origin: unknown): string {
-  const o = origin as { name?: string; address?: { suburb?: string; city?: string } };
+  const o = origin as {
+    ref?: string;
+    name?: string;
+    address?: { suburb?: string; city?: string };
+  };
   const place = [o.address?.suburb, o.address?.city].filter(Boolean).join(', ');
-  return place ? `${o.name ?? '—'} · ${place}` : (o.name ?? '—');
+  return [o.ref, o.name, place].filter(Boolean).join(' · ') || '—';
 }
 function lineSku(line: unknown): string {
   return (line as { sku?: string }).sku ?? '';
@@ -145,6 +189,25 @@ function fmt(iso: string): string {
         <h1 class="text-xl font-semibold text-[#102a43]">Fulfilments</h1>
         <UButton size="sm" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
       </div>
+      <div class="mb-3 flex items-center gap-2">
+        <USelect
+          v-model="storeFilter"
+          multiple
+          :items="storeOptions"
+          value-key="value"
+          placeholder="Filter by store(s)…"
+          class="w-96"
+        />
+        <UButton
+          v-if="storeFilter.length > 0"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          @click="storeFilter = []"
+        >
+          Clear ({{ storeFilter.length }})
+        </UButton>
+      </div>
       <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
 
       <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
@@ -155,6 +218,7 @@ function fmt(iso: string): string {
               <th class="px-3 py-2">Type</th>
               <th class="px-3 py-2">Level</th>
               <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Store(s)</th>
               <th class="px-3 py-2">Parts</th>
               <th class="px-3 py-2">Slot start</th>
             </tr>
@@ -179,13 +243,27 @@ function fmt(iso: string): string {
                 </span>
               </td>
               <td class="px-3 py-2">
+                <span
+                  v-for="ref in fulfilmentStores(f)"
+                  :key="ref"
+                  class="mr-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs"
+                  :title="storeNames.get(ref) ?? ref"
+                >
+                  {{ ref }}
+                </span>
+              </td>
+              <td class="px-3 py-2">
                 {{ f.parts.map((p) => `#${p.shortId}`).join(', ') }}
               </td>
               <td class="px-3 py-2 text-neutral-500">{{ fmt(f.slotStart) }}</td>
             </tr>
             <tr v-if="rows.length === 0 && !loading">
-              <td colspan="6" class="px-3 py-8 text-center text-neutral-400">
-                No fulfilments for {{ clientId }} — try the Generator.
+              <td colspan="7" class="px-3 py-8 text-center text-neutral-400">
+                {{
+                  storeFilter.length > 0
+                    ? 'No fulfilments with parts at the selected store(s).'
+                    : `No fulfilments for ${clientId} — try the Generator.`
+                }}
               </td>
             </tr>
           </tbody>

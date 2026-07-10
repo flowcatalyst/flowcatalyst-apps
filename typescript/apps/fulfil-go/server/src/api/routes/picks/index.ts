@@ -106,6 +106,65 @@ export function registerPickRoutes(
     },
   );
 
+  // Admin/back-office pick listing across stores (platform-OIDC, NOT picker
+  // sessions) — feeds the management app's Requested/Active views. Enriched
+  // with picker display names so the UI doesn't show raw pkr_ ids.
+  fastify.get(
+    '/clients/:clientId/picks/admin',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String() }),
+        querystring: Type.Object({
+          status: Type.Optional(
+            Type.Union([
+              Type.Literal('requested'),
+              Type.Literal('claimed'),
+              Type.Literal('picked'),
+              Type.Literal('short_picked'),
+              Type.Literal('failed'),
+            ]),
+          ),
+          store: Type.Optional(Type.String()),
+        }),
+        response: {
+          200: Type.Object({
+            picks: Type.Array(PickDtoSchema),
+            pickers: Type.Record(Type.String(), Type.String()),
+          }),
+          401: UnauthorizedSchema,
+          403: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(FulfilGoPermission.ManagePickers)) {
+        return reply.code(403).send({
+          error: 'forbidden',
+          code: 'PERMISSION_DENIED',
+          message: `Missing permission ${FulfilGoPermission.ManagePickers}.`,
+          details: null,
+        });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const { status, store } = request.query as { status?: PickStatus; store?: string };
+      const rows = await appContext.repositories.picks.listByClient(clientId, {
+        ...(status ? { status } : {}),
+        ...(store ? { storeRef: store } : {}),
+      });
+
+      const pickerIds = [...new Set(rows.map((p) => p.claimedBy).filter((id): id is string => !!id))];
+      const pickerRows = await appContext.repositories.pickerUsers.findByIds(clientId, pickerIds);
+      const pickers = Object.fromEntries(pickerRows.map((p) => [p.id, p.displayName]));
+
+      return reply.code(200).send({ picks: rows.map(toPickDto), pickers });
+    },
+  );
+
   // Store-scoped pick list for the signed-in picker (storeRef from the
   // session token — there is no way to ask for another store's picks).
   fastify.get(

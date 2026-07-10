@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { ConcurrencyConflictError } from '@fulfil-go/framework';
@@ -129,6 +129,15 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
         .from(pickerUsers)
         .where(where)
         .orderBy(asc(pickerUsers.storeRef), asc(pickerUsers.staffCode));
+      return rows.map(toDomain);
+    },
+
+    async findByIds(clientId: string, ids: readonly string[]): Promise<readonly PickerUser[]> {
+      if (ids.length === 0) return [];
+      const rows = await db
+        .select()
+        .from(pickerUsers)
+        .where(and(eq(pickerUsers.clientId, clientId), inArray(pickerUsers.id, [...ids])));
       return rows.map(toDomain);
     },
 

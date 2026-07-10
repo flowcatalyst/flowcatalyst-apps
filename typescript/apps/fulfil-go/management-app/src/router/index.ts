@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import FulfilmentsPage from '../pages/FulfilmentsPage.vue';
 import GeneratorPage from '../pages/GeneratorPage.vue';
 import PickersPage from '../pages/PickersPage.vue';
+import PicksAdminPage from '../pages/PicksAdminPage.vue';
 import DriversPage from '../pages/DriversPage.vue';
 import StoresPage from '../pages/StoresPage.vue';
 
@@ -12,8 +13,18 @@ export const router = createRouter({
     // Fulfilment context
     { path: '/fulfilments', component: FulfilmentsPage, meta: { title: 'Fulfilments' } },
     { path: '/generator', component: GeneratorPage, meta: { title: 'Generator' } },
-    // Picking context (owns its user management)
+    // Picking context (owns its user management + operational views)
     { path: '/picking/pickers', component: PickersPage, meta: { title: 'Pickers' } },
+    {
+      path: '/picking/picks/requested',
+      component: PicksAdminPage,
+      meta: { title: 'Requested picks', pickStatus: 'requested' },
+    },
+    {
+      path: '/picking/picks/active',
+      component: PicksAdminPage,
+      meta: { title: 'Active picks', pickStatus: 'claimed' },
+    },
     // Transport context (placeholder until the context is built)
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
     // Base store registry

@@ -17,7 +17,11 @@ const SECTIONS = [
   },
   {
     label: 'Picking',
-    items: [{ label: 'Pickers', to: '/picking/pickers', icon: '🧑‍🏭' }],
+    items: [
+      { label: 'Requested picks', to: '/picking/picks/requested', icon: '📋' },
+      { label: 'Active picks', to: '/picking/picks/active', icon: '🛒' },
+      { label: 'Pickers', to: '/picking/pickers', icon: '🧑‍🏭' },
+    ],
   },
   {
     label: 'Transport',

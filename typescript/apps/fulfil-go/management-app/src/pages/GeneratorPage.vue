@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { api, clientId } from '../context.js';
 import { buildFulfilment, DEFAULT_OPTIONS } from '../lib/generator.js';
+import storeFixtures from '../generator/data/stores.json';
 
 const form = reactive({
   count: 10,
   deliveryShare: DEFAULT_OPTIONS.deliveryShare * 100,
   asapShare: DEFAULT_OPTIONS.asapShare * 100,
   multiStoreShare: DEFAULT_OPTIONS.multiStoreShare * 100,
+  /** '' = random store per fulfilment; otherwise every fulfilment anchors here. */
+  storeRef: '',
 });
+
+const storeOptions = computed(() => [
+  { label: 'Random store (default)', value: '' },
+  ...storeFixtures.map((s) => ({ label: `${s.ref} · ${s.name}`, value: s.ref })),
+]);
 
 interface RunResult {
   externalRef: string;
@@ -29,6 +37,7 @@ async function run(): Promise<void> {
       deliveryShare: form.deliveryShare / 100,
       asapShare: form.asapShare / 100,
       multiStoreShare: form.multiStoreShare / 100,
+      ...(form.storeRef ? { storeRef: form.storeRef } : {}),
     });
     try {
       const res = await api.request(`/clients/${clientId.value}/fulfilments`, {
@@ -86,6 +95,14 @@ async function run(): Promise<void> {
       </UFormField>
       <UFormField label="Multi-store %">
         <UInput v-model.number="form.multiStoreShare" type="number" :min="0" :max="100" />
+      </UFormField>
+      <UFormField label="Store" class="col-span-2">
+        <USelect
+          v-model="form.storeRef"
+          :items="storeOptions"
+          value-key="value"
+          class="w-full"
+        />
       </UFormField>
     </div>
 

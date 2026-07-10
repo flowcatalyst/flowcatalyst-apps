@@ -147,5 +147,21 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
         .orderBy(asc(picks.slotStart), asc(picks.shortId));
       return rows.map(toDomain);
     },
+
+    async listByClient(
+      clientId: string,
+      options?: { status?: PickStatus; storeRef?: string; limit?: number },
+    ): Promise<readonly Pick[]> {
+      const conditions = [eq(picks.clientId, clientId)];
+      if (options?.status) conditions.push(eq(picks.status, options.status));
+      if (options?.storeRef) conditions.push(eq(picks.storeRef, options.storeRef));
+      const rows = await db
+        .select()
+        .from(picks)
+        .where(and(...conditions))
+        .orderBy(asc(picks.slotStart), asc(picks.shortId))
+        .limit(options?.limit ?? 200);
+      return rows.map(toDomain);
+    },
   };
 }

@@ -15,6 +15,11 @@ export interface GeneratorOptions {
   readonly asapShare: number;
   /** 0..1 share of two-store (multi-part) fulfilments. */
   readonly multiStoreShare: number;
+  /**
+   * Anchor every fulfilment to this store (empty/undefined = random).
+   * Multi-store fulfilments still add a same-city partner store.
+   */
+  readonly storeRef?: string;
 }
 
 export const DEFAULT_OPTIONS: GeneratorOptions = {
@@ -101,9 +106,13 @@ function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
   };
 }
 
-/** Pick 1 (or 2 for multi-store) stores in the SAME city — on-demand is local. */
-function pickStores(multiStore: boolean): Store[] {
-  const first = pick(stores);
+/**
+ * Pick 1 (or 2 for multi-store) stores in the SAME city — on-demand is local.
+ * `anchorRef` pins the first store (generate-for-this-store mode).
+ */
+function pickStores(multiStore: boolean, anchorRef?: string): Store[] {
+  const anchored = anchorRef ? stores.find((s) => s.ref === anchorRef) : undefined;
+  const first = anchored ?? pick(stores);
   if (!multiStore) return [first];
   const sameCity = stores.filter((s) => s.city === first.city && s.ref !== first.ref);
   return sameCity.length > 0 ? [first, pick(sameCity)] : [first];
@@ -116,7 +125,7 @@ export function buildFulfilment(
 ): CreateFulfilmentCommand {
   const isDelivery = Math.random() < options.deliveryShare;
   const serviceLevel = isDelivery && Math.random() < options.asapShare ? 'ASAP' : 'STANDARD';
-  const chosenStores = pickStores(Math.random() < options.multiStoreShare);
+  const chosenStores = pickStores(Math.random() < options.multiStoreShare, options.storeRef);
   const anchor = chosenStores[0]!;
 
   // ASAP: a near-now window; STANDARD: a 2h slot tomorrow morning/afternoon.
