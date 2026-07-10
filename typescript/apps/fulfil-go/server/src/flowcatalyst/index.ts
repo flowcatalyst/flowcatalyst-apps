@@ -9,6 +9,12 @@ export interface FulfilGoDefinitionsConfig {
   readonly publicBaseUrl: string;
   /** Dispatch pool used by fulfil-go-emitted dispatch jobs. */
   readonly dispatchPoolCode: string;
+  /**
+   * Client/tenant that owns the scheduled job(s) (SDK ≥0.9.3). Scoping to
+   * the operating tenant (dev: the platform's Inhance client) keeps the job
+   * application+client-owned instead of platform-scoped/anchor-only.
+   */
+  readonly tenantClientId?: string;
 }
 
 /**
@@ -68,6 +74,7 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
         tracksCompletion: false,
         timeoutSeconds: 60,
         targetUrl: `${config.publicBaseUrl}/jobs/release-picks`,
+        clientId: config.tenantClientId ?? null,
       },
     ],
   };

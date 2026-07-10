@@ -111,6 +111,9 @@ async function main(): Promise<void> {
   const definitions = buildFulfilGoDefinitions({
     publicBaseUrl: process.env['FULFILGO_PUBLIC_BASE_URL'] ?? 'http://localhost:3200',
     dispatchPoolCode: process.env['FULFILGO_DISPATCH_POOL'] ?? 'fulfil-go-default',
+    // Tenant that owns the scheduled job(s). Dev default: the platform's
+    // Inhance client (see project memory / management-app default).
+    tenantClientId: process.env['FULFILGO_TENANT_CLIENT_ID'] ?? 'clt_6F9GM54BB5G2Y',
   });
 
   const removeUnlisted = process.env['FLOWCATALYST_REMOVE_UNLISTED'] === 'true';
