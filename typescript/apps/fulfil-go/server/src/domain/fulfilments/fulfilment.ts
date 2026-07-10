@@ -132,6 +132,106 @@ export const Fulfilment = {
   },
 
   /**
+   * PROCESS MANAGER transitions — reactions to pick-context events delivered
+   * via the platform subscription (see operations/fulfilment-pick-process).
+   * All are per-part; the fulfilment status stays `in_progress` while parts
+   * progress and only moves at the derivation points below.
+   */
+
+  /** `pick_requested → picking` — a picker claimed the pick. */
+  partPicking(prior: Fulfilment, partId: FulfilmentPartId, now: Date): Fulfilment {
+    return {
+      ...prior,
+      parts: prior.parts.map((part) =>
+        part.id === partId && part.status === 'pick_requested'
+          ? { ...part, status: 'picking', updatedAt: now }
+          : part,
+      ),
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /** `pick_requested|picking → picked|short_picked` — the pick completed. */
+  partPickOutcome(
+    prior: Fulfilment,
+    partId: FulfilmentPartId,
+    short: boolean,
+    now: Date,
+  ): Fulfilment {
+    return {
+      ...prior,
+      parts: prior.parts.map((part) =>
+        part.id === partId && (part.status === 'pick_requested' || part.status === 'picking')
+          ? { ...part, status: short ? 'short_picked' : 'picked', updatedAt: now }
+          : part,
+      ),
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /** Any non-terminal part → failed — the picker could not fulfil. */
+  partFailed(prior: Fulfilment, partId: FulfilmentPartId, now: Date): Fulfilment {
+    return {
+      ...prior,
+      parts: prior.parts.map((part) =>
+        part.id === partId &&
+        part.status !== 'completed' &&
+        part.status !== 'cancelled' &&
+        part.status !== 'failed'
+          ? { ...part, status: 'failed', updatedAt: now }
+          : part,
+      ),
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /** Parts still in play — not failed and not cancelled. */
+  viableParts(fulfilment: Fulfilment): readonly FulfilmentPart[] {
+    return fulfilment.parts.filter((p) => p.status !== 'failed' && p.status !== 'cancelled');
+  },
+
+  /** True when every viable part has finished picking (and at least one exists). */
+  allViablePicked(fulfilment: Fulfilment): boolean {
+    const viable = Fulfilment.viableParts(fulfilment);
+    return (
+      viable.length > 0 &&
+      viable.every((p) => p.status === 'picked' || p.status === 'short_picked')
+    );
+  },
+
+  /**
+   * `in_progress → ready` — everything pickable is picked; awaiting transport.
+   * NO version bump: this always COMPOSES with a part transition in the same
+   * commit (which owns the bump) — a second bump would break the optimistic
+   * `version - 1` persist guard.
+   */
+  markReady(prior: Fulfilment, now: Date): Fulfilment {
+    return { ...prior, status: 'ready', updatedAt: now };
+  },
+
+  /**
+   * Fail the fulfilment: cancels every part still in play (failed parts stay
+   * failed — they're the cause, not a casualty). Used by the all-or-nothing
+   * policy fan-out and when no viable parts remain. NO version bump — see
+   * markReady: it composes with the triggering part transition's commit.
+   */
+  failFulfilment(prior: Fulfilment, now: Date): Fulfilment {
+    return {
+      ...prior,
+      status: 'failed',
+      parts: prior.parts.map((part) =>
+        part.status === 'completed' || part.status === 'cancelled' || part.status === 'failed'
+          ? part
+          : { ...part, status: 'cancelled', updatedAt: now },
+      ),
+      updatedAt: now,
+    };
+  },
+
+  /**
    * Cancel-only mutability. While nothing is in flight (no picks dispatched
    * yet) cancellation is synchronous: straight to `cancelled`, all
    * non-terminal parts with it. Once the process manager exists, cancel from

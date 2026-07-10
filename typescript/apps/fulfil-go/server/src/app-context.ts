@@ -54,6 +54,11 @@ import {
   CompletePickUseCase,
   FailPickUseCase,
 } from './operations/report-pick-outcome/report-pick-outcome.use-cases.js';
+import {
+  RegisterPartFailedUseCase,
+  RegisterPartPickedUseCase,
+  RegisterPartPickingUseCase,
+} from './operations/fulfilment-pick-process/fulfilment-pick-process.use-cases.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -102,6 +107,9 @@ export interface AppContextUseCases {
   readonly claimPick: ClaimPickUseCase;
   readonly completePick: CompletePickUseCase;
   readonly failPick: FailPickUseCase;
+  readonly registerPartPicking: RegisterPartPickingUseCase;
+  readonly registerPartPicked: RegisterPartPickedUseCase;
+  readonly registerPartFailed: RegisterPartFailedUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -274,6 +282,24 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickRepo,
         fulfilmentLogRepo,
         syncEventRepo,
+      ),
+      registerPartPicking: new RegisterPartPickingUseCase(
+        uow,
+        aggregateRegistry,
+        fulfilmentRepo,
+        fulfilmentLogRepo,
+      ),
+      registerPartPicked: new RegisterPartPickedUseCase(
+        uow,
+        aggregateRegistry,
+        fulfilmentRepo,
+        fulfilmentLogRepo,
+      ),
+      registerPartFailed: new RegisterPartFailedUseCase(
+        uow,
+        aggregateRegistry,
+        fulfilmentRepo,
+        fulfilmentLogRepo,
       ),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),

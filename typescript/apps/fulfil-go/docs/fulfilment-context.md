@@ -1,5 +1,17 @@
 # Fulfilment context — design (draft for review)
 
+Status update 2026-07-10: **the process manager's first slice is LIVE** —
+the `fulfil-go-fulfilment-process` subscription delivers pick events to
+`/processes/fulfilment`, which advances parts (`pick_requested → picking →
+picked/short_picked/failed`) and derives fulfilment state (`ready` when all
+viable parts picked → `fulfilment:picked`, the transport trigger; the
+all-or-nothing policy fan-out cancels sibling parts and fails the
+fulfilment → `fulfilment:failed`). Verified end-to-end against the live
+platform both ways. Delivery gotchas: the Go platform sends `X-Event-Type`
+(NOT the Rust-era `x-fc-event-type`) and dataOnly payloads can arrive as a
+JSON-encoded STRING — the webhook tolerates both. Next: request-transport
+on ready (time-based), handover, completion.
+
 Status: agreed in discussion 2026-07-09. **create-fulfilment AND cancel-fulfilment are implemented**
 (shared contracts, aggregate + parts/lines, short-id allocator, processing
 log, `POST/GET /clients/:clientId/fulfilments`, `fulfilment.created` outbox

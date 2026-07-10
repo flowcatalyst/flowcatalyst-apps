@@ -24,6 +24,7 @@ import { registerPickRoutes } from './api/routes/picks/index.js';
 import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
+import { registerProcessRoutes } from './api/routes/processes/index.js';
 import { schedulePruneTask } from './scheduling/prune-events.js';
 import { scheduleDevReleaseSweep } from './scheduling/dev-release-sweep.js';
 
@@ -238,6 +239,9 @@ async function buildServer() {
   registerPickerAdminRoutes(server, appContext);
   registerPickAuthRoutes(server, appContext);
   registerStoreRoutes(server, appContext);
+  registerProcessRoutes(server, appContext, {
+    webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
+  });
 
   if (appContext.auth.config.picker.usingDevSecret) {
     server.log.warn(

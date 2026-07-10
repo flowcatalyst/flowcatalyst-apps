@@ -20,13 +20,39 @@ import type { sync } from '@flowcatalyst/sdk';
 import { FulfilmentCreatedEventType } from '../domain/fulfilments/events/fulfilment-created.event.js';
 import { FulfilmentCancelledEventType } from '../domain/fulfilments/events/fulfilment-cancelled.event.js';
 import { FulfilmentPartPickRequestedEventType } from '../domain/fulfilments/events/fulfilment-part-pick-requested.event.js';
+import {
+  FulfilmentFailedEventType,
+  FulfilmentPartFailedEventType,
+  FulfilmentPartPickedEventType,
+  FulfilmentPartPickingEventType,
+  FulfilmentPickedEventType,
+} from '../domain/fulfilments/events/fulfilment-pick-progress.events.js';
+import { PickCreatedEventType } from '../domain/picks/events/pick-created.event.js';
+import { PickClaimedEventType } from '../domain/picks/events/pick-claimed.event.js';
+import {
+  PickFailedEventType,
+  PickPickedEventType,
+  PickShortPickedEventType,
+} from '../domain/picks/events/pick-outcome.events.js';
 
 export interface FulfilGoEventType extends sync.EventTypeDefinition {
   readonly payloadSchema: TSchema;
 }
 
 export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
+  // Fulfilment context
   FulfilmentCreatedEventType,
   FulfilmentCancelledEventType,
   FulfilmentPartPickRequestedEventType,
+  FulfilmentPartPickingEventType,
+  FulfilmentPartPickedEventType,
+  FulfilmentPartFailedEventType,
+  FulfilmentPickedEventType,
+  FulfilmentFailedEventType,
+  // Pick context (the fulfilment process manager subscribes to these)
+  PickCreatedEventType,
+  PickClaimedEventType,
+  PickPickedEventType,
+  PickShortPickedEventType,
+  PickFailedEventType,
 ];

@@ -23,7 +23,28 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
     // rejects it — schemas are pushed separately via addSchemaVersion
     // (phase 2 of the sync script).
     eventTypes: fulfilGoEventTypes.map(({ payloadSchema: _schema, ...definition }) => definition),
-    subscriptions: [],
+    subscriptions: [
+      {
+        code: 'fulfil-go-fulfilment-process',
+        name: 'Fulfilment Process',
+        description:
+          'The fulfilment process manager: subscribes to pick-context outcomes ' +
+          'and advances part + fulfilment state (picking → picked/short_picked ' +
+          '→ ready, or the all-or-nothing failure fan-out).',
+        target: `${config.publicBaseUrl}/processes/fulfilment`,
+        eventTypes: [
+          { eventTypeCode: 'fulfil-go:pick:pick:claimed' },
+          { eventTypeCode: 'fulfil-go:pick:pick:picked' },
+          { eventTypeCode: 'fulfil-go:pick:pick:short-picked' },
+          { eventTypeCode: 'fulfil-go:pick:pick:failed' },
+        ],
+        dispatchPoolCode: config.dispatchPoolCode,
+        mode: 'BLOCK_ON_ERROR',
+        maxRetries: 5,
+        timeoutSeconds: 30,
+        dataOnly: true,
+      },
+    ],
     dispatchPools: [
       {
         code: config.dispatchPoolCode,
