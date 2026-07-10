@@ -29,12 +29,15 @@ export interface SeedPickersInput {
   readonly clientId: string;
   readonly perStore: number;
   readonly pin: string;
+  /** Also overwrite EXISTING seeded pickers' PINs (rotate the shared dev PIN). */
+  readonly resetPins?: boolean;
 }
 
 export interface SeedPickersResult {
   readonly stores: number;
   readonly created: number;
   readonly skipped: number;
+  readonly pinsReset: number;
 }
 
 export async function seedPickers(
@@ -43,7 +46,7 @@ export async function seedPickers(
   input: SeedPickersInput,
 ): Promise<SeedPickersResult> {
   const storeList = await storeRepo.listByClient(input.clientId);
-  if (storeList.length === 0) return { stores: 0, created: 0, skipped: 0 };
+  if (storeList.length === 0) return { stores: 0, created: 0, skipped: 0, pinsReset: 0 };
 
   const pinHash = await hashSecret(input.pin);
   const now = new Date();
@@ -72,5 +75,8 @@ export async function seedPickers(
   });
 
   const created = await pickerRepo.insertManyIfAbsent(pickers);
-  return { stores: storeList.length, created, skipped: pickers.length - created };
+  // Inserts above already carry the new hash; the reset flips the SKIPPED
+  // (pre-existing seeded) rows so one shared PIN rules them all.
+  const pinsReset = input.resetPins ? await pickerRepo.resetSeededPins(input.clientId, pinHash) : 0;
+  return { stores: storeList.length, created, skipped: pickers.length - created, pinsReset };
 }

@@ -210,12 +210,15 @@ export function registerPickerAdminRoutes(fastify: FastifyInstance, appContext: 
         body: Type.Object({
           perStore: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
           pin: Type.Optional(Type.String({ pattern: '^\\d{4,8}$' })),
+          /** Also rotate EXISTING seeded pickers (P<nn>) onto this PIN. */
+          resetPins: Type.Optional(Type.Boolean()),
         }),
         response: {
           200: Type.Object({
             stores: Type.Integer(),
             created: Type.Integer(),
             skipped: Type.Integer(),
+            pinsReset: Type.Integer(),
             pin: Type.String(),
           }),
           400: ErrorResponseSchema,
@@ -227,12 +230,14 @@ export function registerPickerAdminRoutes(fastify: FastifyInstance, appContext: 
     async (request, reply) => {
       if (!requireManagePickers(reply)) return reply;
       const { clientId } = request.params as { clientId: string };
-      const body = request.body as { perStore?: number; pin?: string };
-      const pin = body.pin ?? '123456';
+      const body = request.body as { perStore?: number; pin?: string; resetPins?: boolean };
+      // '385345' = FULFIL on a phone keypad — memorable, and unlike 123456
+      // not in breached-password corpora (Chrome flags those on PIN inputs).
+      const pin = body.pin ?? '385345';
       const result = await seedPickers(
         appContext.repositories.stores,
         appContext.repositories.pickerUsers,
-        { clientId, perStore: body.perStore ?? 10, pin },
+        { clientId, perStore: body.perStore ?? 10, pin, resetPins: body.resetPins ?? false },
       );
       // Echo the PIN so the admin UI can show how to log the test pickers in.
       return reply.code(200).send({ ...result, pin });

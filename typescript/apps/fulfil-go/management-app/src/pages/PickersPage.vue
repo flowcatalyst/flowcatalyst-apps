@@ -27,7 +27,8 @@ const notice = ref<string | null>(null);
 const busy = reactive({ seed: false, create: false, load: false });
 const rowBusy = ref<string | null>(null);
 
-const seedForm = reactive({ perStore: 10, pin: '123456' });
+// '385345' = FULFIL on a phone keypad — not in breach lists (Chrome-quiet).
+const seedForm = reactive({ perStore: 10, pin: '385345', resetPins: false });
 const createForm = reactive({ displayName: '', staffCode: '', pin: '' });
 /** Per-row reassign target (pickerId → storeRef). */
 const reassignTo = reactive<Record<string, string>>({});
@@ -141,11 +142,19 @@ async function seedPickers(): Promise<void> {
   busy.seed = true;
   error.value = null;
   try {
-    const res = await api.json<{ stores: number; created: number; skipped: number; pin: string }>(
-      `/clients/${clientId.value}/pickers/seed`,
-      { method: 'POST', body: { perStore: seedForm.perStore, pin: seedForm.pin } },
-    );
-    notice.value = `Seeded ${res.created} pickers across ${res.stores} stores (${res.skipped} existed). PIN: ${res.pin}`;
+    const res = await api.json<{
+      stores: number;
+      created: number;
+      skipped: number;
+      pinsReset: number;
+      pin: string;
+    }>(`/clients/${clientId.value}/pickers/seed`, {
+      method: 'POST',
+      body: { perStore: seedForm.perStore, pin: seedForm.pin, resetPins: seedForm.resetPins },
+    });
+    notice.value =
+      `Seeded ${res.created} pickers across ${res.stores} stores (${res.skipped} existed` +
+      `${res.pinsReset > 0 ? `, ${res.pinsReset} PINs reset` : ''}). PIN: ${res.pin}`;
     await loadPickers();
   } catch (err) {
     fail(err);
@@ -326,6 +335,10 @@ watch(selectedStore, () => void loadPickers());
           <UFormField label="Shared PIN">
             <UInput v-model="seedForm.pin" class="w-28 font-mono" />
           </UFormField>
+          <UCheckbox
+            v-model="seedForm.resetPins"
+            label="Reset existing seeded pickers to this PIN"
+          />
           <UButton :loading="busy.seed" variant="soft" @click="seedPickers">
             Seed all stores
           </UButton>

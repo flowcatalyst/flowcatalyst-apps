@@ -129,7 +129,9 @@ POST /jobs/:id/assign {assigneeId: prn_driver1} → watch it arrive live in the
 execution app (or `curl -N -H "x-user-id: prn_driver1" :3200/sse/channel`).
 
 Picking flow: management app → Pickers page → "Sync stores from fixtures" →
-"Seed pickers" (staff codes P01…, shared PIN, default 123456) → Generator makes
+"Seed pickers" (staff codes P01…, shared PIN, default 385345 = FULFIL on a
+keypad — NOT 123456, which Chrome flags as breached; "reset PINs" checkbox
+rotates existing seeded pickers) → Generator makes
 fulfilments → release sweep marks parts pick_requested → the platform
 dispatcher POSTs create-pick back to `/clients/:id/picks` (needs fc-dev
 `--outbox-enabled`, see above) → picking app: Settings (bind station to

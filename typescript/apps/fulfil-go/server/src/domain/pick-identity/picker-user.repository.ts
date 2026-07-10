@@ -31,6 +31,13 @@ export interface PickerUserRepository {
   insertManyIfAbsent(pickers: readonly PickerUser[]): Promise<number>;
 
   /**
+   * Dev/test: overwrite the PIN hash of SEEDED pickers (staff codes matching
+   * the seeder's P<nn> pattern) — lets the shared dev PIN rotate without
+   * touching manually-created pickers. Returns rows updated.
+   */
+  resetSeededPins(clientId: string, pinHash: string): Promise<number>;
+
+  /**
    * Direct write of login-lockout bookkeeping (failedPinAttempts + lockedUntil
    * + updatedAt) by id — NO version guard, NO domain event. Auth state, not a
    * domain transition.
