@@ -21,15 +21,18 @@ const route = useRoute();
 const status = computed(() => (route.meta['pickStatus'] as 'requested' | 'claimed') ?? 'requested');
 const isActiveView = computed(() => status.value === 'claimed');
 
+// Reka UI (Nuxt UI's select) rejects empty-string item values — use a sentinel.
+const ALL_STORES = '__all__';
+
 const picks = ref<PickDto[]>([]);
 const pickerNames = ref<Record<string, string>>({});
 const stores = ref<StoreSummary[]>([]);
-const storeFilter = ref<string>('');
+const storeFilter = ref<string>(ALL_STORES);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
 const storeOptions = computed(() => [
-  { label: 'All stores', value: '' },
+  { label: 'All stores', value: ALL_STORES },
   ...stores.value.map((s) => ({ label: `${s.storeRef} · ${s.name}`, value: s.storeRef })),
 ]);
 const storeNames = computed(() => new Map(stores.value.map((s) => [s.storeRef, s.name])));
@@ -47,7 +50,8 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const storeParam = storeFilter.value ? `&store=${encodeURIComponent(storeFilter.value)}` : '';
+    const storeParam =
+      storeFilter.value !== ALL_STORES ? `&store=${encodeURIComponent(storeFilter.value)}` : '';
     const res = await api.json<{ picks: PickDto[]; pickers: Record<string, string> }>(
       `/clients/${clientId.value}/picks/admin?status=${status.value}${storeParam}`,
     );
@@ -78,7 +82,7 @@ onMounted(() => {
 });
 onUnmounted(() => clearInterval(timer));
 watch([clientId], () => {
-  storeFilter.value = '';
+  storeFilter.value = ALL_STORES;
   void loadStores();
   void load();
 });

@@ -4,17 +4,20 @@ import { api, clientId } from '../context.js';
 import { buildFulfilment, DEFAULT_OPTIONS } from '../lib/generator.js';
 import storeFixtures from '../generator/data/stores.json';
 
+// Reka UI (Nuxt UI's select) rejects empty-string item values — use a sentinel.
+const RANDOM_STORE = '__random__';
+
 const form = reactive({
   count: 10,
   deliveryShare: DEFAULT_OPTIONS.deliveryShare * 100,
   asapShare: DEFAULT_OPTIONS.asapShare * 100,
   multiStoreShare: DEFAULT_OPTIONS.multiStoreShare * 100,
-  /** '' = random store per fulfilment; otherwise every fulfilment anchors here. */
-  storeRef: '',
+  /** RANDOM_STORE = random per fulfilment; otherwise every fulfilment anchors here. */
+  storeRef: RANDOM_STORE,
 });
 
 const storeOptions = computed(() => [
-  { label: 'Random store (default)', value: '' },
+  { label: 'Random store (default)', value: RANDOM_STORE },
   ...storeFixtures.map((s) => ({ label: `${s.ref} · ${s.name}`, value: s.ref })),
 ]);
 
@@ -37,7 +40,7 @@ async function run(): Promise<void> {
       deliveryShare: form.deliveryShare / 100,
       asapShare: form.asapShare / 100,
       multiStoreShare: form.multiStoreShare / 100,
-      ...(form.storeRef ? { storeRef: form.storeRef } : {}),
+      ...(form.storeRef !== RANDOM_STORE ? { storeRef: form.storeRef } : {}),
     });
     try {
       const res = await api.request(`/clients/${clientId.value}/fulfilments`, {
