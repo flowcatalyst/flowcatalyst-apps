@@ -63,6 +63,8 @@ interface PackagedUnit {
 const packMode = ref<PackMode>('items');
 const packages = ref<PackagedUnit[]>([]);
 const activeRef = ref<string | null>(null);
+/** "Add bag" takes over the screen (drawer) — the capture form lives there. */
+const bagDrawerOpen = ref(false);
 const bagForm = reactive({
   ref: '',
   size: null as (typeof SIZES)[number] | null,
@@ -70,14 +72,66 @@ const bagForm = reactive({
 });
 let looseSeq = 0;
 
+// ── In-progress trolley persistence: a reload/crash mid-pick must not lose
+// the work. Keyed per pick; cleared on any terminal outcome. ──────────────
+const wipKey = () => `fulfilgo.pick.wip.${pickId.value}`;
+let restoringWip = false;
+
+function saveWip(): void {
+  if (restoringWip || !pick.value) return;
+  localStorage.setItem(
+    wipKey(),
+    JSON.stringify({
+      counts: { ...counts },
+      subs: JSON.parse(JSON.stringify(subs)),
+      stage: stage.value,
+      packMode: packMode.value,
+      packages: packages.value,
+      looseSeq,
+    }),
+  );
+}
+
+function restoreWip(): void {
+  const raw = localStorage.getItem(wipKey());
+  if (!raw) return;
+  try {
+    const wip = JSON.parse(raw) as {
+      counts: Record<string, number>;
+      subs: Record<string, { barcode: string; description: string; quantity: number }[]>;
+      stage: 'pick' | 'pack';
+      packMode: PackMode;
+      packages: PackagedUnit[];
+      looseSeq: number;
+    };
+    restoringWip = true;
+    Object.assign(counts, wip.counts);
+    Object.assign(subs, wip.subs);
+    stage.value = wip.stage;
+    packMode.value = wip.packMode;
+    packages.value = wip.packages;
+    looseSeq = wip.looseSeq;
+    restoringWip = false;
+  } catch {
+    localStorage.removeItem(wipKey());
+  }
+}
+
+function clearWip(): void {
+  localStorage.removeItem(wipKey());
+}
+
+watch([counts, subs, stage, packMode, packages], () => saveWip(), { deep: true });
+
 watch(
   pick,
-  (p) => {
+  (p, prev) => {
     if (!p) return;
     for (const line of p.lines as { externalLineRef: string }[]) {
       counts[line.externalLineRef] ??= 0;
       subs[line.externalLineRef] ??= [];
     }
+    if (!prev) restoreWip(); // first load of this pick — resume the trolley
   },
   { immediate: true },
 );
@@ -242,6 +296,7 @@ function addBag(): void {
   bagForm.ref = '';
   bagForm.size = null;
   bagForm.temperature = 'ambient';
+  bagDrawerOpen.value = false;
 }
 
 function addLoose(): void {
@@ -276,15 +331,69 @@ const canComplete = computed(() => {
   return true;
 });
 
+/** Remaining units of a line still to pack (items sub-mode). */
+const remainingToPack = (ref_: string): number =>
+  fulfilled(ref_) - (assignedPerLine.value[ref_] ?? 0);
+
+/** Unpacked lines first (walk-order within each group); done lines sink. */
+const packLines = computed(() =>
+  [...lines.value].sort((a, b) => {
+    const ra = remainingToPack(a.externalLineRef) > 0 ? 0 : 1;
+    const rb = remainingToPack(b.externalLineRef) > 0 ? 0 : 1;
+    return ra - rb;
+  }),
+);
+const allPacked = computed(
+  () => packMode.value === 'items' && packages.value.length > 0 && unassignedTotal.value === 0,
+);
+
 // ── Actions ───────────────────────────────────────────────────────────────
-async function complete(): Promise<void> {
+/**
+ * Submit an outcome. Online HTTP errors show inline (validation feedback);
+ * a NETWORK failure queues the request (Idempotency-Key + 10s-cap backoff,
+ * server replays stored responses), flips the pick locally, and moves on —
+ * connectivity loss never blocks finishing a claimed pick.
+ */
+async function submitOutcome(
+  path: string,
+  body: unknown,
+  localStatus: 'picked' | 'failed',
+): Promise<void> {
   if (!pick.value) return;
   busy.value = true;
   error.value = null;
   try {
-    await ctx.api.json(`/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/complete`, {
-      method: 'POST',
-      body: {
+    let res: Response;
+    try {
+      res = await ctx.api.request(path, { method: 'POST', body });
+    } catch {
+      // Network down — hand to the offline outbox and carry on.
+      await ctx.queue.enqueue({ endpoint: path, body });
+      ctx.picks.markLocallyTerminal(pick.value.id, localStatus);
+      clearWip();
+      failOpen.value = false;
+      await router.push('/picks');
+      return;
+    }
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => '')).slice(0, 300);
+      error.value = `Failed (${res.status}): ${detail}`;
+      return;
+    }
+    clearWip();
+    failOpen.value = false;
+    await ctx.picks.hydrate();
+    await router.push('/picks');
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function complete(): Promise<void> {
+  if (!pick.value) return;
+  await submitOutcome(
+    `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/complete`,
+    {
         lines: lines.value.map((l) => ({
           externalLineRef: l.externalLineRef,
           pickedQuantity: counts[l.externalLineRef] ?? 0,
@@ -312,35 +421,18 @@ async function complete(): Promise<void> {
               }
             : {}),
         })),
-      },
-    });
-    failOpen.value = false;
-    await ctx.picks.hydrate();
-    await router.push('/picks');
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err);
-  } finally {
-    busy.value = false;
-  }
+    },
+    'picked',
+  );
 }
 
 async function fail(): Promise<void> {
   if (!pick.value || !failReason.value.trim()) return;
-  busy.value = true;
-  error.value = null;
-  try {
-    await ctx.api.json(`/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/fail`, {
-      method: 'POST',
-      body: { reason: failReason.value.trim() },
-    });
-    failOpen.value = false;
-    await ctx.picks.hydrate();
-    await router.push('/picks');
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err);
-  } finally {
-    busy.value = false;
-  }
+  await submitOutcome(
+    `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/fail`,
+    { reason: failReason.value.trim() },
+    'failed',
+  );
 }
 </script>
 
@@ -599,72 +691,93 @@ async function fail(): Promise<void> {
         Mode locks once packing starts — remove all packages to switch.
       </p>
 
-      <!-- Add bag -->
-      <div class="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3">
-        <div class="flex gap-2">
-          <UInput
-            v-model="bagForm.ref"
-            placeholder="Bag barcode…"
-            class="flex-1 font-mono"
-            autocomplete="off"
-          />
-          <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="cameraScan('bag')">
-            📷
-          </UButton>
-        </div>
+      <!-- Add bag: a button that TAKES OVER the screen for capture. -->
+      <div class="flex gap-2">
+        <UDrawer v-model:open="bagDrawerOpen" title="Add a bag">
+          <UButton size="xl" class="flex-1" block>🛍 Add bag</UButton>
+          <template #body>
+            <div class="flex flex-col gap-4 p-1">
+              <div class="flex gap-2">
+                <UInput
+                  v-model="bagForm.ref"
+                  placeholder="Scan bag barcode…"
+                  class="flex-1 font-mono"
+                  size="xl"
+                  autocomplete="off"
+                  autofocus
+                />
+                <UButton
+                  v-if="isNative"
+                  size="xl"
+                  variant="soft"
+                  :loading="scanBusy"
+                  @click="cameraScan('bag')"
+                >
+                  📷
+                </UButton>
+              </div>
 
-        <div>
-          <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            Size
-          </p>
-          <div class="flex gap-2">
-            <button
-              v-for="s in SIZES"
-              :key="s"
-              class="h-12 flex-1 rounded-lg border-2 font-semibold transition-colors"
-              :class="
-                bagForm.size === s
-                  ? 'border-brand-600 bg-brand-600 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-600'
-              "
-              @click="bagForm.size = bagForm.size === s ? null : s"
-            >
-              {{ s }}
-            </button>
-          </div>
-        </div>
+              <div>
+                <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  Size
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    v-for="s in SIZES"
+                    :key="s"
+                    class="h-14 flex-1 rounded-lg border-2 font-semibold transition-colors"
+                    :class="
+                      bagForm.size === s
+                        ? 'border-brand-600 bg-brand-600 text-white'
+                        : 'border-neutral-200 bg-white text-neutral-600'
+                    "
+                    @click="bagForm.size = bagForm.size === s ? null : s"
+                  >
+                    {{ s }}
+                  </button>
+                </div>
+              </div>
 
-        <div>
-          <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            Type
-          </p>
-          <div class="flex gap-2">
-            <button
-              v-for="t in TEMPS"
-              :key="t.value"
-              class="h-12 flex-1 rounded-lg border-2 text-sm font-semibold transition-colors"
-              :class="
-                bagForm.temperature === t.value
-                  ? t.value === 'frozen'
-                    ? 'border-cyan-600 bg-cyan-600 text-white'
-                    : t.value === 'refrigerated'
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-brand-600 bg-brand-600 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-600'
-              "
-              @click="bagForm.temperature = t.value"
-            >
-              {{ t.label }}
-            </button>
-          </div>
-        </div>
+              <div>
+                <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  Type
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    v-for="t in TEMPS"
+                    :key="t.value"
+                    class="h-14 flex-1 rounded-lg border-2 text-sm font-semibold transition-colors"
+                    :class="
+                      bagForm.temperature === t.value
+                        ? t.value === 'frozen'
+                          ? 'border-cyan-600 bg-cyan-600 text-white'
+                          : t.value === 'refrigerated'
+                            ? 'border-sky-500 bg-sky-500 text-white'
+                            : 'border-brand-600 bg-brand-600 text-white'
+                        : 'border-neutral-200 bg-white text-neutral-600'
+                    "
+                    @click="bagForm.temperature = t.value"
+                  >
+                    {{ t.label }}
+                  </button>
+                </div>
+              </div>
 
-        <div class="flex gap-2">
-          <UButton class="flex-1" :disabled="!bagForm.ref.trim() || !bagForm.size" @click="addBag">
-            Add bag
-          </UButton>
-          <UButton color="neutral" variant="soft" @click="addLoose">+ Loose</UButton>
-        </div>
+              <UButton
+                size="xl"
+                block
+                :disabled="!bagForm.ref.trim() || !bagForm.size"
+                @click="addBag"
+              >
+                Add bag
+              </UButton>
+              <UButton color="neutral" variant="soft" block @click="bagDrawerOpen = false">
+                Cancel
+              </UButton>
+            </div>
+          </template>
+        </UDrawer>
+        <UButton size="xl" color="neutral" variant="soft" @click="addLoose">📦 Loose</UButton>
       </div>
 
       <!-- Packages -->
@@ -704,25 +817,52 @@ async function fail(): Promise<void> {
         </UCard>
       </div>
 
-      <!-- items sub-mode: assign fulfilled units into the active package -->
+      <!-- items sub-mode: assign fulfilled units into the active package.
+           Unpacked lines first; fully-packed lines turn green + lock +. -->
       <template v-if="packMode === 'items'">
-        <p class="text-sm font-semibold">Items to pack</p>
+        <UAlert
+          v-if="allPacked"
+          color="success"
+          variant="soft"
+          title="✓ All items packed"
+          description="Every fulfilled unit is in a package — complete the pick below."
+        />
+        <p class="text-sm font-semibold">
+          Items to pack <span v-if="!allPacked">({{ unassignedTotal }} left)</span>
+        </p>
         <UCard
-          v-for="line in lines"
+          v-for="line in packLines"
           :key="`pack-${line.externalLineRef}`"
           :ui="{ body: 'p-2 sm:p-3' }"
+          :class="remainingToPack(line.externalLineRef) === 0 ? 'bg-emerald-50/70' : ''"
         >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
-              <p class="truncate text-sm font-medium">{{ line.description }}</p>
-              <p class="text-[11px] text-neutral-500">
-                fulfilled {{ fulfilled(line.externalLineRef) }} · packed
-                {{ assignedPerLine[line.externalLineRef] ?? 0 }}
+              <p class="truncate text-sm font-medium">
+                <span v-if="remainingToPack(line.externalLineRef) === 0" class="text-emerald-600">
+                  ✓
+                </span>
+                {{ line.description }}
+              </p>
+              <p
+                class="text-[11px]"
+                :class="
+                  remainingToPack(line.externalLineRef) === 0
+                    ? 'text-emerald-600'
+                    : 'text-neutral-500'
+                "
+              >
+                {{
+                  remainingToPack(line.externalLineRef) === 0
+                    ? `all ${fulfilled(line.externalLineRef)} packed`
+                    : `packed ${assignedPerLine[line.externalLineRef] ?? 0} of ${fulfilled(line.externalLineRef)}`
+                }}
               </p>
             </div>
             <div class="flex shrink-0 items-center gap-1.5">
               <button
-                class="h-14 w-14 rounded-lg bg-neutral-100 text-2xl font-semibold text-neutral-600 active:bg-neutral-200"
+                class="h-14 w-14 rounded-lg bg-neutral-100 text-2xl font-semibold text-neutral-600 active:bg-neutral-200 disabled:opacity-30"
+                :disabled="(activePackage?.items[line.externalLineRef] ?? 0) === 0"
                 @click="assign(line, -1)"
               >
                 −
@@ -731,7 +871,8 @@ async function fail(): Promise<void> {
                 {{ activePackage?.items[line.externalLineRef] ?? 0 }}
               </span>
               <button
-                class="h-14 w-14 rounded-lg bg-brand-50 text-2xl font-semibold text-brand-700 active:bg-brand-100"
+                class="h-14 w-14 rounded-lg bg-brand-50 text-2xl font-semibold text-brand-700 active:bg-brand-100 disabled:opacity-30"
+                :disabled="remainingToPack(line.externalLineRef) === 0"
                 @click="assign(line, 1)"
               >
                 +

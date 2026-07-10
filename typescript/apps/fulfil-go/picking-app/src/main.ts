@@ -6,7 +6,7 @@ import { APP_CTX, createAppCtx } from './context.js';
 import './assets/main.css';
 
 async function bootstrap(): Promise<void> {
-  const ctx = createAppCtx();
+  const ctx = await createAppCtx();
   installAuthGuard(router, ctx);
 
   // Resume a live person session across reloads (shared station stays put).

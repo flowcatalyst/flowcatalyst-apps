@@ -23,7 +23,8 @@ import type { AppContext } from '../../../app-context.js';
 import { toPickDto } from '../../../domain/picks/pick-dto.js';
 import type { PickStatus } from '../../../domain/picks/pick.js';
 import { PickShortPicked } from '../../../domain/picks/events/pick-outcome.events.js';
-import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { sendUseCaseError, useCaseErrorOutcome } from '../../plugins/error-mapper.js';
+import { withIdempotency } from '../../plugins/idempotency.js';
 import {
   flowcatalystWebhookAuthHook,
   type WebhookAuthHookOptions,
@@ -272,14 +273,17 @@ export function registerPickRoutes(
       if (!ScopeStore.get()) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-      const result = await appContext.runWrite(() =>
-        appContext.useCases.completePick.execute(parsed.data),
-      );
-      if (isFailure(result)) return sendUseCaseError(reply, result.error);
-      appContext.sseBroker.nudge();
-
-      const status = result.value instanceof PickShortPicked ? 'short_picked' : 'picked';
-      return reply.code(200).send({ pickId: result.value.getData().pickId, status });
+      // Offline-queue replays carry an Idempotency-Key — a retry after a
+      // lost response replays the stored outcome instead of 409ing.
+      return withIdempotency(appContext.repositories.idempotency, request, reply, async () => {
+        const result = await appContext.runWrite(() =>
+          appContext.useCases.completePick.execute(parsed.data),
+        );
+        if (isFailure(result)) return useCaseErrorOutcome(result.error);
+        appContext.sseBroker.nudge();
+        const status = result.value instanceof PickShortPicked ? 'short_picked' : 'picked';
+        return { status: 200, body: { pickId: result.value.getData().pickId, status } };
+      });
     },
   );
 
@@ -309,13 +313,14 @@ export function registerPickRoutes(
       if (!ScopeStore.get()) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-      const result = await appContext.runWrite(() =>
-        appContext.useCases.failPick.execute(parsed.data),
-      );
-      if (isFailure(result)) return sendUseCaseError(reply, result.error);
-      appContext.sseBroker.nudge();
-
-      return reply.code(200).send({ pickId: result.value.getData().pickId, status: 'failed' });
+      return withIdempotency(appContext.repositories.idempotency, request, reply, async () => {
+        const result = await appContext.runWrite(() =>
+          appContext.useCases.failPick.execute(parsed.data),
+        );
+        if (isFailure(result)) return useCaseErrorOutcome(result.error);
+        appContext.sseBroker.nudge();
+        return { status: 200, body: { pickId: result.value.getData().pickId, status: 'failed' } };
+      });
     },
   );
 }

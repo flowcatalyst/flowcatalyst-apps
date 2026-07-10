@@ -24,12 +24,14 @@ export interface OfflineQueue {
 export interface OfflineQueueOptions {
   readonly storage: QueueStorage;
   readonly api: ApiClient;
-  /** Max delivery attempts before an item is parked as dead. Default 8. */
+  /** Max HTTP-failure attempts before an item is parked as dead. Default 8. */
   readonly maxAttempts?: number;
+  /** First retry delay. Default 5s. */
+  readonly baseRetryMs?: number;
+  /** Backoff ceiling. Default 5min (a station wanting fast recovery passes ~10s). */
+  readonly maxRetryMs?: number;
 }
 
-const BASE_RETRY_MS = 5_000;
-const MAX_RETRY_MS = 5 * 60_000;
 const FLUSH_BATCH = 20;
 
 /**
@@ -37,14 +39,17 @@ const FLUSH_BATCH = 20;
  * Idempotency-Key, so at-least-once delivery is safe: the server replays the
  * stored response for keys it has seen.
  *
- * Outcome handling: 2xx → done; 429 / 5xx / network error → exponential
- * backoff retry; any other 4xx → dead-letter (the request is structurally
- * wrong or the business rule finally rejected it — retrying can't fix it,
- * a human decides via the dead-letter UI).
+ * Outcome handling: 2xx → done; 429/5xx → exponential backoff retry, capped
+ * at maxAttempts; NETWORK errors → backoff retry WITHOUT consuming attempts
+ * (being offline for an hour must never dead-letter completed work); any
+ * other 4xx → dead-letter (structurally wrong or finally rejected — retrying
+ * can't fix it, a human decides via the dead-letter UI).
  */
 export function createOfflineQueue(options: OfflineQueueOptions): OfflineQueue {
   const { storage, api } = options;
   const maxAttempts = options.maxAttempts ?? 8;
+  const baseRetryMs = options.baseRetryMs ?? 5_000;
+  const maxRetryMs = options.maxRetryMs ?? 5 * 60_000;
   const listeners = new Set<() => void>();
   let inFlight: Promise<void> | null = null;
 
@@ -53,11 +58,11 @@ export function createOfflineQueue(options: OfflineQueueOptions): OfflineQueue {
   }
 
   function retryDelay(attempts: number): number {
-    return Math.min(MAX_RETRY_MS, BASE_RETRY_MS * 2 ** attempts);
+    return Math.min(maxRetryMs, baseRetryMs * 2 ** attempts);
   }
 
   async function deliver(item: QueueItem): Promise<void> {
-    let outcome: 'done' | 'retry' | 'dead';
+    let outcome: 'done' | 'retry-http' | 'retry-network' | 'dead';
     let lastError: string | null = null;
     try {
       const res = await api.request(item.endpoint, {
@@ -68,14 +73,14 @@ export function createOfflineQueue(options: OfflineQueueOptions): OfflineQueue {
       if (res.ok) {
         outcome = 'done';
       } else if (res.status === 429 || res.status >= 500) {
-        outcome = 'retry';
+        outcome = 'retry-http';
         lastError = `HTTP ${res.status}`;
       } else {
         outcome = 'dead';
         lastError = `HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 500)}`;
       }
     } catch (err) {
-      outcome = 'retry';
+      outcome = 'retry-network';
       lastError = err instanceof Error ? err.message : String(err);
     }
 
@@ -83,7 +88,8 @@ export function createOfflineQueue(options: OfflineQueueOptions): OfflineQueue {
       await storage.remove(item.id);
       return;
     }
-    const attempts = item.attempts + 1;
+    // Offline is patient: attempts only accrue on real HTTP failures.
+    const attempts = outcome === 'retry-network' ? item.attempts : item.attempts + 1;
     if (outcome === 'dead' || attempts >= maxAttempts) {
       await storage.update({ ...item, attempts, status: 'dead', lastError });
       return;

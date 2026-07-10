@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ConnectionBadge, MobileHeader, MobileShell } from '@fulfil-go/mobile-kit';
+import { ConnectionBadge, MobileHeader, MobileShell, useQueue } from '@fulfil-go/mobile-kit';
 import { TABS } from './config/tabs.js';
 import { useAppCtx } from './context.js';
 
 const ctx = useAppCtx();
 const route = useRoute();
 const router = useRouter();
+const queueState = useQueue(ctx.queue);
 const title = computed(() => (route.meta['title'] as string | undefined) ?? 'FulfilGo Pick');
 
 async function exit(): Promise<void> {
@@ -46,7 +47,11 @@ onUnmounted(() => {
         <MobileHeader :title="title">
           <template #right>
             <div v-if="ctx.signedIn.value" class="flex items-center gap-3">
-              <ConnectionBadge :state="ctx.picks.sseState.value" :pending="0" :dead="0" />
+              <ConnectionBadge
+                :state="ctx.picks.sseState.value"
+                :pending="queueState.pending.value"
+                :dead="queueState.dead.value"
+              />
               <UButton size="xs" color="neutral" variant="soft" @click="exit">Exit</UButton>
             </div>
           </template>

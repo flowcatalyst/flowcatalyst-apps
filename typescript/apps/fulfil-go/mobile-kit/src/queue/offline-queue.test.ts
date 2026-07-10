@@ -27,6 +27,45 @@ describe('createOfflineQueue', () => {
     expect(await queue.counts()).toEqual({ pending: 0, dead: 0 });
   });
 
+  it('network errors never consume attempts (offline is patient)', async () => {
+    const storage = createMemoryQueueStorage();
+    const queue = createOfflineQueue({
+      storage,
+      maxAttempts: 2,
+      api: fakeApi(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    });
+    await queue.enqueue({ endpoint: '/picks/p1/complete', body: {} });
+    // Many "offline" delivery rounds — far beyond maxAttempts.
+    for (let i = 0; i < 5; i += 1) {
+      const [item] = await storage.listDue(Date.now() + 10 ** 9, 10);
+      if (item) await storage.update({ ...item, nextAttemptAt: Date.now() });
+      await queue.flush();
+    }
+    const counts = await queue.counts();
+    expect(counts.pending).toBe(1); // still pending, never dead
+    expect(counts.dead).toBe(0);
+  });
+
+  it('honours a custom backoff ceiling (maxRetryMs)', async () => {
+    const storage = createMemoryQueueStorage();
+    const queue = createOfflineQueue({
+      storage,
+      baseRetryMs: 2_500,
+      maxRetryMs: 10_000,
+      api: fakeApi(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    });
+    await queue.enqueue({ endpoint: '/picks/p1/complete', body: {} });
+    await queue.flush();
+    const [item] = await storage.listDue(Date.now() + 10 ** 9, 10);
+    // attempts stayed 0 (network) → delay = base * 2^0 = 2.5s ≤ 10s cap.
+    expect(item!.nextAttemptAt - Date.now()).toBeLessThanOrEqual(10_000);
+    expect(item!.attempts).toBe(0);
+  });
+
   it('backs off and retries on 5xx, keeping the item pending', async () => {
     const storage = createMemoryQueueStorage();
     const queue = createOfflineQueue({

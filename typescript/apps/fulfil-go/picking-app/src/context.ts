@@ -1,11 +1,16 @@
 import { inject, ref, watch, type InjectionKey, type Ref } from 'vue';
+import { Capacitor } from '@capacitor/core';
 import {
   bindLifecycle,
   createApiClient,
+  createMemoryQueueStorage,
+  createOfflineQueue,
   createPickerSession,
   createPreferencesTokenStore,
+  createSqliteQueueStorage,
   createSseClient,
   type ApiClient,
+  type OfflineQueue,
   type PickerSession,
   type SseClient,
 } from '@fulfil-go/mobile-kit';
@@ -49,6 +54,13 @@ export interface AppCtx {
   readonly api: ApiClient;
   readonly picks: PicksStore;
   readonly sse: SseClient;
+  /**
+   * Offline outbox for pick outcomes (complete/fail): fast recovery backoff
+   * (2.5s → 10s cap), patient while offline (network errors never dead-
+   * letter), Idempotency-Key replay server-side. Claiming stays ONLINE-ONLY
+   * on purpose — it's store-wide contention and must be authoritative.
+   */
+  readonly queue: OfflineQueue;
   /** Reactive person-session state — drives the header Exit button + guard. */
   readonly signedIn: Ref<boolean>;
   /** Signed-in picker id (pkr_…) from /pick-auth/me; null between shifts. */
@@ -61,8 +73,9 @@ export interface AppCtx {
 
 export const APP_CTX: InjectionKey<AppCtx> = Symbol('app-ctx');
 
-export function createAppCtx(): AppCtx {
+export async function createAppCtx(): Promise<AppCtx> {
   const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+  const isNative = Capacitor.isNativePlatform();
   const station = createStationConfig();
   const signedIn = ref(false);
   const pickerId = ref<string | null>(null);
@@ -80,6 +93,21 @@ export function createAppCtx(): AppCtx {
   const api = createApiClient({ baseUrl, tokens: session });
   const picks = createPicksStore(api, station.clientId, pickerId);
 
+  const queue = createOfflineQueue({
+    storage: isNative
+      ? await createSqliteQueueStorage()
+      : createMemoryQueueStorage('fulfilgo.pick.queue'),
+    api,
+    baseRetryMs: 2_500,
+    maxRetryMs: 10_000, // Andrew's spec: never wait longer than 10s to retry
+  });
+  // Drain triggers: connectivity regain, a steady tick (cheap no-op when
+  // empty), stream reopen, and app resume (bindLifecycle below).
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => void queue.flush());
+    setInterval(() => void queue.flush(), 5_000);
+  }
+
   const sse = createSseClient({
     url: `${baseUrl}/sse/channel`,
     getHeaders: () => api.authHeaders(),
@@ -87,12 +115,16 @@ export function createAppCtx(): AppCtx {
     onStateChange: (state) => {
       picks.sseState.value = state;
       // Replay covers short gaps; a fresh 'open' after a long gap still
-      // needs the snapshot — hydrate is cheap, do it on every open.
-      if (state === 'open') void picks.hydrate();
+      // needs the snapshot — hydrate is cheap, do it on every open. A
+      // reopened stream also means the network is back: drain the outbox.
+      if (state === 'open') {
+        void picks.hydrate();
+        void queue.flush();
+      }
     },
     initialLastEventId: picks.lastEventId.value,
   });
-  bindLifecycle(sse, {});
+  bindLifecycle(sse, { onWake: () => void queue.flush() });
 
   return {
     station,
@@ -100,6 +132,7 @@ export function createAppCtx(): AppCtx {
     api,
     picks,
     sse,
+    queue,
     signedIn,
     pickerId,
     async startShift(): Promise<void> {

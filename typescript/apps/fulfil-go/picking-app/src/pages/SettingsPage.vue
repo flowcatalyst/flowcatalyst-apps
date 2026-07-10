@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import type { QueueItem } from '@fulfil-go/mobile-kit';
 import { useAppCtx } from '../context.js';
 
 const ctx = useAppCtx();
 const router = useRouter();
+const dead = ref<readonly QueueItem[]>([]);
+
+async function refreshDead(): Promise<void> {
+  dead.value = await ctx.queue.listDead();
+}
+onMounted(() => {
+  void refreshDead();
+  ctx.queue.onChange(() => void refreshDead());
+});
 
 async function exit(): Promise<void> {
   await ctx.exit();
@@ -29,6 +40,24 @@ async function exit(): Promise<void> {
           class="w-full font-mono"
         />
       </UFormField>
+    </section>
+
+    <section v-if="dead.length > 0" class="flex flex-col gap-2">
+      <h2 class="font-semibold">Failed submissions</h2>
+      <UCard v-for="item in dead" :key="item.id">
+        <div class="flex items-center justify-between gap-2 text-sm">
+          <div class="min-w-0">
+            <p class="truncate font-mono">{{ item.method }} {{ item.endpoint }}</p>
+            <p class="truncate text-xs text-neutral-500">{{ item.lastError }}</p>
+          </div>
+          <div class="flex shrink-0 gap-1">
+            <UButton size="xs" variant="soft" @click="ctx.queue.retryDead(item.id)">Retry</UButton>
+            <UButton size="xs" color="error" variant="soft" @click="ctx.queue.discardDead(item.id)">
+              Discard
+            </UButton>
+          </div>
+        </div>
+      </UCard>
     </section>
 
     <section v-if="ctx.signedIn.value" class="flex flex-col gap-2">

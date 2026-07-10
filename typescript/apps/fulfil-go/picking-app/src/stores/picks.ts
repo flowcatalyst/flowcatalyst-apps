@@ -21,6 +21,12 @@ export interface PicksStore {
   applySse(event: SseEvent): void;
   claim(pickId: string): Promise<void>;
   byId(id: string): PickDto | undefined;
+  /**
+   * Optimistic local terminal state for an outcome that was QUEUED offline —
+   * drops the pick from Mine immediately; SSE/hydrate reconcile once the
+   * queued request lands.
+   */
+  markLocallyTerminal(pickId: string, status: 'picked' | 'failed'): void;
   reset(): void;
 }
 
@@ -111,6 +117,11 @@ export function createPicksStore(
     },
 
     byId: (id) => picks.value.find((p) => p.id === id),
+
+    markLocallyTerminal(pickId, status): void {
+      const prior = picks.value.find((p) => p.id === pickId);
+      if (prior) upsert({ ...prior, status });
+    },
 
     reset(): void {
       picks.value = [];
