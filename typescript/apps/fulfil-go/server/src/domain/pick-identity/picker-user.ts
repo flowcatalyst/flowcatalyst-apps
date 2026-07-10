@@ -94,4 +94,32 @@ export const PickerUser = {
   clearLockout(prior: PickerUser, now: Date): PickerUser {
     return { ...prior, failedPinAttempts: 0, lockedUntil: null, updatedAt: now };
   },
+
+  /**
+   * Inactivate — login rejects suspended pickers and refresh re-checks
+   * status, so a live session ends within one access TTL.
+   */
+  suspend(prior: PickerUser, now: Date): PickerUser {
+    return { ...prior, status: 'suspended', version: prior.version + 1, updatedAt: now };
+  },
+
+  reactivate(prior: PickerUser, now: Date): PickerUser {
+    return { ...prior, status: 'active', version: prior.version + 1, updatedAt: now };
+  },
+
+  /**
+   * Move to another store. Refresh re-checks the store binding, so a moved
+   * picker's old-store session ends within one access TTL. Also clears any
+   * lockout — a fresh start at the new store.
+   */
+  reassign(prior: PickerUser, storeRef: string, now: Date): PickerUser {
+    return {
+      ...prior,
+      storeRef,
+      failedPinAttempts: 0,
+      lockedUntil: null,
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
 } as const;

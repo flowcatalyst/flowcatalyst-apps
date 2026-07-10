@@ -64,10 +64,13 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
         [row] = await client
           .update(pickerUsers)
           .set({
+            storeRef: aggregate.storeRef,
             displayName: aggregate.displayName,
             primaryAuthMethod: aggregate.primaryAuthMethod,
             status: aggregate.status,
             pinHash: aggregate.pinHash,
+            failedPinAttempts: aggregate.failedPinAttempts,
+            lockedUntil: aggregate.lockedUntil,
             version: aggregate.version,
             updatedAt: aggregate.updatedAt,
           })

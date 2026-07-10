@@ -42,6 +42,12 @@ import { CreateFulfilmentUseCase } from './operations/create-fulfilment/create-f
 import { CancelFulfilmentUseCase } from './operations/cancel-fulfilment/cancel-fulfilment.use-case.js';
 import { ReleasePartForPickUseCase } from './operations/release-part-for-pick/release-part-for-pick.use-case.js';
 import { CreatePickerUseCase } from './operations/create-picker/create-picker.use-case.js';
+import {
+  DeletePickerUseCase,
+  ReactivatePickerUseCase,
+  ReassignPickerUseCase,
+  SuspendPickerUseCase,
+} from './operations/manage-picker/manage-picker.use-cases.js';
 import { ReceivePickUseCase } from './operations/receive-pick/receive-pick.use-case.js';
 import { ClaimPickUseCase } from './operations/claim-pick/claim-pick.use-case.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
@@ -84,6 +90,10 @@ export interface AppContextUseCases {
   readonly cancelFulfilment: CancelFulfilmentUseCase;
   readonly releasePartForPick: ReleasePartForPickUseCase;
   readonly createPicker: CreatePickerUseCase;
+  readonly suspendPicker: SuspendPickerUseCase;
+  readonly reactivatePicker: ReactivatePickerUseCase;
+  readonly reassignPicker: ReassignPickerUseCase;
+  readonly deletePicker: DeletePickerUseCase;
   readonly receivePick: ReceivePickUseCase;
   readonly claimPick: ClaimPickUseCase;
   readonly createJob: CreateJobUseCase;
@@ -227,6 +237,10 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
       ),
       createPicker: new CreatePickerUseCase(uow, aggregateRegistry, pickerUserRepo, storeRepo),
+      suspendPicker: new SuspendPickerUseCase(uow, aggregateRegistry, pickerUserRepo),
+      reactivatePicker: new ReactivatePickerUseCase(uow, aggregateRegistry, pickerUserRepo),
+      reassignPicker: new ReassignPickerUseCase(uow, aggregateRegistry, pickerUserRepo, storeRepo),
+      deletePicker: new DeletePickerUseCase(uow, aggregateRegistry, pickerUserRepo),
       receivePick: new ReceivePickUseCase(uow, aggregateRegistry, pickRepo, fulfilmentLogRepo),
       claimPick: new ClaimPickUseCase(uow, aggregateRegistry, pickRepo, fulfilmentLogRepo),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),

@@ -1,10 +1,32 @@
 <script setup lang="ts">
 import { clientId } from './context.js';
 
-const NAV = [
-  { label: 'Fulfilments', to: '/fulfilments', icon: '📦' },
-  { label: 'Pickers', to: '/pickers', icon: '🧑‍🏭' },
-  { label: 'Generator', to: '/generator', icon: '⚙️' },
+/**
+ * Nav grouped by subdomain (mirrors the context map): each operational
+ * context gets a section and owns its own user management (pickers under
+ * Picking, drivers under Transport); Stores is the base registry everything
+ * binds to.
+ */
+const SECTIONS = [
+  {
+    label: 'Fulfilment',
+    items: [
+      { label: 'Fulfilments', to: '/fulfilments', icon: '📦' },
+      { label: 'Generator', to: '/generator', icon: '⚙️' },
+    ],
+  },
+  {
+    label: 'Picking',
+    items: [{ label: 'Pickers', to: '/picking/pickers', icon: '🧑‍🏭' }],
+  },
+  {
+    label: 'Transport',
+    items: [{ label: 'Drivers', to: '/transport/drivers', icon: '🚚' }],
+  },
+  {
+    label: 'Stores',
+    items: [{ label: 'Stores', to: '/stores', icon: '🏬' }],
+  },
 ];
 </script>
 
@@ -17,17 +39,22 @@ const NAV = [
           <p class="text-lg font-semibold">FulfilGo</p>
           <p class="text-xs text-[#47a3f3]">Manage</p>
         </div>
-        <nav class="flex flex-1 flex-col gap-1 px-2">
-          <router-link
-            v-for="item in NAV"
-            :key="item.to"
-            :to="item.to"
-            class="flex items-center gap-2 rounded px-3 py-2 text-sm text-white/70 hover:bg-white/10"
-            active-class="!bg-white/15 !text-white font-medium"
-          >
-            <span aria-hidden="true">{{ item.icon }}</span>
-            {{ item.label }}
-          </router-link>
+        <nav class="flex flex-1 flex-col gap-4 overflow-y-auto px-2">
+          <div v-for="section in SECTIONS" :key="section.label" class="flex flex-col gap-1">
+            <p class="px-3 text-[11px] font-semibold uppercase tracking-wide text-white/35">
+              {{ section.label }}
+            </p>
+            <router-link
+              v-for="item in section.items"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center gap-2 rounded px-3 py-2 text-sm text-white/70 hover:bg-white/10"
+              active-class="!bg-white/15 !text-white font-medium"
+            >
+              <span aria-hidden="true">{{ item.icon }}</span>
+              {{ item.label }}
+            </router-link>
+          </div>
         </nav>
         <div class="border-t border-white/10 p-3">
           <label class="mb-1 block text-[11px] uppercase tracking-wide text-white/40">

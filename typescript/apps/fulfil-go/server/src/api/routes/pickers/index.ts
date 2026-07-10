@@ -115,6 +115,90 @@ export function registerPickerAdminRoutes(fastify: FastifyInstance, appContext: 
     },
   );
 
+  // Lifecycle actions — thin shells over the manage-picker use cases (which
+  // carry the ManagePickers check).
+  const actionSchema = {
+    tags: ['Pickers'],
+    params: Type.Object({ clientId: Type.String(), pickerId: Type.String() }),
+    response: {
+      200: Type.Object({ pickerId: Type.String(), status: Type.String() }),
+      ...WRITE_RESPONSES,
+    },
+  };
+  const lifecycle = [
+    { path: 'suspend', run: appContext.useCases.suspendPicker, status: 'suspended' },
+    { path: 'reactivate', run: appContext.useCases.reactivatePicker, status: 'active' },
+  ] as const;
+  for (const action of lifecycle) {
+    fastify.post(
+      `/clients/:clientId/pickers/:pickerId/${action.path}`,
+      { schema: actionSchema },
+      async (request, reply) => {
+        if (!ScopeStore.get()) {
+          return reply
+            .code(401)
+            .send({ error: 'Unauthorized', message: 'Authentication required.' });
+        }
+        const { clientId, pickerId } = request.params as { clientId: string; pickerId: string };
+        const result = await appContext.runWrite(() => action.run.execute({ clientId, pickerId }));
+        if (isFailure(result)) return sendUseCaseError(reply, result.error);
+        return reply.code(200).send({ pickerId, status: action.status });
+      },
+    );
+  }
+
+  fastify.post(
+    '/clients/:clientId/pickers/:pickerId/reassign',
+    {
+      schema: {
+        tags: ['Pickers'],
+        params: Type.Object({ clientId: Type.String(), pickerId: Type.String() }),
+        body: Type.Object({ storeRef: Type.String({ minLength: 1, maxLength: 64 }) }),
+        response: {
+          200: Type.Object({ pickerId: Type.String(), storeRef: Type.String() }),
+          ...WRITE_RESPONSES,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, pickerId } = request.params as { clientId: string; pickerId: string };
+      const { storeRef } = request.body as { storeRef: string };
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.reassignPicker.execute({ clientId, pickerId, storeRef }),
+      );
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
+      return reply.code(200).send({ pickerId, storeRef });
+    },
+  );
+
+  fastify.delete(
+    '/clients/:clientId/pickers/:pickerId',
+    {
+      schema: {
+        tags: ['Pickers'],
+        params: Type.Object({ clientId: Type.String(), pickerId: Type.String() }),
+        response: {
+          200: Type.Object({ pickerId: Type.String(), deleted: Type.Boolean() }),
+          ...WRITE_RESPONSES,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, pickerId } = request.params as { clientId: string; pickerId: string };
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.deletePicker.execute({ clientId, pickerId }),
+      );
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
+      return reply.code(200).send({ pickerId, deleted: true });
+    },
+  );
+
   // Dev/test bulk seeding — N pickers per registry store with one shared PIN.
   // Idempotent (existing staff codes skipped); see picker-seeder.ts.
   fastify.post(

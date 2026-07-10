@@ -261,9 +261,12 @@ POST /clients/:clientId/devices/:id/revoke         lost/stolen kill switch
 
 - **Driver/execution app**: separate decision — its field-offline needs differ
   (may require offline login), so it isn't folded into this shared-station model.
-- **Store registry ownership**: pick context owning `Store` is the working
-  assumption; overlaps the fulfilment doc's parked question on who owns
-  store/collection-point reference data.
+- **Store registry ownership** — RESOLVED (2026-07-10, Andrew): stores are
+  BASE reference data with their own management section, not owned by the
+  pick context. All contexts (picking, fulfilment, transport) bind to them by
+  `storeRef`; the management app's IA mirrors this (nav sections per
+  subdomain — Fulfilment / Picking / Transport / Stores — with each
+  operational context owning its own user management).
 - **Multi-store pickers**: v1 is one store per picker; extendable to memberships.
 - **Elevated roles** (supervisor overrides, cross-store leads): future, on top of
   the base store-scoped picker role.
