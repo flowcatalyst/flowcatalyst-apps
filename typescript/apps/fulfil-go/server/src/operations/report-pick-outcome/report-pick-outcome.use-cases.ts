@@ -23,7 +23,12 @@ import {
   type CompletePickCommand,
   type FailPickCommand,
 } from '@fulfil-go/shared';
-import { Pick, type PickLineResult, type PickPackage } from '../../domain/picks/pick.js';
+import {
+  Pick,
+  fulfilledQuantity,
+  type PickLineResult,
+  type PickPackage,
+} from '../../domain/picks/pick.js';
 import { asPickId, isPickId } from '../../domain/picks/ids.js';
 import { toPickDto } from '../../domain/picks/pick-dto.js';
 import {
@@ -128,16 +133,17 @@ export class CompletePickUseCase {
     const { pick: prior, scope } = loaded;
 
     // Exact line coverage: one result per pick line, nothing extra, and
-    // never more than was ordered. Explicit zeros, no silent omissions.
-    const byRef = new Map(command.lines.map((l) => [l.externalLineRef, l.pickedQuantity]));
+    // never more than was ordered (ordered units + substitutes combined).
+    // Explicit zeros, no silent omissions.
+    const byRef = new Map(command.lines.map((l) => [l.externalLineRef, l]));
     if (byRef.size !== command.lines.length) {
       return Result.failure(
         UseCaseError.validation('DUPLICATE_LINE_RESULT', 'Each line may appear only once.'),
       );
     }
     for (const line of prior.lines) {
-      const picked = byRef.get(line.externalLineRef);
-      if (picked === undefined) {
+      const entry = byRef.get(line.externalLineRef);
+      if (entry === undefined) {
         return Result.failure(
           UseCaseError.validation(
             'LINE_RESULT_MISSING',
@@ -145,11 +151,23 @@ export class CompletePickUseCase {
           ),
         );
       }
-      if (picked > line.quantity) {
+      const subUnits = entry.substitutions?.reduce((s, x) => s + x.quantity, 0) ?? 0;
+      // Substitution gate: line-level override, else the pick's default
+      // (hydrated from the fulfilment's allowSubstitutes at release).
+      const subsAllowed = line.allowSubstitutes ?? prior.allowSubstitutes;
+      if (subUnits > 0 && !subsAllowed) {
+        return Result.failure(
+          UseCaseError.businessRule(
+            'SUBSTITUTION_NOT_ALLOWED',
+            `Line '${line.externalLineRef}' does not allow substitutes.`,
+          ),
+        );
+      }
+      if (entry.pickedQuantity + subUnits > line.quantity) {
         return Result.failure(
           UseCaseError.validation(
             'LINE_OVER_PICKED',
-            `Line '${line.externalLineRef}': picked ${picked} exceeds ordered ${line.quantity}.`,
+            `Line '${line.externalLineRef}': ${entry.pickedQuantity} picked + ${subUnits} substituted exceeds ordered ${line.quantity}.`,
           ),
         );
       }
@@ -167,6 +185,15 @@ export class CompletePickUseCase {
     const results: PickLineResult[] = command.lines.map((l) => ({
       externalLineRef: l.externalLineRef,
       pickedQuantity: l.pickedQuantity,
+      ...(l.substitutions && l.substitutions.length > 0
+        ? {
+            substitutions: l.substitutions.map((s) => ({
+              barcode: s.barcode,
+              description: s.description ?? null,
+              quantity: s.quantity,
+            })),
+          }
+        : {}),
     }));
 
     // Packaging validation (when the station packed). Two sub-modes,
@@ -209,11 +236,12 @@ export class CompletePickUseCase {
         }
         for (const r of results) {
           const inPackages = packed.get(r.externalLineRef) ?? 0;
-          if (inPackages !== r.pickedQuantity) {
+          const fulfilled = fulfilledQuantity(r); // picked + substituted units
+          if (inPackages !== fulfilled) {
             return Result.failure(
               UseCaseError.validation(
                 'PACKAGE_ITEMS_MISMATCH',
-                `Line '${r.externalLineRef}': ${inPackages} unit(s) packed but ${r.pickedQuantity} picked — every picked unit must be in a package.`,
+                `Line '${r.externalLineRef}': ${inPackages} unit(s) packed but ${fulfilled} fulfilled — every fulfilled unit must be in a package.`,
               ),
             );
           }
@@ -251,7 +279,11 @@ export class CompletePickUseCase {
       partId: pick.partId,
       shortId: pick.shortId,
       pickerId: scope.principalId,
-      lineResults: results,
+      lineResults: results.map((r) => ({
+        externalLineRef: r.externalLineRef,
+        pickedQuantity: r.pickedQuantity,
+        ...(r.substitutions ? { substitutions: r.substitutions.map((s) => ({ ...s })) } : {}),
+      })),
       packages: (packages ?? []).map((p) => ({ ...p, items: p.items ? [...p.items] : null })),
     };
     const event = full ? new PickPicked(scope, data) : new PickShortPicked(scope, data);

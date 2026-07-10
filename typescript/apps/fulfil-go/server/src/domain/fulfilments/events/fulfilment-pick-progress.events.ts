@@ -36,7 +36,19 @@ export const PartPickedDataSchema = Type.Object({
   pickerId: Type.String(),
   short: Type.Boolean(),
   lineResults: Type.Array(
-    Type.Object({ externalLineRef: Type.String(), pickedQuantity: Type.Integer() }),
+    Type.Object({
+      externalLineRef: Type.String(),
+      pickedQuantity: Type.Integer(),
+      substitutions: Type.Optional(
+        Type.Array(
+          Type.Object({
+            barcode: Type.String(),
+            description: Type.Union([Type.String(), Type.Null()]),
+            quantity: Type.Integer(),
+          }),
+        ),
+      ),
+    }),
   ),
 });
 export type PartPickedData = Static<typeof PartPickedDataSchema>;

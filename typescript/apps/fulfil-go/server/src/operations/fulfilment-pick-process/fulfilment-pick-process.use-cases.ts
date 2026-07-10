@@ -49,7 +49,15 @@ export interface PickEventRef {
 
 export interface PartPickedCommand extends PickEventRef {
   readonly short: boolean;
-  readonly lineResults: readonly { externalLineRef: string; pickedQuantity: number }[];
+  readonly lineResults: readonly {
+    externalLineRef: string;
+    pickedQuantity: number;
+    substitutions?: readonly {
+      barcode: string;
+      description: string | null;
+      quantity: number;
+    }[];
+  }[];
 }
 
 export interface PartFailedCommand extends PickEventRef {
@@ -207,7 +215,11 @@ export class RegisterPartPickedUseCase {
       shortId: part.shortId,
       pickerId: command.pickerId,
       short: command.short,
-      lineResults: [...command.lineResults],
+      lineResults: command.lineResults.map((r) => ({
+        externalLineRef: r.externalLineRef,
+        pickedQuantity: r.pickedQuantity,
+        ...(r.substitutions ? { substitutions: r.substitutions.map((s) => ({ ...s })) } : {}),
+      })),
     });
     return commitAggregate(this.uow, this.registry, fulfilment, event, command);
   }

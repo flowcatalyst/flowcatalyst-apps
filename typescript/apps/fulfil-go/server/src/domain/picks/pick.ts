@@ -17,10 +17,28 @@ export const PICK_TYPE = 'Pick' as const;
  */
 export type PickStatus = 'requested' | 'claimed' | 'picked' | 'short_picked' | 'failed';
 
+/** A replacement item the picker substituted in (captured as scanned —
+ * approved-substitute lists arrive with the master-data gateway). */
+export interface PickSubstitution {
+  readonly barcode: string;
+  readonly description: string | null;
+  readonly quantity: number;
+}
+
 /** What actually got picked, per line — recorded at completion. */
 export interface PickLineResult {
   readonly externalLineRef: string;
+  /** Units of the ORDERED product picked. */
   readonly pickedQuantity: number;
+  /** Replacement units (only when substitution is allowed for the line). */
+  readonly substitutions?: readonly PickSubstitution[];
+}
+
+/** Ordered-product units + substituted units — the fullness measure. */
+export function fulfilledQuantity(result: PickLineResult): number {
+  return (
+    result.pickedQuantity + (result.substitutions?.reduce((s, x) => s + x.quantity, 0) ?? 0)
+  );
 }
 
 export type PackageSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
@@ -145,13 +163,12 @@ export const Pick = {
     };
   },
 
-  /** True when every line was picked in full. */
+  /** True when every line was fulfilled in full (substitutes count). */
   isFullPick(prior: Pick, results: readonly PickLineResult[]): boolean {
-    return prior.lines.every(
-      (line) =>
-        results.find((r) => r.externalLineRef === line.externalLineRef)?.pickedQuantity ===
-        line.quantity,
-    );
+    return prior.lines.every((line) => {
+      const result = results.find((r) => r.externalLineRef === line.externalLineRef);
+      return result !== undefined && fulfilledQuantity(result) === line.quantity;
+    });
   },
 
   /**

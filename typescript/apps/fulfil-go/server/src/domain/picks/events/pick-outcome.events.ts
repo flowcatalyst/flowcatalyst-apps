@@ -18,7 +18,19 @@ export const PickOutcomeDataSchema = Type.Object({
   shortId: Type.String(),
   pickerId: Type.String(),
   lineResults: Type.Array(
-    Type.Object({ externalLineRef: Type.String(), pickedQuantity: Type.Integer() }),
+    Type.Object({
+      externalLineRef: Type.String(),
+      pickedQuantity: Type.Integer(),
+      substitutions: Type.Optional(
+        Type.Array(
+          Type.Object({
+            barcode: Type.String(),
+            description: Type.Union([Type.String(), Type.Null()]),
+            quantity: Type.Integer(),
+          }),
+        ),
+      ),
+    }),
   ),
   /** Packing output — what the handover/transport legs physically receive. */
   packages: Type.Array(

@@ -122,6 +122,7 @@ export function registerProcessRoutes(
                   lineResults: data.lineResults.map((r) => ({
                     externalLineRef: r.externalLineRef,
                     pickedQuantity: r.pickedQuantity,
+                    ...(r.substitutions ? { substitutions: r.substitutions } : {}),
                   })),
                 });
               }

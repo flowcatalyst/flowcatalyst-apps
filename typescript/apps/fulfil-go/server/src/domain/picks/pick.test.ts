@@ -138,6 +138,22 @@ describe('Pick', () => {
     expect(Pick.isFullPick(claimed, [{ externalLineRef: 'L1', pickedQuantity: 2 }])).toBe(false);
   });
 
+  it('substituted units count toward fullness', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const results = [
+      {
+        externalLineRef: 'L1',
+        pickedQuantity: 1,
+        substitutions: [{ barcode: '600123', description: 'Other milk', quantity: 1 }],
+      },
+      { externalLineRef: 'L2', pickedQuantity: 3 },
+    ];
+    expect(Pick.isFullPick(claimed, results)).toBe(true);
+    const done = Pick.complete(claimed, results, null, NOW);
+    expect(done.status).toBe('picked');
+    expect(done.lineResults?.[0]?.substitutions?.[0]?.barcode).toBe('600123');
+  });
+
   it('fail records the reason', () => {
     const claimed = Pick.claim(make(), 'pkr_abc', NOW);
     const failed = Pick.fail(claimed, 'Out of stock', NOW);

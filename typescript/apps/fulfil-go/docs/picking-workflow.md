@@ -55,3 +55,21 @@ PickPackage
 - Substitutes during pick (needs the master-data gateway).
 - Multi-order batch picking.
 - Handover stage (bag scan at collection/driver pickup verifies packages).
+
+## Scan-first picking (2026-07-10)
+
+- **Scanning is the primary interaction**: each scan confirms the right
+  product (gtin/sku match) and +1s the line. The always-available wedge
+  input serves USB/Bluetooth keyboard-emulating scanners (works in browser
+  dev); native adds the camera. Manual big-button +/- is the fallback.
+- **Substitutes**: gated on `line.allowSubstitutes ?? pick.allowSubstitutes`.
+  The picker scans the replacement's barcode (+ optional description + qty);
+  substituted units count toward line fullness and pack coverage, and ride
+  the events as `lineResults[].substitutions`. Captured-as-scanned for now —
+  APPROVED substitute lists arrive with the master-data gateway.
+- **Walk order**: lines sort by the per-store `attributes.aisle` value when
+  the integration supplies it (zero-padded so lexicographic = walk order);
+  picking in any sequence remains allowed. The generator synthesises
+  deterministic aisles per (store, sku).
+- **Images**: `line.imageUrl` renders with an initial-letter placeholder
+  when missing or failing to load (generator seeds picsum URLs per sku).

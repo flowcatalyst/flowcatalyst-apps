@@ -25,7 +25,21 @@ export const PickDtoSchema = Type.Object({
   claimedBy: Type.Union([Type.String(), Type.Null()]),
   claimedAt: Type.Union([Type.String(), Type.Null()]),
   lineResults: Type.Union([
-    Type.Array(Type.Object({ externalLineRef: Type.String(), pickedQuantity: Type.Integer() })),
+    Type.Array(
+      Type.Object({
+        externalLineRef: Type.String(),
+        pickedQuantity: Type.Integer(),
+        substitutions: Type.Optional(
+          Type.Array(
+            Type.Object({
+              barcode: Type.String(),
+              description: Type.Union([Type.String(), Type.Null()]),
+              quantity: Type.Integer(),
+            }),
+          ),
+        ),
+      }),
+    ),
     Type.Null(),
   ]),
   /** Packing output (bags + loose) — captured shape, see PickPackageSchema (Zod). */

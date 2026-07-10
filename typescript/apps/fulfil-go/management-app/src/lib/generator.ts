@@ -78,6 +78,20 @@ function sampleProducts(count: number): Product[] {
   return [...chosen].map((i) => products[i]!);
 }
 
+/**
+ * Deterministic per-(store, sku) shelf location — the same product always
+ * sits in the same aisle at a given store. Zero-padded so lexicographic sort
+ * = walk order; a real integration would pass slotting/planogram data here.
+ */
+function aisleFor(storeRef: string, sku: string): string {
+  let h = 0;
+  const key = `${storeRef}:${sku}`;
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  const aisle = 1 + (h % 24);
+  const bay = 1 + ((h >>> 5) % 6);
+  return `A${String(aisle).padStart(2, '0')}·B${bay}`;
+}
+
 function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
   const lines = sampleProducts(Math.floor(between(1, 7))).map((product, index) =>
     Object.assign(
@@ -86,9 +100,12 @@ function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
         sku: product.sku,
         gtin: product.gtin,
         description: product.description,
+        // Seeded per-sku placeholder image (offline: the app falls back).
+        imageUrl: `https://picsum.photos/seed/${product.sku}/96/96`,
         quantity: Math.floor(between(1, 5)),
         volumetric: product.volumetric,
         temperatureClass: product.temperatureClass as 'normal' | 'refrigerated' | 'frozen',
+        attributes: { aisle: aisleFor(store.ref, product.sku) },
       },
       Math.random() < 0.1 ? { allowSubstitutes: false } : {},
     ),

@@ -49,7 +49,24 @@ export const CompletePickCommandSchema = z
         z
           .object({
             externalLineRef: z.string().min(1).max(128),
+            /** Units of the ORDERED product picked. */
             pickedQuantity: z.number().int().min(0),
+            /**
+             * Replacement items (scan-captured; only valid when the line —
+             * or the pick's default — allows substitutes).
+             */
+            substitutions: z
+              .array(
+                z
+                  .object({
+                    barcode: z.string().min(1).max(64),
+                    description: z.string().max(300).nullish(),
+                    quantity: z.number().int().min(1),
+                  })
+                  .strict(),
+              )
+              .max(20)
+              .optional(),
           })
           .strict(),
       )

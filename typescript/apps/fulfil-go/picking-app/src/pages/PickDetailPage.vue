@@ -6,16 +6,17 @@ import type { PickDto } from '@fulfil-go/shared';
 import { useAppCtx } from '../context.js';
 
 /**
- * Pick-then-pack workflow (one order at a time — see docs/picking-workflow.md).
+ * Pick-then-pack workflow, SCAN-FIRST (docs/picking-workflow.md):
  *
- * Stage PICK: count each line (tap or scan). Short totals are only allowed
- * through when the pick doesn't require a full pick (`requireFullPick` = the
- * fulfilment forbade partial fulfilment) — otherwise the only out is Fail.
+ * Stage PICK: scanning is the primary interaction — each scan confirms the
+ * right product (gtin/sku match) and +1s the line. The wedge input serves
+ * USB/Bluetooth keyboard scanners (and browser dev); native adds the camera.
+ * Manual +/- stays as the fallback. Lines sort in WALK ORDER when the
+ * integration supplied per-store aisle attributes. Substitution (when the
+ * line/fulfilment allows it) records the replacement's scanned barcode —
+ * approved-substitute lists arrive with the master-data gateway.
  *
- * Stage PACK, two sub-modes (all-or-none per completion, server-enforced):
- *  - items: scan/assign every picked unit into a bag/loose package — contents
- *    fully known downstream.
- *  - bags:  just register bag barcodes + size + type (+ loose markers).
+ * Stage PACK: unchanged sub-modes; packable units = picked + substituted.
  */
 const ctx = useAppCtx();
 const route = useRoute();
@@ -25,16 +26,24 @@ const pickId = computed(() => route.params['pickId'] as string);
 const pick = computed<PickDto | undefined>(() => ctx.picks.byId(pickId.value));
 
 const stage = ref<'pick' | 'pack'>('pick');
-/** externalLineRef → counted quantity (stage PICK). */
+/** externalLineRef → ordered-product units counted. */
 const counts = reactive<Record<string, number>>({});
+/** externalLineRef → substituted items. */
+const subs = reactive<Record<string, { barcode: string; description: string; quantity: number }[]>>(
+  {},
+);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const failOpen = ref(false);
 const failReason = ref('');
 const isNative = Capacitor.isNativePlatform();
 const scanBusy = ref(false);
+const scanValue = ref('');
+/** Line ref whose substitute panel is open. */
+const subPanelFor = ref<string | null>(null);
+const subForm = reactive({ barcode: '', description: '', quantity: 1 });
 
-// ── Packing state ─────────────────────────────────────────────────────────
+// ── Packing state (unchanged model) ───────────────────────────────────────
 type PackMode = 'items' | 'bags';
 const SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const;
 const TEMPS = [
@@ -48,7 +57,6 @@ interface PackagedUnit {
   kind: 'bag' | 'loose';
   size: (typeof SIZES)[number] | null;
   temperature: (typeof TEMPS)[number]['value'];
-  /** externalLineRef → quantity (items sub-mode only). */
   items: Record<string, number>;
 }
 
@@ -68,6 +76,7 @@ watch(
     if (!p) return;
     for (const line of p.lines as { externalLineRef: string }[]) {
       counts[line.externalLineRef] ??= 0;
+      subs[line.externalLineRef] ??= [];
     }
   },
   { immediate: true },
@@ -78,52 +87,89 @@ type Line = {
   sku: string;
   gtin?: string;
   description: string;
+  imageUrl?: string;
   quantity: number;
   temperatureClass?: string;
+  allowSubstitutes?: boolean;
+  attributes?: Record<string, string>;
 };
-const lines = computed(() => (pick.value?.lines ?? []) as Line[]);
 
-// ── Stage PICK helpers ────────────────────────────────────────────────────
+/** Walk order: sort by the per-store aisle attribute when present. */
+const lines = computed(() =>
+  [...((pick.value?.lines ?? []) as Line[])].sort((a, b) =>
+    (a.attributes?.['aisle'] ?? 'zzz').localeCompare(b.attributes?.['aisle'] ?? 'zzz'),
+  ),
+);
+
+// ── Quantities ────────────────────────────────────────────────────────────
+const subUnits = (ref_: string): number =>
+  (subs[ref_] ?? []).reduce((s, x) => s + x.quantity, 0);
+const fulfilled = (ref_: string): number => (counts[ref_] ?? 0) + subUnits(ref_);
+const imgFailed = reactive<Record<string, boolean>>({});
+
 function bump(line: Line, delta: number): void {
   const next = (counts[line.externalLineRef] ?? 0) + delta;
-  counts[line.externalLineRef] = Math.min(Math.max(next, 0), line.quantity);
+  const max = line.quantity - subUnits(line.externalLineRef);
+  counts[line.externalLineRef] = Math.min(Math.max(next, 0), max);
 }
 function fillLine(line: Line): void {
-  counts[line.externalLineRef] = line.quantity;
+  counts[line.externalLineRef] = line.quantity - subUnits(line.externalLineRef);
 }
 function fillAll(): void {
   for (const line of lines.value) fillLine(line);
 }
 
 const totalOrdered = computed(() => lines.value.reduce((s, l) => s + l.quantity, 0));
-const totalCounted = computed(() =>
-  lines.value.reduce((s, l) => s + (counts[l.externalLineRef] ?? 0), 0),
+const totalFulfilled = computed(() =>
+  lines.value.reduce((s, l) => s + fulfilled(l.externalLineRef), 0),
 );
-const isShort = computed(() => totalCounted.value < totalOrdered.value);
+const isShort = computed(() => totalFulfilled.value < totalOrdered.value);
 const shortBlocked = computed(() => isShort.value && pick.value?.requireFullPick === true);
 
-async function scanBarcode(): Promise<string | null> {
-  const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning');
-  const { camera } = await BarcodeScanner.requestPermissions();
-  if (camera !== 'granted' && camera !== 'limited') throw new Error('camera permission denied');
-  const { barcodes } = await BarcodeScanner.scan();
-  return barcodes[0]?.rawValue ?? null;
+function lineAllowsSubs(line: Line): boolean {
+  return line.allowSubstitutes ?? pick.value?.allowSubstitutes ?? false;
 }
 
-/** Stage PICK: scan an item barcode → +1 on the matching line. */
-async function scanItem(): Promise<void> {
+// ── Scanning ──────────────────────────────────────────────────────────────
+/** Apply a scanned/typed code: confirm the product and +1 the line. */
+function applyScan(code: string): void {
+  const value = code.trim();
+  if (!value) return;
+  error.value = null;
+  const line = lines.value.find((l) => l.gtin === value || l.sku === value);
+  if (!line) {
+    error.value = `No line matches barcode '${value}' — wrong item? Use Substitute if allowed.`;
+    return;
+  }
+  if (stage.value === 'pick') {
+    if (fulfilled(line.externalLineRef) >= line.quantity) {
+      error.value = `#${line.externalLineRef} (${line.description}) is already fully picked.`;
+      return;
+    }
+    bump(line, 1);
+  } else {
+    assign(line, 1);
+  }
+}
+
+function onWedgeScan(): void {
+  applyScan(scanValue.value);
+  scanValue.value = '';
+}
+
+async function cameraScan(target: 'line' | 'bag' | 'sub'): Promise<void> {
   scanBusy.value = true;
   error.value = null;
   try {
-    const code = await scanBarcode();
+    const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning');
+    const { camera } = await BarcodeScanner.requestPermissions();
+    if (camera !== 'granted' && camera !== 'limited') throw new Error('camera permission denied');
+    const { barcodes } = await BarcodeScanner.scan();
+    const code = barcodes[0]?.rawValue;
     if (!code) return;
-    const line = lines.value.find((l) => l.gtin === code || l.sku === code);
-    if (!line) {
-      error.value = `No line matches barcode '${code}'.`;
-      return;
-    }
-    if (stage.value === 'pick') bump(line, 1);
-    else assign(line, 1); // stage PACK, items mode: into the active package
+    if (target === 'line') applyScan(code);
+    else if (target === 'bag') bagForm.ref = code;
+    else subForm.barcode = code;
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
@@ -131,7 +177,30 @@ async function scanItem(): Promise<void> {
   }
 }
 
-// ── Stage PACK helpers ────────────────────────────────────────────────────
+// ── Substitutes ───────────────────────────────────────────────────────────
+function openSubPanel(line: Line): void {
+  subPanelFor.value = line.externalLineRef;
+  subForm.barcode = '';
+  subForm.description = '';
+  subForm.quantity = Math.max(1, line.quantity - fulfilled(line.externalLineRef));
+}
+
+function addSubstitute(line: Line): void {
+  const remaining = line.quantity - fulfilled(line.externalLineRef);
+  if (!subForm.barcode.trim() || subForm.quantity < 1 || subForm.quantity > remaining) return;
+  subs[line.externalLineRef]!.push({
+    barcode: subForm.barcode.trim(),
+    description: subForm.description.trim(),
+    quantity: subForm.quantity,
+  });
+  subPanelFor.value = null;
+}
+
+function removeSubstitute(lineRef: string, index: number): void {
+  subs[lineRef]!.splice(index, 1);
+}
+
+// ── Packing helpers (packable units = fulfilled) ──────────────────────────
 const assignedPerLine = computed(() => {
   const totals: Record<string, number> = {};
   for (const pkg of packages.value) {
@@ -143,28 +212,15 @@ const assignedPerLine = computed(() => {
 });
 const unassignedTotal = computed(() =>
   lines.value.reduce(
-    (s, l) => s + ((counts[l.externalLineRef] ?? 0) - (assignedPerLine.value[l.externalLineRef] ?? 0)),
+    (s, l) => s + (fulfilled(l.externalLineRef) - (assignedPerLine.value[l.externalLineRef] ?? 0)),
     0,
   ),
 );
 const activePackage = computed(() => packages.value.find((p) => p.ref === activeRef.value));
 
 function switchMode(mode: PackMode): void {
-  if (packages.value.length > 0) return; // locked once packing started
+  if (packages.value.length > 0) return;
   packMode.value = mode;
-}
-
-async function scanBagRef(): Promise<void> {
-  scanBusy.value = true;
-  error.value = null;
-  try {
-    const code = await scanBarcode();
-    if (code) bagForm.ref = code;
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err);
-  } finally {
-    scanBusy.value = false;
-  }
 }
 
 function addBag(): void {
@@ -200,7 +256,6 @@ function removePackage(pkgRef: string): void {
   if (activeRef.value === pkgRef) activeRef.value = packages.value[0]?.ref ?? null;
 }
 
-/** items sub-mode: move units of a line into/out of the ACTIVE package. */
 function assign(line: Line, delta: number): void {
   const pkg = activePackage.value;
   if (!pkg) {
@@ -208,9 +263,9 @@ function assign(line: Line, delta: number): void {
     return;
   }
   const inPkg = pkg.items[line.externalLineRef] ?? 0;
-  const picked = counts[line.externalLineRef] ?? 0;
+  const packable = fulfilled(line.externalLineRef);
   const assignedElsewhere = (assignedPerLine.value[line.externalLineRef] ?? 0) - inPkg;
-  const next = Math.min(Math.max(inPkg + delta, 0), picked - assignedElsewhere);
+  const next = Math.min(Math.max(inPkg + delta, 0), packable - assignedElsewhere);
   if (next === 0) delete pkg.items[line.externalLineRef];
   else pkg.items[line.externalLineRef] = next;
 }
@@ -233,6 +288,15 @@ async function complete(): Promise<void> {
         lines: lines.value.map((l) => ({
           externalLineRef: l.externalLineRef,
           pickedQuantity: counts[l.externalLineRef] ?? 0,
+          ...((subs[l.externalLineRef]?.length ?? 0) > 0
+            ? {
+                substitutions: subs[l.externalLineRef]!.map((s) => ({
+                  barcode: s.barcode,
+                  ...(s.description ? { description: s.description } : {}),
+                  quantity: s.quantity,
+                })),
+              }
+            : {}),
         })),
         packages: packages.value.map((p) => ({
           ref: p.ref,
@@ -250,6 +314,7 @@ async function complete(): Promise<void> {
         })),
       },
     });
+    failOpen.value = false;
     await ctx.picks.hydrate();
     await router.push('/picks');
   } catch (err) {
@@ -289,7 +354,7 @@ async function fail(): Promise<void> {
       <div>
         <p class="font-mono text-2xl font-semibold">#{{ pick.shortId }}</p>
         <p class="text-xs text-neutral-500">
-          {{ stage === 'pick' ? 'Picking' : 'Packing' }} · {{ totalCounted }}/{{ totalOrdered }}
+          {{ stage === 'pick' ? 'Picking' : 'Packing' }} · {{ totalFulfilled }}/{{ totalOrdered }}
           units
           <template v-if="stage === 'pack' && packMode === 'items'">
             · {{ unassignedTotal }} to pack
@@ -313,68 +378,187 @@ async function fail(): Promise<void> {
       </div>
     </div>
 
+    <!-- Scan wedge: primary interaction. USB/BT scanners type + Enter. -->
+    <div class="flex gap-2">
+      <UInput
+        v-model="scanValue"
+        placeholder="📷 Scan barcode to confirm & count…"
+        class="flex-1 font-mono"
+        size="xl"
+        autocomplete="off"
+        autofocus
+        @keydown.enter.prevent="onWedgeScan"
+      />
+      <UButton v-if="isNative" size="xl" variant="soft" :loading="scanBusy" @click="cameraScan(stage === 'pick' ? 'line' : 'line')">
+        📷
+      </UButton>
+    </div>
+
     <UAlert v-if="error" :description="error" color="error" variant="soft" />
 
     <!-- ════ STAGE: PICK ════ -->
     <template v-if="stage === 'pick'">
-      <div class="flex gap-2">
-        <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="scanItem">
-          📷 Scan item
-        </UButton>
+      <div class="flex justify-end">
         <UButton variant="ghost" size="sm" @click="fillAll">Mark all picked</UButton>
       </div>
 
-      <UCard v-for="line in lines" :key="line.externalLineRef">
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="truncate font-medium">{{ line.description }}</p>
-            <p class="font-mono text-[11px] text-neutral-400">{{ line.sku }}</p>
-            <span
-              v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
-              class="text-xs text-cyan-600"
+      <UCard
+        v-for="line in lines"
+        :key="line.externalLineRef"
+        :ui="{ body: 'p-2 sm:p-3' }"
+      >
+        <div class="flex items-center gap-3">
+          <!-- Product image (placeholder when missing / failed to load) -->
+          <div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+            <img
+              v-if="line.imageUrl && !imgFailed[line.externalLineRef]"
+              :src="line.imageUrl"
+              :alt="line.description"
+              class="h-full w-full object-cover"
+              loading="lazy"
+              @error="imgFailed[line.externalLineRef] = true"
+            />
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center text-lg font-semibold text-neutral-400"
             >
-              {{ line.temperatureClass }}
-            </span>
+              {{ line.description.charAt(0).toUpperCase() }}
+            </div>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
-            <UButton
-              size="lg"
-              color="neutral"
-              variant="soft"
+
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ line.description }}</p>
+            <p class="flex items-center gap-1.5 text-[11px] text-neutral-400">
+              <span
+                v-if="line.attributes?.['aisle']"
+                class="rounded bg-brand-50 px-1.5 py-0.5 font-mono font-semibold text-brand-700"
+              >
+                {{ line.attributes['aisle'] }}
+              </span>
+              <span class="font-mono">{{ line.sku }}</span>
+              <span
+                v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
+                class="text-cyan-600"
+              >
+                {{ line.temperatureClass }}
+              </span>
+            </p>
+            <p v-if="subUnits(line.externalLineRef) > 0" class="text-[11px] text-amber-600">
+              +{{ subUnits(line.externalLineRef) }} substitute(s)
+            </p>
+          </div>
+
+          <!-- Big touch targets: the buttons ARE the padding now. -->
+          <div class="flex shrink-0 items-stretch gap-1.5">
+            <button
+              class="h-14 w-14 rounded-lg bg-neutral-100 text-2xl font-semibold text-neutral-600 active:bg-neutral-200 disabled:opacity-30"
               :disabled="(counts[line.externalLineRef] ?? 0) === 0"
               @click="bump(line, -1)"
             >
               −
-            </UButton>
+            </button>
             <button
-              class="min-w-14 text-center font-mono text-lg"
+              class="min-w-16 rounded-lg text-center font-mono text-lg"
               :class="
-                (counts[line.externalLineRef] ?? 0) === line.quantity
-                  ? 'text-emerald-600 font-semibold'
-                  : ''
+                fulfilled(line.externalLineRef) === line.quantity
+                  ? 'bg-emerald-50 font-semibold text-emerald-600'
+                  : 'bg-white'
               "
               title="Tap to mark line fully picked"
               @click="fillLine(line)"
             >
-              {{ counts[line.externalLineRef] ?? 0 }}/{{ line.quantity }}
+              {{ fulfilled(line.externalLineRef) }}/{{ line.quantity }}
             </button>
-            <UButton
-              size="lg"
-              variant="soft"
-              :disabled="(counts[line.externalLineRef] ?? 0) >= line.quantity"
+            <button
+              class="h-14 w-14 rounded-lg bg-brand-50 text-2xl font-semibold text-brand-700 active:bg-brand-100 disabled:opacity-30"
+              :disabled="fulfilled(line.externalLineRef) >= line.quantity"
               @click="bump(line, 1)"
             >
               +
-            </UButton>
+            </button>
           </div>
         </div>
+
+        <!-- Substitute affordance + panel -->
+        <div
+          v-if="lineAllowsSubs(line) && fulfilled(line.externalLineRef) < line.quantity"
+          class="mt-2"
+        >
+          <UButton
+            v-if="subPanelFor !== line.externalLineRef"
+            size="xs"
+            color="warning"
+            variant="soft"
+            @click="openSubPanel(line)"
+          >
+            ↔ Substitute unavailable item
+          </UButton>
+          <div
+            v-else
+            class="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2"
+          >
+            <div class="flex gap-2">
+              <UInput
+                v-model="subForm.barcode"
+                placeholder="Scan substitute barcode…"
+                class="flex-1 font-mono"
+                autocomplete="off"
+              />
+              <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="cameraScan('sub')">
+                📷
+              </UButton>
+            </div>
+            <UInput v-model="subForm.description" placeholder="Description (optional)" />
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-neutral-500">Qty</span>
+              <UInput
+                v-model.number="subForm.quantity"
+                type="number"
+                :min="1"
+                :max="line.quantity - fulfilled(line.externalLineRef)"
+                class="w-20"
+              />
+              <UButton
+                size="sm"
+                color="warning"
+                :disabled="!subForm.barcode.trim()"
+                @click="addSubstitute(line)"
+              >
+                Add substitute
+              </UButton>
+              <UButton size="sm" color="neutral" variant="ghost" @click="subPanelFor = null">
+                Cancel
+              </UButton>
+            </div>
+          </div>
+        </div>
+        <ul v-if="(subs[line.externalLineRef]?.length ?? 0) > 0" class="mt-1 text-[11px] text-neutral-500">
+          <li
+            v-for="(s, i) in subs[line.externalLineRef]"
+            :key="i"
+            class="flex items-center justify-between"
+          >
+            <span class="truncate">
+              ↔ {{ s.quantity }}× <span class="font-mono">{{ s.barcode }}</span>
+              {{ s.description ? `· ${s.description}` : '' }}
+            </span>
+            <UButton
+              size="xs"
+              color="error"
+              variant="ghost"
+              @click="removeSubstitute(line.externalLineRef, i)"
+            >
+              ✕
+            </UButton>
+          </li>
+        </ul>
       </UCard>
 
       <UAlert
         v-if="shortBlocked"
         title="Full pick required"
-        description="This fulfilment doesn't allow partial fulfilment — pick every line in full, or
-          fail the pick if items are unavailable."
+        description="This fulfilment doesn't allow partial fulfilment — pick every line in full
+          (substitutes count where allowed), or fail the pick."
         color="warning"
         variant="soft"
       />
@@ -382,16 +566,15 @@ async function fail(): Promise<void> {
       <UButton
         size="xl"
         block
-        :disabled="shortBlocked || totalCounted === 0"
+        :disabled="shortBlocked || totalFulfilled === 0"
         @click="stage = 'pack'"
       >
-        Continue to packing {{ isShort ? `(short: ${totalCounted}/${totalOrdered})` : '' }}
+        Continue to packing {{ isShort ? `(short: ${totalFulfilled}/${totalOrdered})` : '' }}
       </UButton>
     </template>
 
     <!-- ════ STAGE: PACK ════ -->
     <template v-else>
-      <!-- Sub-mode toggle (locked once packages exist) -->
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="m in [
@@ -425,12 +608,11 @@ async function fail(): Promise<void> {
             class="flex-1 font-mono"
             autocomplete="off"
           />
-          <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="scanBagRef">
+          <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="cameraScan('bag')">
             📷
           </UButton>
         </div>
 
-        <!-- Size row: pressable squares, radio semantics -->
         <div>
           <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
             Size
@@ -452,7 +634,6 @@ async function fail(): Promise<void> {
           </div>
         </div>
 
-        <!-- Temperature row: pressable squares, radio semantics -->
         <div>
           <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
             Type
@@ -515,12 +696,7 @@ async function fail(): Promise<void> {
               >
                 PACKING INTO
               </span>
-              <UButton
-                size="xs"
-                color="error"
-                variant="ghost"
-                @click.stop="removePackage(pkg.ref)"
-              >
+              <UButton size="xs" color="error" variant="ghost" @click.stop="removePackage(pkg.ref)">
                 ✕
               </UButton>
             </div>
@@ -528,31 +704,38 @@ async function fail(): Promise<void> {
         </UCard>
       </div>
 
-      <!-- items sub-mode: assign picked units into the active package -->
+      <!-- items sub-mode: assign fulfilled units into the active package -->
       <template v-if="packMode === 'items'">
-        <div class="flex items-center justify-between">
-          <p class="text-sm font-semibold">Items to pack</p>
-          <UButton v-if="isNative" size="xs" variant="soft" :loading="scanBusy" @click="scanItem">
-            📷 Scan into bag
-          </UButton>
-        </div>
-        <UCard v-for="line in lines" :key="`pack-${line.externalLineRef}`">
+        <p class="text-sm font-semibold">Items to pack</p>
+        <UCard
+          v-for="line in lines"
+          :key="`pack-${line.externalLineRef}`"
+          :ui="{ body: 'p-2 sm:p-3' }"
+        >
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate text-sm font-medium">{{ line.description }}</p>
               <p class="text-[11px] text-neutral-500">
-                picked {{ counts[line.externalLineRef] ?? 0 }} · packed
+                fulfilled {{ fulfilled(line.externalLineRef) }} · packed
                 {{ assignedPerLine[line.externalLineRef] ?? 0 }}
               </p>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <UButton size="lg" color="neutral" variant="soft" @click="assign(line, -1)">
+            <div class="flex shrink-0 items-center gap-1.5">
+              <button
+                class="h-14 w-14 rounded-lg bg-neutral-100 text-2xl font-semibold text-neutral-600 active:bg-neutral-200"
+                @click="assign(line, -1)"
+              >
                 −
-              </UButton>
+              </button>
               <span class="min-w-10 text-center font-mono">
                 {{ activePackage?.items[line.externalLineRef] ?? 0 }}
               </span>
-              <UButton size="lg" variant="soft" @click="assign(line, 1)">+</UButton>
+              <button
+                class="h-14 w-14 rounded-lg bg-brand-50 text-2xl font-semibold text-brand-700 active:bg-brand-100"
+                @click="assign(line, 1)"
+              >
+                +
+              </button>
             </div>
           </div>
         </UCard>
@@ -567,9 +750,7 @@ async function fail(): Promise<void> {
       </div>
     </template>
 
-    <!-- Fail (available in both stages): a real button with clear separation
-         from the happy path, and the destructive confirm lives in a drawer —
-         two deliberate taps + a reason, so it can't be hit accidentally. -->
+    <!-- Fail: real button, clear separation, destructive confirm in a drawer. -->
     <div class="mt-8 border-t border-neutral-200 pt-6">
       <UDrawer v-model:open="failOpen" title="Fail this pick">
         <UButton color="error" size="lg" block class="font-bold">

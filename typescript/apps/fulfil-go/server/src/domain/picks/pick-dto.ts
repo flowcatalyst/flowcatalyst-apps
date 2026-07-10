@@ -23,7 +23,13 @@ export function toPickDto(pick: Pick): PickDto {
     releasedLate: pick.releasedLate,
     claimedBy: pick.claimedBy,
     claimedAt: pick.claimedAt?.toISOString() ?? null,
-    lineResults: pick.lineResults ? [...pick.lineResults] : null,
+    lineResults: pick.lineResults
+      ? pick.lineResults.map((r) => ({
+          externalLineRef: r.externalLineRef,
+          pickedQuantity: r.pickedQuantity,
+          ...(r.substitutions ? { substitutions: r.substitutions.map((s) => ({ ...s })) } : {}),
+        }))
+      : null,
     packages: pick.packages ? [...pick.packages] : null,
     completedAt: pick.completedAt?.toISOString() ?? null,
     failReason: pick.failReason,
