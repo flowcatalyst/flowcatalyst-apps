@@ -28,6 +28,8 @@ export const PickDtoSchema = Type.Object({
     Type.Array(Type.Object({ externalLineRef: Type.String(), pickedQuantity: Type.Integer() })),
     Type.Null(),
   ]),
+  /** Packing output (bags + loose) — captured shape, see PickPackageSchema (Zod). */
+  packages: Type.Union([Type.Array(Type.Any()), Type.Null()]),
   completedAt: Type.Union([Type.String(), Type.Null()]),
   failReason: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String(),

@@ -23,6 +23,24 @@ export interface PickLineResult {
   readonly pickedQuantity: number;
 }
 
+export type PackageSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
+export type PackageTemperature = 'ambient' | 'refrigerated' | 'frozen';
+
+/**
+ * A physical package produced by packing: a scanned bag (size + temperature
+ * type) or a loose item marker (things too big/awkward for a bag). `items`
+ * is present when the station packed in scan-items-into-bags mode — then the
+ * per-line quantities across all packages exactly cover what was picked;
+ * bags-only mode records the packages without contents.
+ */
+export interface PickPackage {
+  readonly ref: string;
+  readonly kind: 'bag' | 'loose';
+  readonly size: PackageSize | null;
+  readonly temperature: PackageTemperature;
+  readonly items: readonly { externalLineRef: string; quantity: number }[] | null;
+}
+
 /**
  * The pick context's work item — one part's pick at one store, created from
  * the fulfilment context's create-pick command (via the platform dispatcher).
@@ -54,6 +72,8 @@ export interface Pick {
   readonly claimedAt: Date | null;
   /** Per-line outcome, set when the pick completes (picked/short_picked). */
   readonly lineResults: readonly PickLineResult[] | null;
+  /** Packing output (bags + loose), when the station packed. */
+  readonly packages: readonly PickPackage[] | null;
   readonly completedAt: Date | null;
   /** Why the pick failed (picker-supplied), when status = failed. */
   readonly failReason: string | null;
@@ -104,6 +124,7 @@ export const Pick = {
       claimedBy: null,
       claimedAt: null,
       lineResults: null,
+      packages: null,
       completedAt: null,
       failReason: null,
       version: 1,
@@ -136,13 +157,20 @@ export const Pick = {
   /**
    * `claimed → picked | short_picked` — derived from the line results. The
    * use case guards that short completion is only allowed when
-   * `!requireFullPick`; this transition just records the facts.
+   * `!requireFullPick` and validates packaging; this transition just records
+   * the facts.
    */
-  complete(prior: Pick, results: readonly PickLineResult[], now: Date): Pick {
+  complete(
+    prior: Pick,
+    results: readonly PickLineResult[],
+    packages: readonly PickPackage[] | null,
+    now: Date,
+  ): Pick {
     return {
       ...prior,
       status: Pick.isFullPick(prior, results) ? 'picked' : 'short_picked',
       lineResults: results,
+      packages,
       completedAt: now,
       version: prior.version + 1,
       updatedAt: now,

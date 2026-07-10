@@ -23,7 +23,7 @@ import {
   type CompletePickCommand,
   type FailPickCommand,
 } from '@fulfil-go/shared';
-import { Pick, type PickLineResult } from '../../domain/picks/pick.js';
+import { Pick, type PickLineResult, type PickPackage } from '../../domain/picks/pick.js';
 import { asPickId, isPickId } from '../../domain/picks/ids.js';
 import { toPickDto } from '../../domain/picks/pick-dto.js';
 import {
@@ -168,6 +168,65 @@ export class CompletePickUseCase {
       externalLineRef: l.externalLineRef,
       pickedQuantity: l.pickedQuantity,
     }));
+
+    // Packaging validation (when the station packed). Two sub-modes,
+    // all-or-none per completion: every package carries `items`
+    // (scan-items-into-bags — contents fully known, and must exactly cover
+    // the picked quantities) or none do (bags-only).
+    let packages: PickPackage[] | null = null;
+    if (command.packages && command.packages.length > 0) {
+      const refs = new Set(command.packages.map((p) => p.ref));
+      if (refs.size !== command.packages.length) {
+        return Result.failure(
+          UseCaseError.validation('DUPLICATE_PACKAGE_REF', 'Package refs must be unique.'),
+        );
+      }
+      const withItems = command.packages.filter((p) => p.items && p.items.length > 0);
+      if (withItems.length > 0 && withItems.length !== command.packages.length) {
+        return Result.failure(
+          UseCaseError.validation(
+            'PACKAGING_MODE_MIXED',
+            'Either every package lists its items (scan-into-bags mode) or none do (bags-only).',
+          ),
+        );
+      }
+      if (withItems.length > 0) {
+        const packed = new Map<string, number>();
+        for (const pkg of command.packages) {
+          for (const item of pkg.items ?? []) {
+            packed.set(item.externalLineRef, (packed.get(item.externalLineRef) ?? 0) + item.quantity);
+          }
+        }
+        for (const ref of packed.keys()) {
+          if (!results.some((r) => r.externalLineRef === ref)) {
+            return Result.failure(
+              UseCaseError.validation(
+                'UNKNOWN_PACKAGE_LINE',
+                `Package contents reference unknown line '${ref}'.`,
+              ),
+            );
+          }
+        }
+        for (const r of results) {
+          const inPackages = packed.get(r.externalLineRef) ?? 0;
+          if (inPackages !== r.pickedQuantity) {
+            return Result.failure(
+              UseCaseError.validation(
+                'PACKAGE_ITEMS_MISMATCH',
+                `Line '${r.externalLineRef}': ${inPackages} unit(s) packed but ${r.pickedQuantity} picked — every picked unit must be in a package.`,
+              ),
+            );
+          }
+        }
+      }
+      packages = command.packages.map((p) => ({
+        ref: p.ref,
+        kind: p.kind,
+        size: p.size ?? null,
+        temperature: p.temperature,
+        items: p.items && p.items.length > 0 ? p.items : null,
+      }));
+    }
     const full = Pick.isFullPick(prior, results);
     // THE policy gate: short completion needs the fulfilment to have allowed
     // partial fulfilment (requireFullPick = !allowPartialFulfilment).
@@ -183,7 +242,7 @@ export class CompletePickUseCase {
     }
 
     const now = new Date();
-    const pick = Pick.complete(prior, results, now);
+    const pick = Pick.complete(prior, results, packages, now);
     const data = {
       pickId: pick.id,
       clientId: pick.clientId,
@@ -193,6 +252,7 @@ export class CompletePickUseCase {
       shortId: pick.shortId,
       pickerId: scope.principalId,
       lineResults: results,
+      packages: (packages ?? []).map((p) => ({ ...p, items: p.items ? [...p.items] : null })),
     };
     const event = full ? new PickPicked(scope, data) : new PickShortPicked(scope, data);
 

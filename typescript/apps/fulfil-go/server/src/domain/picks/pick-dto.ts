@@ -24,6 +24,7 @@ export function toPickDto(pick: Pick): PickDto {
     claimedBy: pick.claimedBy,
     claimedAt: pick.claimedAt?.toISOString() ?? null,
     lineResults: pick.lineResults ? [...pick.lineResults] : null,
+    packages: pick.packages ? [...pick.packages] : null,
     completedAt: pick.completedAt?.toISOString() ?? null,
     failReason: pick.failReason,
     createdAt: pick.createdAt.toISOString(),

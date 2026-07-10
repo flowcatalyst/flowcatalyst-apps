@@ -20,6 +20,19 @@ export const PickOutcomeDataSchema = Type.Object({
   lineResults: Type.Array(
     Type.Object({ externalLineRef: Type.String(), pickedQuantity: Type.Integer() }),
   ),
+  /** Packing output — what the handover/transport legs physically receive. */
+  packages: Type.Array(
+    Type.Object({
+      ref: Type.String(),
+      kind: Type.String(),
+      size: Type.Union([Type.String(), Type.Null()]),
+      temperature: Type.String(),
+      items: Type.Union([
+        Type.Array(Type.Object({ externalLineRef: Type.String(), quantity: Type.Integer() })),
+        Type.Null(),
+      ]),
+    }),
+  ),
 });
 export type PickOutcomeData = Static<typeof PickOutcomeDataSchema>;
 

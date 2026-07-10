@@ -77,10 +77,12 @@ describe('Pick', () => {
         { externalLineRef: 'L1', pickedQuantity: 2 },
         { externalLineRef: 'L2', pickedQuantity: 3 },
       ],
+      null,
       NOW,
     );
     expect(done.status).toBe('picked');
     expect(done.lineResults).toHaveLength(2);
+    expect(done.packages).toBeNull();
     expect(done.completedAt).toEqual(NOW);
     expect(done.version).toBe(3);
   });
@@ -93,9 +95,42 @@ describe('Pick', () => {
         { externalLineRef: 'L1', pickedQuantity: 2 },
         { externalLineRef: 'L2', pickedQuantity: 1 },
       ],
+      null,
       NOW,
     );
     expect(done.status).toBe('short_picked');
+  });
+
+  it('complete records packaging (bags + loose)', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const done = Pick.complete(
+      claimed,
+      [
+        { externalLineRef: 'L1', pickedQuantity: 2 },
+        { externalLineRef: 'L2', pickedQuantity: 3 },
+      ],
+      [
+        {
+          ref: 'BAG-001',
+          kind: 'bag',
+          size: 'M',
+          temperature: 'refrigerated',
+          items: [{ externalLineRef: 'L1', quantity: 2 }],
+        },
+        {
+          ref: 'loose-1',
+          kind: 'loose',
+          size: null,
+          temperature: 'ambient',
+          items: [{ externalLineRef: 'L2', quantity: 3 }],
+        },
+      ],
+      NOW,
+    );
+    expect(done.status).toBe('picked');
+    expect(done.packages).toHaveLength(2);
+    expect(done.packages?.[0]?.size).toBe('M');
+    expect(done.packages?.[1]?.kind).toBe('loose');
   });
 
   it('a missing line result reads as not-full', () => {

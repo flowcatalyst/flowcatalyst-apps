@@ -13,6 +13,7 @@ import {
   PICK_TYPE,
   type Pick,
   type PickLineResult,
+  type PickPackage,
   type PickStatus,
 } from '../domain/picks/pick.js';
 import type { PickRepository } from '../domain/picks/pick.repository.js';
@@ -40,6 +41,7 @@ function toDomain(row: PickRow): Pick {
     claimedBy: row.claimedBy,
     claimedAt: row.claimedAt,
     lineResults: (row.lineResults as PickLineResult[] | null) ?? null,
+    packages: (row.packages as PickPackage[] | null) ?? null,
     completedAt: row.completedAt,
     failReason: row.failReason,
     version: row.version,
@@ -82,6 +84,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             claimedBy: aggregate.claimedBy,
             claimedAt: aggregate.claimedAt,
             lineResults: aggregate.lineResults,
+            packages: aggregate.packages,
             completedAt: aggregate.completedAt,
             failReason: aggregate.failReason,
             version: aggregate.version,
@@ -99,6 +102,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             claimedBy: aggregate.claimedBy,
             claimedAt: aggregate.claimedAt,
             lineResults: aggregate.lineResults,
+            packages: aggregate.packages,
             completedAt: aggregate.completedAt,
             failReason: aggregate.failReason,
             version: aggregate.version,
