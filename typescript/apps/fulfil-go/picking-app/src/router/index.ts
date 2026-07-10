@@ -1,18 +1,31 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import JobsPage from '../pages/JobsPage.vue';
-import JobDetailPage from '../pages/JobDetailPage.vue';
+import { createRouter, createWebHistory, type Router } from 'vue-router';
+import PicksPage from '../pages/PicksPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
-import ScanPage from '../pages/ScanPage.vue';
 import SettingsPage from '../pages/SettingsPage.vue';
+import type { AppCtx } from '../context.js';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/jobs' },
+    { path: '/', redirect: '/picks' },
     { path: '/login', component: LoginPage, meta: { title: 'Sign in' } },
-    { path: '/jobs', component: JobsPage, meta: { title: 'My jobs' } },
-    { path: '/jobs/:jobId', component: JobDetailPage, meta: { title: 'Job' } },
-    { path: '/scan', component: ScanPage, meta: { title: 'Scan' } },
+    { path: '/picks', component: PicksPage, meta: { title: 'Picks' } },
     { path: '/settings', component: SettingsPage, meta: { title: 'Settings' } },
   ],
 });
+
+/**
+ * Station guard: settings is always reachable (that's where the station gets
+ * bound); everything else needs a configured station, and the work pages need
+ * a live person session.
+ */
+export function installAuthGuard(target: Router, ctx: AppCtx): void {
+  target.beforeEach(async (to) => {
+    if (to.path === '/settings') return true;
+    if (!ctx.station.configured()) return '/settings';
+    const authed = await ctx.session.isAuthenticated();
+    if (!authed && to.path !== '/login') return '/login';
+    if (authed && to.path === '/login') return '/picks';
+    return true;
+  });
+}

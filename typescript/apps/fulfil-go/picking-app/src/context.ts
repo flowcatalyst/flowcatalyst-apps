@@ -1,88 +1,93 @@
-import { inject, type InjectionKey } from 'vue';
-import { Capacitor } from '@capacitor/core';
+import { inject, ref, watch, type InjectionKey, type Ref } from 'vue';
 import {
-  bindLifecycle,
   createApiClient,
-  createAuthClient,
-  createMemoryQueueStorage,
-  createOfflineQueue,
+  createPickerSession,
   createPreferencesTokenStore,
-  createSession,
-  createSqliteQueueStorage,
-  createSseClient,
   type ApiClient,
-  type AuthClient,
-  type OfflineQueue,
-  type Session,
-  type SseClient,
+  type PickerSession,
 } from '@fulfil-go/mobile-kit';
-import { createJobsStore, type JobsStore } from './stores/jobs.js';
+import { createPicksStore, type PicksStore } from './stores/picks.js';
 
-export const REDIRECT_URI = 'fulfilgo-pick://auth/callback';
+/**
+ * Picking-app context — the pick context's LOCAL auth plane (staff-code+PIN
+ * picker sessions), NOT platform OIDC and NOT the x-user-id dev fallback:
+ * pick endpoints authorize on the session token's storeRef attribute, which
+ * only a real picker login carries. Identical in browser dev and native.
+ *
+ * Station binding: clientId + storeRef persisted on the device — the manual
+ * placeholder for device enrollment (an admin configures the station once;
+ * pickers come and go per shift). Set on the Settings page.
+ */
+interface StationConfig {
+  readonly clientId: Ref<string>;
+  readonly storeRef: Ref<string>;
+  readonly configured: () => boolean;
+}
+
+function createStationConfig(): StationConfig {
+  const clientId = ref(localStorage.getItem('fulfilgo.pick.station.clientId') ?? '');
+  const storeRef = ref(localStorage.getItem('fulfilgo.pick.station.storeRef') ?? '');
+  watch(clientId, (v) => localStorage.setItem('fulfilgo.pick.station.clientId', v));
+  watch(storeRef, (v) => localStorage.setItem('fulfilgo.pick.station.storeRef', v));
+  return {
+    clientId,
+    storeRef,
+    configured: () => clientId.value.length > 0 && storeRef.value.length > 0,
+  };
+}
 
 export interface AppCtx {
-  readonly isNative: boolean;
-  readonly session: Session;
+  readonly station: StationConfig;
+  readonly session: PickerSession;
   readonly api: ApiClient;
-  readonly auth: AuthClient;
-  readonly queue: OfflineQueue;
-  readonly sse: SseClient;
-  readonly jobs: JobsStore;
-  /** Start hydrate + SSE + lifecycle wiring (idempotent). */
-  startSync(): Promise<void>;
+  readonly picks: PicksStore;
+  /** Reactive person-session state — drives the header Exit button + guard. */
+  readonly signedIn: Ref<boolean>;
+  /** Signed-in picker id (pkr_…) from /pick-auth/me; null between shifts. */
+  readonly pickerId: Ref<string | null>;
+  /** Load /pick-auth/me into pickerId (after login or on app start). */
+  loadMe(): Promise<void>;
+  /** Person sign-out (Exit) — station binding survives. */
+  exit(): Promise<void>;
 }
 
 export const APP_CTX: InjectionKey<AppCtx> = Symbol('app-ctx');
 
-export async function createAppCtx(): Promise<AppCtx> {
-  const isNative = Capacitor.isNativePlatform();
+export function createAppCtx(): AppCtx {
   const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+  const station = createStationConfig();
+  const signedIn = ref(false);
+  const pickerId = ref<string | null>(null);
 
-  const session = createSession({ app: 'picking', store: createPreferencesTokenStore(), baseUrl });
-  const api = createApiClient(
-    isNative
-      ? { baseUrl, tokens: session }
-      : { baseUrl, devUserId: import.meta.env.VITE_DEV_USER_ID ?? 'prn_driver1' },
-  );
-  const auth = createAuthClient({ app: 'picking', baseUrl, redirectUri: REDIRECT_URI, session });
-  const queue = createOfflineQueue({
-    storage: isNative
-      ? await createSqliteQueueStorage()
-      : createMemoryQueueStorage('fulfilgo.pick.queue'),
-    api,
-  });
-  const jobs = createJobsStore(api, queue);
-
-  const sse = createSseClient({
-    url: `${baseUrl}/sse/channel`,
-    getHeaders: () => api.authHeaders(),
-    onEvent: (event) => jobs.applySse(event),
-    onStateChange: (state) => {
-      jobs.sseState.value = state;
-      // Replay covers short gaps; a fresh 'open' after a long gap still
-      // needs the snapshot — hydrate is cheap, do it on every open.
-      if (state === 'open') void jobs.hydrate();
+  const session = createPickerSession({
+    store: createPreferencesTokenStore('fulfilgo.picker.tokens'),
+    baseUrl,
+    getClientId: () => (station.clientId.value.length > 0 ? station.clientId.value : null),
+    onSignedOut: () => {
+      signedIn.value = false;
+      pickerId.value = null;
     },
-    initialLastEventId: jobs.lastEventId.value,
   });
+  const api = createApiClient({ baseUrl, tokens: session });
+  const picks = createPicksStore(api, station.clientId, pickerId);
 
-  let started = false;
   return {
-    isNative,
+    station,
     session,
     api,
-    auth,
-    queue,
-    sse,
-    jobs,
-    async startSync(): Promise<void> {
-      if (started) return;
-      started = true;
-      await jobs.hydrate().catch(() => {
-        // Offline start — SSE reconnect + queue flush recover later.
-      });
-      sse.connect();
-      bindLifecycle(sse, { onWake: () => void queue.flush() });
+    picks,
+    signedIn,
+    pickerId,
+    async loadMe(): Promise<void> {
+      const me = await api.json<{ pickerId: string }>(
+        `/clients/${station.clientId.value}/pick-auth/me`,
+      );
+      pickerId.value = me.pickerId;
+      signedIn.value = true;
+    },
+    async exit(): Promise<void> {
+      await session.signOut();
+      picks.reset();
     },
   };
 }

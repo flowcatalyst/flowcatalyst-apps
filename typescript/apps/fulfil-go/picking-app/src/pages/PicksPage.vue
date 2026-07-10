@@ -1,0 +1,145 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import type { PickDto } from '@fulfil-go/shared';
+import { useAppCtx } from '../context.js';
+
+const ctx = useAppCtx();
+const expanded = ref<string | null>(null);
+const claiming = ref<string | null>(null);
+
+/** Poll while the page is open — SSE for picks is a follow-up. */
+const REFRESH_MS = 30_000;
+let timer: ReturnType<typeof setInterval> | undefined;
+
+onMounted(() => {
+  void ctx.picks.load();
+  timer = setInterval(() => void ctx.picks.load(), REFRESH_MS);
+});
+onUnmounted(() => clearInterval(timer));
+
+const available = computed(() => ctx.picks.available.value);
+const mine = computed(() => ctx.picks.mine.value);
+
+function toggle(id: string): void {
+  expanded.value = expanded.value === id ? null : id;
+}
+
+async function claim(pick: PickDto): Promise<void> {
+  claiming.value = pick.id;
+  try {
+    await ctx.picks.claim(pick.id);
+  } finally {
+    claiming.value = null;
+  }
+}
+
+function slot(pick: PickDto): string {
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+  return `${fmt(pick.slotStart)}–${fmt(pick.slotEnd)}`;
+}
+
+function units(pick: PickDto): number {
+  return pick.lines.reduce(
+    (sum, line) => sum + ((line as { quantity?: number }).quantity ?? 0),
+    0,
+  );
+}
+</script>
+
+<template>
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Available ({{ available.length }})</h2>
+      <UButton
+        size="xs"
+        variant="soft"
+        :loading="ctx.picks.loading.value"
+        @click="ctx.picks.load()"
+      >
+        Refresh
+      </UButton>
+    </div>
+    <UAlert
+      v-if="ctx.picks.error.value"
+      :description="ctx.picks.error.value"
+      color="error"
+      variant="soft"
+    />
+
+    <p v-if="available.length === 0" class="text-sm text-neutral-500">
+      No picks waiting for this store.
+    </p>
+    <UCard v-for="pick in available" :key="pick.id" @click="toggle(pick.id)">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-mono text-lg font-semibold">#{{ pick.shortId }}</p>
+          <p class="text-xs text-neutral-500">
+            {{ pick.lines.length }} line(s) · {{ units(pick) }} units · slot {{ slot(pick) }}
+          </p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span
+            v-if="pick.serviceLevel === 'ASAP'"
+            class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+          >
+            ASAP
+          </span>
+          <UButton size="lg" :loading="claiming === pick.id" @click.stop="claim(pick)">
+            Claim
+          </UButton>
+        </div>
+      </div>
+      <ul v-if="expanded === pick.id" class="mt-3 divide-y divide-neutral-100 text-sm">
+        <li
+          v-for="(line, i) in pick.lines"
+          :key="i"
+          class="flex items-center justify-between gap-2 py-1.5"
+        >
+          <span class="truncate">
+            <span class="font-medium">{{ line.quantity }}×</span> {{ line.description }}
+          </span>
+          <span
+            v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
+            class="shrink-0 text-xs text-cyan-600"
+          >
+            {{ line.temperatureClass }}
+          </span>
+        </li>
+      </ul>
+    </UCard>
+
+    <h2 class="mt-2 font-semibold">Mine ({{ mine.length }})</h2>
+    <p v-if="mine.length === 0" class="text-sm text-neutral-500">Nothing claimed yet.</p>
+    <UCard v-for="pick in mine" :key="pick.id" @click="toggle(pick.id)">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-mono text-lg font-semibold">#{{ pick.shortId }}</p>
+          <p class="text-xs text-neutral-500">
+            {{ pick.lines.length }} line(s) · {{ units(pick) }} units · slot {{ slot(pick) }}
+          </p>
+        </div>
+        <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+          claimed
+        </span>
+      </div>
+      <ul v-if="expanded === pick.id" class="mt-3 divide-y divide-neutral-100 text-sm">
+        <li
+          v-for="(line, i) in pick.lines"
+          :key="i"
+          class="flex items-center justify-between gap-2 py-1.5"
+        >
+          <span class="truncate">
+            <span class="font-medium">{{ line.quantity }}×</span> {{ line.description }}
+          </span>
+          <span
+            v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
+            class="shrink-0 text-xs text-cyan-600"
+          >
+            {{ line.temperatureClass }}
+          </span>
+        </li>
+      </ul>
+    </UCard>
+  </div>
+</template>

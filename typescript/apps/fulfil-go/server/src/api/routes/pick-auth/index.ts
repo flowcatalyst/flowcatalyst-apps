@@ -13,7 +13,10 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@fulfil-go/framework';
+import { PICKER_SESSION_PERMISSIONS, PickerTokenResponseSchema } from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
+import { isPickerUserId, asPickerUserId } from '../../../domain/pick-identity/ids.js';
+import { PickerTokenError } from '../../../auth/picker-token.js';
 import { BadRequestSchema, ErrorResponseSchema, UnauthorizedSchema } from '../../schemas/common.js';
 
 const PinLoginBodySchema = Type.Object(
@@ -24,13 +27,6 @@ const PinLoginBodySchema = Type.Object(
   },
   { additionalProperties: false },
 );
-
-const LoginResponseSchema = Type.Object({
-  tokenType: Type.Literal('Bearer'),
-  accessToken: Type.String(),
-  refreshToken: Type.String(),
-  expiresIn: Type.Integer(),
-});
 
 const MeResponseSchema = Type.Object({
   pickerId: Type.String(),
@@ -48,7 +44,7 @@ export function registerPickAuthRoutes(fastify: FastifyInstance, appContext: App
         params: Type.Object({ clientId: Type.String() }),
         body: PinLoginBodySchema,
         response: {
-          200: LoginResponseSchema,
+          200: PickerTokenResponseSchema,
           400: BadRequestSchema,
           401: ErrorResponseSchema,
           423: ErrorResponseSchema,
@@ -80,6 +76,68 @@ export function registerPickAuthRoutes(fastify: FastifyInstance, appContext: App
         accessToken: outcome.session.accessToken,
         refreshToken: outcome.session.refreshToken,
         expiresIn: outcome.session.expiresIn,
+      });
+    },
+  );
+
+  // Exchange a picker refresh token for a fresh session. This is also where
+  // revocation bites: the picker is re-loaded and must still be active, so a
+  // suspension takes effect within one access-token TTL.
+  fastify.post(
+    '/clients/:clientId/pick-auth/refresh',
+    {
+      schema: {
+        tags: ['PickAuth'],
+        params: Type.Object({ clientId: Type.String() }),
+        body: Type.Object({ refreshToken: Type.String() }, { additionalProperties: false }),
+        response: {
+          200: PickerTokenResponseSchema,
+          401: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { clientId } = request.params as { clientId: string };
+      const { refreshToken } = request.body as { refreshToken: string };
+      const invalid = () =>
+        reply.code(401).send({
+          error: 'unauthorized',
+          code: 'INVALID_REFRESH_TOKEN',
+          message: 'Refresh token is invalid or the picker is no longer active.',
+          details: null,
+        });
+
+      let claims;
+      try {
+        claims = await appContext.auth.pickerTokenService.verifyRefresh(refreshToken);
+      } catch (err) {
+        if (err instanceof PickerTokenError) return invalid();
+        throw err;
+      }
+      if (claims.clientId !== clientId || !isPickerUserId(claims.pickerId)) return invalid();
+
+      const picker = await appContext.repositories.pickerUsers.findById(
+        clientId,
+        asPickerUserId(claims.pickerId),
+      );
+      // Re-check liveness AND the store binding — a picker moved to another
+      // store must not keep refreshing a session scoped to the old one.
+      if (!picker || picker.status !== 'active' || picker.storeRef !== claims.storeRef) {
+        return invalid();
+      }
+
+      const session = await appContext.auth.pickerTokenService.issueSession({
+        pickerId: picker.id,
+        clientId: picker.clientId,
+        storeRef: picker.storeRef,
+        permissions: [...PICKER_SESSION_PERMISSIONS],
+        deviceId: claims.deviceId ?? undefined,
+      });
+      return reply.code(200).send({
+        tokenType: 'Bearer',
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        expiresIn: session.expiresIn,
       });
     },
   );

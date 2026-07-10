@@ -63,3 +63,19 @@ export const MobileTokenResponseSchema = Type.Object(
   { $id: 'MobileTokenResponse' },
 );
 export type MobileTokenResponse = Static<typeof MobileTokenResponseSchema>;
+
+/**
+ * Picker session tokens (fulfil-go-issued, NOT platform OIDC) — the response
+ * of /pick-auth/login/pin and /pick-auth/refresh. `expiresIn` is seconds
+ * (OAuth convention), unlike MobileTokenResponse's epoch `expiresAt`.
+ */
+export const PickerTokenResponseSchema = Type.Object(
+  {
+    tokenType: Type.Literal('Bearer'),
+    accessToken: Type.String(),
+    refreshToken: Type.String(),
+    expiresIn: Type.Integer(),
+  },
+  { $id: 'PickerTokenResponse' },
+);
+export type PickerTokenResponse = Static<typeof PickerTokenResponseSchema>;

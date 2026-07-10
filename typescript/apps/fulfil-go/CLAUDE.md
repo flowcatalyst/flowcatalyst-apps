@@ -22,8 +22,14 @@ fulfil-go adds.
 - **Mobile apps** (`execution-app` = driver, `picking-app` = scan-and-pick):
   Vue 3 + **Capacitor 8** + **Nuxt UI v4** + Tailwind v4. NOT PrimeVue, NOT
   web-kit components (see the workspace memory: PrimeVue is archived).
-  Vite ports 5175 / 5176; dev proxy → :3200; browser dev authenticates via
-  the server's `x-user-id` dev fallback (`FULFILGO_AUTH_DEV_FALLBACK=true`).
+  Vite ports 5175 / 5176; dev proxy → :3200. AUTH DIFFERS PER APP: the
+  execution app's browser dev uses the server's `x-user-id` dev fallback
+  (`FULFILGO_AUTH_DEV_FALLBACK=true`), but the **picking app always uses real
+  picker PIN login** (mobile-kit `createPickerSession` against `/pick-auth`) —
+  pick endpoints authorize on the session token's `storeRef` attribute, which
+  the dev fallback doesn't carry. Station binding (clientId + storeRef) is set
+  on its Settings page (manual stand-in for device enrollment; see
+  `docs/pick-context-auth.md` + `-plan.md`).
 - **mobile-kit** (`@fulfil-go/mobile-kit`): shared mobile plumbing — fetch-
   stream SSE client (Last-Event-ID resume + backoff), offline outbox queue
   (SQLite on device / memory+localStorage in browser dev, Idempotency-Key
@@ -108,6 +114,14 @@ Alternative (no platform running): the throwaway docker Postgres —
 Smoke flow (dev fallback headers): POST /jobs as `prn_dispatcher` →
 POST /jobs/:id/assign {assigneeId: prn_driver1} → watch it arrive live in the
 execution app (or `curl -N -H "x-user-id: prn_driver1" :3200/sse/channel`).
+
+Picking flow: management app → Pickers page → "Sync stores from fixtures" →
+"Seed pickers" (staff codes P01…, shared PIN, default 123456) → Generator makes
+fulfilments → release sweep marks parts pick_requested → the platform
+dispatcher POSTs create-pick back to `/clients/:id/picks` (needs fc-dev
+`--outbox-enabled`, see above) → picking app: Settings (bind station to
+clientId + storeRef) → login staff code + PIN → claim. Picks list is
+poll-based for now (SSE for picks needs a store channel — follow-up).
 
 Native: `pnpm build && npx cap sync` in the app dir, then open ios/android in
 Xcode/Android Studio. Device-only verifications: native uploader while
