@@ -23,6 +23,7 @@ import { registerScheduledJobRoutes } from './api/routes/scheduled-jobs/index.js
 import { registerPickRoutes } from './api/routes/picks/index.js';
 import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
+import { registerStoreRoutes } from './api/routes/stores/index.js';
 import { schedulePruneTask } from './scheduling/prune-events.js';
 
 declare module 'fastify' {
@@ -207,6 +208,8 @@ async function buildServer() {
         { name: 'Telemetry', description: 'Driver location ingest (Transistorsoft uploader)' },
         { name: 'Pickers', description: 'Pick-context picker admin (provision store staff)' },
         { name: 'PickAuth', description: 'Picker station auth: device-bound PIN/QR login' },
+        { name: 'Stores', description: 'Store registry (reference data pickers bind to)' },
+        { name: 'Picks', description: 'Pick work items: platform intake + picker claim' },
       ],
     },
   });
@@ -233,6 +236,7 @@ async function buildServer() {
   });
   registerPickerAdminRoutes(server, appContext);
   registerPickAuthRoutes(server, appContext);
+  registerStoreRoutes(server, appContext);
 
   if (appContext.auth.config.picker.usingDevSecret) {
     server.log.warn(

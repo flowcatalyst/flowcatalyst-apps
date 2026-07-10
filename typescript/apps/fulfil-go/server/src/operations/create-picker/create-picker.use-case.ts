@@ -12,6 +12,7 @@ import { PickerUser } from '../../domain/pick-identity/picker-user.js';
 import { newPickerUserId } from '../../domain/pick-identity/ids.js';
 import { PickerCreated } from '../../domain/pick-identity/events/picker-created.event.js';
 import type { PickerUserRepository } from '../../domain/pick-identity/picker-user.repository.js';
+import type { StoreRepository } from '../../infrastructure/store-repository.js';
 import { hashSecret } from '../../auth/pick-credentials.js';
 import type { CreatePickerCommand } from './create-picker.command.js';
 
@@ -28,6 +29,7 @@ export class CreatePickerUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly pickers: PickerUserRepository,
+    private readonly stores: StoreRepository,
   ) {}
 
   async execute(command: CreatePickerCommand): Promise<Result<PickerCreated>> {
@@ -61,6 +63,17 @@ export class CreatePickerUseCase {
     if (displayName.length === 0) {
       return Result.failure(
         UseCaseError.validation('DISPLAY_NAME_REQUIRED', 'displayName must not be empty.'),
+      );
+    }
+
+    // Pickers bind to a real registry store — reject unknown refs up front.
+    const storeExists = await this.stores.existsByRef(command.clientId, command.storeRef);
+    if (!storeExists) {
+      return Result.failure(
+        UseCaseError.validation(
+          'STORE_NOT_FOUND',
+          `Store '${command.storeRef}' is not in the registry — sync stores first.`,
+        ),
       );
     }
 

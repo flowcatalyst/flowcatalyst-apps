@@ -31,10 +31,19 @@ import { registerPickerUser } from './infrastructure/register-picker-user.js';
 import { PICKER_USER_ID_PREFIX } from './domain/pick-identity/ids.js';
 import { PICKER_USER_TYPE } from './domain/pick-identity/picker-user.js';
 import type { PickerUserRepository } from './domain/pick-identity/picker-user.repository.js';
+import { createDrizzleStoreRepository } from './infrastructure/store-repository.js';
+import type { StoreRepository } from './infrastructure/store-repository.js';
+import { createDrizzlePickRepository } from './infrastructure/pick-repository.js';
+import { registerPick } from './infrastructure/register-pick.js';
+import { PICK_ID_PREFIX } from './domain/picks/ids.js';
+import { PICK_TYPE } from './domain/picks/pick.js';
+import type { PickRepository } from './domain/picks/pick.repository.js';
 import { CreateFulfilmentUseCase } from './operations/create-fulfilment/create-fulfilment.use-case.js';
 import { CancelFulfilmentUseCase } from './operations/cancel-fulfilment/cancel-fulfilment.use-case.js';
 import { ReleasePartForPickUseCase } from './operations/release-part-for-pick/release-part-for-pick.use-case.js';
 import { CreatePickerUseCase } from './operations/create-picker/create-picker.use-case.js';
+import { ReceivePickUseCase } from './operations/receive-pick/receive-pick.use-case.js';
+import { ClaimPickUseCase } from './operations/claim-pick/claim-pick.use-case.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -66,6 +75,8 @@ export interface AppContextRepositories {
   readonly telemetry: TelemetryRepository;
   readonly idempotency: IdempotencyRepository;
   readonly pickerUsers: PickerUserRepository;
+  readonly stores: StoreRepository;
+  readonly picks: PickRepository;
 }
 
 export interface AppContextUseCases {
@@ -73,6 +84,8 @@ export interface AppContextUseCases {
   readonly cancelFulfilment: CancelFulfilmentUseCase;
   readonly releasePartForPick: ReleasePartForPickUseCase;
   readonly createPicker: CreatePickerUseCase;
+  readonly receivePick: ReceivePickUseCase;
+  readonly claimPick: ClaimPickUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -132,6 +145,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     [JOB_ID_PREFIX]: JOB_TYPE,
     [FULFILMENT_ID_PREFIX]: FULFILMENT_TYPE,
     [PICKER_USER_ID_PREFIX]: PICKER_USER_TYPE,
+    [PICK_ID_PREFIX]: PICK_TYPE,
   });
 
   const jobRepo = createDrizzleJobRepository(db);
@@ -143,10 +157,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const fulfilmentLogRepo = createDrizzleFulfilmentProcessingLogRepository(db);
   const shortIdAllocator = createShortIdAllocator(db);
   const pickerUserRepo = createDrizzlePickerUserRepository(db);
+  const storeRepo = createDrizzleStoreRepository(db);
+  const pickRepo = createDrizzlePickRepository(db);
 
   registerJob(aggregateRegistry, jobRepo);
   registerFulfilment(aggregateRegistry, fulfilmentRepo);
   registerPickerUser(aggregateRegistry, pickerUserRepo);
+  registerPick(aggregateRegistry, pickRepo);
 
   // One OutboxManager backs the UoW so events + local audit logs ride the
   // same ALS-bound Drizzle tx as the aggregate writes.
@@ -184,6 +201,8 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       telemetry: telemetryRepo,
       idempotency: idempotencyRepo,
       pickerUsers: pickerUserRepo,
+      stores: storeRepo,
+      picks: pickRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -207,7 +226,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         outboxManager,
         { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
       ),
-      createPicker: new CreatePickerUseCase(uow, aggregateRegistry, pickerUserRepo),
+      createPicker: new CreatePickerUseCase(uow, aggregateRegistry, pickerUserRepo, storeRepo),
+      receivePick: new ReceivePickUseCase(uow, aggregateRegistry, pickRepo, fulfilmentLogRepo),
+      claimPick: new ClaimPickUseCase(uow, aggregateRegistry, pickRepo, fulfilmentLogRepo),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
       acceptJob: new AcceptJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),

@@ -3,6 +3,7 @@ import { clientId } from './context.js';
 
 const NAV = [
   { label: 'Fulfilments', to: '/fulfilments', icon: '📦' },
+  { label: 'Pickers', to: '/pickers', icon: '🧑‍🏭' },
   { label: 'Generator', to: '/generator', icon: '⚙️' },
 ];
 </script>

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { ConcurrencyConflictError } from '@fulfil-go/framework';
@@ -115,6 +115,46 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
         )
         .limit(1);
       return row ? toDomain(row) : null;
+    },
+
+    async listByClient(clientId: string, storeRef?: string): Promise<readonly PickerUser[]> {
+      const where = storeRef
+        ? and(eq(pickerUsers.clientId, clientId), eq(pickerUsers.storeRef, storeRef))
+        : eq(pickerUsers.clientId, clientId);
+      const rows = await db
+        .select()
+        .from(pickerUsers)
+        .where(where)
+        .orderBy(asc(pickerUsers.storeRef), asc(pickerUsers.staffCode));
+      return rows.map(toDomain);
+    },
+
+    async insertManyIfAbsent(pickers: readonly PickerUser[]): Promise<number> {
+      if (pickers.length === 0) return 0;
+      const rows = await db
+        .insert(pickerUsers)
+        .values(
+          pickers.map((p) => ({
+            id: p.id,
+            clientId: p.clientId,
+            storeRef: p.storeRef,
+            displayName: p.displayName,
+            staffCode: p.staffCode,
+            primaryAuthMethod: p.primaryAuthMethod,
+            status: p.status,
+            pinHash: p.pinHash,
+            failedPinAttempts: p.failedPinAttempts,
+            lockedUntil: p.lockedUntil,
+            version: p.version,
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+          })),
+        )
+        .onConflictDoNothing({
+          target: [pickerUsers.clientId, pickerUsers.storeRef, pickerUsers.staffCode],
+        })
+        .returning({ id: pickerUsers.id });
+      return rows.length;
     },
 
     async updateLockout(picker: PickerUser, tx?: TransactionContext): Promise<void> {

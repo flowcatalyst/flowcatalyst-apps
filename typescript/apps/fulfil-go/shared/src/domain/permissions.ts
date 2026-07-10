@@ -10,9 +10,12 @@ export const FulfilGoPermission = {
   WriteTelemetry: 'writeTelemetry',
   // Pick-context identity administration (platform-OIDC admins).
   ManagePickers: 'managePickers',
-  // Store-scoped picker permission — NOT granted via platform claims; the
-  // picker session token issues it after QR/PIN login (see pick-context-auth).
+  // Store registry administration (sync/list reference stores).
+  ManageStores: 'manageStores',
+  // Store-scoped picker permissions — NOT granted via platform claims; the
+  // picker session token issues them after QR/PIN login (see pick-context-auth).
   ViewStorePicks: 'viewStorePicks',
+  ClaimPick: 'claimPick',
 } as const;
 export type FulfilGoPermission = (typeof FulfilGoPermission)[keyof typeof FulfilGoPermission];
 
@@ -36,6 +39,7 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
       FulfilGoPermission.CreateJob,
       FulfilGoPermission.AssignJob,
       FulfilGoPermission.ManagePickers,
+      FulfilGoPermission.ManageStores,
     ],
     [FulfilGoRole.FieldWorker]: [
       FulfilGoPermission.AcceptJob,
@@ -54,4 +58,5 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
  */
 export const PICKER_SESSION_PERMISSIONS: readonly FulfilGoPermission[] = [
   FulfilGoPermission.ViewStorePicks,
+  FulfilGoPermission.ClaimPick,
 ];

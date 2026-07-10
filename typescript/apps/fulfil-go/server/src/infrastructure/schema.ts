@@ -48,3 +48,9 @@ export type {
 
 export { pickerUsers } from './schema/picker-users.js';
 export type { NewPickerUser, PickerUserRow } from './schema/picker-users.js';
+
+export { stores } from './schema/stores.js';
+export type { NewStore, StoreRow } from './schema/stores.js';
+
+export { picks } from './schema/picks.js';
+export type { NewPick, PickRow } from './schema/picks.js';

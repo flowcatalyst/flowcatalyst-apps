@@ -16,6 +16,17 @@ export interface PickerUserRepository {
     staffCode: string,
   ): Promise<PickerUser | null>;
 
+  /** Admin listing; optionally narrowed to one store. Ordered by store, staffCode. */
+  listByClient(clientId: string, storeRef?: string): Promise<readonly PickerUser[]>;
+
+  /**
+   * Dev/test seeding: plain batch insert, skipping rows whose staff code
+   * already exists (idempotent re-runs). Deliberately NOT the aggregate path —
+   * no outbox events, no per-row audit; use CreatePickerUseCase for real
+   * provisioning. Returns the number actually inserted.
+   */
+  insertManyIfAbsent(pickers: readonly PickerUser[]): Promise<number>;
+
   /**
    * Direct write of login-lockout bookkeeping (failedPinAttempts + lockedUntil
    * + updatedAt) by id — NO version guard, NO domain event. Auth state, not a

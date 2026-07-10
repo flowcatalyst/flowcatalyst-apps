@@ -4,17 +4,46 @@
  * /pick-auth. See docs/pick-context-auth.md.
  */
 import { Type } from '@sinclair/typebox';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { ScopeStore, isFailure } from '@fulfil-go/framework';
-import { CreatePickerCommandSchema } from '@fulfil-go/shared';
+import { CreatePickerCommandSchema, FulfilGoPermission } from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
+import { seedPickers } from '../../../infrastructure/picker-seeder.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
-import { WRITE_RESPONSES } from '../../schemas/common.js';
+import { ErrorResponseSchema, UnauthorizedSchema, WRITE_RESPONSES } from '../../schemas/common.js';
 
 const CreatePickerResponseSchema = Type.Object({
   pickerId: Type.String(),
   createdAt: Type.String(),
 });
+
+const PickerSummarySchema = Type.Object({
+  id: Type.String(),
+  storeRef: Type.String(),
+  displayName: Type.String(),
+  staffCode: Type.String(),
+  primaryAuthMethod: Type.String(),
+  status: Type.String(),
+});
+
+/** Route-level admin gate for the non-use-case endpoints (list, seed). */
+function requireManagePickers(reply: FastifyReply): boolean {
+  const scope = ScopeStore.get();
+  if (!scope) {
+    void reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+    return false;
+  }
+  if (!scope.permissions.has(FulfilGoPermission.ManagePickers)) {
+    void reply.code(403).send({
+      error: 'forbidden',
+      code: 'PERMISSION_DENIED',
+      message: `Missing permission ${FulfilGoPermission.ManagePickers}.`,
+      details: null,
+    });
+    return false;
+  }
+  return true;
+}
 
 export function registerPickerAdminRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.post(
@@ -51,6 +80,78 @@ export function registerPickerAdminRoutes(fastify: FastifyInstance, appContext: 
         pickerId: result.value.getData().pickerId,
         createdAt: result.value.time.toISOString(),
       });
+    },
+  );
+
+  fastify.get(
+    '/clients/:clientId/pickers',
+    {
+      schema: {
+        tags: ['Pickers'],
+        params: Type.Object({ clientId: Type.String() }),
+        querystring: Type.Object({ store: Type.Optional(Type.String()) }),
+        response: {
+          200: Type.Object({ pickers: Type.Array(PickerSummarySchema) }),
+          401: UnauthorizedSchema,
+          403: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!requireManagePickers(reply)) return reply;
+      const { clientId } = request.params as { clientId: string };
+      const { store } = request.query as { store?: string };
+      const rows = await appContext.repositories.pickerUsers.listByClient(clientId, store);
+      return reply.code(200).send({
+        pickers: rows.map((p) => ({
+          id: p.id,
+          storeRef: p.storeRef,
+          displayName: p.displayName,
+          staffCode: p.staffCode,
+          primaryAuthMethod: p.primaryAuthMethod,
+          status: p.status,
+        })),
+      });
+    },
+  );
+
+  // Dev/test bulk seeding — N pickers per registry store with one shared PIN.
+  // Idempotent (existing staff codes skipped); see picker-seeder.ts.
+  fastify.post(
+    '/clients/:clientId/pickers/seed',
+    {
+      schema: {
+        tags: ['Pickers'],
+        params: Type.Object({ clientId: Type.String() }),
+        body: Type.Object({
+          perStore: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
+          pin: Type.Optional(Type.String({ pattern: '^\\d{4,8}$' })),
+        }),
+        response: {
+          200: Type.Object({
+            stores: Type.Integer(),
+            created: Type.Integer(),
+            skipped: Type.Integer(),
+            pin: Type.String(),
+          }),
+          400: ErrorResponseSchema,
+          401: UnauthorizedSchema,
+          403: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!requireManagePickers(reply)) return reply;
+      const { clientId } = request.params as { clientId: string };
+      const body = request.body as { perStore?: number; pin?: string };
+      const pin = body.pin ?? '123456';
+      const result = await seedPickers(
+        appContext.repositories.stores,
+        appContext.repositories.pickerUsers,
+        { clientId, perStore: body.perStore ?? 10, pin },
+      );
+      // Echo the PIN so the admin UI can show how to log the test pickers in.
+      return reply.code(200).send({ ...result, pin });
     },
   );
 }
