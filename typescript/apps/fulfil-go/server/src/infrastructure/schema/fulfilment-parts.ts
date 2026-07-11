@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, jsonb, pgTable, text, varchar } from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 /**
@@ -17,6 +17,15 @@ export const fulfilmentParts = pgTable(
     origin: jsonb('origin').notNull(),
     lines: jsonb('lines').notNull(),
     status: varchar('status', { length: 24 }).notNull().default('pending'),
+    /**
+     * PICK ACTUALS, captured from the pick context's part:picked event (the
+     * fulfilment can never read back into the pick context): what was really
+     * picked/substituted per line, the physical parcels, and whether moving
+     * them needs a vehicle — the transport requester's inputs.
+     */
+    lineResults: jsonb('line_results'),
+    packages: jsonb('packages'),
+    requiresVehicle: boolean('requires_vehicle'),
     /**
      * Precomputed at creation (immutability: slots never change): the moment
      * this part becomes eligible for pick release. ASAP = createdAt;

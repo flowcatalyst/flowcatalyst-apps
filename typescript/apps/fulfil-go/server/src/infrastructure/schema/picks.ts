@@ -29,6 +29,7 @@ export const picks = pgTable(
     claimedAt: timestampColumn('claimed_at'),
     lineResults: jsonb('line_results'),
     packages: jsonb('packages'),
+    requiresVehicle: boolean('requires_vehicle'),
     completedAt: timestampColumn('completed_at'),
     failReason: text('fail_reason'),
     version: integer('version').notNull().default(1),

@@ -36,6 +36,12 @@ const busy = ref(false);
 const error = ref<string | null>(null);
 const failOpen = ref(false);
 const failReason = ref('');
+/** The one question at the end: does this pick require a vehicle? */
+const vehicleOpen = ref(false);
+const vehicleYesConfirm = ref(false);
+watch(vehicleOpen, (open) => {
+  if (open) vehicleYesConfirm.value = false; // fresh question every time
+});
 const isNative = Capacitor.isNativePlatform();
 const scanBusy = ref(false);
 const scanValue = ref('');
@@ -389,11 +395,13 @@ async function submitOutcome(
   }
 }
 
-async function complete(): Promise<void> {
+async function complete(requiresVehicle: boolean): Promise<void> {
   if (!pick.value) return;
+  vehicleOpen.value = false;
   await submitOutcome(
     `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/complete`,
     {
+        requiresVehicle,
         lines: lines.value.map((l) => ({
           externalLineRef: l.externalLineRef,
           pickedQuantity: counts[l.externalLineRef] ?? 0,
@@ -884,10 +892,48 @@ async function fail(): Promise<void> {
 
       <div class="flex gap-2">
         <UButton color="neutral" variant="soft" @click="stage = 'pick'">← Back to picking</UButton>
-        <UButton class="flex-1" size="xl" :loading="busy" :disabled="!canComplete" @click="complete">
-          Complete pick
-          {{ packMode === 'items' && unassignedTotal > 0 ? `(${unassignedTotal} unpacked)` : '' }}
-        </UButton>
+        <!-- Complete → one final question before submitting. -->
+        <UDrawer v-model:open="vehicleOpen" title="One last thing" class="flex-1">
+          <UButton class="w-full" size="xl" :loading="busy" :disabled="!canComplete">
+            Complete pick
+            {{ packMode === 'items' && unassignedTotal > 0 ? `(${unassignedTotal} unpacked)` : '' }}
+          </UButton>
+          <template #body>
+            <div class="flex flex-col gap-4 p-1">
+              <p class="text-center text-lg font-semibold">
+                Does this pick require a vehicle?
+              </p>
+              <!-- "No" is the norm — big and primary. -->
+              <UButton size="xl" block class="h-16 text-xl font-bold" @click="complete(false)">
+                No
+              </UButton>
+              <!-- "Yes" is deliberate — smaller, and double-confirmed. -->
+              <UButton
+                v-if="!vehicleYesConfirm"
+                size="sm"
+                color="warning"
+                variant="outline"
+                block
+                @click="vehicleYesConfirm = true"
+              >
+                Yes — this needs a vehicle
+              </UButton>
+              <UButton
+                v-else
+                size="lg"
+                color="warning"
+                block
+                class="font-bold"
+                @click="complete(true)"
+              >
+                Confirm: vehicle required
+              </UButton>
+              <UButton color="neutral" variant="ghost" block @click="vehicleOpen = false">
+                Cancel
+              </UButton>
+            </div>
+          </template>
+        </UDrawer>
       </div>
     </template>
 

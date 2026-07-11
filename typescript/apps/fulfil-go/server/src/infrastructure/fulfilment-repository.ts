@@ -35,6 +35,9 @@ function partToDomain(row: FulfilmentPartRow): FulfilmentPart {
     releaseAt: row.releaseAt,
     origin: row.origin as OriginLocation,
     lines: row.lines as FulfilmentLine[],
+    lineResults: (row.lineResults as FulfilmentPart['lineResults']) ?? null,
+    packages: (row.packages as FulfilmentPart['packages']) ?? null,
+    requiresVehicle: row.requiresVehicle,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -140,6 +143,9 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
             lines: part.lines,
             status: part.status,
             releaseAt: part.releaseAt,
+            lineResults: part.lineResults,
+            packages: part.packages,
+            requiresVehicle: part.requiresVehicle,
             createdAt: part.createdAt,
             updatedAt: part.updatedAt,
           })
@@ -147,6 +153,9 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
             target: fulfilmentParts.id,
             set: {
               status: part.status,
+              lineResults: part.lineResults,
+              packages: part.packages,
+              requiresVehicle: part.requiresVehicle,
               updatedAt: part.updatedAt,
             },
           })

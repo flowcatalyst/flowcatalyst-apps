@@ -20,6 +20,36 @@ export const FULFILMENT_TYPE = 'Fulfilment' as const;
  * Parts are the unit of coordination (one origin, its lines, its pick);
  * they live inside this aggregate boundary and persist with it.
  */
+/**
+ * Pick ACTUALS as captured from the pick context's part:picked event — the
+ * fulfilment's own record of what physically happened (it never reads back
+ * into the pick context). Shapes mirror the event payload.
+ */
+export interface PartLineActual {
+  readonly externalLineRef: string;
+  readonly pickedQuantity: number;
+  readonly substitutions?: readonly {
+    barcode: string;
+    description: string | null;
+    quantity: number;
+  }[];
+}
+
+export interface PartPackageActual {
+  readonly ref: string;
+  readonly kind: string;
+  readonly size: string | null;
+  readonly temperature: string;
+  readonly items: readonly { externalLineRef: string; quantity: number }[] | null;
+}
+
+export interface PartPickActuals {
+  readonly lineResults: readonly PartLineActual[];
+  readonly packages: readonly PartPackageActual[];
+  /** Picker-supplied: moving this part needs a vehicle (transport input). */
+  readonly requiresVehicle: boolean | null;
+}
+
 export interface FulfilmentPart {
   readonly id: FulfilmentPartId;
   /** 4–6 digit human quick-reference; unique per (client, store, service-day). */
@@ -29,6 +59,10 @@ export interface FulfilmentPart {
   readonly lines: readonly FulfilmentLine[];
   /** When this part becomes eligible for pick release (precomputed, immutable). */
   readonly releaseAt: Date;
+  /** Captured on part:picked — null until the pick completes. */
+  readonly lineResults: readonly PartLineActual[] | null;
+  readonly packages: readonly PartPackageActual[] | null;
+  readonly requiresVehicle: boolean | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -104,6 +138,9 @@ export const Fulfilment = {
         status: 'pending',
         origin: part.origin,
         lines: part.lines,
+        lineResults: null,
+        packages: null,
+        requiresVehicle: null,
         createdAt: input.now,
         updatedAt: input.now,
       })),
@@ -152,18 +189,29 @@ export const Fulfilment = {
     };
   },
 
-  /** `pick_requested|picking → picked|short_picked` — the pick completed. */
+  /**
+   * `pick_requested|picking → picked|short_picked` — the pick completed.
+   * Captures the ACTUALS (line results, parcels, vehicle flag) onto the part.
+   */
   partPickOutcome(
     prior: Fulfilment,
     partId: FulfilmentPartId,
     short: boolean,
+    actuals: PartPickActuals,
     now: Date,
   ): Fulfilment {
     return {
       ...prior,
       parts: prior.parts.map((part) =>
         part.id === partId && (part.status === 'pick_requested' || part.status === 'picking')
-          ? { ...part, status: short ? 'short_picked' : 'picked', updatedAt: now }
+          ? {
+              ...part,
+              status: short ? 'short_picked' : 'picked',
+              lineResults: actuals.lineResults,
+              packages: actuals.packages,
+              requiresVehicle: actuals.requiresVehicle,
+              updatedAt: now,
+            }
           : part,
       ),
       version: prior.version + 1,

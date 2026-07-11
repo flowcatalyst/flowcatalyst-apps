@@ -54,6 +54,8 @@ function make(policies: Partial<FulfilmentPolicies> = {}) {
 const partStatus = (f: ReturnType<typeof make>, id: string) =>
   f.parts.find((p) => p.id === id)?.status;
 
+const ACTUALS = { lineResults: [], packages: [], requiresVehicle: false };
+
 describe('Fulfilment pick-progress transitions', () => {
   it('partPicking: pick_requested → picking, one version bump', () => {
     const f = make();
@@ -67,21 +69,21 @@ describe('Fulfilment pick-progress transitions', () => {
 
   it('partPickOutcome short → short_picked', () => {
     const f = Fulfilment.partPicking(make(), 'fpt_a' as FulfilmentPartId, LATER);
-    const next = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, true, LATER);
+    const next = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, true, ACTUALS, LATER);
     expect(partStatus(next, 'fpt_a')).toBe('short_picked');
   });
 
   it('allViablePicked only when every viable part is picked', () => {
     let f = make();
-    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, LATER);
+    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, LATER);
     expect(Fulfilment.allViablePicked(f)).toBe(false);
-    f = Fulfilment.partPickOutcome(f, 'fpt_b' as FulfilmentPartId, true, LATER);
+    f = Fulfilment.partPickOutcome(f, 'fpt_b' as FulfilmentPartId, true, ACTUALS, LATER);
     expect(Fulfilment.allViablePicked(f)).toBe(true);
   });
 
   it('a failed part drops out of viability — remaining picked ⇒ allViablePicked', () => {
     let f = make();
-    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, LATER);
+    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, LATER);
     f = Fulfilment.partFailed(f, 'fpt_b' as FulfilmentPartId, LATER);
     expect(Fulfilment.allViablePicked(f)).toBe(true);
     expect(Fulfilment.viableParts(f)).toHaveLength(1);
@@ -89,9 +91,9 @@ describe('Fulfilment pick-progress transitions', () => {
 
   it('markReady composes WITHOUT a second version bump', () => {
     let f = make();
-    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, LATER);
+    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, LATER);
     const v = f.version;
-    let next = Fulfilment.partPickOutcome(f, 'fpt_b' as FulfilmentPartId, false, LATER);
+    let next = Fulfilment.partPickOutcome(f, 'fpt_b' as FulfilmentPartId, false, ACTUALS, LATER);
     next = Fulfilment.markReady(next, LATER);
     expect(next.status).toBe('ready');
     expect(next.version).toBe(v + 1); // exactly one bump for the whole commit

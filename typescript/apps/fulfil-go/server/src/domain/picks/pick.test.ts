@@ -78,6 +78,7 @@ describe('Pick', () => {
         { externalLineRef: 'L2', pickedQuantity: 3 },
       ],
       null,
+      false,
       NOW,
     );
     expect(done.status).toBe('picked');
@@ -96,6 +97,7 @@ describe('Pick', () => {
         { externalLineRef: 'L2', pickedQuantity: 1 },
       ],
       null,
+      false,
       NOW,
     );
     expect(done.status).toBe('short_picked');
@@ -125,9 +127,11 @@ describe('Pick', () => {
           items: [{ externalLineRef: 'L2', quantity: 3 }],
         },
       ],
+      true,
       NOW,
     );
     expect(done.status).toBe('picked');
+    expect(done.requiresVehicle).toBe(true);
     expect(done.packages).toHaveLength(2);
     expect(done.packages?.[0]?.size).toBe('M');
     expect(done.packages?.[1]?.kind).toBe('loose');
@@ -149,7 +153,7 @@ describe('Pick', () => {
       { externalLineRef: 'L2', pickedQuantity: 3 },
     ];
     expect(Pick.isFullPick(claimed, results)).toBe(true);
-    const done = Pick.complete(claimed, results, null, NOW);
+    const done = Pick.complete(claimed, results, null, false, NOW);
     expect(done.status).toBe('picked');
     expect(done.lineResults?.[0]?.substitutions?.[0]?.barcode).toBe('600123');
   });

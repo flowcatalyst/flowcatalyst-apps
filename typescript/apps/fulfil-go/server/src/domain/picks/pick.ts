@@ -92,6 +92,8 @@ export interface Pick {
   readonly lineResults: readonly PickLineResult[] | null;
   /** Packing output (bags + loose), when the station packed. */
   readonly packages: readonly PickPackage[] | null;
+  /** Picker-supplied at completion: moving this needs a vehicle. Null = unasked. */
+  readonly requiresVehicle: boolean | null;
   readonly completedAt: Date | null;
   /** Why the pick failed (picker-supplied), when status = failed. */
   readonly failReason: string | null;
@@ -143,6 +145,7 @@ export const Pick = {
       claimedAt: null,
       lineResults: null,
       packages: null,
+      requiresVehicle: null,
       completedAt: null,
       failReason: null,
       version: 1,
@@ -181,6 +184,7 @@ export const Pick = {
     prior: Pick,
     results: readonly PickLineResult[],
     packages: readonly PickPackage[] | null,
+    requiresVehicle: boolean,
     now: Date,
   ): Pick {
     return {
@@ -188,6 +192,7 @@ export const Pick = {
       status: Pick.isFullPick(prior, results) ? 'picked' : 'short_picked',
       lineResults: results,
       packages,
+      requiresVehicle,
       completedAt: now,
       version: prior.version + 1,
       updatedAt: now,

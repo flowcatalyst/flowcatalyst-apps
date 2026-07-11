@@ -26,6 +26,10 @@ export const FulfilmentPartDtoSchema = Type.Object({
   status: Type.String(),
   origin: Type.Any(),
   lines: Type.Array(Type.Any()),
+  /** Pick ACTUALS captured from part:picked — null until the pick completes. */
+  lineResults: Type.Union([Type.Array(Type.Any()), Type.Null()]),
+  packages: Type.Union([Type.Array(Type.Any()), Type.Null()]),
+  requiresVehicle: Type.Union([Type.Boolean(), Type.Null()]),
 });
 export type FulfilmentPartDto = Static<typeof FulfilmentPartDtoSchema>;
 

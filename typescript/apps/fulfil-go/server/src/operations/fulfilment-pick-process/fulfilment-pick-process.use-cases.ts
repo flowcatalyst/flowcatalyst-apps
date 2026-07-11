@@ -49,6 +49,7 @@ export interface PickEventRef {
 
 export interface PartPickedCommand extends PickEventRef {
   readonly short: boolean;
+  readonly requiresVehicle: boolean;
   readonly lineResults: readonly {
     externalLineRef: string;
     pickedQuantity: number;
@@ -57,6 +58,13 @@ export interface PartPickedCommand extends PickEventRef {
       description: string | null;
       quantity: number;
     }[];
+  }[];
+  readonly packages: readonly {
+    ref: string;
+    kind: string;
+    size: string | null;
+    temperature: string;
+    items: readonly { externalLineRef: string; quantity: number }[] | null;
   }[];
 }
 
@@ -168,6 +176,11 @@ export class RegisterPartPickedUseCase {
       prior,
       asFulfilmentPartId(command.partId),
       command.short,
+      {
+        lineResults: command.lineResults,
+        packages: command.packages,
+        requiresVehicle: command.requiresVehicle,
+      },
       now,
     );
 
@@ -215,6 +228,7 @@ export class RegisterPartPickedUseCase {
       shortId: part.shortId,
       pickerId: command.pickerId,
       short: command.short,
+      requiresVehicle: command.requiresVehicle,
       lineResults: command.lineResults.map((r) => ({
         externalLineRef: r.externalLineRef,
         pickedQuantity: r.pickedQuantity,

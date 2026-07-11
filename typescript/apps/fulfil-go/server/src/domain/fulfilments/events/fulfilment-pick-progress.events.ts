@@ -35,6 +35,7 @@ export const PartPickedDataSchema = Type.Object({
   shortId: Type.String(),
   pickerId: Type.String(),
   short: Type.Boolean(),
+  requiresVehicle: Type.Boolean(),
   lineResults: Type.Array(
     Type.Object({
       externalLineRef: Type.String(),

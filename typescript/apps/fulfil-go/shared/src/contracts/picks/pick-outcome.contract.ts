@@ -74,6 +74,11 @@ export const CompletePickCommandSchema = z
       .max(500),
     /** Packing output (pick-then-pack). Omitted = no packing recorded. */
     packages: z.array(PickPackageSchema).min(1).max(100).optional(),
+    /**
+     * Picker-supplied at completion: does moving this pick need a vehicle?
+     * Feeds the transport decision. Default false ("No" is the norm).
+     */
+    requiresVehicle: z.boolean().default(false),
   })
   .strict();
 export type CompletePickCommand = z.infer<typeof CompletePickCommandSchema>;

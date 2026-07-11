@@ -119,11 +119,13 @@ export function registerProcessRoutes(
                   partId: data.partId,
                   pickerId: data.pickerId,
                   short: eventType === 'fulfil-go:pick:pick:short-picked',
+                  requiresVehicle: data.requiresVehicle ?? false,
                   lineResults: data.lineResults.map((r) => ({
                     externalLineRef: r.externalLineRef,
                     pickedQuantity: r.pickedQuantity,
                     ...(r.substitutions ? { substitutions: r.substitutions } : {}),
                   })),
+                  packages: data.packages ?? [],
                 });
               }
               case 'fulfil-go:pick:pick:failed': {

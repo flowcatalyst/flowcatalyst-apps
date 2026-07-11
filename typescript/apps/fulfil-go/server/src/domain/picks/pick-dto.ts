@@ -31,6 +31,7 @@ export function toPickDto(pick: Pick): PickDto {
         }))
       : null,
     packages: pick.packages ? [...pick.packages] : null,
+    requiresVehicle: pick.requiresVehicle,
     completedAt: pick.completedAt?.toISOString() ?? null,
     failReason: pick.failReason,
     createdAt: pick.createdAt.toISOString(),
