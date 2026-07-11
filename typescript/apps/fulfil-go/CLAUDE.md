@@ -3,7 +3,10 @@
 Plain-async app family (like pinpoint, NOT Effect). Server patterns, the
 use-case recipe, and the fulfil→pinpoint translation table live in
 `apps/pinpoint/CLAUDE.md` — read that first; this file covers only what
-fulfil-go adds.
+fulfil-go adds. **Picking up work? `docs/HANDOFF.md` has the current state,
+next steps, and known issues.** Design docs: `docs/fulfilment-context.md`,
+`docs/pick-context-auth.md` (+ `-plan.md`), `docs/picking-workflow.md`,
+`docs/transport-context.md` (next build).
 
 ## Stack
 
