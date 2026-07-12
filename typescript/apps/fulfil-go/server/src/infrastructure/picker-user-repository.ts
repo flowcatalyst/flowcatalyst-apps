@@ -1,11 +1,12 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { TransactionStore, resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
-import { ConcurrencyConflictError } from '@fulfil-go/framework';
 import {
-  asPickerUserId,
-  type PickerUserId,
-} from '../domain/pick-identity/ids.js';
+  TransactionStore,
+  resolveDb,
+  type TransactionContext,
+} from '@flowcatalyst-apps/app-framework';
+import { ConcurrencyConflictError } from '@fulfil-go/framework';
+import { asPickerUserId, type PickerUserId } from '../domain/pick-identity/ids.js';
 import {
   PICKER_USER_TYPE,
   type PickerStatus,
@@ -91,7 +92,10 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
 
     async delete(aggregate: PickerUser, tx?: TransactionContext): Promise<boolean> {
       const client = resolveDb(db, tx);
-      const rows = await client.delete(pickerUsers).where(eq(pickerUsers.id, aggregate.id)).returning();
+      const rows = await client
+        .delete(pickerUsers)
+        .where(eq(pickerUsers.id, aggregate.id))
+        .returning();
       return rows.length > 0;
     },
 
@@ -177,10 +181,7 @@ export function createDrizzlePickerUserRepository(db: PostgresJsDatabase): Picke
         .update(pickerUsers)
         .set({ pinHash, failedPinAttempts: 0, lockedUntil: null, updatedAt: new Date() })
         .where(
-          and(
-            eq(pickerUsers.clientId, clientId),
-            sql`${pickerUsers.staffCode} ~ '^P[0-9]{2}$'`,
-          ),
+          and(eq(pickerUsers.clientId, clientId), sql`${pickerUsers.staffCode} ~ '^P[0-9]{2}$'`),
         )
         .returning({ id: pickerUsers.id });
       return rows.length;

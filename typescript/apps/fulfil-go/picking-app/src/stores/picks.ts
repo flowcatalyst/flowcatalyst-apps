@@ -77,9 +77,7 @@ export function createPicksStore(
       loading.value = true;
       error.value = null;
       try {
-        const res = await api.json<PickDeltaSyncResponse>(
-          `/clients/${clientId.value}/sync/picks`,
-        );
+        const res = await api.json<PickDeltaSyncResponse>(`/clients/${clientId.value}/sync/picks`);
         picks.value = [...res.picks];
         if (res.latestEventId !== '0') setLastEventId(res.latestEventId);
       } catch (err) {

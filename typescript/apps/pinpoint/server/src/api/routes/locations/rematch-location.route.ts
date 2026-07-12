@@ -35,7 +35,7 @@ export function registerRematchLocationRoute(
       schema: {
         tags: ['Locations'],
         description:
-          'Set a location\'s match address and re-run matching. Re-points it to a matched validated master or a fresh PENDING master; the previous auto-created PENDING master is deleted when nothing else links to it.',
+          "Set a location's match address and re-run matching. Re-points it to a matched validated master or a fresh PENDING master; the previous auto-created PENDING master is deleted when nothing else links to it.",
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),
           locationId: Type.String({ minLength: 1 }),

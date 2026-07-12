@@ -245,8 +245,7 @@ export const Fulfilment = {
   allViablePicked(fulfilment: Fulfilment): boolean {
     const viable = Fulfilment.viableParts(fulfilment);
     return (
-      viable.length > 0 &&
-      viable.every((p) => p.status === 'picked' || p.status === 'short_picked')
+      viable.length > 0 && viable.every((p) => p.status === 'picked' || p.status === 'short_picked')
     );
   },
 

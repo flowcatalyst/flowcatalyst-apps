@@ -51,10 +51,14 @@ async function handleSubmit() {
     if (form.value.externalId.trim()) body['externalId'] = form.value.externalId.trim();
     if (form.value.partitionId) body['partitionId'] = form.value.partitionId;
 
-    const result = await apiFetch<{ id: string }>(`/clients/${clientId.value}/locations`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }, { suppressErrorToast: true });
+    const result = await apiFetch<{ id: string }>(
+      `/clients/${clientId.value}/locations`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { suppressErrorToast: true },
+    );
     toast.success('Location Created', 'The location has been created and is being processed.');
     await router.push(`/locations/${result.id}`);
   } catch (e) {

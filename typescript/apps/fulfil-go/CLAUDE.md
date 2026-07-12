@@ -6,7 +6,8 @@ use-case recipe, and the fulfil→pinpoint translation table live in
 fulfil-go adds. **Picking up work? `docs/HANDOFF.md` has the current state,
 next steps, and known issues.** Design docs: `docs/fulfilment-context.md`,
 `docs/pick-context-auth.md` (+ `-plan.md`), `docs/picking-workflow.md`,
-`docs/transport-context.md` (next build).
+`docs/transport-context.md` (next build), `docs/process-definitions.md`
+(per-client process registry + integration hooks — lands with transport).
 
 ## Stack
 
@@ -45,10 +46,16 @@ next steps, and known issues.** Design docs: `docs/fulfilment-context.md`,
 
 1. **SSE**: use cases append to `sync_events` on the same ALS tx before
    `commitAggregate` → in-process broker (`src/sse/sse-broker.ts`) tails the
-   table (poll + post-write nudge) → `GET /sse/channel` streams per-principal
-   (`user:<principalId>`), replays via `Last-Event-ID`, heartbeats every 25s.
-   `GET /sync/jobs` returns `{latestEventId, jobs}` for snapshot-then-stream.
-   Multi-instance seam: swap the broker trigger for pg LISTEN/NOTIFY.
+   table (poll + post-write nudge + LISTEN fulfilgo_sync) → `GET /sse/channel`
+   streams per-principal (`user:<principalId>`), replays via `Last-Event-ID`,
+   heartbeats every 25s. `GET /sync/jobs` returns `{latestEventId, jobs}` for
+   snapshot-then-stream. **Multi-instance safe** (ECS ≥2 nodes): an insert
+   trigger NOTIFYs on commit so every node's broker wakes, and every
+   sync_events read is guarded by the visibility horizon (`txid <
+pg_snapshot_xmin(pg_current_snapshot())` — ids allocate before commit, so
+   an unguarded cursor could skip a late-committing lower id forever; see
+   sync-event-repository.ts). No sticky sessions; keep write txs short (a
+   long write tx stalls SSE emission until it commits).
 2. **Telemetry**: Transistorsoft NATIVE HTTP uploader posts batches to
    `POST /telemetry/locations` (bearer-authed; its `authorization` config
    refreshes tokens natively via `/auth/mobile/refresh`). Ingest is a plain
@@ -60,19 +67,30 @@ next steps, and known issues.** Design docs: `docs/fulfilment-context.md`,
 
 ## Conventions (house rules — apply to every new operation)
 
-- **Optimistic locking on ALL domain operations**: aggregates carry `version`
-  (bumped per transition); repository persist guards `UPDATE … WHERE version =
-prior` and throws `ConcurrencyConflictError` (framework) on mismatch — the
-  server error handler maps it to 409. See fulfilment-repository.persist.
+- **Optimistic locking on ALL domain operations**: aggregates carry `version`;
+  repository persist guards `UPDATE … WHERE version = prior` and throws
+  `ConcurrencyConflictError` (framework) on mismatch — the server error
+  handler maps it to 409. See fulfilment-repository.persist. The root version
+  bumps for EVERY write inside the boundary — child-entity changes (parts,
+  lines, packages) included; child rows never carry their own version — and
+  EXACTLY ONCE per commit: a use case composing several mutations (part
+  transition + markReady derivation) bumps only on the primary transition,
+  or the persist guard fails against itself. Hot aggregate? Shrink the
+  boundary (Pick is its own aggregate for this reason); never skip the bump.
 - **Event groups**: `messageGroup = eventGroup(aggregateCode, aggregateId)`
   from `@fulfil-go/framework` → `fulfilment-ful_XXX`. Never the SDK's
-  colon-delimited `DomainEvent.messageGroup`.
+  colon-delimited `DomainEvent.messageGroup`. Applies to DISPATCH JOBS too —
+  group by the aggregate whose ordering the consumer needs (normally the
+  emitter): platform delivery is FIFO per group, parallel across groups.
+  Never widen a group for cross-aggregate "ordering" — that's the process
+  manager's job (state-guard idempotency), not the queue's.
 - **Branded TSIDs**: id types are `Tsid<'ful'>` etc. via the framework's
   `brandedTsid`/`isTsid`/`asTsid` (mirrors the SDK's unexported
   `generateWithPrefix` — swap internals when the SDK exports it). `asTsid`
   throws (trusted values only); guard USER input with `isTsid` → 404.
 - **UI**: theme + desktop side-panel pattern in `docs/ui-guidelines.md`
-  (pinpoint parity: emerald primary, slate neutral, Inter).
+  (FlowCatalyst brand: blue `brand` ramp primary, slate neutral, Inter,
+  navy chrome on the management app).
 
 ## Gotchas
 
@@ -93,7 +111,7 @@ prior` and throws `ConcurrencyConflictError` (framework) on mismatch — the
   every minute). A 5-field cron passes the platform's shape validation and
   the job shows ACTIVE — but it NEVER fires (silent). Bit us 2026-07-10.
 - Repo READ methods must join the ambient tx: `const current = () =>
-  resolveDb(db, TransactionStore.get())` — a bare `db.select()` inside
+resolveDb(db, TransactionStore.get())` — a bare `db.select()` inside
   runWrite grabs a second pool connection and self-deadlocks the pool under
   ≥10 concurrent writes (e.g. platform dispatch-callback bursts).
 

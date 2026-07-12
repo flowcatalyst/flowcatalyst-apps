@@ -158,7 +158,9 @@ export function registerPickRoutes(
         ...(store ? { storeRef: store } : {}),
       });
 
-      const pickerIds = [...new Set(rows.map((p) => p.claimedBy).filter((id): id is string => !!id))];
+      const pickerIds = [
+        ...new Set(rows.map((p) => p.claimedBy).filter((id): id is string => !!id)),
+      ];
       const pickerRows = await appContext.repositories.pickerUsers.findByIds(clientId, pickerIds);
       const pickers = Object.fromEntries(pickerRows.map((p) => [p.id, p.displayName]));
 

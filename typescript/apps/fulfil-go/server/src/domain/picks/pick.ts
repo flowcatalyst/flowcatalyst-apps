@@ -36,13 +36,11 @@ export interface PickLineResult {
 
 /** Ordered-product units + substituted units — the fullness measure. */
 export function fulfilledQuantity(result: PickLineResult): number {
-  return (
-    result.pickedQuantity + (result.substitutions?.reduce((s, x) => s + x.quantity, 0) ?? 0)
-  );
+  return result.pickedQuantity + (result.substitutions?.reduce((s, x) => s + x.quantity, 0) ?? 0);
 }
 
 export type PackageSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
-export type PackageTemperature = 'ambient' | 'refrigerated' | 'frozen';
+export type PackageTemperature = 'ambient' | 'chilled' | 'frozen';
 
 /**
  * A physical package produced by packing: a scanned bag (size + temperature

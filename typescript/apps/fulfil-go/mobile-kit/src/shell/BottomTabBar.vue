@@ -14,14 +14,19 @@ const route = useRoute();
       v-for="tab in tabs"
       :key="tab.route"
       :to="tab.route"
-      class="flex flex-1 flex-col items-center gap-0.5 py-2 text-xs"
+      class="flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors"
       :class="
         route.path.startsWith(tab.route)
           ? 'font-semibold text-primary'
           : 'text-neutral-500 dark:text-neutral-400'
       "
     >
-      <span class="text-xl leading-none" aria-hidden="true">{{ tab.icon }}</span>
+      <span class="flex h-6 items-center text-xl leading-none" aria-hidden="true">
+        <!-- Apps with an icon system override via the slot; emoji is the fallback. -->
+        <slot name="icon" :tab="tab" :active="route.path.startsWith(tab.route)">
+          {{ tab.icon }}
+        </slot>
+      </span>
       <span>{{ tab.label }}</span>
     </router-link>
   </nav>

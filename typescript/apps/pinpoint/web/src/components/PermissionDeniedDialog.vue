@@ -38,9 +38,7 @@ onUnmounted(() => {
       <div class="perm-denied__icon"><i class="pi pi-lock" /></div>
       <h2 class="perm-denied__title">Access Denied</h2>
       <p class="perm-denied__message">{{ message }}</p>
-      <p class="perm-denied__hint">
-        Contact your administrator if you believe this is an error.
-      </p>
+      <p class="perm-denied__hint">Contact your administrator if you believe this is an error.</p>
       <Button label="OK" class="perm-denied__button" @click="visible = false" />
     </div>
   </Dialog>

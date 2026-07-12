@@ -130,9 +130,7 @@ export class RematchLocationUseCase {
         normalizationBestEffort = true;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
-        return Result.failure(
-          UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message),
-        );
+        return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
       }
     }
 
@@ -241,7 +239,13 @@ export class RematchLocationUseCase {
         normalizedCity: normalized.city,
         normalizedCountry: normalized.country,
       });
-      const masterCommit = await commitAggregate(this.uow, this.registry, master, masterEvent, command);
+      const masterCommit = await commitAggregate(
+        this.uow,
+        this.registry,
+        master,
+        masterEvent,
+        command,
+      );
       if (isFailure(masterCommit)) return Result.failure(masterCommit.error);
       newMasterId = created;
 
@@ -305,8 +309,9 @@ export class RematchLocationUseCase {
     if (previousMasterId !== null && previousMasterId !== newMasterId) {
       oldMaster = await this.masters.findById(asMasterLocationId(previousMasterId));
       if (oldMaster && oldMaster.status === 'PENDING') {
-        const stillLinked = (await this.locations.listByMaster(asMasterLocationId(previousMasterId)))
-          .filter((l) => l.id !== location.id);
+        const stillLinked = (
+          await this.locations.listByMaster(asMasterLocationId(previousMasterId))
+        ).filter((l) => l.id !== location.id);
         previousMasterDeleted = stillLinked.length === 0;
       }
     }
@@ -365,7 +370,13 @@ export class RematchLocationUseCase {
         clientId: oldMaster.clientId,
         locationsDeleted: 0,
       });
-      const deleteResult = await commitDelete(this.uow, this.registry, oldMaster, deletedEvent, command);
+      const deleteResult = await commitDelete(
+        this.uow,
+        this.registry,
+        oldMaster,
+        deletedEvent,
+        command,
+      );
       if (isFailure(deleteResult)) return Result.failure(deleteResult.error);
     }
 

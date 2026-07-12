@@ -18,6 +18,10 @@ defineProps<{ tabs: readonly TabItem[] }>();
     <main class="min-h-0 flex-1 overflow-y-auto">
       <slot />
     </main>
-    <BottomTabBar :tabs="tabs" class="shrink-0 pb-[env(safe-area-inset-bottom)]" />
+    <BottomTabBar :tabs="tabs" class="shrink-0 pb-[env(safe-area-inset-bottom)]">
+      <template v-if="$slots['tab-icon']" #icon="scope">
+        <slot name="tab-icon" v-bind="scope" />
+      </template>
+    </BottomTabBar>
   </div>
 </template>

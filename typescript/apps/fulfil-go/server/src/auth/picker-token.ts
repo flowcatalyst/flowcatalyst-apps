@@ -124,7 +124,9 @@ export function createPickerTokenService(config: PickerAuthConfig): PickerTokenS
         clientId: String(payload['cid']),
         storeRef: String(payload['str']),
         deviceId: typeof payload['dev'] === 'string' ? payload['dev'] : null,
-        permissions: Array.isArray(perms) ? perms.filter((p): p is string => typeof p === 'string') : [],
+        permissions: Array.isArray(perms)
+          ? perms.filter((p): p is string => typeof p === 'string')
+          : [],
       };
     },
 

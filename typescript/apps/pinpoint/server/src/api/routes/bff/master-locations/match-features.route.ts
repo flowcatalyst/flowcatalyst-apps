@@ -117,7 +117,10 @@ export function registerBffMatchFeaturesRoutes(
       if (!scope.permissions.has(REQUIRED_PERMISSION)) {
         return sendUseCaseError(
           reply,
-          UseCaseError.authorization('PERMISSION_DENIED', `Missing permission ${REQUIRED_PERMISSION}.`),
+          UseCaseError.authorization(
+            'PERMISSION_DENIED',
+            `Missing permission ${REQUIRED_PERMISSION}.`,
+          ),
         );
       }
 
@@ -178,7 +181,10 @@ export function registerBffMatchFeaturesRoutes(
       if (!scope.permissions.has(REQUIRED_PERMISSION)) {
         return sendUseCaseError(
           reply,
-          UseCaseError.authorization('PERMISSION_DENIED', `Missing permission ${REQUIRED_PERMISSION}.`),
+          UseCaseError.authorization(
+            'PERMISSION_DENIED',
+            `Missing permission ${REQUIRED_PERMISSION}.`,
+          ),
         );
       }
 

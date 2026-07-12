@@ -37,22 +37,26 @@ persists per pick in localStorage; dead-letter UI in station Settings.
 
 ## Contexts & status
 
-| Context | State |
-|---|---|
-| Fulfilment | create/cancel/release + PM first slice (pick reactions, ready/failed derivation). Missing: transport request on ready, handover, completion, cancel-while-picking (`cancelling`). |
-| Pick | Full: intake, claim, pick-then-pack, substitutes (captured-as-scanned), outcomes, packages, requiresVehicle. Missing: pick-into-bag-directly mode (needs pick_lines as ROWS — see picking-workflow.md), approved-substitute lists (master-data gateway). |
-| Picker identity | PIN-primary complete (login/refresh/lifecycle/seeding, dev PIN 385345). Missing: QR badges, device enrollment, break-glass (pick-context-auth-plan.md phases). |
-| Stores | Base registry section (sync from fixtures). Real master-data sync later; transport config per store later. |
-| Transport | NOT BUILT — design in transport-context.md (TransportOrder + provider port 'own'/'uber'). All inputs already captured on fulfilment parts. |
-| Jobs (demo) | Throwaway vertical; still powers execution-app. Candidate backend for the 'own' transport adapter — DECIDE before transport build (vs fulfil's last-mile). |
+| Context         | State                                                                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fulfilment      | create/cancel/release + PM first slice (pick reactions, ready/failed derivation). Missing: transport request on ready, handover, completion, cancel-while-picking (`cancelling`).                                                                                                           |
+| Pick            | Full: intake, claim, pick-then-pack, substitutes (captured-as-scanned), outcomes, packages, requiresVehicle. Missing: pick-into-bag-directly mode (needs pick_lines as ROWS — see picking-workflow.md), approved-substitute lists (master-data gateway).                                    |
+| Picker identity | PIN-primary complete (login/refresh/lifecycle/seeding, dev PIN 385345). Missing: QR badges, device enrollment, break-glass (pick-context-auth-plan.md phases).                                                                                                                              |
+| Stores          | Base registry section (sync from fixtures). Real master-data sync later; transport config per store later.                                                                                                                                                                                  |
+| Transport       | Aggregate NOT BUILT, but the provider port + FULL UBER DIRECT ADAPTER exist (server/src/transport/ — typed client, quote/create/cancel, webhook verify, robo-courier test mode, 15 tests; see transport-context.md "Uber Direct adapter"). All inputs already captured on fulfilment parts. |
+| Jobs (demo)     | Throwaway vertical; still powers execution-app. Candidate backend for the 'own' transport adapter — DECIDE before transport build (vs fulfil's last-mile).                                                                                                                                  |
 
 ## Agreed next steps (priority order per Andrew's direction)
 
 1. **Transport context** (the big one): TransportOrder aggregate, provider
-   port ('own' driver execution for ROA stores, 'uber' Direct), store/client
-   provider config, PM requests transport on READY (ASAP immediate,
-   STANDARD timed via reaction bookkeeping + deadline sweep). Open decision:
-   'own' adapter backend = execution-app jobs vs fulfil last-mile.
+   port ('own' driver execution for ROA stores, 'uber' Direct, 'inmotion'),
+   store/client provider config + store `geo` + PostGIS coverage oracle
+   (transport-context.md "Provider selection & coverage"), PM requests
+   transport on READY (ASAP immediate, STANDARD timed via reaction
+   bookkeeping + deadline sweep). Alongside it: the process-definition
+   registry + ownership stamp + client integration processes
+   (docs/process-definitions.md). Open decision: 'own' adapter backend =
+   execution-app jobs vs fulfil last-mile.
 2. Fulfilment completion leg: PM consumes transport events → ready →
    completing → completed/partially_completed.
 3. Pick-into-bag-directly mode (+ per-line server-side state as rows).
@@ -62,7 +66,7 @@ persists per pick in localStorage; dead-letter UI in station Settings.
 
 - **pinpoint shares the pool-self-deadlock pattern** (bare `db.` reads inside
   runWrite) — MUST sweep before its prod cutover. Fix pattern: `const
-  current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
+current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
   repos + CLAUDE.md gotcha).
 - pinpoint `test/auth/session-refresh.test.ts`: 2 pre-existing failures
   (mocked happy path returns undefined; possibly SDK-bump related).
@@ -74,10 +78,48 @@ persists per pick in localStorage; dead-letter UI in station Settings.
   reach it — deleted manually via API).
 - TypeScript 7: repo stays on TS6 until 7.1 (vue-tsc needs the new API);
   Andrew's ~/.Brewfile has a note; brew formula still 6.0.3.
+- **Store profiles LIVE 2026-07-12** (config vertical): layered operational
+  settings — code defaults ⇐ 'default' profile (THE global config; virtual
+  until first saved) ⇐ store's profile ⇐ store overrides. Shared contract
+  `StoreSettingsSchema` (+ resolveStoreSettings); tables store_profiles +
+  stores.profile_code/settings_overrides; API /clients/:id/config/\*;
+  management "Configuration → Store profiles" page + per-store profile
+  select on Stores. CONSUMERS: create-fulfilment hydrates per-part pick
+  lead times when the command omits pickLeadTimeMinutes (explicit upstream
+  values ALWAYS win); flightboard thresholds resolve live per store.
+  Dev note: a 'dark-store' demo profile exists, store-001 assigned to it.
+  Store-override editing UI not built (API is).
+- **Flightboard SSE LIVE 2026-07-12**: /clients/:id/sse/ops streams
+  invalidation nudges (broker wildcard '\*' subscription filtered to the
+  client's store channels); page debounce-refetches, badge shows
+  live/polling, poll stays as fallback (15s) and safety net (60s when SSE
+  open — covers signals store channels don't carry, e.g. creation).
+- Projections (docs/projections.md — session tables + stats-as-views, the
+  anti-CDC/Redshift demo story): **pick_sessions LIVE 2026-07-12** —
+  flat row per pick written in the pick txs (receive/claim/complete/fail,
+  idempotent full-row upserts via pick-session-projection.ts), BACKFILLED
+  from historical picks in the migration, `handling_seconds` =
+  claim→complete COMBINED (Andrew's call; split needs station-reported
+  durations — option documented). Views `pick_stats_daily` +
+  `pick_stats_by_picker` (join picker names) query live. NEXT:
+  fulfilment_sessions + Stats page; flightboard re-reads sessions;
+  transport_sessions with transport.
+- EPOD/Integral legacy execution system (the 'inhance' internal execution
+  used by the OLD ondemand app via a CLAIM-TRIP interface): exploration
+  doc expected at docs/epod-integration-notes.md (agent-generated from
+  InhanceMono sources) — feeds a fourth transport provider adapter.
+- Flightboard (management /flightboard, GET /clients/:id/flightboard):
+  controller view LIVE 2026-07-12 — KPIs, exception list (release_overdue /
+  pick_late_unclaimed / pick_late_incomplete; transport kinds reserved),
+  ASAP-first board, 15s poll. Thresholds are v1 constants in
+  flightboard-query.ts — promote to client/store config when controllers
+  want tuning. Delivery-side KPIs (delivered, on-time, OTIF) render as
+  "awaits transport" until that context lands. NOTE: "claimed but not
+  STARTED" is indistinguishable server-side until pick_lines become rows.
 - Fulfilments page could render the captured part ACTUALS (line_results/
   packages/requiresVehicle are already on the DTO) — small UI win.
 - Offered, not built: management "Products" reference page (sku/gtin lookup
-  + rendered barcodes for scan testing).
+  - rendered barcodes for scan testing).
 
 ## Debugging the platform (hard-won)
 

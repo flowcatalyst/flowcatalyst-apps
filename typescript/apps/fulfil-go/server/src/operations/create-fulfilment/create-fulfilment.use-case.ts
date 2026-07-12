@@ -16,6 +16,18 @@ import type { FulfilmentProcessingLogRepository } from '../../infrastructure/ful
 import { serviceDayOf, type ShortIdAllocator } from '../../infrastructure/short-id-allocator.js';
 import type { CreateFulfilmentCommand } from './create-fulfilment.command.js';
 
+/**
+ * Resolves the pick lead time (minutes before slotStart) for a part's
+ * origin store — backed by store-profile resolution in app-context. Only
+ * consulted when the command does NOT carry pickLeadTimeMinutes: an
+ * upstream system managing its own settings sends the value and wins.
+ */
+export type PickLeadTimeResolver = (
+  clientId: string,
+  storeRef: string,
+  type: 'delivery' | 'collect',
+) => Promise<number>;
+
 export class CreateFulfilmentUseCase {
   static readonly requiredPermission = FulfilGoPermission.CreateFulfilment;
 
@@ -25,6 +37,7 @@ export class CreateFulfilmentUseCase {
     private readonly fulfilments: FulfilmentRepository,
     private readonly shortIds: ShortIdAllocator,
     private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly pickLeadTime: PickLeadTimeResolver,
   ) {}
 
   async execute(command: CreateFulfilmentCommand): Promise<Result<FulfilmentCreated>> {
@@ -84,20 +97,24 @@ export class CreateFulfilmentUseCase {
     const id = newFulfilmentId();
     const serviceDay = serviceDayOf(slotStart, command.timezone);
 
-    // Pick release time (precomputed once — slots are immutable): ASAP
-    // releases immediately; STANDARD releases leadTime before the slot.
-    // The integration may pass per-store/global lead settings from upstream;
-    // otherwise defaults by type. A past releaseAt is fine — the sweep
-    // releases it on its next tick (Andrew's rule: always release, log late).
-    const leadMinutes = command.pickLeadTimeMinutes ?? (command.type === 'delivery' ? 90 : 60);
-    const releaseAt =
-      command.serviceLevel === 'ASAP' ? now : new Date(slotStart.getTime() - leadMinutes * 60_000);
-
+    // Pick release time (precomputed once — slots are immutable, per PART):
+    // ASAP releases immediately; STANDARD releases leadTime before the slot.
+    // Lead time source: explicit command value wins (an upstream system
+    // managing its own settings just sends it); otherwise hydrated from the
+    // part's origin STORE PROFILE (default profile carries global config).
+    // A past releaseAt is fine — the sweep releases it on its next tick
+    // (Andrew's rule: always release, log late).
     const parts: CreateFulfilmentPartInput[] = [];
     for (const partInput of command.parts) {
+      const leadMinutes =
+        command.pickLeadTimeMinutes ??
+        (await this.pickLeadTime(command.clientId, partInput.origin.ref, command.type));
       parts.push({
         id: newFulfilmentPartId(),
-        releaseAt,
+        releaseAt:
+          command.serviceLevel === 'ASAP'
+            ? now
+            : new Date(slotStart.getTime() - leadMinutes * 60_000),
         shortId: await this.shortIds.allocate(command.clientId, partInput.origin.ref, serviceDay),
         origin: partInput.origin,
         lines: partInput.lines,
@@ -148,9 +165,15 @@ export class CreateFulfilmentUseCase {
       data: {
         externalSource: command.externalSource,
         externalRef: command.externalRef,
-        pickLeadTimeMinutes: leadMinutes,
-        releaseAt: releaseAt.toISOString(),
-        parts: fulfilment.parts.map((p) => ({ partId: p.id, shortId: p.shortId })),
+        pickLeadTimeMinutesSource:
+          command.pickLeadTimeMinutes !== undefined
+            ? `command:${command.pickLeadTimeMinutes}`
+            : 'store-profile',
+        parts: fulfilment.parts.map((p) => ({
+          partId: p.id,
+          shortId: p.shortId,
+          releaseAt: p.releaseAt.toISOString(),
+        })),
       },
     });
 

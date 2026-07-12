@@ -79,7 +79,9 @@ export class AcceptJobUseCase {
       );
     }
 
-    // Idempotent re-execution: an already-accepted job re-commits unchanged.
+    // Idempotent re-execution: an already-accepted job re-commits unchanged
+    // (sealed Result: success can only come from a commit; the repository
+    // recognises the unchanged-version persist as a replay, not a conflict).
     const job = prior.status === 'accepted' ? prior : Job.accept(prior, new Date());
     const event = new JobAccepted(scope, { jobId: job.id, assigneeId: scope.principalId });
 

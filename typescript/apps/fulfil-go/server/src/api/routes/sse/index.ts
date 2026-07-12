@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@fulfil-go/framework';
 import type { AppContext } from '../../../app-context.js';
+import { ALL_CHANNELS } from '../../../sse/sse-broker.js';
 import {
   storeChannel,
   userChannel,
@@ -88,6 +89,47 @@ export function registerSseRoutes(fastify: FastifyInstance, appContext: AppConte
       reply.raw.write(`: ping\n\n`);
     }, HEARTBEAT_MS);
 
+    request.raw.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      reply.raw.end();
+    });
+  });
+
+  /**
+   * GET /clients/:clientId/sse/ops — the controller/flightboard stream.
+   *
+   * Invalidation nudges, not a data feed: subscribes to the broker WILDCARD
+   * and forwards any event on one of this client's store channels; the
+   * flightboard refetches (debounced) on any frame. No Last-Event-ID replay
+   * — a (re)connecting board refetches anyway, and the page keeps a slow
+   * poll as the safety net for anything store channels don't carry (e.g.
+   * fulfilment creation, which appends no store event).
+   */
+  fastify.get('/clients/:clientId/sse/ops', { schema: { hide: true } }, async (request, reply) => {
+    const scope = ScopeStore.get();
+    if (!scope) {
+      return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+    }
+    const { clientId } = request.params as { clientId: string };
+    const storePrefix = `store:${clientId}:`;
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    reply.raw.write(`retry: 3000\n\n`);
+
+    const unsubscribe = appContext.sseBroker.subscribe(ALL_CHANNELS, (record) => {
+      if (!record.channel.startsWith(storePrefix)) return;
+      reply.raw.write(frame(record));
+    });
+    const heartbeat = setInterval(() => {
+      reply.raw.write(`: ping\n\n`);
+    }, HEARTBEAT_MS);
     request.raw.on('close', () => {
       clearInterval(heartbeat);
       unsubscribe();

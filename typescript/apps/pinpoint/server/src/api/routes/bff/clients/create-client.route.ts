@@ -35,12 +35,7 @@ const ErrorSchema = Type.Object({
  * use case's `CLIENT_CODE_EXISTS` business-rule failure (HTTP 409).
  */
 function deriveCode(name: string): string {
-  const slug = name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .slice(0, 32)
-    .replace(/-+$/, '');
+  const slug = name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 32).replace(/-+$/, '');
   return slug.length > 0 ? slug : 'client';
 }
 

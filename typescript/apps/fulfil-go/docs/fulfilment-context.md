@@ -99,7 +99,7 @@ Line
 ├── quantity          integer count of units
 ├── volumetric        value object: weight (authoritative — the weight
 │                     received here is what matters, always), dimensions?
-├── temperatureClass  'normal' | 'refrigerated' | 'frozen' (default normal) —
+├── temperatureClass  'ambient' | 'chilled' | 'frozen' (default ambient) —
 │                     informs the pick context's packaging requirements
 ├── allowSubstitutes? overrides the fulfilment default when present
 └── attributes        product attributes as received (shaped/enriched upstream)

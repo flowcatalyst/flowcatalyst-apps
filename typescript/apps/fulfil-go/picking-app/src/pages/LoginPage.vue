@@ -41,10 +41,17 @@ async function signIn(): Promise<void> {
 
 <template>
   <div class="flex h-full flex-col items-center justify-center gap-4 p-6">
-    <h1 class="text-xl font-semibold">FulfilGo Pick</h1>
-    <p class="text-sm text-neutral-500">
-      Station: <span class="font-mono">{{ ctx.station.storeRef.value }}</span>
-    </p>
+    <div
+      class="mb-1 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-300 shadow-lg shadow-brand-500/25"
+    >
+      <UIcon name="i-lucide-zap" class="size-7 text-white" />
+    </div>
+    <div class="text-center">
+      <h1 class="text-2xl font-semibold text-neutral-900">FulfilGo Pick</h1>
+      <p class="mt-1 text-sm text-neutral-500">
+        Station <span class="font-mono">{{ ctx.station.storeRef.value }}</span>
+      </p>
+    </div>
 
     <form class="flex w-full max-w-xs flex-col gap-3" @submit.prevent="signIn">
       <UFormField label="Staff code">
@@ -68,7 +75,13 @@ async function signIn(): Promise<void> {
           size="xl"
         />
       </UFormField>
-      <UButton type="submit" size="xl" block :loading="busy" :disabled="!form.staffCode || !form.pin">
+      <UButton
+        type="submit"
+        size="xl"
+        block
+        :loading="busy"
+        :disabled="!form.staffCode || !form.pin"
+      >
         Sign in
       </UButton>
     </form>

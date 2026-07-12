@@ -77,9 +77,10 @@ export type Volumetric = z.infer<typeof VolumetricSchema>;
 
 /**
  * Cold-chain class of a product — informs the pick context's packaging
- * requirements (frozen/refrigerated lines need appropriate packing units).
+ * requirements (frozen/chilled lines need appropriate packing units).
+ * Terminology is ambient/chilled/frozen chain-wide (Andrew, 2026-07-11).
  */
-export const TemperatureClass = z.enum(['normal', 'refrigerated', 'frozen']);
+export const TemperatureClass = z.enum(['ambient', 'chilled', 'frozen']);
 export type TemperatureClass = z.infer<typeof TemperatureClass>;
 
 /** A fulfilment line: immutable value object owned by exactly one part. */
@@ -93,7 +94,7 @@ export const FulfilmentLineSchema = z
     imageUrl: z.string().max(1000).optional(),
     quantity: z.number().int().min(1),
     volumetric: VolumetricSchema,
-    temperatureClass: TemperatureClass.default('normal'),
+    temperatureClass: TemperatureClass.default('ambient'),
     /** Overrides the fulfilment-level allowSubstitutes default when present. */
     allowSubstitutes: z.boolean().optional(),
     /** Product attributes as received — reference data, not process input. */

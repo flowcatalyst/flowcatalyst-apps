@@ -89,6 +89,7 @@ rebuildable index — but it's known tech-debt. Photon **≥ 1.0 dropped
 Elasticsearch entirely**; OpenSearch is now the only backend (latest `1.2.0`).
 
 Verified for the switch (2026-06-20):
+
 - **Single jar `photon-1.2.0.jar`** — same download pattern, so it's a version bump.
 - **Still embedded by default** ("photon starts a private instance of OpenSearch",
   `photon_data` dir) → the jar + EFS-index + awsvpc-service architecture is
@@ -101,6 +102,7 @@ Verified for the switch (2026-06-20):
   the current ES 5.6 index won't load on 1.2.0.
 
 Coordinated switch (image + index move together — do not flip one alone):
+
 1. Bump `PHOTON_VERSION` to `1.2.0` in `.env`, `build-photon.yml`, and
    `build-photon-index.yml` (the Dockerfile arg default too if desired).
 2. **Verify Nominatim compatibility** — Photon 1.2.0's required Nominatim

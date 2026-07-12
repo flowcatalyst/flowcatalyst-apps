@@ -193,9 +193,7 @@ export class CreateLocationUseCase {
         normalizationBestEffort = true;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
-        return Result.failure(
-          UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message),
-        );
+        return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
       }
     }
 

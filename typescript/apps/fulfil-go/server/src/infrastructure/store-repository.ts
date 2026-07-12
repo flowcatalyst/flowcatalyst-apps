@@ -11,6 +11,7 @@ export interface StoreSummary {
   readonly name: string;
   readonly city: string | null;
   readonly region: string | null;
+  readonly profileCode: string;
 }
 
 export interface StoreRepository {
@@ -21,7 +22,14 @@ export interface StoreRepository {
 }
 
 function toSummary(row: StoreRow): StoreSummary {
-  return { id: row.id, storeRef: row.storeRef, name: row.name, city: row.city, region: row.region };
+  return {
+    id: row.id,
+    storeRef: row.storeRef,
+    name: row.name,
+    city: row.city,
+    region: row.region,
+    profileCode: row.profileCode,
+  };
 }
 
 export function createDrizzleStoreRepository(db: PostgresJsDatabase): StoreRepository {

@@ -24,6 +24,12 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
     {
       schema: {
         tags: ['Fulfilments'],
+        summary: 'Create a fulfilment',
+        description:
+          'Idempotent on (client, externalSource, externalRef) — a duplicate returns ' +
+          'FULFILMENT_ALREADY_EXISTS with the existing id. Fulfilments are immutable after ' +
+          'creation (cancel-only). Body contract: CreateFulfilmentCommand (Zod, validated ' +
+          'in-handler; the synced OpenAPI catalogue carries the derived JSON schema).',
         params: Type.Object({ clientId: Type.String() }),
         body: Type.Any(),
         response: {
@@ -64,6 +70,10 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
     {
       schema: {
         tags: ['Fulfilments'],
+        summary: 'Cancel a fulfilment',
+        description:
+          'Only fulfilments still in `created` cancel directly; picking work in flight goes ' +
+          'through the process manager. Optimistic-locked (409 on concurrent transition).',
         params: Type.Object({ clientId: Type.String(), fulfilmentId: Type.String() }),
         body: Type.Optional(Type.Object({ reason: Type.Optional(Type.String()) })),
         response: {
@@ -103,6 +113,7 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
     {
       schema: {
         tags: ['Fulfilments'],
+        summary: 'List fulfilments',
         params: Type.Object({ clientId: Type.String() }),
         querystring: Type.Object({
           limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
@@ -145,6 +156,7 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
     {
       schema: {
         tags: ['Fulfilments'],
+        summary: 'Fulfilment processing log',
         params: Type.Object({ clientId: Type.String(), fulfilmentId: Type.String() }),
         response: {
           200: Type.Object({
@@ -187,6 +199,7 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
     {
       schema: {
         tags: ['Fulfilments'],
+        summary: 'Get a fulfilment',
         params: Type.Object({ clientId: Type.String(), fulfilmentId: Type.String() }),
         response: {
           200: FulfilmentDtoSchema,

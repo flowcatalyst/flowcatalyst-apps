@@ -15,6 +15,8 @@ import type { TelemetryRepository } from './infrastructure/telemetry-repository.
 import { createDrizzleIdempotencyRepository } from './infrastructure/idempotency-repository.js';
 import type { IdempotencyRepository } from './infrastructure/idempotency-repository.js';
 import { createDrizzleSyncEventRepository } from './infrastructure/sync-event-repository.js';
+import { loadStoreSettingsResolver } from './infrastructure/store-settings-resolver.js';
+import { createPickSessionProjection } from './infrastructure/pick-session-projection.js';
 import type { SyncEventRepository } from './infrastructure/sync-event-repository.js';
 import { registerJob } from './infrastructure/register-job.js';
 import { createDrizzleFulfilmentRepository } from './infrastructure/fulfilment-repository.js';
@@ -211,6 +213,8 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   );
 
   const sseBroker = createSseBroker(syncEventRepo, console);
+  // pick_sessions projection (docs/projections.md) — rides the pick txs.
+  const pickSessionProjection = createPickSessionProjection(db);
 
   return {
     db,
@@ -235,6 +239,15 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         fulfilmentRepo,
         shortIdAllocator,
         fulfilmentLogRepo,
+        // Lead-time hydration from store profiles (only consulted when the
+        // command doesn't carry pickLeadTimeMinutes — explicit values win).
+        async (cId, storeRef, type) => {
+          const resolver = await loadStoreSettingsResolver(db, cId, [storeRef]);
+          const settings = resolver.resolve(storeRef);
+          return type === 'delivery'
+            ? settings.pickLeadTimeMinutesDelivery
+            : settings.pickLeadTimeMinutesCollect;
+        },
       ),
       cancelFulfilment: new CancelFulfilmentUseCase(
         uow,
@@ -261,6 +274,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickRepo,
         fulfilmentLogRepo,
         syncEventRepo,
+        pickSessionProjection,
       ),
       claimPick: new ClaimPickUseCase(
         uow,
@@ -268,6 +282,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickRepo,
         fulfilmentLogRepo,
         syncEventRepo,
+        pickSessionProjection,
       ),
       completePick: new CompletePickUseCase(
         uow,
@@ -275,6 +290,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickRepo,
         fulfilmentLogRepo,
         syncEventRepo,
+        pickSessionProjection,
       ),
       failPick: new FailPickUseCase(
         uow,
@@ -282,6 +298,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickRepo,
         fulfilmentLogRepo,
         syncEventRepo,
+        pickSessionProjection,
       ),
       registerPartPicking: new RegisterPartPickingUseCase(
         uow,

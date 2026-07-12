@@ -19,12 +19,7 @@ const form = ref({
 const codeEdited = ref(false);
 
 function deriveClientCode(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .slice(0, 32)
-    .replace(/-+$/, '');
+  return name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 32).replace(/-+$/, '');
 }
 
 watch(
@@ -39,10 +34,14 @@ watch(
 async function handleSubmit() {
   saving.value = true;
   try {
-    const result = await apiFetch<{ id: string }>('/clients', {
-      method: 'POST',
-      body: JSON.stringify(form.value),
-    }, { suppressErrorToast: true });
+    const result = await apiFetch<{ id: string }>(
+      '/clients',
+      {
+        method: 'POST',
+        body: JSON.stringify(form.value),
+      },
+      { suppressErrorToast: true },
+    );
     toast.success('Client Created', `Client "${form.value.name}" has been created.`);
     await router.push(`/clients/${result.id}`);
   } catch (e) {

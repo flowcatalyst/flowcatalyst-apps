@@ -29,7 +29,7 @@ export function registerDeleteMasterLocationRoute(
       schema: {
         tags: ['Master Locations'],
         description:
-          'Delete a master location. CASCADE: also deletes every child location linked to it (each cascading its own association rows) and the master location\'s processing-log rows.',
+          "Delete a master location. CASCADE: also deletes every child location linked to it (each cascading its own association rows) and the master location's processing-log rows.",
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),
           masterLocationId: Type.String({ minLength: 1 }),

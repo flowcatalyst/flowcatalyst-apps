@@ -25,7 +25,12 @@ async function signIn(): Promise<void> {
 
 <template>
   <div class="flex h-full flex-col items-center justify-center gap-4 p-6">
-    <h1 class="text-xl font-semibold">FulfilGo Drive</h1>
+    <div
+      class="mb-1 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-300 shadow-lg shadow-brand-500/25"
+    >
+      <UIcon name="i-lucide-zap" class="size-7 text-white" />
+    </div>
+    <h1 class="text-2xl font-semibold text-neutral-900">FulfilGo Drive</h1>
     <template v-if="ctx.isNative">
       <UButton size="xl" :loading="busy" @click="signIn">Sign in</UButton>
       <UAlert v-if="error" :description="error" color="error" variant="soft" />

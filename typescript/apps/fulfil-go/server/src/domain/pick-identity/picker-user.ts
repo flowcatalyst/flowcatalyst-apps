@@ -74,12 +74,7 @@ export const PickerUser = {
    * Record a failed PIN attempt. On reaching `maxAttempts`, lock for `lockMs`
    * and reset the counter (so the next window starts clean).
    */
-  registerFailedPin(
-    prior: PickerUser,
-    now: Date,
-    maxAttempts: number,
-    lockMs: number,
-  ): PickerUser {
+  registerFailedPin(prior: PickerUser, now: Date, maxAttempts: number, lockMs: number): PickerUser {
     const failed = prior.failedPinAttempts + 1;
     const locked = failed >= maxAttempts;
     return {

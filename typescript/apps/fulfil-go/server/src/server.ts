@@ -8,13 +8,15 @@ import {
   ScopeStore,
   type RequestToken,
 } from '@fulfil-go/framework';
-import { db } from './infrastructure/db.js';
+import { db, sqlClient } from './infrastructure/db.js';
 import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
 import { ALL_PERMISSIONS_SET, resolvePermissions } from './auth/role-permissions.js';
 import { registerJobRoutes } from './api/routes/jobs/index.js';
 import { registerFulfilmentRoutes } from './api/routes/fulfilments/index.js';
+import { registerFlightboardRoutes } from './api/routes/flightboard/index.js';
+import { registerConfigRoutes } from './api/routes/config/index.js';
 import { registerSseRoutes } from './api/routes/sse/index.js';
 import { registerSyncRoutes } from './api/routes/sync/index.js';
 import { registerAuthRoutes } from './api/routes/auth/index.js';
@@ -25,6 +27,7 @@ import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
 import { registerProcessRoutes } from './api/routes/processes/index.js';
+import { listenForSyncEvents } from './sse/sync-notify.js';
 import { schedulePruneTask } from './scheduling/prune-events.js';
 import { scheduleDevReleaseSweep } from './scheduling/dev-release-sweep.js';
 
@@ -226,6 +229,8 @@ async function buildServer() {
 
   registerAuthRoutes(server, appContext);
   registerFulfilmentRoutes(server, appContext);
+  registerFlightboardRoutes(server, appContext);
+  registerConfigRoutes(server, appContext);
   registerJobRoutes(server, appContext);
   registerSseRoutes(server, appContext);
   registerSyncRoutes(server, appContext);
@@ -250,6 +255,13 @@ async function buildServer() {
   }
 
   appContext.sseBroker.start();
+  // Cross-node wake-up: the sync_events insert trigger NOTIFYs on commit;
+  // the poll interval remains the correctness backstop (see sync-notify.ts).
+  const unlistenSync = await listenForSyncEvents(
+    sqlClient,
+    () => appContext.sseBroker.nudge(),
+    server.log,
+  );
   const pruneTask = schedulePruneTask(db, server.log);
   // Dev-only, loud fallback for the platform release-picks cron — see
   // scheduling/dev-release-sweep.ts. Off unless explicitly enabled.
@@ -266,6 +278,7 @@ async function buildServer() {
   server.addHook('onClose', async () => {
     pruneTask.stop();
     devSweep?.stop();
+    await unlistenSync();
     await appContext.sseBroker.stop();
   });
 

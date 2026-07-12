@@ -480,7 +480,9 @@ function dismissResult() {
             @click="handleValidate"
           />
           <Button
-            v-if="masterLocation.latitude != null && authStore.can('pinpoint:matching:spatial:lookup')"
+            v-if="
+              masterLocation.latitude != null && authStore.can('pinpoint:matching:spatial:lookup')
+            "
             label="Match Features"
             icon="pi pi-sitemap"
             severity="secondary"

@@ -52,5 +52,11 @@ export type { NewPickerUser, PickerUserRow } from './schema/picker-users.js';
 export { stores } from './schema/stores.js';
 export type { NewStore, StoreRow } from './schema/stores.js';
 
+export { storeProfiles } from './schema/store-profiles.js';
+export type { StoreProfileRow } from './schema/store-profiles.js';
+
+export { pickSessions } from './schema/pick-sessions.js';
+export type { PickSessionRow } from './schema/pick-sessions.js';
+
 export { picks } from './schema/picks.js';
 export type { NewPick, PickRow } from './schema/picks.js';

@@ -36,7 +36,7 @@ PickPackage
 ├── ref          bag barcode as scanned; client ref (loose-N) for loose
 ├── kind         'bag' | 'loose'   (loose = too big/awkward for a bag)
 ├── size         XS | S | M | L | XL   (bags only; loose has none)
-├── temperature  ambient | refrigerated | frozen   (UI: Standard/Fridge/Freezer)
+├── temperature  ambient | chilled | frozen   (UI: Ambient/Chilled/Frozen)
 └── items?       [{externalLineRef, quantity}]     (items sub-mode only)
 ```
 

@@ -2,9 +2,7 @@
   "version": "8",
   "dialect": "postgres",
   "id": "42de6f17-9d71-4436-932d-98f2d4901029",
-  "prevIds": [
-    "33834b55-cb13-4e9a-949d-690fa8d8aae3"
-  ],
+  "prevIds": ["33834b55-cb13-4e9a-949d-690fa8d8aae3"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -3062,14 +3060,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "layer_id"
-      ],
+      "columns": ["layer_id"],
       "schemaTo": "public",
       "tableTo": "layers",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "layer_features_layer_id_layers_id_fkey",
@@ -3079,14 +3073,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "layer_id"
-      ],
+      "columns": ["layer_id"],
       "schemaTo": "public",
       "tableTo": "layers",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "layer_partitions_layer_id_layers_id_fkey",
@@ -3096,14 +3086,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "partition_id"
-      ],
+      "columns": ["partition_id"],
       "schemaTo": "public",
       "tableTo": "partitions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "layer_partitions_partition_id_partitions_id_fkey",
@@ -3113,14 +3099,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "client_id"
-      ],
+      "columns": ["client_id"],
       "schemaTo": "public",
       "tableTo": "clients",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "layers_client_id_clients_id_fkey",
@@ -3130,14 +3112,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "location_id"
-      ],
+      "columns": ["location_id"],
       "schemaTo": "public",
       "tableTo": "locations",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "location_attributes_location_id_locations_id_fkey",
@@ -3147,14 +3125,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "location_id"
-      ],
+      "columns": ["location_id"],
       "schemaTo": "public",
       "tableTo": "locations",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "location_feature_associations_location_id_locations_id_fkey",
@@ -3164,14 +3138,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "layer_feature_id"
-      ],
+      "columns": ["layer_feature_id"],
       "schemaTo": "public",
       "tableTo": "layer_features",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "location_feature_associations_oIulXloDa71Y_fkey",
@@ -3181,14 +3151,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "layer_id"
-      ],
+      "columns": ["layer_id"],
       "schemaTo": "public",
       "tableTo": "layers",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "location_feature_associations_layer_id_layers_id_fkey",
@@ -3198,14 +3164,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "location_id"
-      ],
+      "columns": ["location_id"],
       "schemaTo": "public",
       "tableTo": "locations",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "location_layer_associations_location_id_locations_id_fkey",
@@ -3215,14 +3177,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "layer_id"
-      ],
+      "columns": ["layer_id"],
       "schemaTo": "public",
       "tableTo": "layers",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "location_layer_associations_layer_id_layers_id_fkey",
@@ -3232,14 +3190,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "client_id"
-      ],
+      "columns": ["client_id"],
       "schemaTo": "public",
       "tableTo": "clients",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "locations_client_id_clients_id_fkey",
@@ -3249,14 +3203,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "partition_id"
-      ],
+      "columns": ["partition_id"],
       "schemaTo": "public",
       "tableTo": "partitions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "locations_partition_id_partitions_id_fkey",
@@ -3266,14 +3216,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "master_location_id"
-      ],
+      "columns": ["master_location_id"],
       "schemaTo": "public",
       "tableTo": "master_locations",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "locations_master_location_id_master_locations_id_fkey",
@@ -3283,14 +3229,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "client_id"
-      ],
+      "columns": ["client_id"],
       "schemaTo": "public",
       "tableTo": "clients",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "master_locations_client_id_clients_id_fkey",
@@ -3300,14 +3242,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "partition_id"
-      ],
+      "columns": ["partition_id"],
       "schemaTo": "public",
       "tableTo": "partitions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "master_locations_partition_id_partitions_id_fkey",
@@ -3317,14 +3255,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "client_id"
-      ],
+      "columns": ["client_id"],
       "schemaTo": "public",
       "tableTo": "clients",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "matching_configs_client_id_clients_id_fkey",
@@ -3334,14 +3268,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "partition_id"
-      ],
+      "columns": ["partition_id"],
       "schemaTo": "public",
       "tableTo": "partitions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "matching_configs_partition_id_partitions_id_fkey",
@@ -3351,14 +3281,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "client_id"
-      ],
+      "columns": ["client_id"],
       "schemaTo": "public",
       "tableTo": "clients",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "partitions_client_id_clients_id_fkey",
@@ -3368,14 +3294,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "principal_id"
-      ],
+      "columns": ["principal_id"],
       "schemaTo": "public",
       "tableTo": "principals",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "principal_partitions_principal_id_principals_id_fkey",
@@ -3385,14 +3307,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "partition_id"
-      ],
+      "columns": ["partition_id"],
       "schemaTo": "public",
       "tableTo": "partitions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "principal_partitions_partition_id_partitions_id_fkey",
@@ -3402,14 +3320,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "granted_by"
-      ],
+      "columns": ["granted_by"],
       "schemaTo": "public",
       "tableTo": "principals",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "principal_partitions_granted_by_principals_id_fkey",
@@ -3419,14 +3333,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "master_location_id"
-      ],
+      "columns": ["master_location_id"],
       "schemaTo": "public",
       "tableTo": "master_locations",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "processing_log_master_location_id_master_locations_id_fkey",
@@ -3436,14 +3346,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "property_set_id"
-      ],
+      "columns": ["property_set_id"],
       "schemaTo": "public",
       "tableTo": "property_sets",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "properties_property_set_id_property_sets_id_fkey",
@@ -3453,14 +3359,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "layer_id"
-      ],
+      "columns": ["layer_id"],
       "schemaTo": "public",
       "tableTo": "layers",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "property_sets_layer_id_layers_id_fkey",
@@ -3469,10 +3371,7 @@
       "table": "property_sets"
     },
     {
-      "columns": [
-        "layer_id",
-        "partition_id"
-      ],
+      "columns": ["layer_id", "partition_id"],
       "nameExplicit": false,
       "name": "layer_partitions_pkey",
       "entityType": "pks",
@@ -3480,10 +3379,7 @@
       "table": "layer_partitions"
     },
     {
-      "columns": [
-        "location_id",
-        "layer_feature_id"
-      ],
+      "columns": ["location_id", "layer_feature_id"],
       "nameExplicit": false,
       "name": "location_feature_associations_pkey",
       "entityType": "pks",
@@ -3491,10 +3387,7 @@
       "table": "location_feature_associations"
     },
     {
-      "columns": [
-        "location_id",
-        "layer_id"
-      ],
+      "columns": ["location_id", "layer_id"],
       "nameExplicit": false,
       "name": "location_layer_associations_pkey",
       "entityType": "pks",
@@ -3502,10 +3395,7 @@
       "table": "location_layer_associations"
     },
     {
-      "columns": [
-        "principal_id",
-        "partition_id"
-      ],
+      "columns": ["principal_id", "partition_id"],
       "nameExplicit": false,
       "name": "principal_partitions_pkey",
       "entityType": "pks",
@@ -3513,9 +3403,7 @@
       "table": "principal_partitions"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "audit_logs_pkey",
       "schema": "public",
@@ -3523,9 +3411,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "clients_pkey",
       "schema": "public",
@@ -3533,9 +3419,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "countries_pkey",
       "schema": "public",
@@ -3543,9 +3427,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "layer_features_pkey",
       "schema": "public",
@@ -3553,9 +3435,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "layers_pkey",
       "schema": "public",
@@ -3563,9 +3443,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "location_attributes_pkey",
       "schema": "public",
@@ -3573,9 +3451,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "locations_pkey",
       "schema": "public",
@@ -3583,9 +3459,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "master_locations_pkey",
       "schema": "public",
@@ -3593,9 +3467,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "matching_configs_pkey",
       "schema": "public",
@@ -3603,9 +3475,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "partitions_pkey",
       "schema": "public",
@@ -3613,9 +3483,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "principals_pkey",
       "schema": "public",
@@ -3623,9 +3491,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "processing_log_pkey",
       "schema": "public",
@@ -3633,9 +3499,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "properties_pkey",
       "schema": "public",
@@ -3643,9 +3507,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "property_sets_pkey",
       "schema": "public",
@@ -3653,9 +3515,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "sessions_pkey",
       "schema": "public",
@@ -3664,10 +3524,7 @@
     },
     {
       "nameExplicit": true,
-      "columns": [
-        "client_id",
-        "partition_id"
-      ],
+      "columns": ["client_id", "partition_id"],
       "nullsNotDistinct": true,
       "name": "matching_configs_client_partition_uq",
       "entityType": "uniques",

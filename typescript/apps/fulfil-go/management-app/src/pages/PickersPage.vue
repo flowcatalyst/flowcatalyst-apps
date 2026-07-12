@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import PageHeader from '../components/PageHeader.vue';
 
 interface StoreSummary {
   id: string;
@@ -175,11 +176,11 @@ watch(selectedStore, () => void loadPickers());
 
 <template>
   <div class="mx-auto max-w-5xl p-6">
-    <h1 class="mb-1 text-xl font-semibold text-[#102a43]">Pickers</h1>
-    <p class="mb-4 text-sm text-neutral-500">
-      Pick-context staff — local identities bound to one store (staff code + PIN on the station).
-      Suspension and store moves take effect within one session refresh (≤15 min).
-    </p>
+    <PageHeader
+      title="Pickers"
+      subtitle="Pick-context staff — local identities bound to one store (staff code + PIN on the
+        station). Suspension and store moves take effect within one session refresh (≤15 min)."
+    />
 
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
     <UAlert v-if="notice" :description="notice" color="success" variant="soft" class="mb-3" />
@@ -229,7 +230,7 @@ watch(selectedStore, () => void loadPickers());
       <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table class="w-full text-sm">
           <thead>
-            <tr class="bg-neutral-50 text-left text-xs font-semibold text-[#334e68]">
+            <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
               <th class="px-3 py-2">Staff code</th>
               <th class="px-3 py-2">Name</th>
               <th class="px-3 py-2">Status</th>

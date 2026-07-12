@@ -66,7 +66,9 @@ export class CompleteJobUseCase {
       );
     }
 
-    // Idempotent re-execution: an already-completed job re-commits unchanged.
+    // Idempotent re-execution: an already-completed job re-commits unchanged
+    // (sealed Result: success can only come from a commit; the repository
+    // recognises the unchanged-version persist as a replay, not a conflict).
     const job = prior.status === 'completed' ? prior : Job.complete(prior, new Date());
     const event = new JobCompleted(scope, {
       jobId: job.id,

@@ -15,14 +15,38 @@ import { hashSecret } from '../auth/pick-credentials.js';
  * conflict-free insert, so re-runs only fill gaps.
  */
 const FIRST_NAMES = [
-  'Thandi', 'Sipho', 'Anika', 'Pieter', 'Lerato',
-  'Johan', 'Zanele', 'Priya', 'Kagiso', 'Emma',
-  'Bongani', 'Chantel', 'Tumelo', 'Ravi', 'Nadia',
+  'Thandi',
+  'Sipho',
+  'Anika',
+  'Pieter',
+  'Lerato',
+  'Johan',
+  'Zanele',
+  'Priya',
+  'Kagiso',
+  'Emma',
+  'Bongani',
+  'Chantel',
+  'Tumelo',
+  'Ravi',
+  'Nadia',
 ];
 const LAST_NAMES = [
-  'Nkosi', 'van der Merwe', 'Dlamini', 'Botha', 'Naidoo',
-  'Mokoena', 'Smith', 'Khumalo', 'Pillay', 'Fourie',
-  'Sithole', 'Jacobs', 'Mahlangu', 'Petersen', 'Ngcobo',
+  'Nkosi',
+  'van der Merwe',
+  'Dlamini',
+  'Botha',
+  'Naidoo',
+  'Mokoena',
+  'Smith',
+  'Khumalo',
+  'Pillay',
+  'Fourie',
+  'Sithole',
+  'Jacobs',
+  'Mahlangu',
+  'Petersen',
+  'Ngcobo',
 ];
 
 export interface SeedPickersInput {

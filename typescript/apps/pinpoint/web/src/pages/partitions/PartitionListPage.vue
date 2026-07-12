@@ -63,14 +63,18 @@ async function handleCreate() {
   if (!clientId.value) return;
   creating.value = true;
   try {
-    await apiFetch(`/clients/${clientId.value}/partitions`, {
-      method: 'POST',
-      body: JSON.stringify({
-        code: createForm.value.code,
-        name: createForm.value.name,
-        description: createForm.value.description || null,
-      }),
-    }, { suppressErrorToast: true });
+    await apiFetch(
+      `/clients/${clientId.value}/partitions`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          code: createForm.value.code,
+          name: createForm.value.name,
+          description: createForm.value.description || null,
+        }),
+      },
+      { suppressErrorToast: true },
+    );
     toast.success('Partition Created', `Partition "${createForm.value.name}" has been created.`);
     showCreateDialog.value = false;
     await loadPartitions();

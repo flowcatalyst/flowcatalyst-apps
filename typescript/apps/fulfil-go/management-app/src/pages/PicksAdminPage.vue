@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import type { PickDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
+import PageHeader from '../components/PageHeader.vue';
 
 /**
  * Back-office pick views — one component, two routes:
@@ -91,35 +92,38 @@ watch([status, storeFilter], () => void load());
 
 <template>
   <div class="mx-auto max-w-5xl p-6">
-    <h1 class="mb-1 text-xl font-semibold text-[#102a43]">
-      {{ isActiveView ? 'Active picks' : 'Requested picks' }}
-    </h1>
-    <p class="mb-4 text-sm text-neutral-500">
-      {{
+    <PageHeader
+      :title="isActiveView ? 'Active picks' : 'Requested picks'"
+      :subtitle="
         isActiveView
           ? 'Claimed and being picked right now, per store and picker.'
           : 'Released to stores and waiting for a picker to claim.'
-      }}
-    </p>
+      "
+    >
+      <template #actions>
+        <UButton
+          size="sm"
+          variant="soft"
+          icon="i-lucide-refresh-cw"
+          :loading="loading"
+          @click="load"
+        >
+          Refresh
+        </UButton>
+      </template>
+    </PageHeader>
 
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
 
     <div class="mb-3 flex items-center gap-3">
-      <USelect
-        v-model="storeFilter"
-        :items="storeOptions"
-        value-key="value"
-        class="w-80"
-      />
+      <USelect v-model="storeFilter" :items="storeOptions" value-key="value" class="w-80" />
       <span class="text-xs text-neutral-400">{{ picks.length }} pick(s)</span>
-      <div class="flex-1" />
-      <UButton size="xs" variant="soft" :loading="loading" @click="load">Refresh</UButton>
     </div>
 
     <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-neutral-50 text-left text-xs font-semibold text-[#334e68]">
+          <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
             <th class="px-3 py-2">Part</th>
             <th class="px-3 py-2">Store</th>
             <th class="px-3 py-2">Slot</th>

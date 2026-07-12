@@ -3,8 +3,9 @@
 
 /* FlowCatalyst brand parity with web-kit/pinpoint: Inter + the fc-accent
    blue ramp registered as the 'brand' palette (ui plugin points primary at
-   it). `@theme static` because Nuxt UI references the ramp only at runtime
-   and Tailwind would tree-shake it otherwise. */
+   it) + the fc-navy ramp for management chrome (sidebar, headings).
+   `@theme static` because Nuxt UI references the ramp only at runtime and
+   Tailwind would tree-shake it otherwise. */
 @theme static {
   --font-sans:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
@@ -21,9 +22,38 @@
   --color-brand-800: #01337d;
   --color-brand-900: #002159;
   --color-brand-950: #001238;
+
+  --color-navy-50: #f0f4f8;
+  --color-navy-100: #d9e2ec;
+  --color-navy-200: #bcccdc;
+  --color-navy-300: #9fb3c8;
+  --color-navy-400: #829ab1;
+  --color-navy-500: #627d98;
+  --color-navy-600: #486581;
+  --color-navy-700: #334e68;
+  --color-navy-800: #243b53;
+  --color-navy-900: #102a43;
+  --color-navy-950: #0a1929;
 }
 
-/* Navy sidebar chrome — same gradient as web-kit's AppSidebar (pinpoint). */
+/* Navy sidebar chrome — same gradient as the FlowCatalyst management UI. */
 .fc-sidebar {
   background: linear-gradient(180deg, #102a43 0%, #0a1929 100%);
+}
+
+/* Active nav item: accent tint + right-edge accent bar (FlowCatalyst chrome).
+   Scoped under .fc-nav-item so it outranks the idle text-white/70 utility. */
+.fc-nav-item.fc-nav-item-active {
+  background: rgba(71, 163, 243, 0.15);
+  color: #47a3f3;
+  border-right: 3px solid #47a3f3;
+}
+
+/* Thin scrollbar on the dark nav rail. */
+.fc-sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.fc-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }

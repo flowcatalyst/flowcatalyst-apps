@@ -19,7 +19,9 @@ export async function sendUseCaseError(
   // leave them out of the error log to avoid noise.
   if (status >= 500) {
     reply.log.error(
-      { err: { type: error.type, code: error.code, message: error.message, details: error.details } },
+      {
+        err: { type: error.type, code: error.code, message: error.message, details: error.details },
+      },
       `use-case error → ${status}: ${error.code} ${error.message}`,
     );
   }

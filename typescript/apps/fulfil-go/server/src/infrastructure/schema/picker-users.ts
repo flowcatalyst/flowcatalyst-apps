@@ -23,9 +23,7 @@ export const pickerUsers = pgTable(
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),
   },
-  (t) => [
-    uniqueIndex('uq_picker_users_staff_code').on(t.clientId, t.storeRef, t.staffCode),
-  ],
+  (t) => [uniqueIndex('uq_picker_users_staff_code').on(t.clientId, t.storeRef, t.staffCode)],
 );
 
 export type NewPickerUser = typeof pickerUsers.$inferInsert;

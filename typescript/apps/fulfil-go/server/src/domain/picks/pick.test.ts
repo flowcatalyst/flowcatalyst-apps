@@ -17,7 +17,7 @@ const lines: FulfilmentLine[] = [
     description: 'Milk 2L',
     quantity: 2,
     volumetric: { weightGrams: 2060 },
-    temperatureClass: 'refrigerated',
+    temperatureClass: 'chilled',
   },
   {
     externalLineRef: 'L2',
@@ -25,7 +25,7 @@ const lines: FulfilmentLine[] = [
     description: 'Bread',
     quantity: 3,
     volumetric: { weightGrams: 700 },
-    temperatureClass: 'normal',
+    temperatureClass: 'ambient',
   },
 ];
 
@@ -116,7 +116,7 @@ describe('Pick', () => {
           ref: 'BAG-001',
           kind: 'bag',
           size: 'M',
-          temperature: 'refrigerated',
+          temperature: 'chilled',
           items: [{ externalLineRef: 'L1', quantity: 2 }],
         },
         {

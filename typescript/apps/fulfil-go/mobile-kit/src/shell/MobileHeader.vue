@@ -16,11 +16,22 @@ function goBack(): void {
     <button
       v-if="back"
       type="button"
-      class="-ml-1 rounded p-1 text-lg leading-none text-neutral-600 dark:text-neutral-300"
+      class="-ml-1 rounded-md p-1.5 text-neutral-600 transition-colors active:bg-neutral-100 dark:text-neutral-300 dark:active:bg-neutral-800"
       aria-label="Back"
       @click="goBack"
     >
-      ‹
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="size-5"
+        aria-hidden="true"
+      >
+        <path d="m15 18-6-6 6-6" />
+      </svg>
     </button>
     <h1 class="min-w-0 flex-1 truncate text-base font-semibold">{{ title }}</h1>
     <slot name="right" />

@@ -1,6 +1,7 @@
 import type { sync } from '@flowcatalyst/sdk';
 import { fulfilGoEventTypes } from './events.js';
 import { fulfilGoRoles } from './roles.js';
+import { buildFulfilGoProcesses } from './processes.js';
 
 export const FULFILGO_APPLICATION_CODE = 'fulfil-go' as const;
 
@@ -58,6 +59,8 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
       },
     ],
     roles: [...fulfilGoRoles],
+    // Workflow catalogue: mermaid bodies from docs/processes/*.mmd.
+    processes: buildFulfilGoProcesses(),
     scheduledJobs: [
       {
         code: 'fulfil-go-release-picks',

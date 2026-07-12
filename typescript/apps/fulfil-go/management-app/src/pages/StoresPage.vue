@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
 import storeFixtures from '../generator/data/stores.json';
+import PageHeader from '../components/PageHeader.vue';
 
 interface StoreSummary {
   id: string;
@@ -9,9 +10,39 @@ interface StoreSummary {
   name: string;
   city: string | null;
   region: string | null;
+  profileCode: string;
 }
 
 const stores = ref<StoreSummary[]>([]);
+const profileOptions = ref<Array<{ label: string; value: string }>>([]);
+const profileBusy = ref<string | null>(null);
+
+async function loadProfiles(): Promise<void> {
+  try {
+    const res = await api.json<{ profiles: Array<{ code: string; name: string }> }>(
+      `/clients/${clientId.value}/config/store-profiles`,
+    );
+    profileOptions.value = res.profiles.map((p) => ({ label: p.name, value: p.code }));
+  } catch {
+    profileOptions.value = [{ label: 'Default', value: 'default' }];
+  }
+}
+
+async function assignProfile(store: StoreSummary, profileCode: string): Promise<void> {
+  if (profileCode === store.profileCode) return;
+  profileBusy.value = store.storeRef;
+  try {
+    await api.json(`/clients/${clientId.value}/config/stores/${store.storeRef}`, {
+      method: 'PATCH',
+      body: { profileCode },
+    });
+    store.profileCode = profileCode;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    profileBusy.value = null;
+  }
+}
 const filter = ref('');
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
@@ -60,17 +91,24 @@ const visible = (): StoreSummary[] => {
   );
 };
 
-onMounted(() => void load());
-watch(clientId, () => void load());
+onMounted(() => {
+  void load();
+  void loadProfiles();
+});
+watch(clientId, () => {
+  void load();
+  void loadProfiles();
+});
 </script>
 
 <template>
   <div class="mx-auto max-w-4xl p-6">
-    <h1 class="mb-1 text-xl font-semibold text-[#102a43]">Stores</h1>
-    <p class="mb-4 text-sm text-neutral-500">
-      Base store setup — the registry every other context (picking, fulfilment, transport) binds
-      to by <span class="font-mono">storeRef</span>.
-    </p>
+    <PageHeader title="Stores">
+      <template #subtitle>
+        Base store setup — the registry every other context (picking, fulfilment, transport) binds
+        to by <span class="font-mono">storeRef</span>.
+      </template>
+    </PageHeader>
 
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
     <UAlert v-if="notice" :description="notice" color="success" variant="soft" class="mb-3" />
@@ -87,11 +125,12 @@ watch(clientId, () => void load());
     <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
       <table class="w-full text-sm">
         <thead>
-          <tr class="bg-neutral-50 text-left text-xs font-semibold text-[#334e68]">
+          <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
             <th class="px-3 py-2">Store ref</th>
             <th class="px-3 py-2">Name</th>
             <th class="px-3 py-2">City</th>
             <th class="px-3 py-2">Region</th>
+            <th class="px-3 py-2">Profile</th>
           </tr>
         </thead>
         <tbody>
@@ -100,9 +139,20 @@ watch(clientId, () => void load());
             <td class="px-3 py-2">{{ s.name }}</td>
             <td class="px-3 py-2 text-neutral-500">{{ s.city ?? '—' }}</td>
             <td class="px-3 py-2 text-neutral-500">{{ s.region ?? '—' }}</td>
+            <td class="px-3 py-2">
+              <USelect
+                :model-value="s.profileCode"
+                :items="profileOptions"
+                value-key="value"
+                size="xs"
+                class="w-36"
+                :loading="profileBusy === s.storeRef"
+                @update:model-value="(v: string) => assignProfile(s, v)"
+              />
+            </td>
           </tr>
           <tr v-if="stores.length === 0 && !loading">
-            <td colspan="4" class="px-3 py-8 text-center text-neutral-400">
+            <td colspan="5" class="px-3 py-8 text-center text-neutral-400">
               No stores yet — sync from fixtures to get started.
             </td>
           </tr>

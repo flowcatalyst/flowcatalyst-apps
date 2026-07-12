@@ -38,10 +38,14 @@ async function handleSave() {
   if (!config.value) return;
   saving.value = true;
   try {
-    await apiFetch(`/matching-configs/${config.value.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ threshold: editThreshold.value / 100 }),
-    }, { suppressErrorToast: true });
+    await apiFetch(
+      `/matching-configs/${config.value.id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ threshold: editThreshold.value / 100 }),
+      },
+      { suppressErrorToast: true },
+    );
     config.value.threshold = editThreshold.value / 100;
     toast.success('Saved', 'Matching threshold updated.');
   } catch (e) {

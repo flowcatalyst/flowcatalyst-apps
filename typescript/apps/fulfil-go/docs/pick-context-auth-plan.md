@@ -11,7 +11,7 @@ optimistic locking per CLAUDE.md).
 Everything hard about this reduces to two gaps in the current server:
 
 1. **The server issues no tokens.** `extractRequestToken` (server.ts) only
-   *validates* external platform JWTs via JWKS. Picker sessions are
+   _validates_ external platform JWTs via JWKS. Picker sessions are
    **fulfil-go-signed** — we need a `PickerTokenService` (sign + verify) with a
    local key. New capability, build it first.
 2. **`Scope` carries only `{sub, permissions}`.** Store-scoped authz needs

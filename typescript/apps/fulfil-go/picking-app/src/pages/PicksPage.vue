@@ -32,10 +32,7 @@ function slot(pick: PickDto): string {
 }
 
 function units(pick: PickDto): number {
-  return pick.lines.reduce(
-    (sum, line) => sum + ((line as { quantity?: number }).quantity ?? 0),
-    0,
-  );
+  return pick.lines.reduce((sum, line) => sum + ((line as { quantity?: number }).quantity ?? 0), 0);
 }
 </script>
 
@@ -92,7 +89,7 @@ function units(pick: PickDto): number {
             <span class="font-medium">{{ line.quantity }}×</span> {{ line.description }}
           </span>
           <span
-            v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
+            v-if="line.temperatureClass && line.temperatureClass !== 'ambient'"
             class="shrink-0 text-xs text-cyan-600"
           >
             {{ line.temperatureClass }}

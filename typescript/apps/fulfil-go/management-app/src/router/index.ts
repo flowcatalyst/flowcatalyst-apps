@@ -1,15 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import FlightboardPage from '../pages/FlightboardPage.vue';
 import FulfilmentsPage from '../pages/FulfilmentsPage.vue';
 import GeneratorPage from '../pages/GeneratorPage.vue';
 import PickersPage from '../pages/PickersPage.vue';
 import PicksAdminPage from '../pages/PicksAdminPage.vue';
 import DriversPage from '../pages/DriversPage.vue';
 import StoresPage from '../pages/StoresPage.vue';
+import SettingsPage from '../pages/SettingsPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/fulfilments' },
+    { path: '/', redirect: '/flightboard' },
+    // Operations — the controller's live view
+    { path: '/flightboard', component: FlightboardPage, meta: { title: 'Flightboard' } },
     // Fulfilment context
     { path: '/fulfilments', component: FulfilmentsPage, meta: { title: 'Fulfilments' } },
     { path: '/generator', component: GeneratorPage, meta: { title: 'Generator' } },
@@ -29,6 +33,12 @@ export const router = createRouter({
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
     // Base store registry
     { path: '/stores', component: StoresPage, meta: { title: 'Stores' } },
+    // Configuration (store profiles = layered operational settings)
+    {
+      path: '/settings/store-profiles',
+      component: SettingsPage,
+      meta: { title: 'Store profiles' },
+    },
     // Old flat path — keep deep links working.
     { path: '/pickers', redirect: '/picking/pickers' },
   ],

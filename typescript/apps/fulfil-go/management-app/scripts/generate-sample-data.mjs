@@ -122,7 +122,7 @@ const CATEGORIES = [
     ],
   },
   {
-    temperatureClass: 'refrigerated',
+    temperatureClass: 'chilled',
     share: 0.3,
     weight: [100, 3000],
     items: [
@@ -141,7 +141,7 @@ const CATEGORIES = [
     ],
   },
   {
-    temperatureClass: 'normal',
+    temperatureClass: 'ambient',
     share: 0.55,
     weight: [50, 5000],
     items: [

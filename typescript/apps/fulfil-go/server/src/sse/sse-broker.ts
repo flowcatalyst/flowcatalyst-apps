@@ -4,24 +4,31 @@ import type {
 } from '../infrastructure/sync-event-repository.js';
 
 /**
- * In-process SSE broker for a single server instance.
+ * In-process SSE broker — one per server instance; multi-instance safe.
  *
  * Delivery model: use cases append rows to `sync_events` inside the write tx;
  * this broker tails that table from a high-water mark and fans records out to
- * in-memory subscribers. The tail is driven two ways:
- *   - `nudge()` — called by routes after a successful write (best-effort,
- *     low latency), and
- *   - a poll interval (~1s) as the safety net (covers nudges lost to races
- *     and writes from other code paths).
+ * in-memory subscribers. The tail is driven three ways:
+ *   - `nudge()` — called by routes after a successful local write, and by the
+ *     LISTEN fulfilgo_sync handler (wired in server.ts via sync-notify.ts):
+ *     the sync_events insert trigger NOTIFYs on commit, so writes on ANY
+ *     node wake every node's broker at low latency, and
+ *   - a poll interval (~1s) as the safety net (covers a dropped listener
+ *     connection and rows whose visibility horizon opens without a fresh
+ *     NOTIFY).
  *
- * THE SCALE SEAM: for multi-instance deployment, only the trigger changes —
- * replace the poll/nudge pair with Postgres LISTEN/NOTIFY (`pg_notify` from
- * a post-commit hook or trigger on sync_events, `LISTEN fulfilgo_sync` here).
- * Replay stays table-backed either way; subscribers and frame delivery are
- * untouched.
+ * Multi-instance correctness: rows live in shared Postgres, every read is
+ * guarded by the visibility horizon (see sync-event-repository — a row with
+ * a lower id can never surface behind an already-advanced cursor), and
+ * clients resume via Last-Event-ID — so any node can serve any SSE
+ * connection, no sticky sessions.
  */
+/** Wildcard channel: receives EVERY record (consumer filters). Used by the
+ *  ops/flightboard stream, which spans all of a client's store channels. */
+export const ALL_CHANNELS = '*';
+
 export interface SseBroker {
-  /** Register a live listener for a channel. Returns the unsubscribe fn. */
+  /** Register a live listener for a channel (or ALL_CHANNELS). Returns the unsubscribe fn. */
   subscribe(channel: string, onEvent: (record: SyncEventRecord) => void): () => void;
   /** Wake the tail loop now instead of waiting for the next poll tick. */
   nudge(): void;
@@ -44,13 +51,14 @@ export function createSseBroker(repo: SyncEventRepository, log: BrokerLogger): S
   let loopDone: Promise<void> = Promise.resolve();
 
   function dispatch(record: SyncEventRecord): void {
-    const channelSubs = subscribers.get(record.channel);
-    if (!channelSubs) return;
-    for (const onEvent of channelSubs) {
-      try {
-        onEvent(record);
-      } catch (err) {
-        log.error({ err, channel: record.channel }, 'sse subscriber threw; dropping event');
+    for (const set of [subscribers.get(record.channel), subscribers.get(ALL_CHANNELS)]) {
+      if (!set) continue;
+      for (const onEvent of set) {
+        try {
+          onEvent(record);
+        } catch (err) {
+          log.error({ err, channel: record.channel }, 'sse subscriber threw; dropping event');
+        }
       }
     }
   }
@@ -69,10 +77,17 @@ export function createSseBroker(repo: SyncEventRepository, log: BrokerLogger): S
   }
 
   async function loop(): Promise<void> {
-    highWaterMark = await repo.globalLatestId();
+    // Bootstrap retries inside the loop — a transient DB error here (e.g. a
+    // pending migration) must degrade to retrying ticks, not kill SSE for
+    // the process lifetime.
+    let bootstrapped = false;
     for (;;) {
       if (!running) return;
       try {
+        if (!bootstrapped) {
+          highWaterMark = await repo.globalLatestId();
+          bootstrapped = true;
+        }
         await drain();
       } catch (err) {
         log.error({ err }, 'sse broker drain failed; retrying on next tick');

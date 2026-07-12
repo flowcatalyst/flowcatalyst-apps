@@ -13,8 +13,7 @@ export type PickerUserId = Tsid<typeof PICKER_USER_ID_PREFIX>;
 export const newPickerUserId = (): PickerUserId => brandedTsid(PICKER_USER_ID_PREFIX);
 
 /** Checked cast for trusted values (DB rows). For user input use `isPickerUserId`. */
-export const asPickerUserId = (value: string): PickerUserId =>
-  asTsid(PICKER_USER_ID_PREFIX, value);
+export const asPickerUserId = (value: string): PickerUserId => asTsid(PICKER_USER_ID_PREFIX, value);
 
 export const isPickerUserId = (value: string): value is PickerUserId =>
   isTsid(PICKER_USER_ID_PREFIX, value);

@@ -28,6 +28,36 @@ and the management app's sidebar should use the navy gradient
 (`linear-gradient(180deg, #102a43 0%, #0a1929 100%)`) like web-kit's
 AppSidebar.
 
+## Desktop management chrome (matches the FlowCatalyst management UI)
+
+The management app replicates the flowcatalyst-go frontend shell, in Nuxt UI:
+
+- **Collapsible sidebar** (`components/layout/AppSidebar.vue`): 260px ↔ 72px,
+  navy gradient, collapse state in localStorage. Collapsed keeps icons
+  (lucide via `UIcon`), hides labels + group headings, native-title tooltips.
+  Active nav item = accent tint + **right-edge 3px #47a3f3 bar**
+  (`.fc-nav-item-active` in main.css). Nav data in `config/navigation.ts`
+  (grouped by subdomain, `i-lucide-*` icon names).
+- **Profile in the sidebar footer** (`components/layout/SidebarProfile.vue`):
+  gradient avatar + name + active client, opening a `UPopover` (identity,
+  the client/tenant switcher input, environment footer). When real OIDC
+  lands, the popover gains sign-out and the principal's actual identity.
+- **Navy ramp** is registered as `--color-navy-*` tokens in the management
+  app's `@theme static` (fc-navy #f0f4f8→#0a1929) — use `text-navy-900` for
+  page titles, `text-navy-700` for table headers/section headings; never
+  hard-code the hexes in templates.
+- **Page headers**: `components/PageHeader.vue` — title (2xl/semibold navy-900)
+  - optional subtitle (sm navy-500, also a `#subtitle` slot) + `#actions`
+    slot right-aligned. Every page uses it.
+- **Inspector panel** (Fulfilments): 480px column, bordered header row
+  (title + status pill + `i-lucide-x` close), scrollable body, soft left
+  shadow. Still a plain layout column per the side-panel rules below.
+
+Mobile shell: `BottomTabBar` exposes a scoped `#icon` slot (forwarded by
+`MobileShell` as `#tab-icon`) so apps render lucide `UIcon`s while mobile-kit
+itself stays Nuxt-UI-free; emoji in `TabItem.icon` is the fallback. Both apps
+map route → icon in `config/tabs.ts` (`TAB_ICONS`).
+
 ## Desktop management app — side-panel pattern
 
 The fulfilment desktop app (`management-app`, :5177) uses a **non-modal inspector

@@ -106,10 +106,14 @@ describe('UpdateMasterLocationUseCase (integration)', () => {
     const { clientId, masterLocationId } = await seed();
 
     // Promote the seeded master to VALIDATED so the reset is observable.
-    const master = await appContext.repositories.masterLocations.findById(masterLocationId as never);
+    const master = await appContext.repositories.masterLocations.findById(
+      masterLocationId as never,
+    );
     if (!master) throw new Error('master not found');
     const geocoded = MasterLocation.geocoded(master, { latitude: 1, longitude: 2 }, new Date());
-    await appContext.repositories.masterLocations.persist(MasterLocation.confirmed(geocoded, new Date()));
+    await appContext.repositories.masterLocations.persist(
+      MasterLocation.confirmed(geocoded, new Date()),
+    );
 
     // Link a location to it.
     const loc: Location = {

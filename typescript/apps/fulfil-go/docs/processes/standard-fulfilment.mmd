@@ -1,0 +1,22 @@
+%% fulfil-go:fulfilment:standard-fulfilment — the STANDARD process as
+%% implemented (verified end-to-end 2026-07-11; docs/HANDOFF.md). Synced to
+%% FlowCatalyst by `pnpm flowcatalyst:sync` (src/flowcatalyst/processes.ts).
+%% Hand-authored for now — the process-definition registry
+%% (docs/process-definitions.md) will GENERATE these from the builder so
+%% diagrams can't drift; keep this file until that lands.
+flowchart TD
+  A[Order received from commerce\ncreate-fulfilment API\nidempotent on client+source+ref] --> B[Fulfilment created\nparts pending, releaseAt precomputed]
+  B -->|cancel API\ncreated only| X[Fulfilment CANCELLED]
+  B -->|platform cron\nfulfil-go-release-picks, 1 min| C[Part pick_requested\ncreate-pick dispatch job → platform]
+  C -->|platform dispatcher POSTs\n/clients/:id/picks| D[Pick requested at store\nSSE store channel → stations live]
+  D -->|picker claims\nonline-only| E[PM: part → picking]
+  E -->|pick:picked /\npick:short-picked| F[PM: part picked\nACTUALS captured\nline results, packages, requiresVehicle]
+  E -->|pick:failed| G{allowPartialFulfilment?}
+  F --> H{all viable\nparts picked?}
+  H -->|no| D2[remaining parts\ncontinue picking]
+  D2 --> E
+  H -->|yes| I[Fulfilment READY\nfulfilment:picked event]
+  G -->|no — all-or-nothing| J[PM cancels sibling parts\nFulfilment FAILED\nfulfilment:failed]
+  G -->|yes| H
+  I -.->|next: transport context| K[Request transport\nTransportOrder via provider port\nown / uber / inmotion]
+  K -.-> L[Fulfilment completing →\ncompleted / partially_completed]

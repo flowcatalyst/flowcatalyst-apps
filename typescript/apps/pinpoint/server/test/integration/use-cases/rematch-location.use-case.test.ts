@@ -22,7 +22,11 @@ import type { AppContext } from '../../../src/app-context.js';
 import { isSuccess } from '@pinpoint/framework';
 import { MasterLocation } from '../../../src/domain/locations/master-location.js';
 import type { Location } from '../../../src/domain/locations/location.js';
-import { asLocationId, asMasterLocationId, LOCATION_ID_PREFIX } from '../../../src/domain/locations/ids.js';
+import {
+  asLocationId,
+  asMasterLocationId,
+  LOCATION_ID_PREFIX,
+} from '../../../src/domain/locations/ids.js';
 import { asClientId } from '../../../src/domain/tenancy/ids.js';
 
 const ADDR_SF = '548 Market Street, San Francisco';
@@ -98,8 +102,14 @@ describe('RematchLocationUseCase (integration)', () => {
   async function validateMaster(masterId: string): Promise<void> {
     const pending = await appContext.repositories.masterLocations.findById(masterId as never);
     if (!pending) throw new Error('master not found');
-    const geocoded = MasterLocation.geocoded(pending, { latitude: 37.79, longitude: -122.4 }, new Date());
-    await appContext.repositories.masterLocations.persist(MasterLocation.confirmed(geocoded, new Date()));
+    const geocoded = MasterLocation.geocoded(
+      pending,
+      { latitude: 37.79, longitude: -122.4 },
+      new Date(),
+    );
+    await appContext.repositories.masterLocations.persist(
+      MasterLocation.confirmed(geocoded, new Date()),
+    );
   }
 
   function rematch(clientId: string, locationId: string, matchAddress: string) {

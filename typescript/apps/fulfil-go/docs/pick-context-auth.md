@@ -31,7 +31,7 @@ person**:
 
 - **Device = store identity.** A station is enrolled to exactly one store. Set
   once at enrollment, **immutable until an admin reassigns or revokes it**. This
-  is a *possession* factor.
+  is a _possession_ factor.
 - **Person = who is signed in right now.** Per-login credential (QR badge or
   PIN). On a shared station many pickers sign in and out over a day against the
   same store-bound device.
@@ -77,7 +77,7 @@ PIN-strength — not stronger**. Rules:
 
 ### Break-glass PIN — Option B (chosen)
 
-**No standing PIN exists for a QR-primary user.** The admin *issues* a fresh
+**No standing PIN exists for a QR-primary user.** The admin _issues_ a fresh
 temporary PIN at the moment the badge is reported lost:
 
 - 6 digits, hashed + salted, **shown once**, `expiresAt` (default **72h**) as
@@ -100,12 +100,12 @@ The device is store-bound but many people use it, which surfaces an asymmetry:
 
 - **QR self-identifies** — the token maps to the user, so login is a single
   **scan**.
-- **A PIN does not** — `1234` alone can't say *which* picker. PIN login is two
+- **A PIN does not** — `1234` alone can't say _which_ picker. PIN login is two
   steps: **identify → enter PIN**.
 
 Identify step = **staff code** entry (chosen over tap-your-name to avoid
 flashing the store roster on a back-of-house screen). The **store binding powers
-the eligibility list**: only pickers on *this device's store* who currently have
+the eligibility list**: only pickers on _this device's store_ who currently have
 PIN login enabled (PIN-primary users + anyone in a break-glass window) can
 complete a PIN login.
 
@@ -134,7 +134,7 @@ refresh path re-checks device status + picker status.
 
 ### Login online, work offline (station simplification)
 
-Full offline *login* would force caching a whole store's PIN hashes on the
+Full offline _login_ would force caching a whole store's PIN hashes on the
 shared device — **we don't.** The station is wall-powered on store wifi:
 
 - **Login requires connectivity.** Far less credential material on the device.
@@ -179,6 +179,7 @@ DeviceEnrollmentToken (short-lived, single-use)
 ```
 
 Notes:
+
 - **Store registry ownership** is a parked question (see below) — pickers/devices
   need a real store entity to bind to; simplest is the pick context owns it.
 - Branded TSIDs, optimistic `version`, `eventGroup(aggregateCode, id)` message
@@ -272,4 +273,7 @@ POST /clients/:clientId/devices/:id/revoke         lost/stolen kill switch
   the base store-scoped picker role.
 - **Biometric unlock** on personal devices: possible future fast-path, not for
   shared stations.
+
+```
+
 ```

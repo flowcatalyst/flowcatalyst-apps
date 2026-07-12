@@ -61,3 +61,6 @@ export function makeSql(opts: { max?: number } = {}) {
 const sql = makeSql();
 
 export const db = drizzle({ client: sql, logger: new ScopeAwareDrizzleLogger() });
+
+/** Raw postgres-js client — LISTEN/NOTIFY needs it (drizzle has no surface for it). */
+export const sqlClient = sql;

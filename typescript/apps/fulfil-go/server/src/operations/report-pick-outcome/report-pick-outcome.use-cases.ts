@@ -1,3 +1,4 @@
+import type { PickSessionProjection } from '../../infrastructure/pick-session-projection.js';
 /**
  * Post-claim pick outcomes: complete (full or short) and fail. Co-located —
  * both are the same claimer-only shape over the Pick aggregate.
@@ -97,9 +98,13 @@ async function authorizeAndLoad(picks: PickRepository, command: PickRef): Promis
   if (pick.status !== 'claimed') {
     return fail(
       Result.failure(
-        UseCaseError.businessRule('PICK_NOT_IN_PROGRESS', `Pick '${pick.id}' is '${pick.status}'.`, {
-          status: pick.status,
-        }),
+        UseCaseError.businessRule(
+          'PICK_NOT_IN_PROGRESS',
+          `Pick '${pick.id}' is '${pick.status}'.`,
+          {
+            status: pick.status,
+          },
+        ),
       ),
     );
   }
@@ -125,6 +130,7 @@ export class CompletePickUseCase {
     private readonly picks: PickRepository,
     private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
     private readonly syncEvents: SyncEventRepository,
+    private readonly pickSessions: PickSessionProjection,
   ) {}
 
   async execute(command: CompletePickCommand): Promise<Result<PickPicked | PickShortPicked>> {
@@ -221,7 +227,10 @@ export class CompletePickUseCase {
         const packed = new Map<string, number>();
         for (const pkg of command.packages) {
           for (const item of pkg.items ?? []) {
-            packed.set(item.externalLineRef, (packed.get(item.externalLineRef) ?? 0) + item.quantity);
+            packed.set(
+              item.externalLineRef,
+              (packed.get(item.externalLineRef) ?? 0) + item.quantity,
+            );
           }
         }
         for (const ref of packed.keys()) {
@@ -307,6 +316,9 @@ export class CompletePickUseCase {
       { pick: toPickDto(pick) },
     );
 
+    // Projection row rides the same tx (docs/projections.md).
+    await this.pickSessions.upsert(pick);
+
     return commitAggregate(this.uow, this.registry, pick, event, command);
   }
 }
@@ -320,6 +332,7 @@ export class FailPickUseCase {
     private readonly picks: PickRepository,
     private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
     private readonly syncEvents: SyncEventRepository,
+    private readonly pickSessions: PickSessionProjection,
   ) {}
 
   async execute(command: FailPickCommand): Promise<Result<PickFailed>> {
@@ -353,6 +366,9 @@ export class FailPickUseCase {
       SyncEventType.PickFailed,
       { pick: toPickDto(pick) },
     );
+
+    // Projection row rides the same tx (docs/projections.md).
+    await this.pickSessions.upsert(pick);
 
     return commitAggregate(this.uow, this.registry, pick, event, command);
   }

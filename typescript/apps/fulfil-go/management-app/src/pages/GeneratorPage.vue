@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { api, clientId } from '../context.js';
 import { buildFulfilment, DEFAULT_OPTIONS } from '../lib/generator.js';
 import storeFixtures from '../generator/data/stores.json';
+import PageHeader from '../components/PageHeader.vue';
 
 // Reka UI (Nuxt UI's select) rejects empty-string item values — use a sentinel.
 const RANDOM_STORE = '__random__';
@@ -77,12 +78,13 @@ async function run(): Promise<void> {
 
 <template>
   <div class="mx-auto max-w-3xl p-6">
-    <h1 class="mb-1 text-xl font-semibold text-[#102a43]">Fulfilment generator</h1>
-    <p class="mb-4 text-sm text-neutral-500">
-      Generates fulfilments for <span class="font-mono">{{ clientId }}</span> from 100 sample SA
-      stores and 1000 sample products (committed fixtures). Deliveries get a drop-off within 5km of
-      the store; collections use the store's collection point.
-    </p>
+    <PageHeader title="Fulfilment generator">
+      <template #subtitle>
+        Generates fulfilments for <span class="font-mono">{{ clientId }}</span> from 100 sample SA
+        stores and 1000 sample products (committed fixtures). Deliveries get a drop-off within 5km
+        of the store; collections use the store's collection point.
+      </template>
+    </PageHeader>
 
     <div
       class="mb-4 grid grid-cols-2 gap-4 rounded-lg border border-neutral-200 bg-white p-4 sm:grid-cols-4"
@@ -100,12 +102,7 @@ async function run(): Promise<void> {
         <UInput v-model.number="form.multiStoreShare" type="number" :min="0" :max="100" />
       </UFormField>
       <UFormField label="Store" class="col-span-2">
-        <USelect
-          v-model="form.storeRef"
-          :items="storeOptions"
-          value-key="value"
-          class="w-full"
-        />
+        <USelect v-model="form.storeRef" :items="storeOptions" value-key="value" class="w-full" />
       </UFormField>
     </div>
 

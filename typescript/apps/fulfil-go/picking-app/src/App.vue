@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ConnectionBadge, MobileHeader, MobileShell, useQueue } from '@fulfil-go/mobile-kit';
-import { TABS } from './config/tabs.js';
+import { TABS, TAB_ICONS } from './config/tabs.js';
 import { useAppCtx } from './context.js';
 
 const ctx = useAppCtx();
@@ -56,6 +56,9 @@ onUnmounted(() => {
             </div>
           </template>
         </MobileHeader>
+      </template>
+      <template #tab-icon="{ tab }">
+        <UIcon :name="TAB_ICONS[tab.route] ?? 'i-lucide-circle'" class="size-[22px]" />
       </template>
       <router-view />
     </MobileShell>

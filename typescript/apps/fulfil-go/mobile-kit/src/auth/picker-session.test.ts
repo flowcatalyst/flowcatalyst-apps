@@ -43,12 +43,18 @@ describe('pickerPinLogin', () => {
         status: 423,
       })) as typeof fetch;
     await expect(
-      pickerPinLogin('http://x', { clientId: 'c', storeRef: 's', staffCode: 'P', pin: '1234' }, fetchImpl),
+      pickerPinLogin(
+        'http://x',
+        { clientId: 'c', storeRef: 's', staffCode: 'P', pin: '1234' },
+        fetchImpl,
+      ),
     ).rejects.toMatchObject({ status: 423, code: 'PICKER_LOCKED' });
     // Sanity: it's our typed error.
-    await pickerPinLogin('http://x', { clientId: 'c', storeRef: 's', staffCode: 'P', pin: '1234' }, fetchImpl).catch(
-      (err) => expect(err).toBeInstanceOf(PickerLoginError),
-    );
+    await pickerPinLogin(
+      'http://x',
+      { clientId: 'c', storeRef: 's', staffCode: 'P', pin: '1234' },
+      fetchImpl,
+    ).catch((err) => expect(err).toBeInstanceOf(PickerLoginError));
   });
 });
 
@@ -61,7 +67,12 @@ describe('createPickerSession', () => {
       getClientId: () => 'cli_1',
     });
     const before = Date.now();
-    await session.setSession({ tokenType: 'Bearer', accessToken: 'a1', refreshToken: 'r1', expiresIn: 900 });
+    await session.setSession({
+      tokenType: 'Bearer',
+      accessToken: 'a1',
+      refreshToken: 'r1',
+      expiresIn: 900,
+    });
     const stored = await store.load();
     expect(stored?.accessToken).toBe('a1');
     expect(stored?.expiresAt).toBeGreaterThanOrEqual(before + 900_000);

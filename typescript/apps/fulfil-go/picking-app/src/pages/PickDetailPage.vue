@@ -52,10 +52,11 @@ const subForm = reactive({ barcode: '', description: '', quantity: 1 });
 // ── Packing state (unchanged model) ───────────────────────────────────────
 type PackMode = 'items' | 'bags';
 const SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const;
+// Chain-wide temperature terminology: ambient / chilled / frozen.
 const TEMPS = [
-  { value: 'ambient', label: 'Standard' },
-  { value: 'refrigerated', label: 'Fridge' },
-  { value: 'frozen', label: 'Freezer' },
+  { value: 'ambient', label: 'Ambient' },
+  { value: 'chilled', label: 'Chilled' },
+  { value: 'frozen', label: 'Frozen' },
 ] as const;
 
 interface PackagedUnit {
@@ -162,8 +163,7 @@ const lines = computed(() =>
 );
 
 // ── Quantities ────────────────────────────────────────────────────────────
-const subUnits = (ref_: string): number =>
-  (subs[ref_] ?? []).reduce((s, x) => s + x.quantity, 0);
+const subUnits = (ref_: string): number => (subs[ref_] ?? []).reduce((s, x) => s + x.quantity, 0);
 const fulfilled = (ref_: string): number => (counts[ref_] ?? 0) + subUnits(ref_);
 const imgFailed = reactive<Record<string, boolean>>({});
 
@@ -308,7 +308,13 @@ function addBag(): void {
 function addLoose(): void {
   looseSeq += 1;
   const looseRef = `loose-${looseSeq}`;
-  packages.value.push({ ref: looseRef, kind: 'loose', size: null, temperature: 'ambient', items: {} });
+  packages.value.push({
+    ref: looseRef,
+    kind: 'loose',
+    size: null,
+    temperature: 'ambient',
+    items: {},
+  });
   activeRef.value = looseRef;
 }
 
@@ -401,34 +407,34 @@ async function complete(requiresVehicle: boolean): Promise<void> {
   await submitOutcome(
     `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/complete`,
     {
-        requiresVehicle,
-        lines: lines.value.map((l) => ({
-          externalLineRef: l.externalLineRef,
-          pickedQuantity: counts[l.externalLineRef] ?? 0,
-          ...((subs[l.externalLineRef]?.length ?? 0) > 0
-            ? {
-                substitutions: subs[l.externalLineRef]!.map((s) => ({
-                  barcode: s.barcode,
-                  ...(s.description ? { description: s.description } : {}),
-                  quantity: s.quantity,
-                })),
-              }
-            : {}),
-        })),
-        packages: packages.value.map((p) => ({
-          ref: p.ref,
-          kind: p.kind,
-          ...(p.size ? { size: p.size } : {}),
-          temperature: p.temperature,
-          ...(packMode.value === 'items'
-            ? {
-                items: Object.entries(p.items).map(([externalLineRef, quantity]) => ({
-                  externalLineRef,
-                  quantity,
-                })),
-              }
-            : {}),
-        })),
+      requiresVehicle,
+      lines: lines.value.map((l) => ({
+        externalLineRef: l.externalLineRef,
+        pickedQuantity: counts[l.externalLineRef] ?? 0,
+        ...((subs[l.externalLineRef]?.length ?? 0) > 0
+          ? {
+              substitutions: subs[l.externalLineRef]!.map((s) => ({
+                barcode: s.barcode,
+                ...(s.description ? { description: s.description } : {}),
+                quantity: s.quantity,
+              })),
+            }
+          : {}),
+      })),
+      packages: packages.value.map((p) => ({
+        ref: p.ref,
+        kind: p.kind,
+        ...(p.size ? { size: p.size } : {}),
+        temperature: p.temperature,
+        ...(packMode.value === 'items'
+          ? {
+              items: Object.entries(p.items).map(([externalLineRef, quantity]) => ({
+                externalLineRef,
+                quantity,
+              })),
+            }
+          : {}),
+      })),
     },
     'picked',
   );
@@ -489,7 +495,13 @@ async function fail(): Promise<void> {
         autofocus
         @keydown.enter.prevent="onWedgeScan"
       />
-      <UButton v-if="isNative" size="xl" variant="soft" :loading="scanBusy" @click="cameraScan(stage === 'pick' ? 'line' : 'line')">
+      <UButton
+        v-if="isNative"
+        size="xl"
+        variant="soft"
+        :loading="scanBusy"
+        @click="cameraScan(stage === 'pick' ? 'line' : 'line')"
+      >
         📷
       </UButton>
     </div>
@@ -502,11 +514,7 @@ async function fail(): Promise<void> {
         <UButton variant="ghost" size="sm" @click="fillAll">Mark all picked</UButton>
       </div>
 
-      <UCard
-        v-for="line in lines"
-        :key="line.externalLineRef"
-        :ui="{ body: 'p-2 sm:p-3' }"
-      >
+      <UCard v-for="line in lines" :key="line.externalLineRef" :ui="{ body: 'p-2 sm:p-3' }">
         <div class="flex items-center gap-3">
           <!-- Product image (placeholder when missing / failed to load) -->
           <div class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
@@ -537,7 +545,7 @@ async function fail(): Promise<void> {
               </span>
               <span class="font-mono">{{ line.sku }}</span>
               <span
-                v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
+                v-if="line.temperatureClass && line.temperatureClass !== 'ambient'"
                 class="text-cyan-600"
               >
                 {{ line.temperatureClass }}
@@ -604,7 +612,12 @@ async function fail(): Promise<void> {
                 class="flex-1 font-mono"
                 autocomplete="off"
               />
-              <UButton v-if="isNative" variant="soft" :loading="scanBusy" @click="cameraScan('sub')">
+              <UButton
+                v-if="isNative"
+                variant="soft"
+                :loading="scanBusy"
+                @click="cameraScan('sub')"
+              >
                 📷
               </UButton>
             </div>
@@ -632,7 +645,10 @@ async function fail(): Promise<void> {
             </div>
           </div>
         </div>
-        <ul v-if="(subs[line.externalLineRef]?.length ?? 0) > 0" class="mt-1 text-[11px] text-neutral-500">
+        <ul
+          v-if="(subs[line.externalLineRef]?.length ?? 0) > 0"
+          class="mt-1 text-[11px] text-neutral-500"
+        >
           <li
             v-for="(s, i) in subs[line.externalLineRef]"
             :key="i"
@@ -759,7 +775,7 @@ async function fail(): Promise<void> {
                       bagForm.temperature === t.value
                         ? t.value === 'frozen'
                           ? 'border-cyan-600 bg-cyan-600 text-white'
-                          : t.value === 'refrigerated'
+                          : t.value === 'chilled'
                             ? 'border-sky-500 bg-sky-500 text-white'
                             : 'border-brand-600 bg-brand-600 text-white'
                         : 'border-neutral-200 bg-white text-neutral-600'
@@ -900,20 +916,18 @@ async function fail(): Promise<void> {
           </UButton>
           <template #body>
             <div class="flex flex-col gap-4 p-1">
-              <p class="text-center text-lg font-semibold">
-                Does this pick require a vehicle?
-              </p>
+              <p class="text-center text-lg font-semibold">Does this pick require a vehicle?</p>
               <!-- "No" is the norm — big and primary. -->
               <UButton size="xl" block class="h-16 text-xl font-bold" @click="complete(false)">
                 No
               </UButton>
-              <!-- "Yes" is deliberate — smaller, and double-confirmed. -->
+              <!-- "Yes" is deliberate — smaller than No, and double-confirmed.
+                   Solid orange + white for contrast against the big No. -->
               <UButton
                 v-if="!vehicleYesConfirm"
-                size="sm"
-                color="warning"
-                variant="outline"
+                size="lg"
                 block
+                class="h-12 bg-orange-500 font-semibold text-white hover:bg-orange-600 active:bg-orange-600"
                 @click="vehicleYesConfirm = true"
               >
                 Yes — this needs a vehicle
@@ -921,9 +935,8 @@ async function fail(): Promise<void> {
               <UButton
                 v-else
                 size="lg"
-                color="warning"
                 block
-                class="font-bold"
+                class="h-14 bg-orange-500 text-lg font-bold text-white hover:bg-orange-600 active:bg-orange-600"
                 @click="complete(true)"
               >
                 Confirm: vehicle required

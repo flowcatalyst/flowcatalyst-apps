@@ -101,7 +101,11 @@ async function handleDelete() {
   const clientId = clientStore.selectedClientId;
   if (!partition.value || !clientId) return;
   try {
-    await apiFetch(`/clients/${clientId}/partitions/${partition.value.id}`, { method: 'DELETE' }, { suppressErrorToast: true });
+    await apiFetch(
+      `/clients/${clientId}/partitions/${partition.value.id}`,
+      { method: 'DELETE' },
+      { suppressErrorToast: true },
+    );
     toast.success('Deleted', `Partition "${partition.value.name}" has been deleted.`);
     await router.push('/partitions');
   } catch (e) {

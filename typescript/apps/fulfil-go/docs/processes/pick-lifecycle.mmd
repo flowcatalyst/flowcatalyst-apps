@@ -1,0 +1,12 @@
+%% fulfil-go:pick:pick-lifecycle — the pick aggregate's state machine as
+%% implemented (scan-first picking, pick-then-pack). Synced to FlowCatalyst
+%% by `pnpm flowcatalyst:sync` (src/flowcatalyst/processes.ts).
+stateDiagram-v2
+  [*] --> requested: platform dispatch job\nPOST /clients/:id/picks (idempotent intake)
+  requested --> claimed: picker claims (online-only,\noptimistic-locked — racing claim 409s)
+  claimed --> picked: complete — all lines picked\n(scan-confirm, substitutes when allowed,\npack into sized bags, vehicle question)
+  claimed --> short_picked: complete — short lines allowed\n(requireFullPick=false)
+  claimed --> failed: fail with reason\n(or requireFullPick blocks short completion)
+  picked --> [*]: actuals to fulfilment part\n(line results, packages, requiresVehicle)
+  short_picked --> [*]: actuals to fulfilment part
+  failed --> [*]: PM policy fan-out\n(all-or-nothing cancels siblings)

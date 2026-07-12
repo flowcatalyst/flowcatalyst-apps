@@ -1,6 +1,11 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { TransactionStore, resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import {
+  TransactionStore,
+  resolveDb,
+  type TransactionContext,
+} from '@flowcatalyst-apps/app-framework';
+import { ConcurrencyConflictError } from '@fulfil-go/framework';
 import type { JobStatus } from '@fulfil-go/shared';
 import { asJobId, type JobId } from '../domain/jobs/ids.js';
 import type { Job } from '../domain/jobs/job.js';
@@ -29,24 +34,30 @@ export function createDrizzleJobRepository(db: PostgresJsDatabase): JobRepositor
   return {
     async persist(aggregate: Job, tx?: TransactionContext): Promise<Job> {
       const client = resolveDb(db, tx);
-      const [row] = await client
-        .insert(jobs)
-        .values({
-          id: aggregate.id,
-          status: aggregate.status,
-          title: aggregate.title,
-          details: aggregate.details,
-          assigneeId: aggregate.assigneeId,
-          assignedAt: aggregate.assignedAt,
-          acceptedAt: aggregate.acceptedAt,
-          completedAt: aggregate.completedAt,
-          version: aggregate.version,
-          createdAt: aggregate.createdAt,
-          updatedAt: aggregate.updatedAt,
-        })
-        .onConflictDoUpdate({
-          target: jobs.id,
-          set: {
+      let row: JobRow | undefined;
+      if (aggregate.version === 1) {
+        [row] = await client
+          .insert(jobs)
+          .values({
+            id: aggregate.id,
+            status: aggregate.status,
+            title: aggregate.title,
+            details: aggregate.details,
+            assigneeId: aggregate.assigneeId,
+            assignedAt: aggregate.assignedAt,
+            acceptedAt: aggregate.acceptedAt,
+            completedAt: aggregate.completedAt,
+            version: aggregate.version,
+            createdAt: aggregate.createdAt,
+            updatedAt: aggregate.updatedAt,
+          })
+          .returning();
+      } else {
+        // Optimistic locking (house rule): guard on the prior version — a
+        // racing assign/accept/complete loses with a 409, not last-writer-wins.
+        [row] = await client
+          .update(jobs)
+          .set({
             status: aggregate.status,
             title: aggregate.title,
             details: aggregate.details,
@@ -56,10 +67,23 @@ export function createDrizzleJobRepository(db: PostgresJsDatabase): JobRepositor
             completedAt: aggregate.completedAt,
             version: aggregate.version,
             updatedAt: aggregate.updatedAt,
-          },
-        })
-        .returning();
-
+          })
+          .where(and(eq(jobs.id, aggregate.id), eq(jobs.version, aggregate.version - 1)))
+          .returning();
+        if (!row) {
+          // Accept/complete replay idempotently by RE-COMMITTING UNCHANGED
+          // (same version — the sealed Result means success must come from a
+          // commit). A row already at exactly this version is that replay;
+          // anything else is a real lost race → 409.
+          const [existing] = await client
+            .select()
+            .from(jobs)
+            .where(and(eq(jobs.id, aggregate.id), eq(jobs.version, aggregate.version)))
+            .limit(1);
+          if (existing) return toDomain(existing);
+          throw new ConcurrencyConflictError('Job', aggregate.id, aggregate.version - 1);
+        }
+      }
       if (!row) throw new Error(`Job persist returned no row for id=${aggregate.id}`);
       return toDomain(row);
     },

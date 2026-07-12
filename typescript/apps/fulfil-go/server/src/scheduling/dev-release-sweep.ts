@@ -30,9 +30,8 @@ interface SweepLogger {
 export function scheduleDevReleaseSweep(appContext: AppContext, log: SweepLogger): Cron {
   return new Cron('* * * * *', async () => {
     try {
-      const result = await runJob(
-        { name: 'dev-release-sweep', identity: DEV_SWEEP_IDENTITY },
-        () => runReleasePicksSweep(appContext),
+      const result = await runJob({ name: 'dev-release-sweep', identity: DEV_SWEEP_IDENTITY }, () =>
+        runReleasePicksSweep(appContext),
       );
       if (result.released > 0 || result.failed > 0) {
         log.warn(

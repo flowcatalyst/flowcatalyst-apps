@@ -1,9 +1,10 @@
 #!/usr/bin/env tsx
 /**
  * Register fulfil-go's FlowCatalyst-platform definitions (event types,
- * roles, dispatch pools; subscriptions + scheduled jobs as they land) and
- * push payload JSON schemas for each event type. Adapted from pinpoint's
- * sync script — same two-phase shape:
+ * roles, dispatch pools, subscriptions, scheduled jobs, PROCESS DIAGRAMS
+ * from docs/processes/*.mmd, and the OPENAPI SPEC fetched from the running
+ * server's /docs/json) and push payload JSON schemas for each event type.
+ * Adapted from pinpoint's sync script — same two-phase shape:
  *
  *   1. `client.definitions().sync(...)` — upsert the DefinitionSet.
  *   2. For each event with a TypeBox `payloadSchema`, compare against the
@@ -19,6 +20,8 @@
  *   FULFILGO_SCHEMA_SYNC=false        — skip phase 2
  */
 import { FlowCatalystClient } from '@flowcatalyst/sdk';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { CreateFulfilmentCommandSchema } from '@fulfil-go/shared';
 import { buildFulfilGoDefinitions, FULFILGO_APPLICATION_CODE } from '../src/flowcatalyst/index.js';
 import { fulfilGoEventTypes } from '../src/flowcatalyst/events.js';
 
@@ -101,6 +104,62 @@ async function syncEventSchemas(client: FlowCatalystClient): Promise<void> {
   console.log(`[schema-sync] done — pushed=${pushed} skipped=${skipped} missing=${missing}`);
 }
 
+interface OpenapiOperation {
+  requestBody?: unknown;
+}
+
+interface OpenapiDocument {
+  paths?: Record<string, Record<string, OpenapiOperation>>;
+}
+
+/**
+ * Fetch the live OpenAPI document from the running server (fastify-swagger
+ * builds it from the TypeBox route schemas; swagger-ui serves it at
+ * /docs/json). Unreachable server → warn + skip, never fail the sync.
+ *
+ * One fix-up before publishing: create-fulfilment validates its body with
+ * the shared ZOD contract in-handler (route body is Type.Any), so the raw
+ * document would show an untyped body for the most important endpoint.
+ * Patch in the JSON schema derived from the actual contract (clientId
+ * omitted — it rides the path).
+ */
+async function fetchOpenapiSpec(publicBaseUrl: string): Promise<unknown | null> {
+  const url = process.env['FULFILGO_OPENAPI_URL'] ?? `${publicBaseUrl}/docs/json`;
+  let spec: OpenapiDocument;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    spec = (await res.json()) as OpenapiDocument;
+  } catch (err) {
+    console.warn(
+      `[openapi-sync] could not fetch ${url} (${String(err)}) — skipping OpenAPI publish. ` +
+        'Start the server (pnpm dev:fulfil-go) or set FULFILGO_OPENAPI_URL.',
+    );
+    return null;
+  }
+
+  const createPath = Object.keys(spec.paths ?? {}).find((p) =>
+    /^\/clients\/\{?:?clientId\}?\/fulfilments$/.test(p),
+  );
+  const createOp = createPath ? spec.paths?.[createPath]?.['post'] : undefined;
+  if (createOp) {
+    createOp.requestBody = {
+      required: true,
+      content: {
+        'application/json': {
+          schema: zodToJsonSchema(CreateFulfilmentCommandSchema.omit({ clientId: true }), {
+            $refStrategy: 'none',
+            target: 'openApi3',
+          }),
+        },
+      },
+    };
+  } else {
+    console.warn('[openapi-sync] create-fulfilment path not found in spec — body left untyped');
+  }
+  return spec;
+}
+
 async function main(): Promise<void> {
   const client = new FlowCatalystClient({
     baseUrl: requireEnv('FLOWCATALYST_URL'),
@@ -108,13 +167,20 @@ async function main(): Promise<void> {
     clientSecret: requireEnv('FLOWCATALYST_API_CLIENT_SECRET'),
   });
 
+  const publicBaseUrl = process.env['FULFILGO_PUBLIC_BASE_URL'] ?? 'http://localhost:3200';
   const definitions = buildFulfilGoDefinitions({
-    publicBaseUrl: process.env['FULFILGO_PUBLIC_BASE_URL'] ?? 'http://localhost:3200',
+    publicBaseUrl,
     dispatchPoolCode: process.env['FULFILGO_DISPATCH_POOL'] ?? 'fulfil-go-default',
     // Tenant that owns the scheduled job(s). Dev default: the platform's
     // Inhance client (see project memory / management-app default).
     tenantClientId: process.env['FULFILGO_TENANT_CLIENT_ID'] ?? 'clt_6F9GM54BB5G2Y',
   });
+
+  // Publish the REST surface alongside the definitions (each sync replaces
+  // the platform's stored copy). Sourced from the RUNNING server so the
+  // catalogue can never diverge from what actually serves.
+  const openapiSpec = await fetchOpenapiSpec(publicBaseUrl);
+  if (openapiSpec) definitions.openapiSpec = openapiSpec;
 
   const removeUnlisted = process.env['FLOWCATALYST_REMOVE_UNLISTED'] === 'true';
 

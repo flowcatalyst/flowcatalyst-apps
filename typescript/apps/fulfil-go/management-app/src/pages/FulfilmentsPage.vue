@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { FulfilmentDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
+import PageHeader from '../components/PageHeader.vue';
 
 interface LogEntry {
   id: number;
@@ -184,11 +185,23 @@ function fmt(iso: string): string {
 <template>
   <div class="flex h-full">
     <!-- Grid stays fully interactive while the panel is open. -->
-    <section class="min-w-0 flex-1 overflow-y-auto p-4">
-      <div class="mb-3 flex items-center justify-between">
-        <h1 class="text-xl font-semibold text-[#102a43]">Fulfilments</h1>
-        <UButton size="sm" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
-      </div>
+    <section class="min-w-0 flex-1 overflow-y-auto p-6">
+      <PageHeader
+        title="Fulfilments"
+        subtitle="Every fulfilment for the active client, parts and all."
+      >
+        <template #actions>
+          <UButton
+            size="sm"
+            variant="soft"
+            icon="i-lucide-refresh-cw"
+            :loading="loading"
+            @click="refresh"
+          >
+            Refresh
+          </UButton>
+        </template>
+      </PageHeader>
       <div class="mb-3 flex items-center gap-2">
         <USelect
           v-model="storeFilter"
@@ -213,7 +226,7 @@ function fmt(iso: string): string {
       <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
         <table class="w-full text-sm">
           <thead>
-            <tr class="bg-neutral-50 text-left text-xs font-semibold text-[#334e68]">
+            <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
               <th class="px-3 py-2">External ref</th>
               <th class="px-3 py-2">Type</th>
               <th class="px-3 py-2">Level</th>
@@ -275,110 +288,142 @@ function fmt(iso: string): string {
          overlay — clicking other rows swaps content without dismissing. -->
     <aside
       v-if="selected"
-      class="flex w-[420px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-neutral-200 bg-white p-4"
+      class="flex w-[480px] shrink-0 flex-col border-l border-neutral-200 bg-white shadow-[-8px_0_32px_rgba(15,23,42,0.06)]"
     >
-      <div class="flex items-start justify-between">
+      <div class="flex items-start justify-between gap-3 border-b border-neutral-200 px-5 py-4">
         <div class="min-w-0">
-          <h2 class="truncate font-mono text-sm text-neutral-500">{{ selected.id }}</h2>
-          <p class="text-lg font-semibold">{{ selected.externalRef }}</p>
-        </div>
-        <UButton size="xs" color="neutral" variant="ghost" @click="closePanel">✕</UButton>
-      </div>
-
-      <div class="grid grid-cols-2 gap-2 text-sm">
-        <div><span class="text-neutral-500">Type</span><br />{{ selected.type }}</div>
-        <div><span class="text-neutral-500">Level</span><br />{{ selected.serviceLevel }}</div>
-        <div><span class="text-neutral-500">Status</span><br />{{ selected.status }}</div>
-        <div>
-          <span class="text-neutral-500">Slot</span><br />{{ fmt(selected.slotStart) }} –
-          {{ fmt(selected.slotEnd) }}
-        </div>
-        <div class="col-span-2">
-          <span class="text-neutral-500">Destination</span><br />
-          {{ destinationName }}
-          <span v-if="selected.type === 'collect'" class="text-neutral-500">
-            ({{ collectionPointRef }})
-          </span>
-        </div>
-      </div>
-
-      <section>
-        <h3 class="mb-2 text-sm font-semibold text-[#334e68]">
-          Parts ({{ selected.parts.length }})
-        </h3>
-        <div class="flex flex-col gap-3">
-          <div
-            v-for="part in selected.parts"
-            :key="part.id"
-            class="overflow-hidden rounded-lg border border-neutral-200"
-          >
-            <div
-              class="flex items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2"
+          <div class="flex items-center gap-2">
+            <h2 class="truncate text-lg font-semibold text-navy-900">
+              {{ selected.externalRef }}
+            </h2>
+            <span
+              class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+              :class="statusColor[selected.status] ?? 'text-neutral-600 bg-neutral-100'"
             >
-              <div class="min-w-0">
-                <p class="font-mono text-sm font-semibold">#{{ part.shortId }}</p>
-                <p class="truncate text-xs text-neutral-500">{{ originSummary(part.origin) }}</p>
-              </div>
-              <span
-                class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="partStatusColor[part.status] ?? 'bg-neutral-100 text-neutral-600'"
-              >
-                {{ part.status }}
-              </span>
-            </div>
-            <ul class="divide-y divide-neutral-100 px-3 text-xs text-neutral-700">
-              <li
-                v-for="(line, i) in part.lines"
-                :key="i"
-                class="flex items-start justify-between gap-2 py-1.5"
-              >
-                <div class="min-w-0">
-                  <p class="truncate">
-                    <span class="font-medium text-neutral-900">{{ line.quantity }}×</span>
-                    {{ line.description }}
-                  </p>
-                  <p v-if="lineSku(line)" class="font-mono text-[11px] text-neutral-400">
-                    {{ lineSku(line) }}
-                  </p>
-                </div>
-                <div class="flex shrink-0 items-center gap-1">
-                  <span
-                    v-if="noSubs(line)"
-                    class="rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700"
-                  >
-                    no subs
-                  </span>
-                  <span
-                    v-if="line.temperatureClass && line.temperatureClass !== 'normal'"
-                    class="rounded px-1 py-0.5 text-[10px] font-medium"
-                    :class="line.temperatureClass === 'frozen'
-                      ? 'bg-cyan-50 text-cyan-700'
-                      : 'bg-sky-50 text-sky-700'"
-                  >
-                    {{ line.temperatureClass }}
-                  </span>
-                </div>
-              </li>
-            </ul>
+              {{ selected.status }}
+            </span>
+          </div>
+          <p class="truncate font-mono text-xs text-neutral-400">{{ selected.id }}</p>
+        </div>
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          aria-label="Close panel"
+          @click="closePanel"
+        />
+      </div>
+
+      <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <div>
+            <span class="mb-0.5 block text-xs font-medium text-neutral-500">Type</span>
+            <span class="text-neutral-800">{{ selected.type }}</span>
+          </div>
+          <div>
+            <span class="mb-0.5 block text-xs font-medium text-neutral-500">Service level</span>
+            <span class="text-neutral-800">{{ selected.serviceLevel }}</span>
+          </div>
+          <div class="col-span-2">
+            <span class="mb-0.5 block text-xs font-medium text-neutral-500">Slot</span>
+            <span class="text-neutral-800">
+              {{ fmt(selected.slotStart) }} – {{ fmt(selected.slotEnd) }}
+            </span>
+          </div>
+          <div class="col-span-2">
+            <span class="mb-0.5 block text-xs font-medium text-neutral-500">Destination</span>
+            <span class="text-neutral-800">{{ destinationName }}</span>
+            <span v-if="selected.type === 'collect'" class="text-neutral-500">
+              ({{ collectionPointRef }})
+            </span>
           </div>
         </div>
-      </section>
 
-      <section v-if="selected.status === 'created'" class="flex flex-col gap-2">
-        <UTextarea v-model="cancelReason" placeholder="Cancellation reason (optional)" :rows="2" />
-        <UButton color="error" variant="soft" block :loading="cancelBusy" @click="cancelSelected">
-          Cancel fulfilment
-        </UButton>
-      </section>
+        <section>
+          <h3 class="mb-2 text-sm font-semibold text-navy-700">
+            Parts ({{ selected.parts.length }})
+          </h3>
+          <div class="flex flex-col gap-3">
+            <div
+              v-for="part in selected.parts"
+              :key="part.id"
+              class="overflow-hidden rounded-lg border border-neutral-200"
+            >
+              <div
+                class="flex items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2"
+              >
+                <div class="min-w-0">
+                  <p class="font-mono text-sm font-semibold">#{{ part.shortId }}</p>
+                  <p class="truncate text-xs text-neutral-500">{{ originSummary(part.origin) }}</p>
+                </div>
+                <span
+                  class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="partStatusColor[part.status] ?? 'bg-neutral-100 text-neutral-600'"
+                >
+                  {{ part.status }}
+                </span>
+              </div>
+              <ul class="divide-y divide-neutral-100 px-3 text-xs text-neutral-700">
+                <li
+                  v-for="(line, i) in part.lines"
+                  :key="i"
+                  class="flex items-start justify-between gap-2 py-1.5"
+                >
+                  <div class="min-w-0">
+                    <p class="truncate">
+                      <span class="font-medium text-neutral-900">{{ line.quantity }}×</span>
+                      {{ line.description }}
+                    </p>
+                    <p v-if="lineSku(line)" class="font-mono text-[11px] text-neutral-400">
+                      {{ lineSku(line) }}
+                    </p>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-1">
+                    <span
+                      v-if="noSubs(line)"
+                      class="rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700"
+                    >
+                      no subs
+                    </span>
+                    <span
+                      v-if="line.temperatureClass && line.temperatureClass !== 'ambient'"
+                      class="rounded px-1 py-0.5 text-[10px] font-medium"
+                      :class="
+                        line.temperatureClass === 'frozen'
+                          ? 'bg-cyan-50 text-cyan-700'
+                          : 'bg-sky-50 text-sky-700'
+                      "
+                    >
+                      {{ line.temperatureClass }}
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
 
-      <section>
-        <h3 class="mb-1 text-sm font-semibold text-[#334e68]">Processing log</h3>
-        <ol class="flex flex-col gap-1 text-xs">
-          <li v-for="entry in log" :key="entry.id" class="rounded bg-neutral-50 px-2 py-1">
-            <span class="text-neutral-400">{{ fmt(entry.at) }}</span> · {{ entry.message }}
-          </li>
-        </ol>
-      </section>
+        <section v-if="selected.status === 'created'" class="flex flex-col gap-2">
+          <UTextarea
+            v-model="cancelReason"
+            placeholder="Cancellation reason (optional)"
+            :rows="2"
+          />
+          <UButton color="error" variant="soft" block :loading="cancelBusy" @click="cancelSelected">
+            Cancel fulfilment
+          </UButton>
+        </section>
+
+        <section>
+          <h3 class="mb-1 text-sm font-semibold text-navy-700">Processing log</h3>
+          <ol class="flex flex-col gap-1 text-xs">
+            <li v-for="entry in log" :key="entry.id" class="rounded bg-neutral-50 px-2 py-1">
+              <span class="text-neutral-400">{{ fmt(entry.at) }}</span> · {{ entry.message }}
+            </li>
+          </ol>
+        </section>
+      </div>
     </aside>
   </div>
 </template>

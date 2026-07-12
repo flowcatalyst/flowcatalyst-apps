@@ -2,9 +2,7 @@
   "version": "8",
   "dialect": "postgres",
   "id": "556d30c8-140e-405a-be07-860b1e96b467",
-  "prevIds": [
-    "dc03165c-ba64-4b69-94e8-7567e4e5066b"
-  ],
+  "prevIds": ["dc03165c-ba64-4b69-94e8-7567e4e5066b"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -2160,11 +2158,7 @@
       "table": "telemetry_locations"
     },
     {
-      "columns": [
-        "client_id",
-        "origin_ref",
-        "service_day"
-      ],
+      "columns": ["client_id", "origin_ref", "service_day"],
       "nameExplicit": false,
       "name": "short_id_counters_pkey",
       "entityType": "pks",
@@ -2172,9 +2166,7 @@
       "table": "short_id_counters"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "audit_logs_pkey",
       "schema": "public",
@@ -2182,9 +2174,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "fulfilment_parts_pkey",
       "schema": "public",
@@ -2192,9 +2182,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "fulfilment_processing_log_pkey",
       "schema": "public",
@@ -2202,9 +2190,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "fulfilments_pkey",
       "schema": "public",
@@ -2212,9 +2198,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "key"
-      ],
+      "columns": ["key"],
       "nameExplicit": false,
       "name": "idempotency_keys_pkey",
       "schema": "public",
@@ -2222,9 +2206,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "jobs_pkey",
       "schema": "public",
@@ -2232,9 +2214,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "picker_users_pkey",
       "schema": "public",
@@ -2242,9 +2222,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "picks_pkey",
       "schema": "public",
@@ -2252,9 +2230,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "stores_pkey",
       "schema": "public",
@@ -2262,9 +2238,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "sync_events_pkey",
       "schema": "public",
@@ -2272,9 +2246,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "telemetry_locations_pkey",
       "schema": "public",

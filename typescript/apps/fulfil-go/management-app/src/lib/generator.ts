@@ -104,7 +104,7 @@ function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
         imageUrl: `https://picsum.photos/seed/${product.sku}/96/96`,
         quantity: Math.floor(between(1, 5)),
         volumetric: product.volumetric,
-        temperatureClass: product.temperatureClass as 'normal' | 'refrigerated' | 'frozen',
+        temperatureClass: product.temperatureClass as 'ambient' | 'chilled' | 'frozen',
         attributes: { aisle: aisleFor(store.ref, product.sku) },
       },
       Math.random() < 0.1 ? { allowSubstitutes: false } : {},

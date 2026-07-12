@@ -19,7 +19,11 @@ export class MasterLocationDeleted extends BaseDomainEvent<MasterLocationDeleted
         specVersion: '1.0',
         source: 'pinpoint:locations',
         subject: DomainEvent.subject('locations', 'master_location', data.masterLocationId),
-        messageGroup: DomainEvent.messageGroup('locations', 'master_location', data.masterLocationId),
+        messageGroup: DomainEvent.messageGroup(
+          'locations',
+          'master_location',
+          data.masterLocationId,
+        ),
       },
       scope as never,
       data,

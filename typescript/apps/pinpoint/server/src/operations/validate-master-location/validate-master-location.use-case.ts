@@ -81,7 +81,6 @@ export class ValidateMasterLocationUseCase {
     let geocode: Awaited<ReturnType<GeocoderService['geocode']>>;
     try {
       geocode = await this.geocoder.geocode(address);
-
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       return Result.failure(UseCaseError.infrastructure('GEOCODER_FAILED', message));

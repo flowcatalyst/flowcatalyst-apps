@@ -179,7 +179,9 @@ function statusSeverity(status: string) {
 
       <div class="fc-card" style="margin-bottom: 16px">
         <div style="margin-bottom: 16px">
-          <label style="display: block; margin-bottom: 6px; font-weight: 500">Received Address</label>
+          <label style="display: block; margin-bottom: 6px; font-weight: 500"
+            >Received Address</label
+          >
           <InputText :model-value="location.receivedAddress" class="w-full" disabled />
           <small style="color: #64748b">The address as received. Immutable.</small>
         </div>
@@ -199,7 +201,9 @@ function statusSeverity(status: string) {
               label="Re-run Matching"
               icon="pi pi-refresh"
               :loading="rematching"
-              :disabled="matchAddressInput.trim().length === 0 || matchAddressInput === location.matchAddress"
+              :disabled="
+                matchAddressInput.trim().length === 0 || matchAddressInput === location.matchAddress
+              "
               @click="handleRematch"
             />
           </div>

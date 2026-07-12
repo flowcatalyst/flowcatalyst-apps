@@ -1,3 +1,4 @@
+import type { PickSessionProjection } from '../../infrastructure/pick-session-projection.js';
 import {
   Result,
   ScopeStore,
@@ -38,6 +39,7 @@ export class ReceivePickUseCase {
     private readonly picks: PickRepository,
     private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
     private readonly syncEvents: SyncEventRepository,
+    private readonly pickSessions: PickSessionProjection,
   ) {}
 
   async execute(command: CreatePickRequest): Promise<Result<PickCreated>> {
@@ -99,6 +101,9 @@ export class ReceivePickUseCase {
       SyncEventType.PickCreated,
       { pick: toPickDto(pick) },
     );
+
+    // Projection row rides the same tx (docs/projections.md).
+    await this.pickSessions.upsert(pick);
 
     return commitAggregate(this.uow, this.registry, pick, event, command);
   }

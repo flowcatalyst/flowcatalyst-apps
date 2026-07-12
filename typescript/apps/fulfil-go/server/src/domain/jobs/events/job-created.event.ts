@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox';
-import { BaseDomainEvent, DomainEvent } from '@fulfil-go/framework';
+import { BaseDomainEvent, DomainEvent, eventGroup } from '@fulfil-go/framework';
 import type { Scope } from '@fulfil-go/framework';
 
 /**
@@ -22,7 +22,7 @@ export class JobCreated extends BaseDomainEvent<JobCreatedData> {
         specVersion: '1.0',
         source: 'fulfil-go:jobs',
         subject: DomainEvent.subject('jobs', 'job', data.jobId),
-        messageGroup: DomainEvent.messageGroup('jobs', 'job', data.jobId),
+        messageGroup: eventGroup('job', data.jobId),
       },
       scope as never,
       data,

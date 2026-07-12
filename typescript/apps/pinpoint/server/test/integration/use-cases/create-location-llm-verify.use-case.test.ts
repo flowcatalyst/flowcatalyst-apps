@@ -93,7 +93,11 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
       dispatchPoolCode: 'test-pool',
       geocodingApiUrl: 'http://geocoder.invalid',
       geocodingRateLimit: 5,
-      addressVerifier: { provider: 'ollama', baseUrl: 'http://ollama.invalid', model: 'test-model' },
+      addressVerifier: {
+        provider: 'ollama',
+        baseUrl: 'http://ollama.invalid',
+        model: 'test-model',
+      },
       libpostalUrl: 'http://libpostal.invalid',
       auth: {
         oidc: null,
@@ -162,7 +166,10 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
 
     // Trail rows for the fresh master now land inside the tx (FK fix).
     const seedTrail = await trailOf(masterId);
-    expect(seedTrail.map((e) => e.step)).toEqual([ProcessingStep.Normalized, ProcessingStep.Created]);
+    expect(seedTrail.map((e) => e.step)).toEqual([
+      ProcessingStep.Normalized,
+      ProcessingStep.Created,
+    ]);
     expect(seedTrail[1]?.data['reason']).toBe('no_match');
 
     mock.handle('POST', /ollama\.invalid\/api\/chat/, () =>
@@ -214,7 +221,10 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
 
     // The fresh master's created step says why it exists.
     const newTrail = await trailOf(b.masterLocationId);
-    expect(newTrail.map((e) => e.step)).toEqual([ProcessingStep.Normalized, ProcessingStep.Created]);
+    expect(newTrail.map((e) => e.step)).toEqual([
+      ProcessingStep.Normalized,
+      ProcessingStep.Created,
+    ]);
     const created = newTrail.find((e) => e.step === ProcessingStep.Created);
     expect(created?.data['reason']).toBe('llm_rejected');
     expect(created?.data['rejected_master_location_id']).toBe(masterId);
