@@ -157,3 +157,79 @@ Adapter rules (locked):
 - Wire gotchas: addresses are JSON-STRINGIFIED strings; money integer
   CENTS; weight grams / dims cm; RFC 3339 UTC datetimes; phones ^\+[0-9]+$;
   `external_store_id` must match between quote and delivery if used.
+
+## Execution channels, planning context & EPOD strategy (direction, Andrew 2026-07-12)
+
+**Three concerns, only one of which existed in the design so far:**
+
+- DEMAND — TransportOrder (designed above): what must move. Request side.
+- PLANNING — grouping orders into TRIPS, stop sequencing, solver
+  optimization (VROOM via the router service), offer/claim vs direct-assign
+  modes. DID NOT EXIST in the design; needed. New context: **Transport
+  Planning** (Trip aggregate).
+- EXECUTION — a driver doing it: our execution app, EPOD's driver app, or
+  Uber's couriers.
+
+Provider split by who PLANS:
+
+- **Provider-planned** (uber): provider port as designed — quote/book/track,
+  no planning on our side.
+- **Our-planned channels** ('own' app, 'epod'): the "adapter" is thin — it
+  hands READY TransportOrders to OUR planning context, which builds trips
+  (v1: one order = one trip; router/VROOM for multi-order later) and runs
+  ONE claim surface (the pick-app pattern: advertise → claim,
+  optimistic-locked, mode per store/client via store profiles: 'claim' vs
+  'assign'). Our execution app consumes it natively; EPOD consumes it via
+  translation (below). One marketplace, two driver apps.
+
+**EPOD integration plan** (see epod-integration-notes.md for the
+integration detail):
+
+- Their claim endpoints get UPDATED to PROXY to fulfil-go (driver app
+  untouched — the point of incremental adoption). Offer request carries
+  driverReference/vehicleRegistration/depot/territory through the proxy.
+- Offer ⇒ our epod adapter takes a RESERVATION on the trip/orders — a
+  proper expiring, optimistic-locked hold in OUR store (mirrors their 30s
+  TTL but lives where the state lives, avoiding offer/claim races).
+  Driver+vehicle bind at OFFER time (their semantic — preserve it).
+- Claim ⇒ we IMMEDIATELY push the route plan to a NEW EPOD ingest endpoint
+  that processes SYNCHRONOUSLY (making route-plan acceptance an explicit
+  success/failure signal): success → trip booked/assigned; failure
+  → reservation released, driver sees "offer expired". Push idempotent on
+  our trip reference.
+- Status flow back: their workflow/stop events → webhook → epod adapter
+  normalizes (stop refs are strings — NEVER numeric ids, unstable per
+  tenant) → TransportOrder machine.
+- **Master-data pre-provisioning**: NEW EPOD upsert APIs for destination
+  locations + products. Trigger (Andrew 2026-07-12): the PROCESS MANAGER
+  creates a platform DISPATCH JOB on `fulfilment.created` whenever EPOD is
+  the default or an available execution system for the origin store — the
+  dispatch job targets the epod adapter's provisioning endpoint
+  (idempotent, keyed on our refs, platform retries — order intake is never
+  blocked). Topology (manually maintained in EPOD): territories and depots
+  are set up by hand; depots link to manually-created `epod_locations`
+  rows and to a territory. ORIGIN linkage needs no provisioning: the
+  incoming fulfilment part's origin reference (`origin.ref`) IS the EPOD
+  location reference → depot → territory. TENANT mapping: our client code
+  == EPOD tenant code (`Tenant::query()->where('code', clientCode)`).
+- **Auth for the new EPOD endpoints: FlowCatalyst access tokens** via the
+  monorepo's EXISTING middleware alias `fc.or-passport`
+  (`\FlowCatalyst\Auth\Http\Middleware\AuthenticateServiceTokenOrFallback`
+  — accepts a FlowCatalyst service token or falls back to Passport). Do
+  NOT use laravel-simple-token-auth. NB the FC token audience contract:
+  aud == iss == platform base URL, NOT client_id.
+
+**Positions + map**: unified `transport_positions` ingest (provider,
+tripRef, vehicle/courier, lat/lng, ts; latest-per-vehicle + optional
+history): our app = Transistorsoft native uploader (telemetry path exists),
+EPOD = telemetry/stop webhooks, Uber = courier location already extracted
+by the adapter (event.courier_update every 20s). Map page in management app
+= MapLibre GL against the router service's OSM VECTOR tile server; live via
+the ops SSE channel. Natural flightboard companion view.
+
+**Adoption path**: (1) transport context + Uber [adapter built], (2)
+planning v1 (1 order = 1 trip) + own-app claim/assign, (3) EPOD channel
+(claim proxy + reservation + sync route push + provisioning APIs), (4)
+router/VROOM multi-order trips + positions map. Stores migrate
+channel-by-channel via store-profile provider config — the incremental
+off-EPOD story is a config change per store, not a cutover.

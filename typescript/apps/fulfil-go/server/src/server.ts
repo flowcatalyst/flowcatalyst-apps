@@ -193,7 +193,9 @@ async function buildServer() {
     openapi: {
       info: {
         title: 'fulfil-go API',
-        version: '0.0.1',
+        // The platform's API catalogue keys the published spec by this
+        // version — bump when the surface meaningfully changes.
+        version: '0.1.0',
         description:
           'On-demand fulfilment: job dispatch (SSE), driver telemetry ingest, ' +
           'offline-queued job transitions.',

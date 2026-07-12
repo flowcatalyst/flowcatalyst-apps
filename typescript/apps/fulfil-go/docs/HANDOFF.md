@@ -53,10 +53,14 @@ persists per pick in localStorage; dead-letter UI in station Settings.
    store/client provider config + store `geo` + PostGIS coverage oracle
    (transport-context.md "Provider selection & coverage"), PM requests
    transport on READY (ASAP immediate, STANDARD timed via reaction
-   bookkeeping + deadline sweep). Alongside it: the process-definition
-   registry + ownership stamp + client integration processes
-   (docs/process-definitions.md). Open decision: 'own' adapter backend =
-   execution-app jobs vs fulfil last-mile.
+   bookkeeping + deadline sweep). STEP 0 of this build: generalize the
+   processing log into the ACTIVITY LOG (docs/activity-log.md — table +
+   activity-log-repository rename + pick/PM writers) so every transport
+   adapter writes the chain record from day one. Alongside it: the
+   process-definition registry + ownership stamp + client integration
+   processes (docs/process-definitions.md), planning context + EPOD channel
+   (transport-context.md "Execution channels"). Open decision: 'own'
+   adapter backend = execution-app jobs vs fulfil last-mile.
 2. Fulfilment completion leg: PM consumes transport events → ready →
    completing → completed/partially_completed.
 3. Pick-into-bag-directly mode (+ per-line server-side state as rows).
@@ -104,10 +108,26 @@ current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
   `pick_stats_by_picker` (join picker names) query live. NEXT:
   fulfilment_sessions + Stats page; flightboard re-reads sessions;
   transport_sessions with transport.
-- EPOD/Integral legacy execution system (the 'inhance' internal execution
-  used by the OLD ondemand app via a CLAIM-TRIP interface): exploration
-  doc expected at docs/epod-integration-notes.md (agent-generated from
-  InhanceMono sources) — feeds a fourth transport provider adapter.
+- EPOD/Integral execution system: **docs/epod-integration-notes.md
+  WRITTEN 2026-07-12** (880 lines, file-cited from InhanceMono) — feeds the
+  'epod' transport provider adapter. Essence: claim is a DRIVER-PULL
+  marketplace (claimable-trips offer w/ 30s TTL + claim-trip/{groupId}; no
+  unclaim, offers expire; driver+vehicle bound at OFFER time) built on
+  ondemand's od*transport_orders (status ready, execution_system='EPOD')
+  over a SHARED DB with epod*\* tables. Events: EPOD.STOP.STATUS.CHANGED /
+  epod.POD.GENERATED / workflow + allocation events; outbound today =
+  Basic-auth Actuals POST (CLIENT_CONFIG/EPOD_ACTUALS) or WEBHOOK_CE
+  connector subs; an Integral→FlowCatalyst sync bridge already exists.
+  Adapter considerations: claim endpoints will PROXY to fulfil-go (their
+  driver app unchanged); route-plan push becomes a new SYNCHRONOUS EPOD
+  ingest endpoint (explicit accept/reject) protected by FlowCatalyst
+  tokens via existing middleware alias 'fc.or-passport'; provisioning
+  (destinations+products) via PM dispatch job on fulfilment.created when
+  EPOD is default/available; origin = part origin.ref == EPOD location
+  reference (depots/territories manually maintained there); tenant match =
+  our client code == EPOD tenant code; map statuses ONLY on string
+  references (numeric ids differ per tenant). Migration is proposed for a
+  focused ondemand execution experience, adopted incrementally per store.
 - Flightboard (management /flightboard, GET /clients/:id/flightboard):
   controller view LIVE 2026-07-12 — KPIs, exception list (release_overdue /
   pick_late_unclaimed / pick_late_incomplete; transport kinds reserved),

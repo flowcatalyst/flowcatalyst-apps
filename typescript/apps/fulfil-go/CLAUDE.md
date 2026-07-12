@@ -88,6 +88,17 @@ pg_snapshot_xmin(pg_current_snapshot())` — ids allocate before commit, so
   `brandedTsid`/`isTsid`/`asTsid` (mirrors the SDK's unexported
   `generateWithPrefix` — swap internals when the SDK exports it). `asTsid`
   throws (trusted values only); guard USER input with `isTsid` → 404.
+- **CQRS-lite repository split** (Andrew, 2026-07-12): routes NEVER touch
+  drizzle directly. WRITE side = repositories (`infrastructure/
+*-repository.ts`): aggregate repos (guarded persists, tx-joined reads
+  only for what the command needs), reference-data repos (plain idempotent
+  upserts, e.g. store-profile-repository), and projection WRITERS
+  (pick-session-projection — same-tx flat rows). READ side = per-surface
+  QUERY modules (`*-query.ts`, e.g. flightboard-query) and SQL views
+  (pick*stats*\*): pool reads, join freely, read projections/views, return
+  read DTOs — never hydrate aggregates, never used for deciding a write.
+  Don't build interface-heavy dual repos per aggregate; the query side is
+  shaped per screen, not per table.
 - **UI**: theme + desktop side-panel pattern in `docs/ui-guidelines.md`
   (FlowCatalyst brand: blue `brand` ramp primary, slate neutral, Inter,
   navy chrome on the management app).

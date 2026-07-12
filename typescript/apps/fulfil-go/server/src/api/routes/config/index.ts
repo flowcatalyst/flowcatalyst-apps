@@ -1,15 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { and, eq } from 'drizzle-orm';
-import { ScopeStore, brandedTsid } from '@fulfil-go/framework';
+import { ScopeStore } from '@fulfil-go/framework';
 import {
   DEFAULT_STORE_PROFILE_CODE,
   STORE_SETTINGS_DEFAULTS,
   StoreSettingsSchema,
+  type StoreSettings,
 } from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
-import { storeProfiles } from '../../../infrastructure/schema/store-profiles.js';
-import { stores } from '../../../infrastructure/schema/stores.js';
+import { createDrizzleStoreProfileRepository } from '../../../infrastructure/store-profile-repository.js';
 
 /**
  * Store-profile configuration. Profiles are named settings bundles; the
@@ -26,7 +25,7 @@ const ProfileSchema = Type.Object({
 });
 
 export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppContext): void {
-  const db = appContext.db;
+  const profileRepo = createDrizzleStoreProfileRepository(appContext.db);
 
   fastify.get(
     '/clients/:clientId/config/store-profiles',
@@ -53,22 +52,14 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { clientId } = request.params as { clientId: string };
-      const rows = await db
-        .select()
-        .from(storeProfiles)
-        .where(eq(storeProfiles.clientId, clientId))
-        .orderBy(storeProfiles.code);
-      const profiles = rows.map((r) => ({
-        code: r.code,
-        name: r.name,
-        settings: (r.settings ?? {}) as Record<string, number>,
-      }));
-      if (!profiles.some((p) => p.code === DEFAULT_STORE_PROFILE_CODE)) {
-        profiles.unshift({ code: DEFAULT_STORE_PROFILE_CODE, name: 'Default', settings: {} });
-      }
+      const profiles = await profileRepo.listByClient(clientId);
       return reply.send({
         defaults: STORE_SETTINGS_DEFAULTS as unknown as Record<string, number>,
-        profiles,
+        profiles: profiles.map((p) => ({
+          code: p.code,
+          name: p.name,
+          settings: p.settings as Record<string, number>,
+        })),
       });
     },
   );
@@ -102,28 +93,11 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
       if (!parsed.success) {
         return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }
-      const [row] = await db
-        .insert(storeProfiles)
-        .values({
-          id: brandedTsid('spr'),
-          clientId,
-          code,
-          name: name ?? code,
-          settings: parsed.data,
-        })
-        .onConflictDoUpdate({
-          target: [storeProfiles.clientId, storeProfiles.code],
-          set: {
-            ...(name !== undefined ? { name } : {}),
-            settings: parsed.data,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
+      const saved = await profileRepo.upsert(clientId, code, name, parsed.data);
       return reply.send({
-        code: row!.code,
-        name: row!.name,
-        settings: (row!.settings ?? {}) as Record<string, number>,
+        code: saved.code,
+        name: saved.name,
+        settings: saved.settings as Record<string, number>,
       });
     },
   );
@@ -158,7 +132,7 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
         profileCode?: string;
         overrides?: unknown;
       };
-      let parsedOverrides: unknown = undefined;
+      let parsedOverrides: StoreSettings | null | undefined = undefined;
       if (overrides !== undefined) {
         if (overrides === null) {
           parsedOverrides = null;
@@ -171,26 +145,16 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
         }
       }
       if (profileCode && profileCode !== DEFAULT_STORE_PROFILE_CODE) {
-        const [profile] = await db
-          .select({ code: storeProfiles.code })
-          .from(storeProfiles)
-          .where(and(eq(storeProfiles.clientId, clientId), eq(storeProfiles.code, profileCode)))
-          .limit(1);
-        if (!profile) {
+        if (!(await profileRepo.exists(clientId, profileCode))) {
           return reply
             .code(400)
             .send({ error: 'ValidationError', message: `Unknown profile '${profileCode}'.` });
         }
       }
-      const [row] = await db
-        .update(stores)
-        .set({
-          ...(profileCode !== undefined ? { profileCode } : {}),
-          ...(parsedOverrides !== undefined ? { settingsOverrides: parsedOverrides } : {}),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(stores.clientId, clientId), eq(stores.storeRef, storeRef)))
-        .returning({ storeRef: stores.storeRef, profileCode: stores.profileCode });
+      const row = await profileRepo.assignStore(clientId, storeRef, {
+        ...(profileCode !== undefined ? { profileCode } : {}),
+        ...(parsedOverrides !== undefined ? { overrides: parsedOverrides } : {}),
+      });
       if (!row) {
         return reply
           .code(404)
