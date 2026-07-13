@@ -40,8 +40,11 @@ export const trips = pgTable(
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),
   },
   (t) => [
+    // Serves listByClient AND listByDriver (status='claimed' is naturally
+    // tiny — a driver holds 1–2 claimed trips; the driver filter is cheap on
+    // top). idx_trips_client_store was dropped in the 2026-07 index pass:
+    // nothing queries trips by origin store.
     index('idx_trips_client_status').on(t.clientId, t.status),
-    index('idx_trips_client_store').on(t.clientId, t.originRef, t.status),
   ],
 );
 

@@ -106,9 +106,14 @@ const labelError = ref<string | null>(null);
 /** seq → outcome of the LAST delivery attempt from this station. */
 const labelDelivered = reactive<Record<number, boolean>>({});
 const activeRef = ref<string | null>(null);
-/** "Add bag" takes over the screen (drawer) — the capture form lives there. */
-const bagDrawerOpen = ref(false);
-const bagForm = reactive({
+/** "Add package" takes over the screen (drawer) — kind toggle, bag default. */
+const pkgDrawerOpen = ref(false);
+const PKG_KINDS = [
+  { value: 'bag', label: '🛍 Bag' },
+  { value: 'loose', label: '📦 Loose' },
+] as const;
+const pkgForm = reactive({
+  kind: 'bag' as 'bag' | 'loose',
   ref: '',
   size: null as (typeof SIZES)[number] | null,
   temperature: 'ambient' as (typeof TEMPS)[number]['value'],
@@ -273,7 +278,7 @@ function onWedgeScan(): void {
   scanValue.value = '';
 }
 
-async function cameraScan(target: 'line' | 'bag' | 'sub'): Promise<void> {
+async function cameraScan(target: 'line' | 'pkg' | 'sub'): Promise<void> {
   scanBusy.value = true;
   error.value = null;
   try {
@@ -284,7 +289,7 @@ async function cameraScan(target: 'line' | 'bag' | 'sub'): Promise<void> {
     const code = barcodes[0]?.rawValue;
     if (!code) return;
     if (target === 'line') applyScan(code);
-    else if (target === 'bag') bagForm.ref = code;
+    else if (target === 'pkg') pkgForm.ref = code;
     else subForm.barcode = code;
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -442,45 +447,51 @@ async function reprintLabel(seq: number): Promise<void> {
   }
 }
 
-function addBag(): void {
+function addPackage(): void {
   error.value = null;
-  const bagRef = bagForm.ref.trim();
-  if (!bagRef || !bagForm.size) return;
-  if (packages.value.some((p) => p.ref === bagRef)) {
-    error.value = `Bag '${bagRef}' is already added.`;
+  const pkgRef = pkgForm.ref.trim();
+  if (!pkgRef || (pkgForm.kind === 'bag' && !pkgForm.size)) return;
+  if (packages.value.some((p) => p.ref === pkgRef)) {
+    error.value = `'${pkgRef}' is already added.`;
     return;
   }
   // A voided ref is a label from a replaced set — physically stale.
-  if (labelAlloc.value?.voidedRefs.includes(bagRef)) {
+  if (labelAlloc.value?.voidedRefs.includes(pkgRef)) {
     error.value = `That label was replaced — scan one of the current ${labelAlloc.value.count} labels.`;
     return;
   }
-  packages.value.push({
-    ref: bagRef,
-    kind: 'bag',
-    size: bagForm.size,
-    temperature: bagForm.temperature,
-    items: {},
-  });
-  activeRef.value = bagRef;
-  bagForm.ref = '';
-  bagForm.size = null;
-  bagForm.temperature = 'ambient';
-  bagDrawerOpen.value = false;
+  pushPackage(pkgRef);
 }
 
-function addLoose(): void {
+/** Unlabelled awkward loose item — no barcode to scan, fall back to a generated ref. */
+function addLooseWithoutBarcode(): void {
   looseSeq += 1;
-  const looseRef = `loose-${looseSeq}`;
+  pushPackage(`loose-${looseSeq}`);
+}
+
+function pushPackage(pkgRef: string): void {
   packages.value.push({
-    ref: looseRef,
-    kind: 'loose',
-    size: null,
-    temperature: 'ambient',
+    ref: pkgRef,
+    kind: pkgForm.kind,
+    size: pkgForm.kind === 'bag' ? pkgForm.size : null,
+    temperature: pkgForm.temperature,
     items: {},
   });
-  activeRef.value = looseRef;
+  activeRef.value = pkgRef;
+  pkgForm.kind = 'bag';
+  pkgForm.ref = '';
+  pkgForm.size = null;
+  pkgForm.temperature = 'ambient';
+  pkgDrawerOpen.value = false;
 }
+
+/** Generated loose-N refs have no physical barcode; scanned/labelled refs do. */
+const packageTitle = (pkg: PackagedUnit): string =>
+  pkg.kind === 'loose'
+    ? /^loose-\d+$/.test(pkg.ref)
+      ? '📦 Loose'
+      : `📦 ${pkg.ref}`
+    : `🛍 ${pkg.ref}`;
 
 function removePackage(pkgRef: string): void {
   packages.value = packages.value.filter((p) => p.ref !== pkgRef);
@@ -948,102 +959,130 @@ async function fail(): Promise<void> {
         </template>
       </UCard>
 
-      <!-- Add bag: a button that TAKES OVER the screen for capture. -->
-      <div class="flex gap-2">
-        <UDrawer v-model:open="bagDrawerOpen" title="Add a bag">
-          <UButton size="xl" class="flex-1" block>🛍 Add bag</UButton>
-          <template #body>
-            <div class="flex flex-col gap-4 p-1">
-              <div class="flex gap-2">
-                <UInput
-                  v-model="bagForm.ref"
-                  placeholder="Scan bag barcode…"
-                  class="flex-1 font-mono"
-                  size="xl"
-                  autocomplete="off"
-                  autofocus
-                />
-                <UButton
-                  v-if="isNative"
-                  size="xl"
-                  variant="soft"
-                  :loading="scanBusy"
-                  @click="cameraScan('bag')"
-                >
-                  📷
-                </UButton>
-              </div>
-
-              <!-- Recognise a printed bag label the moment it's scanned. -->
-              <p
-                v-if="labelForRef(bagForm.ref.trim())"
-                class="rounded bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700"
-              >
-                🏷 Label {{ labelForRef(bagForm.ref.trim())!.seq }} / {{ labelAlloc!.count }}
+      <!-- Add package: one button that TAKES OVER the screen for capture.
+           Kind is an option (bag default) — Andrew, 2026-07-13. -->
+      <UDrawer v-model:open="pkgDrawerOpen" title="Add a package">
+        <UButton size="xl" block>🛍 Add package</UButton>
+        <template #body>
+          <div class="flex flex-col gap-4 p-1">
+            <div>
+              <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Kind
               </p>
-
-              <div>
-                <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                  Size
-                </p>
-                <div class="flex gap-2">
-                  <button
-                    v-for="s in SIZES"
-                    :key="s"
-                    class="h-14 flex-1 rounded-lg border-2 font-semibold transition-colors"
-                    :class="
-                      bagForm.size === s
-                        ? 'border-brand-600 bg-brand-600 text-white'
-                        : 'border-neutral-200 bg-white text-neutral-600'
-                    "
-                    @click="bagForm.size = bagForm.size === s ? null : s"
-                  >
-                    {{ s }}
-                  </button>
-                </div>
+              <div class="flex gap-2">
+                <button
+                  v-for="k in PKG_KINDS"
+                  :key="k.value"
+                  class="h-14 flex-1 rounded-lg border-2 text-sm font-semibold transition-colors"
+                  :class="
+                    pkgForm.kind === k.value
+                      ? 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-neutral-200 bg-white text-neutral-600'
+                  "
+                  @click="pkgForm.kind = k.value"
+                >
+                  {{ k.label }}
+                </button>
               </div>
+            </div>
 
-              <div>
-                <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                  Type
-                </p>
-                <div class="flex gap-2">
-                  <button
-                    v-for="t in TEMPS"
-                    :key="t.value"
-                    class="h-14 flex-1 rounded-lg border-2 text-sm font-semibold transition-colors"
-                    :class="
-                      bagForm.temperature === t.value
-                        ? t.value === 'frozen'
-                          ? 'border-cyan-600 bg-cyan-600 text-white'
-                          : t.value === 'chilled'
-                            ? 'border-sky-500 bg-sky-500 text-white'
-                            : 'border-brand-600 bg-brand-600 text-white'
-                        : 'border-neutral-200 bg-white text-neutral-600'
-                    "
-                    @click="bagForm.temperature = t.value"
-                  >
-                    {{ t.label }}
-                  </button>
-                </div>
-              </div>
-
-              <UButton
+            <div class="flex gap-2">
+              <UInput
+                v-model="pkgForm.ref"
+                :placeholder="pkgForm.kind === 'bag' ? 'Scan bag barcode…' : 'Scan item barcode…'"
+                class="flex-1 font-mono"
                 size="xl"
-                block
-                :disabled="!bagForm.ref.trim() || !bagForm.size"
-                @click="addBag"
+                autocomplete="off"
+                autofocus
+              />
+              <UButton
+                v-if="isNative"
+                size="xl"
+                variant="soft"
+                :loading="scanBusy"
+                @click="cameraScan('pkg')"
               >
-                Add bag
-              </UButton>
-              <UButton color="neutral" variant="soft" block @click="bagDrawerOpen = false">
-                Cancel
+                📷
               </UButton>
             </div>
-          </template>
-        </UDrawer>
-        <UButton size="xl" color="neutral" variant="soft" @click="addLoose">📦 Loose</UButton>
-      </div>
+
+            <!-- Recognise a printed bag label the moment it's scanned. -->
+            <p
+              v-if="labelForRef(pkgForm.ref.trim())"
+              class="rounded bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700"
+            >
+              🏷 Label {{ labelForRef(pkgForm.ref.trim())!.seq }} / {{ labelAlloc!.count }}
+            </p>
+
+            <div v-if="pkgForm.kind === 'bag'">
+              <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Size
+              </p>
+              <div class="flex gap-2">
+                <button
+                  v-for="s in SIZES"
+                  :key="s"
+                  class="h-14 flex-1 rounded-lg border-2 font-semibold transition-colors"
+                  :class="
+                    pkgForm.size === s
+                      ? 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-neutral-200 bg-white text-neutral-600'
+                  "
+                  @click="pkgForm.size = pkgForm.size === s ? null : s"
+                >
+                  {{ s }}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Type
+              </p>
+              <div class="flex gap-2">
+                <button
+                  v-for="t in TEMPS"
+                  :key="t.value"
+                  class="h-14 flex-1 rounded-lg border-2 text-sm font-semibold transition-colors"
+                  :class="
+                    pkgForm.temperature === t.value
+                      ? t.value === 'frozen'
+                        ? 'border-cyan-600 bg-cyan-600 text-white'
+                        : t.value === 'chilled'
+                          ? 'border-sky-500 bg-sky-500 text-white'
+                          : 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-neutral-200 bg-white text-neutral-600'
+                  "
+                  @click="pkgForm.temperature = t.value"
+                >
+                  {{ t.label }}
+                </button>
+              </div>
+            </div>
+
+            <UButton
+              size="xl"
+              block
+              :disabled="!pkgForm.ref.trim() || (pkgForm.kind === 'bag' && !pkgForm.size)"
+              @click="addPackage"
+            >
+              {{ pkgForm.kind === 'bag' ? 'Add bag' : 'Add loose item' }}
+            </UButton>
+            <UButton
+              v-if="pkgForm.kind === 'loose'"
+              color="neutral"
+              variant="soft"
+              block
+              @click="addLooseWithoutBarcode"
+            >
+              No barcode on it — add anyway
+            </UButton>
+            <UButton color="neutral" variant="ghost" block @click="pkgDrawerOpen = false">
+              Cancel
+            </UButton>
+          </div>
+        </template>
+      </UDrawer>
 
       <!-- Packages -->
       <div v-if="packages.length > 0" class="flex flex-col gap-2">
@@ -1057,7 +1096,7 @@ async function fail(): Promise<void> {
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
               <p class="truncate font-mono text-sm font-semibold">
-                {{ pkg.kind === 'loose' ? '📦 Loose' : `🛍 ${pkg.ref}` }}
+                {{ packageTitle(pkg) }}
               </p>
               <p class="text-[11px] text-neutral-500">
                 <template v-if="pkg.kind === 'bag'">{{ pkg.size }} · </template>

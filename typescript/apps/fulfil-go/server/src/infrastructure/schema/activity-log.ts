@@ -38,7 +38,12 @@ export const activityLog = pgTable(
     data: jsonb('data'),
   },
   (t) => [
-    index('idx_activity_log_fulfilment').on(t.clientId, t.fulfilmentId, t.id),
+    // fulfilment_id leads (ids are globally-unique TSIDs — client adds no
+    // selectivity and no read passes it); category second serves `hasEntry`,
+    // the PM dispatch guard on every webhook decision, without relying on
+    // PG18 skip scan. Timeline reads use the prefix; per-chain sets are
+    // small, sorting by id in-process is free.
+    index('idx_activity_log_fulfilment').on(t.fulfilmentId, t.category),
     index('idx_activity_log_subject').on(t.subjectType, t.subjectId),
   ],
 );

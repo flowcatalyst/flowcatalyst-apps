@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -51,8 +52,14 @@ export const transportOrders = pgTable(
     index('idx_transport_orders_client_status').on(t.clientId, t.status),
     index('idx_transport_orders_fulfilment').on(t.clientId, t.fulfilmentId),
     index('idx_transport_orders_provider_ref').on(t.provider, t.providerRef),
-    // Planning marketplace feed: requested work at a store.
-    index('idx_transport_orders_store_status').on(t.clientId, t.originRef, t.status),
+    // Planning marketplace feed: requested work at a store, slot order.
+    // PARTIAL on the only status the feed ever reads (2026-07 index pass):
+    // orders drop out on booking/claim, keeping the driver-poll index tiny
+    // while the 5-transition order lifecycle skips it entirely once past
+    // 'requested'. findRequestedByFulfilmentExternalRef rides it too.
+    index('idx_transport_orders_store_status')
+      .on(t.clientId, t.originRef, t.slotStart)
+      .where(sql`status = 'requested'`),
   ],
 );
 

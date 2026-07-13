@@ -13,7 +13,10 @@ export type PackageTemperature = z.infer<typeof PackageTemperatureSchema>;
  */
 export const PickPackageSchema = z
   .object({
-    /** Bag barcode as scanned; client-generated ref for loose (e.g. loose-1). */
+    /**
+     * Barcode as scanned (bag or loose item / printed label stuck on it);
+     * generated fallback ref (e.g. loose-1) for loose items with no barcode.
+     */
     ref: z.string().min(1).max(64),
     kind: z.enum(['bag', 'loose']),
     size: PackageSizeSchema.nullish(),

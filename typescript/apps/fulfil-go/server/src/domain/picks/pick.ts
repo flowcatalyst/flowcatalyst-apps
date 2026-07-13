@@ -53,7 +53,8 @@ import type { PickLabelAllocation } from '@fulfil-go/shared';
 
 /**
  * A physical package produced by packing: a scanned bag (size + temperature
- * type) or a loose item marker (things too big/awkward for a bag). `items`
+ * type) or a loose item (things too big/awkward for a bag — its own barcode
+ * or a stuck-on printed label when it has one, generated ref when not). `items`
  * is present when the station packed in scan-items-into-bags mode — then the
  * per-line quantities across all packages exactly cover what was picked;
  * bags-only mode records the packages without contents.

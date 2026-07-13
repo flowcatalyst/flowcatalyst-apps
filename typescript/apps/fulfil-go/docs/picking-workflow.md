@@ -33,7 +33,9 @@ mode is a later phase.
 
 ```
 PickPackage
-├── ref          bag barcode as scanned; client ref (loose-N) for loose
+├── ref          barcode as scanned (bag, or a loose item's own barcode /
+│                stuck-on printed label); generated loose-N only when a
+│                loose item has no barcode at all
 ├── kind         'bag' | 'loose'   (loose = too big/awkward for a bag)
 ├── size         XS | S | M | L | XL   (bags only; loose has none)
 ├── temperature  ambient | chilled | frozen   (UI: Ambient/Chilled/Frozen)

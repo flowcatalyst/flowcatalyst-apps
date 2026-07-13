@@ -133,8 +133,14 @@ export async function queryFlightboard(
     ? await db.select().from(fulfilmentParts).where(inArray(fulfilmentParts.fulfilmentId, ids))
     : [];
   const partIds = partRows.map((p) => p.id);
+  // client_id alongside the id list lets the (client_id, part_id) unique
+  // index serve this as plain probes — ~4x over a skip scan at volume, and
+  // no seq scan on Postgres versions without skip scan.
   const pickRows = partIds.length
-    ? await db.select().from(picks).where(inArray(picks.partId, partIds))
+    ? await db
+        .select()
+        .from(picks)
+        .where(and(eq(picks.clientId, clientId), inArray(picks.partId, partIds)))
     : [];
 
   const picksByPart = new Map(pickRows.map((p) => [p.partId, p]));

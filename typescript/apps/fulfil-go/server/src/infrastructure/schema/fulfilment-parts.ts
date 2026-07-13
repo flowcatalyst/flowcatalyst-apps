@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { boolean, index, jsonb, pgTable, text, varchar } from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 
@@ -40,8 +41,14 @@ export const fulfilmentParts = pgTable(
     index('idx_fulfilment_parts_fulfilment').on(t.fulfilmentId),
     // The floor lookup: "part 1043 at store X".
     index('idx_fulfilment_parts_short').on(t.clientId, t.originRef, t.shortId),
-    // The release sweep: pending parts due for pick release.
-    index('idx_fulfilment_parts_release').on(t.status, t.releaseAt),
+    // The release sweep: pending parts due for pick release. PARTIAL — only
+    // pending rows are indexed (2026-07 index pass): parts leave the index
+    // on their first transition and never return, so the sweep scans a tiny
+    // index and the 3–4 status transitions per part stop rewriting entries
+    // for terminal rows.
+    index('idx_fulfilment_parts_release')
+      .on(t.releaseAt)
+      .where(sql`status = 'pending'`),
   ],
 );
 

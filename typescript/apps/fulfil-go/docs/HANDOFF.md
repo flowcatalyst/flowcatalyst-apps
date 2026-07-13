@@ -1,19 +1,60 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-13 (transport-planning + management-chrome session).
-Everything below is COMMITTED on `main`. Read `CLAUDE.md` first (stack,
-conventions, gotchas, dev loop); this file is "where we are + what's next".
-**NEXT SESSION (Andrew, 2026-07-13): INDEX PASS — review access patterns
-and plan an optimal index set balancing write vs query performance**
-("Agreed next steps" item 1 below has the access-pattern map). After
-that: driver status-report API + delete the jobs vertical, or the
-fulfilment completion leg.
+Last updated: 2026-07-13 (index-pass + loose-barcode session; working tree,
+not yet committed). Read `CLAUDE.md` first (stack, conventions, gotchas,
+dev loop); this file is "where we are + what's next".
+**NEXT: delete the demo jobs vertical, offline-queue driver report calls,
+or the fulfilment completion leg** (driver status-report API is DONE, see
+below; the INDEX PASS is DONE, this session).
 Product decision 2026-07-13: fulfil-go has NO iOS APP — picking stations
 are Android or browser; don't build/maintain ios/ projects. SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
+
+## What landed 2026-07-13 (index-pass + loose-barcode session)
+
+**INDEX PASS (agreed next-steps item 1) — DONE.** Method: threw a synthetic
+~1.9M-row dataset (60k fulfilments / 78k parts / 70k picks / 56k transport
+orders / 9k trips / 600k sync_events / 480k activity_log / 300k outbox) at a
+throwaway `fulfilgo_indexlab` db on the embedded PG, `EXPLAIN (ANALYZE,
+BUFFERS)` over the full catalogued query list (21 queries), designed the
+minimal set, re-verified, dropped the lab. Migration
+`20260713183229_index_pass` applied to the dev db. Findings:
+
+- Most of the schema was ALREADY sound at volume — embedded PG is 18 and
+  btree **skip scan** rescued the queries the old map worried about
+  (hasEntry, listByDriver, marketplace feed were all sub-ms before changes).
+- CHANGED: `fulfilments` gained `(client_id, slot_start)` — the flightboard
+  ±24h window was the one true seq scan (10.4ms → 0.39ms warm, no sort:
+  index yields slot order). `activity_log` fulfilment index reshaped to
+  `(fulfilment_id, category)` (client prefix was never a predicate; serves
+  the hot PM `hasEntry` guard without skip-scan reliance). Release-sweep
+  index now PARTIAL `(release_at) WHERE status='pending'` (32kB vs multi-MB;
+  part transitions stop rewriting it). Marketplace index now PARTIAL
+  `(client_id, origin_ref, slot_start) WHERE status='requested'` (48kB,
+  covers feed + slot sort + findRequestedByFulfilmentExternalRef).
+  DROPPED dead `idx_trips_client_store` (nothing queries trips by store).
+- QUERY FIX: flightboard's picks read now passes `client_id` alongside the
+  part-id IN list so `uq_picks_client_part` serves it as plain probes
+  (31.5ms skip scan → 7.1ms; seq scan on PG<18 otherwise).
+- NOT changed (deliberate): sync_events/outbox/telemetry/idempotency stay
+  lean (all sub-ms; outbox is SDK-owned with tuned partial indexes);
+  trips/transport listByClient sorts uncovered (live sets tiny);
+  store-filtered fulfilments list ~11ms at 60k (management page, fine);
+  no jsonb expression indexes (still none queried). Flightboard smoke-
+  verified live on :3299 against the dev db (HTTP 200, 20ms).
+
+**Loose items carry barcodes now (Andrew's ask).** The picking app's
+"📦 Loose" button opens a capture drawer like Add bag: scan/type the item's
+own barcode or a stuck-on printed label (recognised as `n / X`), temperature
+squares, duplicate + voided-label guards — plus a "No barcode on it — add
+anyway" fallback that keeps the generated `loose-N` ref (unlabelled awkward
+items, stores without printers). Camera scan target 'loose' added; package
+cards show the scanned ref for barcoded loose items. Contract unchanged
+(`packages[].ref` was always an arbitrary string) — comments updated in
+pick-outcome.contract.ts / pick.ts / picking-workflow.md.
 
 ## What landed 2026-07-13 (transport-planning + management-chrome session)
 
@@ -216,7 +257,10 @@ design doc; read it before touching the replace flow):
 
 ## Agreed next steps (priority order)
 
-1. **INDEX PASS (Andrew, 2026-07-13)**: review access patterns across the
+1. ~~**INDEX PASS (Andrew, 2026-07-13)**~~ **DONE 2026-07-13** (see "What
+   landed — index-pass session" above; migration `20260713183229_index_pass`
+   + flightboard query fix). Original brief kept for the record: review
+   access patterns across the
    schema and design an index set balancing WRITE cost (every aggregate
    persist is an optimistic-locked UPDATE; outbox/sync/activity append on
    every commit) against the hot reads. Access-pattern map to work from:
@@ -247,7 +291,19 @@ design doc; read it before touching the replace flow):
      BUFFERS)` each query-module SQL + repo read, check pg_stat_user_
      indexes for dead weight afterwards. Embedded PG has no
      pg_stat_statements by default — drive the known query list instead.
-2. **Execution-app migration onto the claim marketplace**: consume
+2. **HANDOVER VERIFICATION (designed 2026-07-13, decisions LOCKED with
+   Andrew — docs/handover-verification.md)**: collection scanning in the
+   execution app (scan bags per order → order collected → trip
+   auto-collects), per-part pickup PIN override (store gives it;
+   server-verified, online-only), per-fulfilment delivery PIN (random
+   default / phone-last4 opt-in; upstream pulls via API — never in platform
+   events, never shipped to the driver app), audited pin reveal on
+   flightboard/management (activity-log `pin-viewed`), age checks stamped
+   from line-level `restrictedMinAge` (attestation-only evidence, visual
+   override only when client config permits), provider capability gating in
+   the resolver. Config = new `fulfilment` section in client_settings,
+   stamped at creation. Read the doc before building.
+3. **Execution-app migration onto the claim marketplace**: consume
    `/clients/:id/transport/offers` + `/offers/:groupId/claim` natively
    (offer card with the stop sequence, claim → drive → per-stop
    delivered/failed reporting — which needs the status-report API below),
@@ -321,17 +377,17 @@ design doc; read it before touching the replace flow):
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.
-3. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
+4. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
    normalizes (string references only) → TransportOrder machine — plus
    real-EPOD-tenant verification of the claim proxy + sync plan intake
    (their branch is still unpushed).
-4. Fulfilment completion leg: subscription gains transport:order:delivered/
+5. Fulfilment completion leg: subscription gains transport:order:delivered/
    failed/cancelled → PM: ready → completing → completed/partially_completed
    (+ commerce hook seam per docs/process-definitions.md layer 2).
-5. Management Transport orders page (list API already live) + flightboard
+6. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
-6. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
-7. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
+7. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
+8. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
    above + docs/bag-label-printing.md). Remaining: device verification of
    TcpPrint (Android) against a real Zebra on a store LAN.
 

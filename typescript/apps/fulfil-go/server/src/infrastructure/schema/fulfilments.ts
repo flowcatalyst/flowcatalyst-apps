@@ -33,6 +33,10 @@ export const fulfilments = pgTable(
     // The create-idempotency backstop: one fulfilment per upstream reference.
     uniqueIndex('idx_fulfilments_external').on(t.clientId, t.externalSource, t.externalRef),
     index('idx_fulfilments_client_created').on(t.clientId, t.createdAt),
+    // The flightboard's ±24h slot window — the one read that still
+    // seq-scanned at volume (2026-07 index pass). client_id/slot_start never
+    // change, so status transitions stay HOT and writes don't touch this.
+    index('idx_fulfilments_client_slot').on(t.clientId, t.slotStart),
   ],
 );
 
