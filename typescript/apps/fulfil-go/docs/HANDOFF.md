@@ -53,7 +53,7 @@ the full summary):
   `purge:dev-data` clears them.
 - EPOD offer→store mapping: the store's 'epod' transportProviders entry
   config carries `{depotReference, territoryReference?, companyReference?,
-  companyName?, transporterReference?, vehicleTypeReference?}` (API-set;
+companyName?, transporterReference?, vehicleTypeReference?}` (API-set;
   dev data: dark-store profile → SMOKE-DEPOT-1). vehicleType defaults to a
   self-provisioned FULFILGO-VAN — point `vehicleTypeReference` at a REAL
   EPOD type per store if retyping their vehicle on plan ingest matters.
@@ -147,8 +147,8 @@ design doc; read it before touching the replace flow):
      drawer has a Hot square; generator fixtures ~5% hot items).
    - pickSortAlgorithm 'temperature-zone': ambient → chilled → frozen →
      hot, walk-sequence WITHIN each band.
-   - **Store profiles SPLIT by owning domain**: store_profiles.domain
-     ('pick'|'transport'), stores carry pick_/transport_ profile codes +
+   - **Store profiles SPLIT by owning domain**: store*profiles.domain
+     ('pick'|'transport'), stores carry pick*/transport\_ profile codes +
      per-domain override columns. Config API is
      `/clients/:id/config/:domain/store-profiles`; management pages live
      under Picking → Pick profiles and Transport → Transport profiles.
@@ -158,12 +158,12 @@ design doc; read it before touching the replace flow):
      ({code, serviceRadiusKm?, config?} — API-set, no UI).
    - stores gained lat/lng columns (extracted from the captured record).
 5. **Transport context — demand side** (`9775e96`,
-   docs/transport-context.md): TransportOrder aggregate (tro_, one per
+   docs/transport-context.md): TransportOrder aggregate (tro*, one per
    picked part, forward-only machine requested → booked → assigned →
-   collected → delivered|failed|cancelled) + fulfil-go:transport:order:*
+   collected → delivered|failed|cancelled) + fulfil-go:transport:order:\*
    events; provider registry ('own'/'epod' = OUR-PLANNED → orders stay
    requested for the planning marketplace; 'uber' = provider-planned,
-   registers when FULFILGO_UBER_* creds set); resolver = transport profile
+   registers when FULFILGO_UBER*\* creds set); resolver = transport profile
    allowed[] ∩ registry ∩ vehicle capability ∩ radius coverage (haversine
    v1 on store lat/lng — same oracle seam for future PostGIS/pinpoint
    polygons), store default ranked first, remainder = fallback chain.
@@ -192,7 +192,7 @@ design doc; read it before touching the replace flow):
   vehicleRegistration carried but not capacity-checked.
 
 - ~~Run `pnpm flowcatalyst:sync`~~ RUN 2026-07-13 (planning session):
-  everything registered incl. transport:trip:* (26 event types, schemas
+  everything registered incl. transport:trip:\* (26 event types, schemas
   pushed). Re-run after any new event/subscription work as usual.
 - Set per-store transport profiles: the smoke left the CLIENT-WIDE
   'default' transport profile with transportProviders [own, uber(15km)] +
@@ -202,15 +202,15 @@ design doc; read it before touching the replace flow):
 
 ## Contexts & status
 
-| Context         | State                                                                                                                                                                                                                       |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context         | State                                                                                                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fulfilment      | create/cancel/release + PM reactions + READY/FAILED derivations + transport trigger (ASAP/STANDARD). Missing: completion leg (consume transport delivered/failed → completing → completed/partially_completed), cancel-while-picking. |
-| Pick            | Full vertical incl. bag-label printing (n/X pre-allocated refs, reprint, replace). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                            |
-| Picker identity | PIN-primary complete. Missing: QR badges, device enrollment, break-glass.                                                                                                                                                     |
-| Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                  |
-| Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: management Transport orders page (API exists), EPOD status flow BACK (their workflow/stop webhooks → order machine).                             |
-| Planning        | LIVE — Trip aggregate + group-atomic reservations + offer/claim marketplace (EPOD proxy door + native door), VROOM sequencing, sync route-plan push. Missing: execution-app consumption, real-EPOD-tenant verification.        |
-| Jobs (demo)     | Throwaway vertical; still powers execution-app. SUPERSEDED — the claim marketplace is live server-side; migrate execution-app onto /transport/offers and delete the vertical.                                                  |
+| Pick            | Full vertical incl. bag-label printing (n/X pre-allocated refs, reprint, replace). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                                   |
+| Picker identity | PIN-primary complete. Missing: QR badges, device enrollment, break-glass.                                                                                                                                                             |
+| Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                          |
+| Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: management Transport orders page (API exists), EPOD status flow BACK (their workflow/stop webhooks → order machine).                                     |
+| Planning        | LIVE — Trip aggregate + group-atomic reservations + offer/claim marketplace (EPOD proxy door + native door), VROOM sequencing, sync route-plan push. Missing: execution-app consumption, real-EPOD-tenant verification.               |
+| Jobs (demo)     | Throwaway vertical; still powers execution-app. SUPERSEDED — the claim marketplace is live server-side; migrate execution-app onto /transport/offers and delete the vertical.                                                         |
 
 ## Agreed next steps (priority order)
 
@@ -254,8 +254,22 @@ design doc; read it before touching the replace flow):
      (3/depot, PIN 374837). Smoke-verified LIVE: depot login → me (depot +
      class) → bodyless /transport/offers composed a real offer from the
      depot's 8 Bloemfontein stores (order #1001 at store-001).
-     REMAINING: the execution app's login screen + offer/claim UI
-     (mobile-kit picker-session pattern; /driver-auth + /transport/offers).
+     ~~REMAINING: the execution app's login screen + offer/claim UI~~
+     BUILT (same session): the execution app now has the DRIVER PLANE —
+     Settings gained the device→depot binding (clientId + depotRef,
+     localStorage `fulfilgo.exec.station.*` — the picking app's station
+     pattern), `/driver-login` (staff code + PIN via mobile-kit's new
+     `driverPinLogin`; `createPickerSession` gained `authBasePath` so one
+     session machinery serves both planes), and a **Work tab** (`/offers`,
+     now the default route): Find work (optional anchor part number) →
+     reserved offer card with stop sequence + 30s countdown → Claim / Pass
+     → claimed-trip summary. Auth priority: driver session wins over
+     platform OIDC; browser dev falls back to x-user-id when signed out.
+     Driver shift survives app restarts (bootstrap restores from the
+     persisted refresh token). Execution-app vite proxy gained '/clients'
+     (the known gotcha) — RESTART the :5175 dev server to pick it up.
+     REMAINING: per-stop collected/delivered/failed reporting (needs the
+     driver status-report API), then DELETE the demo jobs vertical.
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.

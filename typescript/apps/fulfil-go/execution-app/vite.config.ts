@@ -34,6 +34,8 @@ export default defineConfig({
     port: 5175,
     proxy: {
       '/auth': API_PROXY,
+      // Client-scoped surfaces (driver-auth, transport offers, depots).
+      '/clients': API_PROXY,
       '/jobs': API_PROXY,
       '/sse': API_PROXY,
       '/sync': API_PROXY,

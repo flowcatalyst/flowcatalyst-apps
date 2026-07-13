@@ -18,8 +18,18 @@ export { createSession } from './auth/session.js';
 export type { Session, SessionOptions } from './auth/session.js';
 export { createAuthClient } from './auth/auth-client.js';
 export type { AuthClient, AuthClientOptions } from './auth/auth-client.js';
-export { createPickerSession, pickerPinLogin, PickerLoginError } from './auth/picker-session.js';
-export type { PickerSession, PickerSessionOptions, PinLoginInput } from './auth/picker-session.js';
+export {
+  createPickerSession,
+  pickerPinLogin,
+  driverPinLogin,
+  PickerLoginError,
+} from './auth/picker-session.js';
+export type {
+  PickerSession,
+  PickerSessionOptions,
+  PinLoginInput,
+  DriverPinLoginInput,
+} from './auth/picker-session.js';
 
 export { createSseParser } from './sse/parser.js';
 export type { SseEvent, SseParser } from './sse/parser.js';

@@ -20,6 +20,14 @@ export interface PinLoginInput {
   readonly pin: string;
 }
 
+/** Driver login — same plane, depot-bound (the depots registry). */
+export interface DriverPinLoginInput {
+  readonly clientId: string;
+  readonly depotRef: string;
+  readonly staffCode: string;
+  readonly pin: string;
+}
+
 export class PickerLoginError extends Error {
   constructor(
     readonly status: number,
@@ -64,6 +72,38 @@ export async function pickerPinLogin(
   return (await res.json()) as PickerTokenResponse;
 }
 
+/**
+ * Driver staff-code + PIN login against /driver-auth — the transport
+ * context's mirror of the picker plane (depot-bound instead of store-bound).
+ */
+export async function driverPinLogin(
+  baseUrl: string,
+  input: DriverPinLoginInput,
+  fetchImpl: typeof fetch = fetch,
+): Promise<PickerTokenResponse> {
+  const res = await fetchImpl(
+    `${baseUrl.replace(/\/$/, '')}/clients/${encodeURIComponent(input.clientId)}/driver-auth/login/pin`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        depotRef: input.depotRef,
+        staffCode: input.staffCode,
+        pin: input.pin,
+      }),
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
+    throw new PickerLoginError(
+      res.status,
+      body.code ?? 'LOGIN_FAILED',
+      body.message ?? `Login failed (${res.status}).`,
+    );
+  }
+  return (await res.json()) as PickerTokenResponse;
+}
+
 export interface PickerSession extends TokenProvider {
   isAuthenticated(): Promise<boolean>;
   /** Persist a login/refresh response. */
@@ -77,6 +117,8 @@ export interface PickerSessionOptions {
   readonly baseUrl: string;
   /** Live station binding — refresh goes to the station's current client. */
   readonly getClientId: () => string | null;
+  /** Auth route base: 'pick-auth' (default) or 'driver-auth'. */
+  readonly authBasePath?: string;
   readonly fetchImpl?: typeof fetch;
   /** Called when a refresh fails terminally (session ended server-side). */
   readonly onSignedOut?: () => void;
@@ -85,6 +127,7 @@ export interface PickerSessionOptions {
 export function createPickerSession(options: PickerSessionOptions): PickerSession {
   const fetchImpl = options.fetchImpl ?? fetch;
   const baseUrl = options.baseUrl.replace(/\/$/, '');
+  const authBasePath = options.authBasePath ?? 'pick-auth';
   // Single-flight: concurrent 401s trigger one refresh, not a stampede.
   let refreshing: Promise<boolean> | null = null;
 
@@ -103,7 +146,7 @@ export function createPickerSession(options: PickerSessionOptions): PickerSessio
     if (!current?.refreshToken || !clientId) return false;
     try {
       const res = await fetchImpl(
-        `${baseUrl}/clients/${encodeURIComponent(clientId)}/pick-auth/refresh`,
+        `${baseUrl}/clients/${encodeURIComponent(clientId)}/${authBasePath}/refresh`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },

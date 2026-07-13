@@ -1,4 +1,4 @@
-import { inject, type InjectionKey } from 'vue';
+import { inject, ref, watch, type InjectionKey, type Ref } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import {
   bindLifecycle,
@@ -6,6 +6,7 @@ import {
   createAuthClient,
   createMemoryQueueStorage,
   createOfflineQueue,
+  createPickerSession,
   createPreferencesTokenStore,
   createSession,
   createSqliteQueueStorage,
@@ -13,12 +14,48 @@ import {
   type ApiClient,
   type AuthClient,
   type OfflineQueue,
+  type PickerSession,
   type Session,
   type SseClient,
+  type TokenProvider,
 } from '@fulfil-go/mobile-kit';
 import { createJobsStore, type JobsStore } from './stores/jobs.js';
 
 export const REDIRECT_URI = 'fulfilgo-exec://auth/callback';
+
+/**
+ * Driver station binding — the execution app's mirror of the picking app's
+ * station config (the manual placeholder for device enrollment): the device
+ * is bound once to clientId + HOME DEPOT (depots registry — a depot serves
+ * many stores); drivers come and go per shift with staff code + PIN.
+ * Set on the Settings page.
+ */
+interface DriverStationConfig {
+  readonly clientId: Ref<string>;
+  readonly depotRef: Ref<string>;
+  readonly configured: () => boolean;
+}
+
+function createDriverStationConfig(): DriverStationConfig {
+  const clientId = ref(localStorage.getItem('fulfilgo.exec.station.clientId') ?? '');
+  const depotRef = ref(localStorage.getItem('fulfilgo.exec.station.depotRef') ?? '');
+  watch(clientId, (v) => localStorage.setItem('fulfilgo.exec.station.clientId', v));
+  watch(depotRef, (v) => localStorage.setItem('fulfilgo.exec.station.depotRef', v));
+  return {
+    clientId,
+    depotRef,
+    configured: () => clientId.value.length > 0 && depotRef.value.length > 0,
+  };
+}
+
+/** /driver-auth/me — the signed-in driver's identity + defaults. */
+export interface DriverMe {
+  readonly driverId: string;
+  readonly depotRef: string;
+  readonly displayName: string | null;
+  readonly defaultVehicleReg: string | null;
+  readonly defaultVehicleClass: string | null;
+}
 
 export interface AppCtx {
   readonly isNative: boolean;
@@ -28,6 +65,15 @@ export interface AppCtx {
   readonly queue: OfflineQueue;
   readonly sse: SseClient;
   readonly jobs: JobsStore;
+  /** Driver plane (staff code + PIN at the bound depot — the picker pattern). */
+  readonly station: DriverStationConfig;
+  readonly driverSession: PickerSession;
+  readonly driverSignedIn: Ref<boolean>;
+  readonly driver: Ref<DriverMe | null>;
+  /** After driver login (or app start with a live session): load identity. */
+  startDriverShift(): Promise<void>;
+  /** Driver sign-out (Exit) — the station binding survives. */
+  exitDriver(): Promise<void>;
   /** Start hydrate + SSE + lifecycle wiring (idempotent). */
   startSync(): Promise<void>;
 }
@@ -38,16 +84,43 @@ export async function createAppCtx(): Promise<AppCtx> {
   const isNative = Capacitor.isNativePlatform();
   const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
+  const station = createDriverStationConfig();
+  const driverSignedIn = ref(false);
+  const driver = ref<DriverMe | null>(null);
+
   const session = createSession({
     app: 'execution',
     store: createPreferencesTokenStore(),
     baseUrl,
   });
-  const api = createApiClient(
-    isNative
-      ? { baseUrl, tokens: session }
-      : { baseUrl, devUserId: import.meta.env.VITE_DEV_USER_ID ?? 'prn_driver1' },
-  );
+  const driverSession = createPickerSession({
+    store: createPreferencesTokenStore('fulfilgo.driver.tokens'),
+    baseUrl,
+    authBasePath: 'driver-auth',
+    getClientId: () => (station.clientId.value.length > 0 ? station.clientId.value : null),
+    onSignedOut: () => {
+      driverSignedIn.value = false;
+      driver.value = null;
+    },
+  });
+
+  // Auth priority: a signed-in DRIVER wins (transport endpoints authorize on
+  // the driver session's depot attributes); otherwise platform OIDC (native)
+  // or — via the api client's signed-out fallback — the browser dev header.
+  const tokens: TokenProvider = {
+    async getAccessToken() {
+      return (await driverSession.getAccessToken()) ?? (await session.getAccessToken());
+    },
+    async refresh() {
+      if (await driverSession.isAuthenticated()) return driverSession.refresh();
+      return session.refresh();
+    },
+  };
+  const api = createApiClient({
+    baseUrl,
+    tokens,
+    ...(isNative ? {} : { devUserId: import.meta.env.VITE_DEV_USER_ID ?? 'prn_driver1' }),
+  });
   const auth = createAuthClient({ app: 'execution', baseUrl, redirectUri: REDIRECT_URI, session });
   const queue = createOfflineQueue({
     storage: isNative
@@ -79,6 +152,18 @@ export async function createAppCtx(): Promise<AppCtx> {
     queue,
     sse,
     jobs,
+    station,
+    driverSession,
+    driverSignedIn,
+    driver,
+    async startDriverShift(): Promise<void> {
+      const me = await api.json<DriverMe>(`/clients/${station.clientId.value}/driver-auth/me`);
+      driver.value = me;
+      driverSignedIn.value = true;
+    },
+    async exitDriver(): Promise<void> {
+      await driverSession.signOut();
+    },
     async startSync(): Promise<void> {
       if (started) return;
       started = true;

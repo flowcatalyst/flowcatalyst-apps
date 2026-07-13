@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import type { QueueItem } from '@fulfil-go/mobile-kit';
 import { useAppCtx } from '../context.js';
 
 const ctx = useAppCtx();
+const router = useRouter();
+
+async function exitDriver(): Promise<void> {
+  await ctx.exitDriver();
+  await router.push('/driver-login');
+}
 const tracking = ref(false);
 const telemetryError = ref<string | null>(null);
 const dead = ref<readonly QueueItem[]>([]);
@@ -73,6 +80,50 @@ async function logout(): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-6 p-4">
+    <!-- Device → depot binding (the picking app's station pattern): an admin
+         binds the device once; drivers sign in per shift with code + PIN. -->
+    <section class="flex flex-col gap-2">
+      <h2 class="font-semibold">Driver station</h2>
+      <p class="text-xs text-neutral-500">
+        Bind this device to a client + home depot (from Transport → Depots in management). Drivers
+        then sign in with their staff code + PIN.
+      </p>
+      <UFormField label="Client id">
+        <UInput
+          v-model="ctx.station.clientId.value"
+          placeholder="clt_…"
+          class="w-full font-mono"
+          :disabled="ctx.driverSignedIn.value"
+        />
+      </UFormField>
+      <UFormField label="Depot ref">
+        <UInput
+          v-model="ctx.station.depotRef.value"
+          placeholder="dep-bloemfontein"
+          class="w-full font-mono"
+          :disabled="ctx.driverSignedIn.value"
+        />
+      </UFormField>
+      <template v-if="ctx.driverSignedIn.value">
+        <p class="text-sm">
+          Signed in:
+          <span class="font-medium">{{ ctx.driver.value?.displayName }}</span>
+          <span
+            v-if="ctx.driver.value?.defaultVehicleReg"
+            class="font-mono text-xs text-neutral-500"
+          >
+            · {{ ctx.driver.value.defaultVehicleReg }}
+          </span>
+        </p>
+        <UButton color="neutral" variant="soft" block @click="exitDriver">
+          End shift (sign out driver)
+        </UButton>
+      </template>
+      <UButton v-else variant="soft" block to="/driver-login" :disabled="!ctx.station.configured()">
+        Driver sign in
+      </UButton>
+    </section>
+
     <section v-if="ctx.isNative" class="flex flex-col gap-2">
       <h2 class="font-semibold">Telemetry</h2>
       <div class="flex items-center justify-between">

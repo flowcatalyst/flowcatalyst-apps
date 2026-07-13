@@ -13,7 +13,9 @@ export const StoreRecordSchema = z
     city: z.string().max(100).optional(),
     region: z.string().max(100).optional(),
     /** Store coordinates — persisted as columns (coverage oracle + planning). */
-    geo: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
+    geo: z
+      .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+      .optional(),
   })
   .passthrough();
 export type StoreRecord = z.infer<typeof StoreRecordSchema>;

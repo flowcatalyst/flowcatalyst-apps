@@ -18,6 +18,14 @@ async function bootstrap(): Promise<void> {
   if (!ctx.isNative || (await ctx.session.isAuthenticated())) {
     void ctx.startSync();
   }
+
+  // A driver shift survives an app restart — restore the identity so the
+  // Work tab and Settings show the signed-in driver straight away.
+  if (await ctx.driverSession.isAuthenticated()) {
+    void ctx.startDriverShift().catch(() => {
+      // Token stale/suspended — the next 401 refresh signs the driver out.
+    });
+  }
 }
 
 void bootstrap();
