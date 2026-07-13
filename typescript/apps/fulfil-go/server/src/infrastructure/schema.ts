@@ -69,3 +69,6 @@ export type { TransportOrderRow, ProcessReactionRow } from './schema/transport-o
 
 export { transportPositions } from './schema/transport-positions.js';
 export type { TransportPositionRow } from './schema/transport-positions.js';
+
+export { trips } from './schema/trips.js';
+export type { TripRow } from './schema/trips.js';

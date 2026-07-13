@@ -38,6 +38,11 @@ import {
   TransportOrderFailedEventType,
   TransportOrderRequestedEventType,
 } from '../domain/transport-orders/events/transport-order.events.js';
+import {
+  TripClaimedEventType,
+  TripOfferedEventType,
+  TripReleasedEventType,
+} from '../domain/trips/events/trip.events.js';
 import { PickCreatedEventType } from '../domain/picks/events/pick-created.event.js';
 import { PickClaimedEventType } from '../domain/picks/events/pick-claimed.event.js';
 import { PickLabelsUpdatedEventType } from '../domain/picks/events/pick-labels.event.js';
@@ -78,4 +83,8 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   TransportOrderDeliveredEventType,
   TransportOrderFailedEventType,
   TransportOrderCancelledEventType,
+  // Transport PLANNING context (the claim marketplace)
+  TripOfferedEventType,
+  TripClaimedEventType,
+  TripReleasedEventType,
 ];

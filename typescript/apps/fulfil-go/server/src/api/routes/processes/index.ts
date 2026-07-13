@@ -106,10 +106,8 @@ export function registerProcessRoutes(
       // OWNERSHIP STAMP → definition. Missing fulfilment falls through to
       // 'standard', whose deciders return the not_found the route ACKs.
       const stamp =
-        (await appContext.repositories.fulfilments.getProcessDefinition(
-          clientId,
-          fulfilmentId,
-        )) ?? STANDARD_PROCESS_DEFINITION;
+        (await appContext.repositories.fulfilments.getProcessDefinition(clientId, fulfilmentId)) ??
+        STANDARD_PROCESS_DEFINITION;
       let definition: ProcessDefinition;
       try {
         definition = registry.resolve(stamp);
@@ -127,10 +125,7 @@ export function registerProcessRoutes(
         { name: `fulfilment-process:${definition.code}`, identity: PROCESS_IDENTITY },
         (): Promise<Result<unknown>> =>
           appContext.runWrite(() =>
-            definition.handle(
-              { eventType, clientId, fulfilmentId, payload },
-              appContext.useCases,
-            ),
+            definition.handle({ eventType, clientId, fulfilmentId, payload }, appContext.useCases),
           ),
       );
 

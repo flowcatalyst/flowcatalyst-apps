@@ -84,6 +84,15 @@ export const TransportProviderEntrySchema = z
 
 export type TransportProviderEntry = z.infer<typeof TransportProviderEntrySchema>;
 
+/**
+ * How planned trips reach drivers (Andrew, 2026-07-13 — locked): a NAMED
+ * STRATEGY behind one port. 'claim' (default) = the offer/claim marketplace
+ * both our execution app and EPOD consume. Future: 'assign' (dispatcher-
+ * directed), 'auto-assign', 'broadcast'.
+ */
+export const TransportAllocationStrategySchema = z.enum(['claim']);
+export type TransportAllocationStrategy = z.infer<typeof TransportAllocationStrategySchema>;
+
 export const TransportStoreSettingsSchema = z
   .object({
     /** The execution system transport defaults to for this store. */
@@ -96,6 +105,14 @@ export const TransportStoreSettingsSchema = z
     defaultTransportProvider: z.string().min(1).max(32).optional(),
     /** Ordered allowed providers (resolver candidates), with per-provider config. */
     transportProviders: z.array(TransportProviderEntrySchema).max(10).optional(),
+    /** How planned trips reach drivers at this store. */
+    allocationStrategy: TransportAllocationStrategySchema.optional(),
+    /**
+     * Planning v1 capacity caps (SIMPLE CAPS ONLY — no vehicle registry;
+     * Andrew, 2026-07-13). Stops = dropoffs per trip; bags = total parcels.
+     */
+    maxStopsPerTrip: z.number().int().min(1).max(10).optional(),
+    maxBagsPerTrip: z.number().int().min(1).max(100).optional(),
   })
   .strict();
 
@@ -117,6 +134,9 @@ export const TRANSPORT_SETTINGS_DEFAULTS: ResolvedTransportStoreSettings = {
   transportLeadTimeMinutes: 45,
   defaultTransportProvider: null,
   transportProviders: [],
+  allocationStrategy: 'claim',
+  maxStopsPerTrip: 3,
+  maxBagsPerTrip: 12,
 };
 
 // ── Shared resolution ──────────────────────────────────────────────────────

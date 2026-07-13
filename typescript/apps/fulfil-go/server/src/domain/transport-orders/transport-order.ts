@@ -1,4 +1,9 @@
-import type { TransportOrderStatus, TransportParcel, TransportStop, TransportWindow } from '../../transport/provider-port.js';
+import type {
+  TransportOrderStatus,
+  TransportParcel,
+  TransportStop,
+  TransportWindow,
+} from '../../transport/provider-port.js';
 import type { TransportOrderId } from './ids.js';
 
 export const TRANSPORT_ORDER_TYPE = 'TransportOrder' as const;
@@ -37,6 +42,20 @@ export interface TransportCourier {
   readonly phone: string | null;
 }
 
+/**
+ * The planning marketplace's expiring hold (docs/transport-context.md
+ * "Offer composition"): while a live reservation points at a trip, the
+ * order is invisible to other offers. Expiry frees the order implicitly —
+ * readers treat a lapsed reservation as no reservation; a new offer may
+ * overwrite it (optimistic locking turns races into 409s).
+ */
+export interface TransportReservation {
+  readonly tripId: string;
+  readonly driverRef: string;
+  readonly vehicleRef: string;
+  readonly expiresAt: Date;
+}
+
 export interface TransportOrder {
   readonly id: TransportOrderId;
   readonly clientId: string;
@@ -61,6 +80,8 @@ export interface TransportOrder {
   readonly trackingUrl: string | null;
   readonly courier: TransportCourier | null;
   readonly failureReason: string | null;
+  /** Live only while `requested` — the planning marketplace's hold. */
+  readonly reservation: TransportReservation | null;
   readonly version: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -106,9 +127,57 @@ export const TransportOrder = {
       trackingUrl: null,
       courier: null,
       failureReason: null,
+      reservation: null,
       version: 1,
       createdAt: input.now,
       updatedAt: input.now,
+    };
+  },
+
+  /** A live (unexpired) hold makes the order invisible to other offers. */
+  isReserved(order: TransportOrder, now: Date): boolean {
+    return order.reservation !== null && order.reservation.expiresAt.getTime() > now.getTime();
+  },
+
+  /**
+   * Offerable to the planning marketplace: requested and not held by a live
+   * reservation (an expired hold is free — no sweeper needed).
+   */
+  isOfferable(order: TransportOrder, now: Date): boolean {
+    return order.status === 'requested' && !TransportOrder.isReserved(order, now);
+  },
+
+  /** Take the marketplace hold. Caller guards `isOfferable` first. */
+  reserve(prior: TransportOrder, reservation: TransportReservation, now: Date): TransportOrder {
+    return { ...prior, reservation, version: prior.version + 1, updatedAt: now };
+  },
+
+  /** Free the hold (claim rejected / trip released). */
+  releaseReservation(prior: TransportOrder, now: Date): TransportOrder {
+    return { ...prior, reservation: null, version: prior.version + 1, updatedAt: now };
+  },
+
+  /**
+   * A driver claimed the trip holding this order. Books and assigns in one
+   * transition (the claim collapses booked/assigned — the claimer IS the
+   * assignee, bound at offer time): providerRef = trip id, ONE version bump.
+   */
+  claimByTrip(
+    prior: TransportOrder,
+    provider: string,
+    tripId: string,
+    courier: TransportCourier,
+    now: Date,
+  ): TransportOrder {
+    return {
+      ...prior,
+      status: 'assigned',
+      provider,
+      providerRef: tripId,
+      courier,
+      reservation: null,
+      version: prior.version + 1,
+      updatedAt: now,
     };
   },
 

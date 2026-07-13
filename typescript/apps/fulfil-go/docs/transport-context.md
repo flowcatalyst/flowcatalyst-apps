@@ -1,6 +1,29 @@
 # Transport context — design sketch (pre-build)
 
-Status: **DEMAND SIDE BUILT 2026-07-13** (commit `9775e96`): TransportOrder
+Status update: **PLANNING CONTEXT BUILT 2026-07-13** (second session): Trip
+aggregate (`trp_`, offered → claimed | expired | released) + group-atomic
+expiring reservations on transport orders (`reservation` jsonb — expiry
+frees implicitly, no sweeper); offer composition per "Offer composition"
+below (anchor by part short id → fulfilment externalRef, hot-never-
+consolidates, 5km companion radius, ±30min window tolerance, store-settings
+caps maxStopsPerTrip/maxBagsPerTrip, VROOM sequencing via the router with
+slot-order fallback); ONE claim surface at
+`/clients/:id/transport/epod/{claimable-trips,claims/:groupId}` (Integral
+proxy contract — their `FulfilGoClaimClient`) and
+`/clients/:id/transport/offers[/:groupId/claim]` (execution app, native);
+claim on 'epod' pushes the route plan SYNCHRONOUSLY
+(`transport/epod/route-plan-mapper.ts` — mirrors their
+`FulfilGoRoutePlansSyncTest` payload; push rejection releases the group,
+driver sees offer-expired). Orders assigned on claim (booked+assigned
+collapse; providerRef = trip id). Events `fulfil-go:transport:trip:*`.
+allocationStrategy store setting ('claim' only, gate for future 'assign').
+Smoke-verified end-to-end 2026-07-13 against a mock EPOD intake + the LIVE
+router (solo, multi-stop VROOM, anchor, anchor-held, expiry release,
+rejection release, idempotent re-claim, wrong-driver 410, native claim).
+Remaining: execution-app UI migration off the demo jobs vertical, status
+flow back from EPOD (webhooks), fulfilment completion leg.
+
+Earlier status: **DEMAND SIDE BUILT 2026-07-13** (commit `9775e96`): TransportOrder
 aggregate + events, provider registry ('own'/'epod' our-planned, 'uber'
 provider-planned when creds set), resolver (transport store profile
 allowed[] ∩ capability ∩ radius coverage — haversine v1 on stores.lat/lng,

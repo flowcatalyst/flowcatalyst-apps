@@ -62,7 +62,10 @@ function isCovered(
   const km = haversineKm(storeGeo, dropoffGeo);
   return km <= entry.serviceRadiusKm
     ? { covered: true }
-    : { covered: false, reason: `dropoff ${km.toFixed(1)}km from store exceeds ${entry.serviceRadiusKm}km radius` };
+    : {
+        covered: false,
+        reason: `dropoff ${km.toFixed(1)}km from store exceeds ${entry.serviceRadiusKm}km radius`,
+      };
 }
 
 export function resolveProviders(input: ResolveProvidersInput): ResolvedProviders {

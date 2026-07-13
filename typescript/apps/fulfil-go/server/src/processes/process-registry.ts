@@ -71,9 +71,7 @@ export interface ProcessRegistry {
   supportedEventTypes(): readonly string[];
 }
 
-export function createProcessRegistry(
-  definitions: readonly ProcessDefinition[],
-): ProcessRegistry {
+export function createProcessRegistry(definitions: readonly ProcessDefinition[]): ProcessRegistry {
   const byCode = new Map(definitions.map((d) => [d.code, d]));
   const supported = [...new Set(definitions.flatMap((d) => d.handles))];
   return {

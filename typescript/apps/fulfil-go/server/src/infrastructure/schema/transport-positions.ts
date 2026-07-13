@@ -1,4 +1,12 @@
-import { doublePrecision, index, jsonb, pgTable, text, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
+import {
+  doublePrecision,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 /**

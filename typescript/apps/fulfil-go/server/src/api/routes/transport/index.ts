@@ -8,13 +8,25 @@
  * - POST /transport/webhooks/uber — Uber Direct callbacks (x-uber-signature
  *   over the RAW body). Forward-only status application; stale/unknown ACK
  *   with 200 so Uber stops retrying.
- * - EPOD claim surface stubs (the planning context fills them in).
+ * - The claim MARKETPLACE (transport planning context) — ONE offer/claim
+ *   surface, two doors: /transport/epod/* is what Integral's claim proxy
+ *   calls (driver context from their app; response mapped by their
+ *   FulfilGoClaimClient), /transport/offers* is the same thing for our
+ *   execution app (driver = the authenticated principal).
  */
 import { Type } from '@sinclair/typebox';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { ScopeStore, isFailure, runJob, type Result } from '@fulfil-go/framework';
 import type { AppContext } from '../../../app-context.js';
 import { isTransportOrderId } from '../../../domain/transport-orders/ids.js';
+import {
+  OFFER_GONE,
+  TRIP_ALREADY_CLAIMED,
+} from '../../../operations/transport-planning/claim-transport-trip.use-case.js';
+import type {
+  ClaimTripResult,
+  ComposeOfferResult,
+} from '../../../operations/transport-planning/offer-types.js';
 import { toStatusUpdate, verifyUberSignature } from '../../../transport/uber/webhook.js';
 import type { UberWebhookEvent } from '../../../transport/uber/types.js';
 import {
@@ -351,33 +363,79 @@ export function registerTransportRoutes(
     },
   );
 
-  // ── EPOD claim surface (STUBS — the planning context fills these in) ────
+  // ── The claim marketplace (transport planning context) ──────────────────
+
+  const sendOfferResult = async (reply: FastifyReply, result: Result<ComposeOfferResult>) => {
+    if (isFailure(result)) {
+      if (result.error.type === 'business_rule' || result.error.type === 'not_found') {
+        // Empty-offer outcomes (anchor unavailable, all candidates raced
+        // away, …) — the driver flow renders "no orders found".
+        return reply.code(200).send({ offers: [], reason: result.error.code });
+      }
+      return reply.code(500).send({ error: result.error.code, message: result.error.message });
+    }
+    return reply.code(200).send(result.value);
+  };
+
+  const sendClaimResult = async (reply: FastifyReply, result: Result<ClaimTripResult>) => {
+    if (isFailure(result)) {
+      if (result.error.code === TRIP_ALREADY_CLAIMED) {
+        // Idempotent replay — same success shape the first claim returned.
+        return reply.code(200).send(result.error.details);
+      }
+      if (result.error.code === OFFER_GONE || result.error.type === 'not_found') {
+        return reply.code(410).send({ error: 'gone', message: result.error.message });
+      }
+      return reply.code(500).send({ error: result.error.code, message: result.error.message });
+    }
+    return reply.code(200).send(result.value);
+  };
 
   fastify.post(
     '/clients/:clientId/transport/epod/claimable-trips',
     {
       schema: {
         tags: ['Transport'],
-        summary: 'EPOD claim surface: request an offer of claimable trips (STUB)',
+        summary: 'EPOD claim surface: compose + reserve a trip offer',
         description:
-          'Stub until the transport planning context lands — always returns an empty offer ' +
-          "list. Integral's claim proxy calls this with the driver/vehicle/depot context; " +
-          'the planning context will answer with a reserved offer group.',
+          "Integral's claim proxy calls this with the driver/vehicle/depot context. The " +
+          'planning context composes a multi-stop trip (anchored on orderReference when ' +
+          'given), reserves the whole group atomically (driver+vehicle bound NOW, expiring ' +
+          'hold), and answers with the offer. Empty offers carry a `reason`.',
         params: Type.Object({ clientId: Type.String() }),
         body: ClaimableTripsRequestSchema,
         response: {
-          200: Type.Object({ offers: Type.Array(Type.Unknown()) }),
+          200: Type.Object({
+            offers: Type.Array(Type.Unknown()),
+            reason: Type.Optional(Type.String()),
+          }),
           401: UnauthorizedSchema,
+          500: Type.Object({ error: Type.String(), message: Type.String() }),
         },
       },
     },
-    async (_request, reply) => {
+    async (request, reply) => {
       if (!ScopeStore.get()) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-      // TODO(transport-planning): build a reserved offer (driver+vehicle
-      // bound now, expiring hold on the trip/orders) instead of nothing.
-      return reply.code(200).send({ offers: [] });
+      const { clientId } = request.params as { clientId: string };
+      const body = request.body as {
+        driverReference: string;
+        vehicleRegistration: string;
+        depotReference?: string;
+        territoryReference?: string;
+        orderReference?: string;
+      };
+      const result = await appContext.useCases.composeTransportOffer.execute({
+        clientId,
+        channel: 'epod',
+        driverRef: body.driverReference,
+        vehicleRef: body.vehicleRegistration,
+        depotRef: body.depotReference ?? null,
+        territoryRef: body.territoryReference ?? null,
+        orderRef: body.orderReference ?? null,
+      });
+      return sendOfferResult(reply, result);
     },
   );
 
@@ -386,26 +444,125 @@ export function registerTransportRoutes(
     {
       schema: {
         tags: ['Transport'],
-        summary: 'EPOD claim surface: claim an offered trip group (STUB)',
+        summary: 'EPOD claim surface: claim an offered trip group',
         description:
-          'Stub until the transport planning context lands — no offers exist, so every ' +
-          'claim is 410 gone. The real implementation confirms the reservation and ' +
-          'synchronously pushes the route plan to EPOD (explicit accept/reject).',
+          'Confirms the reservation and SYNCHRONOUSLY pushes the route plan to EPOD ' +
+          '(explicit accept/reject). Push rejection releases the whole group and answers ' +
+          "410 — the proxy renders the driver app's offer-expired response.",
         params: Type.Object({ clientId: Type.String(), groupId: Type.String() }),
+        body: Type.Object(
+          {
+            driverReference: Type.Optional(Type.String()),
+            vehicleRegistration: Type.Optional(Type.String()),
+          },
+          { additionalProperties: true },
+        ),
         response: {
+          200: Type.Object({
+            tripReference: Type.String(),
+            orderReferences: Type.Array(Type.String()),
+          }),
           401: UnauthorizedSchema,
           410: Type.Object({ error: Type.String(), message: Type.String() }),
+          500: Type.Object({ error: Type.String(), message: Type.String() }),
         },
       },
     },
-    async (_request, reply) => {
+    async (request, reply) => {
       if (!ScopeStore.get()) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-      return reply.code(410).send({
-        error: 'gone',
-        message: 'No such offer — transport planning context not yet live.',
+      const { clientId, groupId } = request.params as { clientId: string; groupId: string };
+      const body = (request.body ?? {}) as { driverReference?: string };
+      const result = await appContext.useCases.claimTransportTrip.execute({
+        clientId,
+        channel: 'epod',
+        groupId,
+        driverRef: body.driverReference ?? null,
       });
+      return sendClaimResult(reply, result);
+    },
+  );
+
+  // ── Native claim surface (our execution app — same marketplace) ─────────
+
+  fastify.post(
+    '/clients/:clientId/transport/offers',
+    {
+      schema: {
+        tags: ['Transport'],
+        summary: 'Compose + reserve a trip offer for the authenticated driver',
+        params: Type.Object({ clientId: Type.String() }),
+        body: Type.Object({
+          storeRef: Type.String({ minLength: 1 }),
+          vehicleRef: Type.Optional(Type.String()),
+          /** Anchor claim — driver-entered part reference. */
+          orderReference: Type.Optional(Type.String()),
+        }),
+        response: {
+          200: Type.Object({
+            offers: Type.Array(Type.Unknown()),
+            reason: Type.Optional(Type.String()),
+          }),
+          401: UnauthorizedSchema,
+          500: Type.Object({ error: Type.String(), message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const body = request.body as {
+        storeRef: string;
+        vehicleRef?: string;
+        orderReference?: string;
+      };
+      const result = await appContext.useCases.composeTransportOffer.execute({
+        clientId,
+        channel: 'own',
+        driverRef: scope.principalId,
+        vehicleRef: body.vehicleRef ?? 'unspecified',
+        storeRef: body.storeRef,
+        orderRef: body.orderReference ?? null,
+      });
+      return sendOfferResult(reply, result);
+    },
+  );
+
+  fastify.post(
+    '/clients/:clientId/transport/offers/:groupId/claim',
+    {
+      schema: {
+        tags: ['Transport'],
+        summary: 'Claim an offered trip (native — no route-plan push)',
+        params: Type.Object({ clientId: Type.String(), groupId: Type.String() }),
+        response: {
+          200: Type.Object({
+            tripReference: Type.String(),
+            orderReferences: Type.Array(Type.String()),
+          }),
+          401: UnauthorizedSchema,
+          410: Type.Object({ error: Type.String(), message: Type.String() }),
+          500: Type.Object({ error: Type.String(), message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, groupId } = request.params as { clientId: string; groupId: string };
+      const result = await appContext.useCases.claimTransportTrip.execute({
+        clientId,
+        channel: 'own',
+        groupId,
+        driverRef: scope.principalId,
+      });
+      return sendClaimResult(reply, result);
     },
   );
 }

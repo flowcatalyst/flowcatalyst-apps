@@ -106,9 +106,7 @@ export function createDrizzleActivityLogRepository(
       const rows = await client
         .select({ id: activityLog.id })
         .from(activityLog)
-        .where(
-          and(eq(activityLog.fulfilmentId, fulfilmentId), eq(activityLog.category, category)),
-        )
+        .where(and(eq(activityLog.fulfilmentId, fulfilmentId), eq(activityLog.category, category)))
         .limit(1);
       return rows.length > 0;
     },

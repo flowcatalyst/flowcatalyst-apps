@@ -71,12 +71,12 @@ describe('resolveProviders', () => {
       registry,
       requiresVehicle: false,
     };
-    expect(
-      resolveProviders({ ...base, storeGeo: JHB, dropoffGeo: NEARBY }).candidates,
-    ).toEqual(['uber']);
-    expect(
-      resolveProviders({ ...base, storeGeo: JHB, dropoffGeo: CAPE_TOWN }).candidates,
-    ).toEqual([]);
+    expect(resolveProviders({ ...base, storeGeo: JHB, dropoffGeo: NEARBY }).candidates).toEqual([
+      'uber',
+    ]);
+    expect(resolveProviders({ ...base, storeGeo: JHB, dropoffGeo: CAPE_TOWN }).candidates).toEqual(
+      [],
+    );
     expect(resolveProviders({ ...base, storeGeo: JHB, dropoffGeo: null }).candidates).toEqual([]);
   });
 

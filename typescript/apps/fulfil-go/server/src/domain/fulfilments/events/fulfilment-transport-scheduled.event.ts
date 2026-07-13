@@ -21,7 +21,12 @@ export class FulfilmentTransportScheduled extends BaseDomainEvent<FulfilmentTran
   constructor(scope: Scope, data: FulfilmentTransportScheduledData) {
     super(
       {
-        eventType: DomainEvent.eventType('fulfil-go', 'fulfilment', 'fulfilment', 'transport-scheduled'),
+        eventType: DomainEvent.eventType(
+          'fulfil-go',
+          'fulfilment',
+          'fulfilment',
+          'transport-scheduled',
+        ),
         specVersion: '1.0',
         source: 'fulfil-go:fulfilment',
         subject: DomainEvent.subject('fulfilment', 'fulfilment', data.fulfilmentId),

@@ -137,9 +137,7 @@ export class ScheduleTransportRequestUseCase {
     const lead = (originRef ? resolver.resolve(originRef) : resolver.defaults)
       .transportLeadTimeMinutes;
     const now = new Date();
-    const dueAt = new Date(
-      Math.max(now.getTime(), fulfilment.slotStart.getTime() - lead * 60_000),
-    );
+    const dueAt = new Date(Math.max(now.getTime(), fulfilment.slotStart.getTime() - lead * 60_000));
 
     const scheduled = await this.reactions.schedule({
       clientId: fulfilment.clientId,

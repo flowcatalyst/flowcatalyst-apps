@@ -133,7 +133,7 @@ describe('EpodClient payloads + errors', () => {
   it('posts the route plan as-is to routes/plans (claim flow, later)', async () => {
     const { impl, calls } = stubFetch({ api: () => jsonResponse(200, { success: true }) });
     const client = createEpodClient(CONFIG, impl);
-    const plan = { company: { reference: 'metro', routes: [] } };
+    const plan = { company: { reference: 'metro', name: 'Metro', routes: [] } };
 
     await client.sendRoutePlan(plan);
     expect(calls[1]!.url).toBe('https://metro.integral.test/api/v1/tms/epod/fulfilgo/routes/plans');

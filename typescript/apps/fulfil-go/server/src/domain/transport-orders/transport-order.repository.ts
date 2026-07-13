@@ -25,4 +25,15 @@ export interface TransportOrderRepository {
     originRef: string,
     providers: readonly string[],
   ): Promise<readonly TransportOrder[]>;
+  /** Claim-time hydration of a trip's member orders. */
+  findManyByIds(clientId: string, ids: readonly string[]): Promise<readonly TransportOrder[]>;
+  /**
+   * Anchor-claim fallback: a requested order at the store whose FULFILMENT
+   * carries this upstream external ref (the part short id resolves first).
+   */
+  findRequestedByFulfilmentExternalRef(
+    clientId: string,
+    originRef: string,
+    externalRef: string,
+  ): Promise<TransportOrder | null>;
 }

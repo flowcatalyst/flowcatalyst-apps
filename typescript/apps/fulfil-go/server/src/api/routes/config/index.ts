@@ -131,7 +131,7 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
         summary: 'List store profiles for a domain (pick | transport)',
         description:
           "Named operational-settings bundles per owning context. The reserved 'default' " +
-          'profile is that domain\'s global config; it is synthesized (empty settings) until ' +
+          "profile is that domain's global config; it is synthesized (empty settings) until " +
           'first saved. `defaults` carries the code-level fallback values the UI shows as ' +
           'placeholders.',
         params: Type.Object({ clientId: Type.String(), domain: Type.String() }),

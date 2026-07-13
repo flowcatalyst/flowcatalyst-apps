@@ -10,11 +10,22 @@ import type {
   TransportCourier,
   TransportOrder,
   TransportOrderStatus,
+  TransportReservation,
 } from '../domain/transport-orders/transport-order.js';
 import type { TransportOrderRepository } from '../domain/transport-orders/transport-order.repository.js';
 import { asTransportOrderId, type TransportOrderId } from '../domain/transport-orders/ids.js';
 import type { TransportParcel, TransportStop } from '../transport/provider-port.js';
 import { transportOrders, type TransportOrderRow } from './schema/transport-orders.js';
+import { fulfilments } from './schema/fulfilments.js';
+
+/** jsonb round-trip: Date serializes to ISO — revive it on the way out. */
+type StoredReservation = Omit<TransportReservation, 'expiresAt'> & { expiresAt: string };
+
+function toReservation(value: unknown): TransportReservation | null {
+  if (!value) return null;
+  const stored = value as StoredReservation;
+  return { ...stored, expiresAt: new Date(stored.expiresAt) };
+}
 
 function toDomain(row: TransportOrderRow): TransportOrder {
   return {
@@ -37,6 +48,7 @@ function toDomain(row: TransportOrderRow): TransportOrder {
     trackingUrl: row.trackingUrl,
     courier: (row.courier as TransportCourier | null) ?? null,
     failureReason: row.failureReason,
+    reservation: toReservation(row.reservation),
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -77,6 +89,7 @@ export function createDrizzleTransportOrderRepository(
             trackingUrl: aggregate.trackingUrl,
             courier: aggregate.courier,
             failureReason: aggregate.failureReason,
+            reservation: aggregate.reservation,
             version: aggregate.version,
             createdAt: aggregate.createdAt,
             updatedAt: aggregate.updatedAt,
@@ -94,6 +107,7 @@ export function createDrizzleTransportOrderRepository(
             trackingUrl: aggregate.trackingUrl,
             courier: aggregate.courier,
             failureReason: aggregate.failureReason,
+            reservation: aggregate.reservation,
             version: aggregate.version,
             updatedAt: aggregate.updatedAt,
           })
@@ -149,10 +163,7 @@ export function createDrizzleTransportOrderRepository(
         .select()
         .from(transportOrders)
         .where(
-          and(
-            eq(transportOrders.provider, provider),
-            eq(transportOrders.providerRef, providerRef),
-          ),
+          and(eq(transportOrders.provider, provider), eq(transportOrders.providerRef, providerRef)),
         )
         .limit(1);
       return row ? toDomain(row) : null;
@@ -188,6 +199,32 @@ export function createDrizzleTransportOrderRepository(
         )
         .orderBy(transportOrders.slotStart);
       return rows.map(toDomain);
+    },
+
+    async findManyByIds(clientId, ids) {
+      if (ids.length === 0) return [];
+      const rows = await current()
+        .select()
+        .from(transportOrders)
+        .where(and(eq(transportOrders.clientId, clientId), inArray(transportOrders.id, [...ids])));
+      return rows.map(toDomain);
+    },
+
+    async findRequestedByFulfilmentExternalRef(clientId, originRef, externalRef) {
+      const [row] = await current()
+        .select({ order: transportOrders })
+        .from(transportOrders)
+        .innerJoin(fulfilments, eq(fulfilments.id, transportOrders.fulfilmentId))
+        .where(
+          and(
+            eq(transportOrders.clientId, clientId),
+            eq(transportOrders.originRef, originRef),
+            eq(transportOrders.status, 'requested'),
+            eq(fulfilments.externalRef, externalRef),
+          ),
+        )
+        .limit(1);
+      return row ? toDomain(row.order) : null;
     },
   };
 }

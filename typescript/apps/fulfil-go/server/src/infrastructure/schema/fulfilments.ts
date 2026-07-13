@@ -17,9 +17,7 @@ export const fulfilments = pgTable(
      * at creation. Reactions dispatch on the stamp — reconfiguring a client
      * migrates NEW fulfilments only; in-flight ones finish on theirs.
      */
-    processDefinition: varchar('process_definition', { length: 64 })
-      .notNull()
-      .default('standard'),
+    processDefinition: varchar('process_definition', { length: 64 }).notNull().default('standard'),
     slotStart: timestampColumn('slot_start').notNull(),
     slotEnd: timestampColumn('slot_end').notNull(),
     timezone: varchar('timezone', { length: 64 }).notNull(),

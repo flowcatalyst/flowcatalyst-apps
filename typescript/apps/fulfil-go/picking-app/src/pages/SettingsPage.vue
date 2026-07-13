@@ -44,9 +44,11 @@ watch(ctx.signedIn, () => void loadPrinters());
 const printerItems = computed(() =>
   printers.value.map((p) => ({ label: `${p.name} — ${p.host}:${p.port}`, value: p.id })),
 );
+// Nuxt UI 4.9's USelect model is `string` under exactOptionalPropertyTypes —
+// '' (not in items) renders the placeholder, so it stands in for "unset".
 const selectedPrinter = computed({
-  get: () => (ctx.station.printerId.value.length > 0 ? ctx.station.printerId.value : undefined),
-  set: (id: string | undefined) => {
+  get: () => ctx.station.printerId.value,
+  set: (id: string) => {
     const printer = printers.value.find((p) => p.id === id);
     ctx.station.printerId.value = printer?.id ?? '';
     ctx.station.printerName.value = printer?.name ?? '';

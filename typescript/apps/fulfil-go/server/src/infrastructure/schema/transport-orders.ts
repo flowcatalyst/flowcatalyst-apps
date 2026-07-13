@@ -1,4 +1,13 @@
-import { boolean, index, integer, jsonb, pgTable, text, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 /**
@@ -30,6 +39,9 @@ export const transportOrders = pgTable(
     trackingUrl: text('tracking_url'),
     courier: jsonb('courier'),
     failureReason: text('failure_reason'),
+    // Planning-marketplace hold: {tripId, driverRef, vehicleRef, expiresAt}.
+    // Expiry frees the order implicitly — no sweeper touches this column.
+    reservation: jsonb('reservation'),
     version: integer('version').notNull().default(1),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),

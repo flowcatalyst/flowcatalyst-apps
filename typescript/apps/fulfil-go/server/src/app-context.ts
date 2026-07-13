@@ -100,7 +100,18 @@ import { BookTransportOrderUseCase } from './operations/book-transport-order/boo
 import { ApplyTransportStatusUseCase } from './operations/apply-transport-status/apply-transport-status.use-case.js';
 import { createDrizzleTransportPositionRepository } from './infrastructure/transport-position-repository.js';
 import type { TransportPositionRepository } from './infrastructure/transport-position-repository.js';
-import { createRouterClient, type RouterClient, type RouterClientConfig } from './transport/router/client.js';
+import {
+  createRouterClient,
+  type RouterClient,
+  type RouterClientConfig,
+} from './transport/router/client.js';
+import { createDrizzleTripRepository } from './infrastructure/trip-repository.js';
+import { registerTrip } from './infrastructure/register-trip.js';
+import { TRIP_ID_PREFIX } from './domain/trips/ids.js';
+import { TRIP_TYPE } from './domain/trips/trip.js';
+import type { TripRepository } from './domain/trips/trip.repository.js';
+import { ComposeTransportOfferUseCase } from './operations/transport-planning/compose-transport-offer.use-case.js';
+import { ClaimTransportTripUseCase } from './operations/transport-planning/claim-transport-trip.use-case.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -139,6 +150,7 @@ export interface AppContextRepositories {
   readonly transportOrders: TransportOrderRepository;
   readonly processReactions: ProcessReactionRepository;
   readonly transportPositions: TransportPositionRepository;
+  readonly trips: TripRepository;
 }
 
 export interface AppContextUseCases {
@@ -165,6 +177,8 @@ export interface AppContextUseCases {
   readonly scheduleTransportRequest: ScheduleTransportRequestUseCase;
   readonly bookTransportOrder: BookTransportOrderUseCase;
   readonly applyTransportStatus: ApplyTransportStatusUseCase;
+  readonly composeTransportOffer: ComposeTransportOfferUseCase;
+  readonly claimTransportTrip: ClaimTransportTripUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -246,6 +260,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     [PICKER_USER_ID_PREFIX]: PICKER_USER_TYPE,
     [PICK_ID_PREFIX]: PICK_TYPE,
     [TRANSPORT_ORDER_ID_PREFIX]: TRANSPORT_ORDER_TYPE,
+    [TRIP_ID_PREFIX]: TRIP_TYPE,
   });
 
   const jobRepo = createDrizzleJobRepository(db);
@@ -265,7 +280,10 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const transportOrderRepo = createDrizzleTransportOrderRepository(db);
   const processReactionRepo = createDrizzleProcessReactionRepository(db);
   const transportPositionRepo = createDrizzleTransportPositionRepository(db);
+  const tripRepo = createDrizzleTripRepository(db);
   const routerClient = config.router ? createRouterClient(config.router) : null;
+  // ONE EPOD client (token cache shared by provisioning + the claim flow).
+  const epodClient = config.epod ? createEpodClient(config.epod) : null;
 
   // Transport provider registry: our-planned channels are always available;
   // 'uber' registers only when credentials are configured.
@@ -286,6 +304,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   registerPickerUser(aggregateRegistry, pickerUserRepo);
   registerPick(aggregateRegistry, pickRepo);
   registerTransportOrder(aggregateRegistry, transportOrderRepo);
+  registerTrip(aggregateRegistry, tripRepo);
 
   // One OutboxManager backs the UoW so events + local audit logs ride the
   // same ALS-bound Drizzle tx as the aggregate writes.
@@ -332,6 +351,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       transportOrders: transportOrderRepo,
       processReactions: processReactionRepo,
       transportPositions: transportPositionRepo,
+      trips: tripRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -453,11 +473,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         outboxManager,
         { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
       ),
-      provisionEpod: new ProvisionEpodUseCase(
-        fulfilmentRepo,
-        activityLogRepo,
-        config.epod ? createEpodClient(config.epod) : null,
-      ),
+      provisionEpod: new ProvisionEpodUseCase(fulfilmentRepo, activityLogRepo, epodClient),
       requestTransport: new RequestTransportUseCase(
         uow,
         aggregateRegistry,
@@ -490,6 +506,29 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         aggregateRegistry,
         transportOrderRepo,
         activityLogRepo,
+      ),
+      composeTransportOffer: new ComposeTransportOfferUseCase(
+        uow,
+        aggregateRegistry,
+        db,
+        transportOrderRepo,
+        tripRepo,
+        storeRepo,
+        activityLogRepo,
+        routerClient,
+        runWrite,
+      ),
+      claimTransportTrip: new ClaimTransportTripUseCase(
+        uow,
+        aggregateRegistry,
+        db,
+        tripRepo,
+        transportOrderRepo,
+        fulfilmentRepo,
+        activityLogRepo,
+        epodClient,
+        { tenantCode: config.epod?.tenantCode ?? null },
+        runWrite,
       ),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
