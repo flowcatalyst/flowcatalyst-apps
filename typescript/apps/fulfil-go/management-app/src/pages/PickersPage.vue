@@ -175,7 +175,7 @@ watch(selectedStore, () => void loadPickers());
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl p-6">
+  <div class="max-w-5xl p-6">
     <PageHeader
       title="Pickers"
       subtitle="Pick-context staff — local identities bound to one store (staff code + PIN on the

@@ -1,4 +1,6 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { Type } from '@sinclair/typebox';
+import { ScopeStore } from '@fulfil-go/framework';
 import {
   AuthorizeUrlRequestSchema,
   AuthorizeUrlResponseSchema,
@@ -63,6 +65,42 @@ const toResponse = (tokens: OidcTokens) => ({
 });
 
 export function registerAuthRoutes(fastify: FastifyInstance, appContext: AppContext): void {
+  // Who am I — display identity for app chrome (name/email ride scope
+  // attributes: OIDC claims on real tokens, x-user-name on the dev fallback).
+  fastify.get(
+    '/auth/me',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Current principal identity',
+        response: {
+          200: Type.Object({
+            principalId: Type.String(),
+            name: Type.Union([Type.String(), Type.Null()]),
+            email: Type.Union([Type.String(), Type.Null()]),
+          }),
+          401: ErrorResponseSchema,
+        },
+      },
+    },
+    async (_request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({
+          error: 'authentication',
+          code: 'UNAUTHENTICATED',
+          message: 'Authentication required.',
+          details: null,
+        });
+      }
+      return reply.send({
+        principalId: scope.principalId,
+        name: scope.attributes['name'] ?? null,
+        email: scope.attributes['email'] ?? null,
+      });
+    },
+  );
+
   function resolveClient(reply: FastifyReply, app: string | undefined): ResolvedOidcClient | null {
     const { oidcBroker } = appContext.auth;
     if (!oidcBroker) {

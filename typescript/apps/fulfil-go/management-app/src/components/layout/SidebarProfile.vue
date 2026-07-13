@@ -1,18 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { clientId } from '../../context.js';
+import { computed, onMounted, ref } from 'vue';
+import { api, clientId } from '../../context.js';
 
 /**
- * Sidebar-footer identity block (FlowCatalyst chrome). No real auth in this
- * app yet — the "profile" is the dev principal plus the active client
- * (tenant), and the popover is where you switch client.
+ * Sidebar-footer identity block (FlowCatalyst chrome). Identity comes from
+ * GET /auth/me — the display name/email ride OIDC claims on real tokens and
+ * the dev fallback's x-user-name (VITE_DEV_USER_NAME) in browser dev. The
+ * popover is where you switch the active client (tenant).
  */
 defineProps<{ collapsed: boolean }>();
 
-const userId = (import.meta.env.VITE_DEV_USER_ID as string | undefined) ?? 'prn_manager';
-const displayName = 'Manager';
+interface Me {
+  principalId: string;
+  name: string | null;
+  email: string | null;
+}
+
+const me = ref<Me | null>(null);
+onMounted(async () => {
+  try {
+    me.value = await api.json<Me>('/auth/me');
+  } catch {
+    // Anonymous / server down — the block falls back to placeholders.
+  }
+});
+
+const displayName = computed(() => me.value?.name ?? me.value?.principalId ?? '…');
 const initials = computed(() =>
-  displayName
+  displayName.value
+    .replace(/^prn_/, '')
     .split(/\s+/)
     .map((part) => part[0])
     .join('')
@@ -55,7 +71,10 @@ const initials = computed(() =>
           </span>
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-neutral-800">{{ displayName }}</p>
-            <p class="truncate font-mono text-xs text-neutral-500">{{ userId }}</p>
+            <p v-if="me?.email" class="truncate text-xs text-neutral-500">{{ me.email }}</p>
+            <p class="truncate font-mono text-xs text-neutral-500">
+              {{ me?.principalId ?? 'not signed in' }}
+            </p>
           </div>
         </div>
 

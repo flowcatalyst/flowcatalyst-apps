@@ -91,7 +91,7 @@ watch([status, storeFilter], () => void load());
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl p-6">
+  <div class="max-w-5xl p-6">
     <PageHeader
       :title="isActiveView ? 'Active picks' : 'Requested picks'"
       :subtitle="

@@ -77,7 +77,7 @@ async function run(): Promise<void> {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl p-6">
+  <div class="max-w-3xl p-6">
     <PageHeader title="Fulfilment generator">
       <template #subtitle>
         Generates fulfilments for <span class="font-mono">{{ clientId }}</span> from 100 sample SA

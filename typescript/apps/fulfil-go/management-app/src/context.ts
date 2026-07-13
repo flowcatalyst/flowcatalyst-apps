@@ -10,6 +10,7 @@ import { createApiClient } from '@fulfil-go/mobile-kit/api';
 export const api = createApiClient({
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
   devUserId: import.meta.env.VITE_DEV_USER_ID ?? 'prn_manager',
+  devUserName: import.meta.env.VITE_DEV_USER_NAME ?? 'Manager',
 });
 
 /**

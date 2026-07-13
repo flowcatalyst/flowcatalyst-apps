@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_DEV_USER_ID?: string;
+  /** Display name for the dev-fallback principal (x-user-name → /auth/me). */
+  readonly VITE_DEV_USER_NAME?: string;
 }
 
 interface ImportMeta {

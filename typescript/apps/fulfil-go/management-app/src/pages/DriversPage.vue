@@ -9,7 +9,7 @@ import PageHeader from '../components/PageHeader.vue';
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl p-6">
+  <div class="max-w-3xl p-6">
     <PageHeader title="Drivers" />
     <UAlert
       title="Transport context not built yet"

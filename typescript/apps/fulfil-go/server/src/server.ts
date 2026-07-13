@@ -128,9 +128,15 @@ async function extractRequestToken(
       } else if (tokenValidator) {
         try {
           const claims = await tokenValidator.validate(token);
+          // Display identity rides scope attributes so /auth/me (and any
+          // audit surface) can show a human name, not just the principal id.
+          const attributes: Record<string, string> = {};
+          if (claims.name) attributes['name'] = claims.name;
+          if (claims.email) attributes['email'] = claims.email;
           return {
             sub: claims.sub,
             permissions: resolvePermissions(claims),
+            attributes,
           };
         } catch (err) {
           req.log.warn({ err }, 'JWT validation failed');
@@ -143,7 +149,13 @@ async function extractRequestToken(
     const sub = req.headers['x-user-id'];
     if (typeof sub === 'string' && sub.length > 0) {
       // Dev fallback grants everything. NEVER enable in production.
-      return { sub, permissions: ALL_PERMISSIONS_SET };
+      // Optional x-user-name carries a display name (mobile-kit devUserName).
+      const name = req.headers['x-user-name'];
+      return {
+        sub,
+        permissions: ALL_PERMISSIONS_SET,
+        ...(typeof name === 'string' && name.length > 0 ? { attributes: { name } } : {}),
+      };
     }
   }
   return null;

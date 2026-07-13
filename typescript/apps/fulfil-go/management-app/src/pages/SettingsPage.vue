@@ -173,7 +173,7 @@ watch(selectedCode, loadForm);
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl p-6">
+  <div class="max-w-4xl p-6">
     <PageHeader
       title="Store profiles"
       subtitle="Operational settings, layered: defaults → 'default' profile (the global config) →

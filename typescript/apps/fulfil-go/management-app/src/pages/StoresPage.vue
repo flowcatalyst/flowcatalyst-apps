@@ -102,7 +102,7 @@ watch(clientId, () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl p-6">
+  <div class="max-w-4xl p-6">
     <PageHeader title="Stores">
       <template #subtitle>
         Base store setup — the registry every other context (picking, fulfilment, transport) binds

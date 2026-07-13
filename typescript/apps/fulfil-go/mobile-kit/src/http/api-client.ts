@@ -18,6 +18,8 @@ export interface ApiClientOptions {
   readonly tokens?: TokenProvider;
   /** Browser-dev fallback principal (sent as x-user-id). Ignored when tokens provided. */
   readonly devUserId?: string;
+  /** Display name for the dev-fallback principal (sent as x-user-name). */
+  readonly devUserName?: string;
   readonly fetchImpl?: typeof fetch;
 }
 
@@ -46,7 +48,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       return token ? { authorization: `Bearer ${token}` } : {};
     }
     if (options.devUserId) {
-      return { 'x-user-id': options.devUserId };
+      return {
+        'x-user-id': options.devUserId,
+        ...(options.devUserName ? { 'x-user-name': options.devUserName } : {}),
+      };
     }
     return {};
   }
