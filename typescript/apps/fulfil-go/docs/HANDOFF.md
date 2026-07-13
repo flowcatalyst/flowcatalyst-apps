@@ -225,20 +225,37 @@ design doc; read it before touching the replace flow):
    - ~~Driver identity~~ **BUILT 2026-07-13 (same session)** — PICKER-STYLE
      per Andrew's decisions: staff code + PIN ONLY (no device pinning —
      device enrollment is the shared phase-2 story; the token's deviceId
-     claim is the seam), drivers LINKED TO DEPOTS (`driver_users.store_ref`
-     = home store; the session carries it), optional defaultVehicleReg.
-     `domain/driver-identity/` + `/driver-auth/{login/pin,refresh,me}` +
-     `/clients/:id/drivers` CRUD/seed (ManageDrivers — dispatcher role,
-     roles synced) + management Drivers page (roster/create/suspend/move/
-     seed). Seeder: D01–Dnn per store, shared PIN default 374837 (DRIVER
-     on a keypad), deterministic vehicle regs; dev db seeded (300 drivers,
-     3/store). Driver tokens ride the picker token machinery with issuer
-     `fulfilgo-drive`; scope attributes carry clientId/storeRef/driverRef.
-     POST /transport/offers with a driver session needs NO body — depot +
-     default vehicle come from the identity (smoke-verified: login, wrong
-     PIN 401, refresh, me, session-scoped offer). REMAINING: the execution
-     app's login screen + offer/claim UI (mobile-kit picker-session
-     pattern; point it at /driver-auth + /transport/offers).
+     claim is the seam). `domain/driver-identity/` +
+     `/driver-auth/{login/pin,refresh,me}` + `/clients/:id/drivers`
+     CRUD/seed (ManageDrivers — dispatcher role, synced) + management
+     Drivers page. Driver tokens ride the picker token machinery, issuer
+     `fulfilgo-drive`; scope carries clientId/depotRef/driverRef.
+   - **DEPOTS are independent of stores (Andrew, same session — no 1:1)**:
+     `depots` + `depot_stores` registries (M:N — one depot serves many
+     stores; a dark store with own drivers = a depot serving one store).
+     Drivers bind to `depot_ref` (login is depot+code+PIN); the offer feed
+     spans EVERY store the depot serves (companions still single-origin
+     per trip; the seed order picks the trip's store, caps resolve from
+     it). EPOD claimable-trips `depotReference` resolves through this
+     registry now (set depot refs = EPOD's for adopted clients) — the old
+     provider-entry-config depot mapping is GONE. Management: Transport →
+     Depots page (create/edit/link stores/delete-guarded/seed-per-city).
+     `POST /clients/:id/depots/seed` = one depot per store CITY (dev).
+   - **Vehicle classes + unit sizes (Andrew, same session)** — CLIENT
+     SETTINGS (`vehicleClasses: [{code,name,maxUnits,maxMassKg?}]`,
+     `packageUnitSizes: {XS:1,S:2,M:3,L:4,XL:6}` defaults): offer
+     composition caps a trip's total UNITS (parcel bag size → units) by
+     the driver's vehicle class; maxMassKg is carried but NOT enforced
+     (parcel mass isn't captured yet). Drivers carry defaultVehicleClass
+     (walked bike/car/van by the seeder). API-set via PUT
+     /config/client-settings (dev db configured: bike 8 / car 24 / van 60
+     units); no dedicated settings UI yet.
+     Dev db reseeded: 11 city depots covering 100 stores, 33 drivers
+     (3/depot, PIN 374837). Smoke-verified LIVE: depot login → me (depot +
+     class) → bodyless /transport/offers composed a real offer from the
+     depot's 8 Bloemfontein stores (order #1001 at store-001).
+     REMAINING: the execution app's login screen + offer/claim UI
+     (mobile-kit picker-session pattern; /driver-auth + /transport/offers).
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.

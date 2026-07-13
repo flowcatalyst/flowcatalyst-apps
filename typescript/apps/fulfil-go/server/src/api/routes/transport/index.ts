@@ -585,11 +585,13 @@ export function registerTransportRoutes(
         summary: 'Compose + reserve a trip offer for the authenticated driver',
         description:
           'A DRIVER SESSION (staff code + PIN login) needs no body — the depot comes from ' +
-          "the session and the vehicle defaults to the driver's registered one. Other " +
-          'principals (dev fallback, admins) must name the store.',
+          "the session and the vehicle/class default to the driver's registered ones. Other " +
+          'principals (dev fallback, admins) must name a depot or pin a store.',
         params: Type.Object({ clientId: Type.String() }),
         body: Type.Object({
-          /** Required unless the caller is a driver session (depot-bound). */
+          /** Depot whose stores feed the offer (driver sessions default to theirs). */
+          depotRef: Type.Optional(Type.String({ minLength: 1 })),
+          /** Pin ONE store instead of a depot (admin/dev flows). */
           storeRef: Type.Optional(Type.String({ minLength: 1 })),
           vehicleRef: Type.Optional(Type.String()),
           /** Anchor claim — driver-entered part reference. */
@@ -613,26 +615,30 @@ export function registerTransportRoutes(
       }
       const { clientId } = request.params as { clientId: string };
       const body = request.body as {
+        depotRef?: string;
         storeRef?: string;
         vehicleRef?: string;
         orderReference?: string;
       };
 
-      // Driver session: depot + default vehicle ride the identity.
+      // Driver session: depot + default vehicle/class ride the identity.
       const driverRef = scope.attributes['driverRef'] ?? null;
-      const storeRef = body.storeRef ?? (driverRef ? scope.attributes['storeRef'] : undefined);
-      if (!storeRef) {
-        return reply
-          .code(400)
-          .send({ error: 'STORE_REQUIRED', message: 'storeRef is required for this principal.' });
+      const depotRef = body.depotRef ?? (driverRef ? scope.attributes['depotRef'] : undefined);
+      if (!depotRef && !body.storeRef) {
+        return reply.code(400).send({
+          error: 'DEPOT_OR_STORE_REQUIRED',
+          message: 'depotRef (or storeRef) is required for this principal.',
+        });
       }
       let vehicleRef = body.vehicleRef;
-      if (!vehicleRef && driverRef && isDriverUserId(driverRef)) {
+      let vehicleClass: string | null = null;
+      if (driverRef && isDriverUserId(driverRef)) {
         const driver = await appContext.repositories.driverUsers.findById(
           clientId,
           asDriverUserId(driverRef),
         );
-        vehicleRef = driver?.defaultVehicleReg ?? undefined;
+        vehicleRef ??= driver?.defaultVehicleReg ?? undefined;
+        vehicleClass = driver?.defaultVehicleClass ?? null;
       }
 
       const result = await appContext.useCases.composeTransportOffer.execute({
@@ -640,8 +646,10 @@ export function registerTransportRoutes(
         channel: 'own',
         driverRef: driverRef ?? scope.principalId,
         vehicleRef: vehicleRef ?? 'unspecified',
-        storeRef,
+        depotRef: depotRef ?? null,
+        storeRef: body.storeRef ?? null,
         orderRef: body.orderReference ?? null,
+        vehicleClass,
       });
       return sendOfferResult(reply, result);
     },

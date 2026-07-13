@@ -28,7 +28,7 @@ import {
   type UnitOfWork,
 } from '@fulfil-go/framework';
 import { ConcurrencyConflictError } from '@fulfil-go/framework';
-import type { ResolvedTransportStoreSettings } from '@fulfil-go/shared';
+import { resolveClientSettings } from '@fulfil-go/shared';
 import { TransportOrder } from '../../domain/transport-orders/transport-order.js';
 import type { TransportOrderRepository } from '../../domain/transport-orders/transport-order.repository.js';
 import { Trip } from '../../domain/trips/trip.js';
@@ -36,6 +36,8 @@ import { newTripId } from '../../domain/trips/ids.js';
 import { TripOffered } from '../../domain/trips/events/trip.events.js';
 import type { TripRepository } from '../../domain/trips/trip.repository.js';
 import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
+import type { DepotRepository } from '../../infrastructure/depot-repository.js';
+import type { ClientSettingsRepository } from '../../infrastructure/client-settings-repository.js';
 import type { StoreRepository } from '../../infrastructure/store-repository.js';
 import { loadTransportSettingsResolver } from '../../infrastructure/store-settings-resolver.js';
 import {
@@ -54,23 +56,22 @@ export interface ComposeTransportOfferCommand {
   readonly channel: 'own' | 'epod';
   readonly driverRef: string;
   readonly vehicleRef: string;
-  /** EPOD offer context (depot → store; echoed into the route plan). */
+  /**
+   * Depot context — the DEPOTS registry ref (a depot serves MANY stores;
+   * no 1:1 depot↔store). The offer feed spans every store the depot
+   * serves; the seed order picks the trip's single origin store.
+   */
   readonly depotRef?: string | null;
   readonly territoryRef?: string | null;
-  /** Own-channel callers name the store directly. */
+  /** Callers may pin ONE store instead of a depot (admin/dev flows). */
   readonly storeRef?: string | null;
   /** Anchor claim — the driver-entered part reference. */
   readonly orderRef?: string | null;
+  /** Vehicle class code (client settings) — unit-capacity cap when set. */
+  readonly vehicleClass?: string | null;
 }
 
 type RunWrite = <A>(thunk: () => Promise<Result<A>>) => Promise<Result<A>>;
-
-function providerEntryConfig(
-  settings: ResolvedTransportStoreSettings,
-  code: string,
-): Record<string, unknown> {
-  return settings.transportProviders.find((p) => p.code === code)?.config ?? {};
-}
 
 export class ComposeTransportOfferUseCase {
   constructor(
@@ -80,6 +81,8 @@ export class ComposeTransportOfferUseCase {
     private readonly transportOrders: TransportOrderRepository,
     private readonly trips: TripRepository,
     private readonly stores: StoreRepository,
+    private readonly depots: DepotRepository,
+    private readonly clientSettings: ClientSettingsRepository,
     private readonly activityLog: ActivityLogRepository,
     private readonly router: RouterClient | null,
     private readonly runWrite: RunWrite,
@@ -93,51 +96,76 @@ export class ComposeTransportOfferUseCase {
     const empty = (reason: string): Result<ComposeOfferResult> =>
       Result.failure(UseCaseError.businessRule(reason, `No offer: ${reason}.`));
 
-    // ── 1. Resolve the store + its transport settings ──────────────────────
+    // ── 1. Resolve CANDIDATE STORES (depot serves many; store pin wins) ────
     const resolver = await loadTransportSettingsResolver(this.db, command.clientId);
-    let storeRef: string | null = command.storeRef ?? null;
-    if (command.channel === 'epod' && !storeRef) {
-      if (!command.depotRef) return empty('NO_DEPOT_REFERENCE');
-      for (const store of await this.stores.listByClient(command.clientId)) {
-        const config = providerEntryConfig(resolver.resolve(store.storeRef), 'epod');
-        if (config['depotReference'] === command.depotRef) {
-          storeRef = store.storeRef;
-          break;
-        }
-      }
-      if (!storeRef) return empty('NO_STORE_FOR_DEPOT');
+    let candidateStores: readonly string[];
+    if (command.storeRef) {
+      candidateStores = [command.storeRef];
+    } else if (command.depotRef) {
+      const depot = await this.depots.findByRef(command.clientId, command.depotRef);
+      if (!depot) return empty('DEPOT_NOT_FOUND');
+      if (depot.storeRefs.length === 0) return empty('DEPOT_SERVES_NO_STORES');
+      candidateStores = depot.storeRefs;
+    } else {
+      return empty('NO_DEPOT_OR_STORE');
     }
-    if (!storeRef) return empty('NO_STORE');
-    const store = await this.stores.findByRef(command.clientId, storeRef);
-    if (!store) return empty('STORE_NOT_FOUND');
-    const settings = resolver.resolve(storeRef);
-    if (settings.allocationStrategy !== 'claim') return empty('STORE_NOT_ON_CLAIM_STRATEGY');
-
-    // ── 2. Feed + anchor ───────────────────────────────────────────────────
-    const now = new Date();
-    const feed = await this.transportOrders.listRequestedByStore(
-      command.clientId,
-      storeRef,
-      MARKETPLACE_PROVIDERS,
+    // Only stores on the claim strategy participate in the marketplace.
+    const eligibleStores = candidateStores.filter(
+      (ref) => resolver.resolve(ref).allocationStrategy === 'claim',
     );
+    if (eligibleStores.length === 0) return empty('NO_STORE_ON_CLAIM_STRATEGY');
+
+    // ── 2. Feed across the depot's stores + anchor ─────────────────────────
+    const now = new Date();
+    const feed = (
+      await Promise.all(
+        eligibleStores.map((ref) =>
+          this.transportOrders.listRequestedByStore(command.clientId, ref, MARKETPLACE_PROVIDERS),
+        ),
+      )
+    ).flat();
     let anchor: TransportOrder | null = null;
     if (command.orderRef) {
-      anchor =
-        feed.find((o) => o.shortId === command.orderRef) ??
-        (await this.transportOrders.findRequestedByFulfilmentExternalRef(
+      anchor = feed.find((o) => o.shortId === command.orderRef) ?? null;
+      for (const ref of eligibleStores) {
+        if (anchor) break;
+        anchor = await this.transportOrders.findRequestedByFulfilmentExternalRef(
           command.clientId,
-          storeRef,
+          ref,
           command.orderRef,
-        ));
+        );
+      }
       if (!anchor) return empty('ANCHOR_NOT_FOUND');
       if (!TransportOrder.isOfferable(anchor, now)) return empty('ANCHOR_UNAVAILABLE');
     }
 
     // ── 3. Select + sequence (router HTTP — outside any tx) ────────────────
+    // Vehicle-class capacity (units) from client settings, when a class rides
+    // the request (own-channel driver sessions carry the driver's class).
+    const client = resolveClientSettings(await this.clientSettings.get(command.clientId));
+    const vehicleClass = command.vehicleClass
+      ? (client.vehicleClasses.find((c) => c.code === command.vehicleClass) ?? null)
+      : null;
+
+    // Caps resolve per SEED store — the trip's single origin. Pre-rank to
+    // find the seed, then select against that store's settings.
+    const probe = selectOfferOrders(feed, anchor, { maxStops: 1, maxBags: 1_000_000 }, now);
+    if (!probe) return empty('NO_OFFERABLE_ORDERS');
+    const seedStoreRef = probe.orders[0]!.originRef;
+    const settings = resolver.resolve(seedStoreRef);
+    const store = await this.stores.findByRef(command.clientId, seedStoreRef);
+    if (!store) return empty('STORE_NOT_FOUND');
+    const storeRef = seedStoreRef;
+
     const selection = selectOfferOrders(
       feed,
       anchor,
-      { maxStops: settings.maxStopsPerTrip, maxBags: settings.maxBagsPerTrip },
+      {
+        maxStops: settings.maxStopsPerTrip,
+        maxBags: settings.maxBagsPerTrip,
+        maxUnits: vehicleClass?.maxUnits ?? null,
+        unitSizes: client.packageUnitSizes,
+      },
       now,
     );
     if (!selection) return empty('NO_OFFERABLE_ORDERS');
@@ -146,12 +174,7 @@ export class ComposeTransportOfferUseCase {
     // ── 4. Reserve the group + persist the trip (one short tx) ─────────────
     const tripId = newTripId();
     const expiresAt = new Date(now.getTime() + OFFER_TTL_SECONDS * 1000);
-    const epodConfig = providerEntryConfig(settings, 'epod');
-    const territoryRef =
-      command.territoryRef ??
-      (typeof epodConfig['territoryReference'] === 'string'
-        ? epodConfig['territoryReference']
-        : null);
+    const territoryRef = command.territoryRef ?? null;
 
     return this.runWrite(async () => {
       const fresh = await this.transportOrders.findManyByIds(

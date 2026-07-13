@@ -5,12 +5,12 @@ import type { Scope } from '@fulfil-go/framework';
 /**
  * Driver identity events (`fulfil-go:transport:driver:*`) — provisioning and
  * lifecycle facts. No credentials on payloads; the PIN material never leaves
- * the server. `storeRef` = the driver's home depot.
+ * the server. `depotRef` = the driver's home depot (depots registry).
  */
 export const DriverCreatedDataSchema = Type.Object({
   driverId: Type.String(),
   clientId: Type.String(),
-  storeRef: Type.String(),
+  depotRef: Type.String(),
   staffCode: Type.String(),
 });
 export type DriverCreatedData = Static<typeof DriverCreatedDataSchema>;
@@ -18,7 +18,7 @@ export type DriverCreatedData = Static<typeof DriverCreatedDataSchema>;
 export const DriverLifecycleDataSchema = Type.Object({
   driverId: Type.String(),
   clientId: Type.String(),
-  storeRef: Type.String(),
+  depotRef: Type.String(),
   staffCode: Type.String(),
 });
 export type DriverLifecycleData = Static<typeof DriverLifecycleDataSchema>;
@@ -26,8 +26,8 @@ export type DriverLifecycleData = Static<typeof DriverLifecycleDataSchema>;
 export const DriverReassignedDataSchema = Type.Object({
   driverId: Type.String(),
   clientId: Type.String(),
-  storeRef: Type.String(),
-  previousStoreRef: Type.String(),
+  depotRef: Type.String(),
+  previousDepotRef: Type.String(),
   staffCode: Type.String(),
 });
 export type DriverReassignedData = Static<typeof DriverReassignedDataSchema>;

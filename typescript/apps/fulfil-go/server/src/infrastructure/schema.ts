@@ -75,3 +75,6 @@ export type { TripRow } from './schema/trips.js';
 
 export { driverUsers } from './schema/driver-users.js';
 export type { NewDriverUser, DriverUserRow } from './schema/driver-users.js';
+
+export { depots, depotStores } from './schema/depots.js';
+export type { DepotRow, DepotStoreRow } from './schema/depots.js';

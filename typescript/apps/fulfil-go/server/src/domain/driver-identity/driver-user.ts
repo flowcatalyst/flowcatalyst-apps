@@ -11,9 +11,11 @@ export type DriverStatus = 'active' | 'suspended';
  * as the picking plane's). Local to the transport context, never a platform
  * principal.
  *
- * Depot linkage: `storeRef` is the driver's HOME DEPOT (our stores ARE the
- * collection points for the own channel — mirrors EPOD's driver→depot).
- * It is the session's operating context: offers compose from this store.
+ * Depot linkage: `depotRef` is the driver's HOME DEPOT — an entry in the
+ * DEPOTS registry, independent of stores (a depot serves many stores via
+ * depot_stores; Andrew 2026-07-13: no 1:1 depot↔store). It is the
+ * session's operating context: offers compose from the stores the depot
+ * serves.
  *
  * Login lockout bookkeeping (`failedPinAttempts`/`lockedUntil`) is high-
  * frequency auth state, NOT a domain event — it persists via a direct
@@ -22,18 +24,23 @@ export type DriverStatus = 'active' | 'suspended';
 export interface DriverUser {
   readonly id: DriverUserId;
   readonly clientId: string;
-  /** Home depot — a store registry ref. */
-  readonly storeRef: string;
+  /** Home depot — a depots registry ref. */
+  readonly depotRef: string;
   readonly displayName: string;
-  /** Unique per (clientId, storeRef) — typed before the PIN. */
+  /** Unique per (clientId, depotRef) — typed before the PIN. */
   readonly staffCode: string;
   readonly status: DriverStatus;
   /**
    * Registration of the vehicle this driver usually takes — the offer
-   * binding's default when the app doesn't send one. Informational in v1
-   * (simple caps, no vehicle registry).
+   * binding's default when the app doesn't send one.
    */
   readonly defaultVehicleReg: string | null;
+  /**
+   * Vehicle CLASS code (bike/car/van — client-settings registry): drives
+   * the trip capacity check (unit sizes per parcel, max units/mass per
+   * class). Null = uncapped by class.
+   */
+  readonly defaultVehicleClass: string | null;
   /** scrypt hash of the PIN. */
   readonly pinHash: string | null;
   readonly failedPinAttempts: number;
@@ -46,10 +53,11 @@ export interface DriverUser {
 export interface CreateDriverUserInput {
   readonly id: DriverUserId;
   readonly clientId: string;
-  readonly storeRef: string;
+  readonly depotRef: string;
   readonly displayName: string;
   readonly staffCode: string;
   readonly defaultVehicleReg: string | null;
+  readonly defaultVehicleClass: string | null;
   readonly pinHash: string | null;
   readonly now: Date;
 }
@@ -59,11 +67,12 @@ export const DriverUser = {
     return {
       id: input.id,
       clientId: input.clientId,
-      storeRef: input.storeRef,
+      depotRef: input.depotRef,
       displayName: input.displayName,
       staffCode: input.staffCode,
       status: 'active',
       defaultVehicleReg: input.defaultVehicleReg,
+      defaultVehicleClass: input.defaultVehicleClass,
       pinHash: input.pinHash,
       failedPinAttempts: 0,
       lockedUntil: null,
@@ -115,10 +124,10 @@ export const DriverUser = {
    * driver's old-depot session ends within one access TTL. Also clears any
    * lockout — a fresh start at the new depot.
    */
-  reassign(prior: DriverUser, storeRef: string, now: Date): DriverUser {
+  reassign(prior: DriverUser, depotRef: string, now: Date): DriverUser {
     return {
       ...prior,
-      storeRef,
+      depotRef,
       failedPinAttempts: 0,
       lockedUntil: null,
       version: prior.version + 1,

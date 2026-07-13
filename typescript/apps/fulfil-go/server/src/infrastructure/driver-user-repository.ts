@@ -19,11 +19,12 @@ function toDomain(row: DriverUserRow): DriverUser {
   return {
     id: asDriverUserId(row.id),
     clientId: row.clientId,
-    storeRef: row.storeRef,
+    depotRef: row.depotRef,
     displayName: row.displayName,
     staffCode: row.staffCode,
     status: row.status as DriverStatus,
     defaultVehicleReg: row.defaultVehicleReg,
+    defaultVehicleClass: row.defaultVehicleClass,
     pinHash: row.pinHash,
     failedPinAttempts: row.failedPinAttempts,
     lockedUntil: row.lockedUntil,
@@ -46,11 +47,12 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
           .values({
             id: aggregate.id,
             clientId: aggregate.clientId,
-            storeRef: aggregate.storeRef,
+            depotRef: aggregate.depotRef,
             displayName: aggregate.displayName,
             staffCode: aggregate.staffCode,
             status: aggregate.status,
             defaultVehicleReg: aggregate.defaultVehicleReg,
+            defaultVehicleClass: aggregate.defaultVehicleClass,
             pinHash: aggregate.pinHash,
             failedPinAttempts: aggregate.failedPinAttempts,
             lockedUntil: aggregate.lockedUntil,
@@ -65,10 +67,11 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
         [row] = await client
           .update(driverUsers)
           .set({
-            storeRef: aggregate.storeRef,
+            depotRef: aggregate.depotRef,
             displayName: aggregate.displayName,
             status: aggregate.status,
             defaultVehicleReg: aggregate.defaultVehicleReg,
+            defaultVehicleClass: aggregate.defaultVehicleClass,
             pinHash: aggregate.pinHash,
             failedPinAttempts: aggregate.failedPinAttempts,
             lockedUntil: aggregate.lockedUntil,
@@ -107,7 +110,7 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
 
     async findByStaffCode(
       clientId: string,
-      storeRef: string,
+      depotRef: string,
       staffCode: string,
     ): Promise<DriverUser | null> {
       const [row] = await current()
@@ -116,7 +119,7 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
         .where(
           and(
             eq(driverUsers.clientId, clientId),
-            eq(driverUsers.storeRef, storeRef),
+            eq(driverUsers.depotRef, depotRef),
             eq(driverUsers.staffCode, staffCode),
           ),
         )
@@ -124,15 +127,15 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
       return row ? toDomain(row) : null;
     },
 
-    async listByClient(clientId: string, storeRef?: string): Promise<readonly DriverUser[]> {
-      const where = storeRef
-        ? and(eq(driverUsers.clientId, clientId), eq(driverUsers.storeRef, storeRef))
+    async listByClient(clientId: string, depotRef?: string): Promise<readonly DriverUser[]> {
+      const where = depotRef
+        ? and(eq(driverUsers.clientId, clientId), eq(driverUsers.depotRef, depotRef))
         : eq(driverUsers.clientId, clientId);
       const rows = await current()
         .select()
         .from(driverUsers)
         .where(where)
-        .orderBy(asc(driverUsers.storeRef), asc(driverUsers.staffCode));
+        .orderBy(asc(driverUsers.depotRef), asc(driverUsers.staffCode));
       return rows.map(toDomain);
     },
 
@@ -144,11 +147,12 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
           drivers.map((d) => ({
             id: d.id,
             clientId: d.clientId,
-            storeRef: d.storeRef,
+            depotRef: d.depotRef,
             displayName: d.displayName,
             staffCode: d.staffCode,
             status: d.status,
             defaultVehicleReg: d.defaultVehicleReg,
+            defaultVehicleClass: d.defaultVehicleClass,
             pinHash: d.pinHash,
             failedPinAttempts: d.failedPinAttempts,
             lockedUntil: d.lockedUntil,
@@ -158,7 +162,7 @@ export function createDrizzleDriverUserRepository(db: PostgresJsDatabase): Drive
           })),
         )
         .onConflictDoNothing({
-          target: [driverUsers.clientId, driverUsers.storeRef, driverUsers.staffCode],
+          target: [driverUsers.clientId, driverUsers.depotRef, driverUsers.staffCode],
         })
         .returning({ id: driverUsers.id });
       return rows.length;

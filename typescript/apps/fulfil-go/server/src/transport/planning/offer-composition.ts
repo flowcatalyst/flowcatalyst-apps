@@ -32,6 +32,13 @@ const FALLBACK_SPEED_KMH = 30;
 export interface OfferCaps {
   readonly maxStops: number;
   readonly maxBags: number;
+  /**
+   * Vehicle-class capacity in UNITS (client settings; Andrew 2026-07-13):
+   * each parcel costs `unitSizes[size] ?? 1` units. Null = no class cap
+   * (unknown vehicle / class-less driver).
+   */
+  readonly maxUnits?: number | null;
+  readonly unitSizes?: Readonly<Record<string, number>>;
 }
 
 function isAsap(order: TransportOrder): boolean {
@@ -44,6 +51,14 @@ function isHot(order: TransportOrder): boolean {
 
 function bagCount(order: TransportOrder): number {
   return order.parcels.length;
+}
+
+/** Capacity units for an order's parcels (size → units, default 1). */
+export function unitCount(
+  order: TransportOrder,
+  unitSizes: Readonly<Record<string, number>>,
+): number {
+  return order.parcels.reduce((sum, p) => sum + (unitSizes[p.size ?? ''] ?? 1), 0);
 }
 
 function windowsOverlap(a: TransportOrder, b: TransportOrder, toleranceMinutes: number): boolean {
@@ -87,12 +102,18 @@ export function selectOfferOrders(
   const selected: TransportOrder[] = [head];
   if (isHot(head)) return { orders: selected };
 
+  const unitSizes = caps.unitSizes ?? {};
+  const maxUnits = caps.maxUnits ?? null;
   let bags = bagCount(head);
+  let units = unitCount(head, unitSizes);
   const seedGeo = head.destination.geo;
   if (!seedGeo) return { orders: selected }; // can't measure detours — solo
 
   const companions = offerable
     .filter((o) => o.id !== head.id)
+    // Trips are single-origin (locked design) — a depot-wide feed may span
+    // stores, so companions must share the seed's store.
+    .filter((o) => o.originRef === head.originRef)
     .filter((o) => !isHot(o))
     .filter((o) => windowsOverlap(head, o, WINDOW_OVERLAP_TOLERANCE_MINUTES))
     .map((o) => ({
@@ -105,8 +126,11 @@ export function selectOfferOrders(
   for (const { order } of companions) {
     if (selected.length >= caps.maxStops) break;
     if (bags + bagCount(order) > caps.maxBags) continue;
+    const orderUnits = unitCount(order, unitSizes);
+    if (maxUnits !== null && units + orderUnits > maxUnits) continue;
     selected.push(order);
     bags += bagCount(order);
+    units += orderUnits;
   }
   return { orders: selected };
 }

@@ -29,6 +29,7 @@ import { registerPickLabelRoutes } from './api/routes/picks/labels.js';
 import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { registerDriverAdminRoutes } from './api/routes/drivers/index.js';
+import { registerDepotRoutes } from './api/routes/depots/index.js';
 import { registerDriverAuthRoutes } from './api/routes/driver-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
 import { registerPrinterRoutes } from './api/routes/printers/index.js';
@@ -192,13 +193,13 @@ async function extractRequestToken(
           req.log.warn({ err }, 'picker session token validation failed');
         }
       } else if (driverTokenService.isPickerToken(token)) {
-        // Driver session (issuer `fulfilgo-drive`) — same token machinery,
-        // driver attributes: storeRef is the HOME DEPOT, driverRef the id.
+        // Driver session (issuer `fulfilgo-drive`) — same token machinery;
+        // the generic context claim carries the HOME DEPOT.
         try {
           const claims = await driverTokenService.verifyAccess(token);
           const attributes: Record<string, string> = {
             clientId: claims.clientId,
-            storeRef: claims.storeRef,
+            depotRef: claims.storeRef,
             driverRef: claims.pickerId,
           };
           if (claims.deviceId) attributes['deviceId'] = claims.deviceId;
@@ -386,6 +387,7 @@ async function buildServer() {
   registerPickAuthRoutes(server, appContext);
   registerDriverAdminRoutes(server, appContext);
   registerDriverAuthRoutes(server, appContext);
+  registerDepotRoutes(server, appContext);
   registerStoreRoutes(server, appContext);
   registerPrinterRoutes(server, appContext);
   registerProcessRoutes(server, appContext, {

@@ -18,8 +18,8 @@ import { BadRequestSchema, ErrorResponseSchema, UnauthorizedSchema } from '../..
 
 const PinLoginBodySchema = Type.Object(
   {
-    /** Home depot — the driver's store registry ref. */
-    storeRef: Type.String({ minLength: 1, maxLength: 64 }),
+    /** Home depot — depots registry ref. */
+    depotRef: Type.String({ minLength: 1, maxLength: 64 }),
     staffCode: Type.String({ minLength: 1, maxLength: 32 }),
     pin: Type.String({ pattern: '^\\d{4,8}$' }),
   },
@@ -29,9 +29,10 @@ const PinLoginBodySchema = Type.Object(
 const MeResponseSchema = Type.Object({
   driverId: Type.String(),
   clientId: Type.String(),
-  storeRef: Type.String(),
+  depotRef: Type.String(),
   displayName: Type.Union([Type.String(), Type.Null()]),
   defaultVehicleReg: Type.Union([Type.String(), Type.Null()]),
+  defaultVehicleClass: Type.Union([Type.String(), Type.Null()]),
   permissions: Type.Array(Type.String()),
 });
 
@@ -53,11 +54,11 @@ export function registerDriverAuthRoutes(fastify: FastifyInstance, appContext: A
     },
     async (request, reply) => {
       const { clientId } = request.params as { clientId: string };
-      const body = request.body as { storeRef: string; staffCode: string; pin: string };
+      const body = request.body as { depotRef: string; staffCode: string; pin: string };
 
       const outcome = await appContext.driverAuth.loginWithPin({
         clientId,
-        storeRef: body.storeRef,
+        depotRef: body.depotRef,
         staffCode: body.staffCode,
         pin: body.pin,
       });
@@ -120,14 +121,14 @@ export function registerDriverAuthRoutes(fastify: FastifyInstance, appContext: A
         clientId,
         asDriverUserId(claims.pickerId),
       );
-      if (!driver || driver.status !== 'active' || driver.storeRef !== claims.storeRef) {
+      if (!driver || driver.status !== 'active' || driver.depotRef !== claims.storeRef) {
         return invalid();
       }
 
       const session = await appContext.auth.driverTokenService.issueSession({
         pickerId: driver.id,
         clientId: driver.clientId,
-        storeRef: driver.storeRef,
+        storeRef: driver.depotRef,
         permissions: [...DRIVER_SESSION_PERMISSIONS],
         deviceId: claims.deviceId ?? undefined,
       });
@@ -160,9 +161,9 @@ export function registerDriverAuthRoutes(fastify: FastifyInstance, appContext: A
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-      const storeRef = scope.attributes['storeRef'];
+      const depotRef = scope.attributes['depotRef'];
       const tokenClientId = scope.attributes['clientId'];
-      if (!storeRef || !tokenClientId || !isDriverUserId(scope.principalId)) {
+      if (!depotRef || !tokenClientId || !isDriverUserId(scope.principalId)) {
         return reply.code(403).send({
           error: 'forbidden',
           code: 'NOT_A_DRIVER_SESSION',
@@ -187,9 +188,10 @@ export function registerDriverAuthRoutes(fastify: FastifyInstance, appContext: A
       return reply.code(200).send({
         driverId: scope.principalId,
         clientId: tokenClientId,
-        storeRef,
+        depotRef,
         displayName: driver?.displayName ?? null,
         defaultVehicleReg: driver?.defaultVehicleReg ?? null,
+        defaultVehicleClass: driver?.defaultVehicleClass ?? null,
         permissions: [...scope.permissions],
       });
     },

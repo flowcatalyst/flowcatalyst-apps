@@ -108,6 +108,8 @@ import {
 } from './transport/router/client.js';
 import { createDrizzleTripRepository } from './infrastructure/trip-repository.js';
 import { createDrizzleDriverUserRepository } from './infrastructure/driver-user-repository.js';
+import { createDrizzleDepotRepository } from './infrastructure/depot-repository.js';
+import type { DepotRepository } from './infrastructure/depot-repository.js';
 import { registerDriverUser } from './infrastructure/register-driver-user.js';
 import { DRIVER_USER_ID_PREFIX } from './domain/driver-identity/ids.js';
 import { DRIVER_USER_TYPE } from './domain/driver-identity/driver-user.js';
@@ -166,6 +168,7 @@ export interface AppContextRepositories {
   readonly transportPositions: TransportPositionRepository;
   readonly trips: TripRepository;
   readonly driverUsers: DriverUserRepository;
+  readonly depots: DepotRepository;
 }
 
 export interface AppContextUseCases {
@@ -318,6 +321,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const transportPositionRepo = createDrizzleTransportPositionRepository(db);
   const tripRepo = createDrizzleTripRepository(db);
   const driverUserRepo = createDrizzleDriverUserRepository(db);
+  const depotRepo = createDrizzleDepotRepository(db);
   const routerClient = config.router ? createRouterClient(config.router) : null;
   // ONE EPOD client (token cache shared by provisioning + the claim flow).
   const epodClient = config.epod ? createEpodClient(config.epod) : null;
@@ -401,6 +405,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       transportPositions: transportPositionRepo,
       trips: tripRepo,
       driverUsers: driverUserRepo,
+      depots: depotRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -563,6 +568,8 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         transportOrderRepo,
         tripRepo,
         storeRepo,
+        depotRepo,
+        clientSettingsRepo,
         activityLogRepo,
         routerClient,
         runWrite,
@@ -579,10 +586,10 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         { tenantCode: config.epod?.tenantCode ?? null },
         runWrite,
       ),
-      createDriver: new CreateDriverUseCase(uow, aggregateRegistry, driverUserRepo, storeRepo),
+      createDriver: new CreateDriverUseCase(uow, aggregateRegistry, driverUserRepo, depotRepo),
       suspendDriver: new SuspendDriverUseCase(uow, aggregateRegistry, driverUserRepo),
       reactivateDriver: new ReactivateDriverUseCase(uow, aggregateRegistry, driverUserRepo),
-      reassignDriver: new ReassignDriverUseCase(uow, aggregateRegistry, driverUserRepo, storeRepo),
+      reassignDriver: new ReassignDriverUseCase(uow, aggregateRegistry, driverUserRepo, depotRepo),
       deleteDriver: new DeleteDriverUseCase(uow, aggregateRegistry, driverUserRepo),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),

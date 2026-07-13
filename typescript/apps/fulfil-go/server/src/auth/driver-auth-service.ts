@@ -17,7 +17,8 @@ import type { DriverUserRepository } from '../domain/driver-identity/driver-user
 
 export interface DriverPinLoginInput {
   readonly clientId: string;
-  readonly storeRef: string;
+  /** Home depot — depots registry ref. */
+  readonly depotRef: string;
   readonly staffCode: string;
   readonly pin: string;
 }
@@ -51,7 +52,7 @@ export function createDriverAuthService(
   return {
     async loginWithPin(input: DriverPinLoginInput): Promise<DriverLoginOutcome> {
       const now = new Date();
-      const driver = await repo.findByStaffCode(input.clientId, input.storeRef, input.staffCode);
+      const driver = await repo.findByStaffCode(input.clientId, input.depotRef, input.staffCode);
       if (!driver || driver.status !== 'active' || driver.pinHash === null) {
         return INVALID_CREDENTIALS;
       }
@@ -84,7 +85,7 @@ export function createDriverAuthService(
       const session = await tokens.issueSession({
         pickerId: driver.id, // generic subject slot — the token service is shared
         clientId: driver.clientId,
-        storeRef: driver.storeRef,
+        storeRef: driver.depotRef, // generic context slot — depot for drivers
         permissions: [...DRIVER_SESSION_PERMISSIONS],
       });
       return { ok: true, session };

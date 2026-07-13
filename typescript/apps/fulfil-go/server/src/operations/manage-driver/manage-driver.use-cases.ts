@@ -27,7 +27,7 @@ import {
   type DriverLifecycleData,
 } from '../../domain/driver-identity/events/driver.events.js';
 import type { DriverUserRepository } from '../../domain/driver-identity/driver-user.repository.js';
-import type { StoreRepository } from '../../infrastructure/store-repository.js';
+import type { DepotRepository } from '../../infrastructure/depot-repository.js';
 
 export interface DriverRefCommand {
   readonly clientId: string;
@@ -35,7 +35,7 @@ export interface DriverRefCommand {
 }
 
 export interface ReassignDriverCommand extends DriverRefCommand {
-  readonly storeRef: string;
+  readonly depotRef: string;
 }
 
 type LoadOutcome =
@@ -82,7 +82,7 @@ function lifecycleData(driver: DriverUser): DriverLifecycleData {
   return {
     driverId: driver.id,
     clientId: driver.clientId,
-    storeRef: driver.storeRef,
+    depotRef: driver.depotRef,
     staffCode: driver.staffCode,
   };
 }
@@ -140,7 +140,7 @@ export class ReassignDriverUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly drivers: DriverUserRepository,
-    private readonly stores: StoreRepository,
+    private readonly depots: DepotRepository,
   ) {}
 
   async execute(command: ReassignDriverCommand): Promise<Result<DriverReassigned>> {
@@ -148,42 +148,42 @@ export class ReassignDriverUseCase {
     if (!loaded.ok) return loaded.failure;
     const { driver: prior, scope } = loaded;
 
-    if (prior.storeRef === command.storeRef) {
+    if (prior.depotRef === command.depotRef) {
       return Result.failure(
         UseCaseError.businessRule(
           'DRIVER_ALREADY_AT_DEPOT',
-          `Driver is already at '${command.storeRef}'.`,
+          `Driver is already at '${command.depotRef}'.`,
         ),
       );
     }
-    const storeExists = await this.stores.existsByRef(command.clientId, command.storeRef);
-    if (!storeExists) {
+    const depot = await this.depots.findByRef(command.clientId, command.depotRef);
+    if (!depot) {
       return Result.failure(
         UseCaseError.validation(
-          'STORE_NOT_FOUND',
-          `Store '${command.storeRef}' is not in the registry.`,
+          'DEPOT_NOT_FOUND',
+          `Depot '${command.depotRef}' is not in the registry.`,
         ),
       );
     }
     const clash = await this.drivers.findByStaffCode(
       command.clientId,
-      command.storeRef,
+      command.depotRef,
       prior.staffCode,
     );
     if (clash) {
       return Result.failure(
         UseCaseError.businessRule(
           'STAFF_CODE_EXISTS',
-          `Staff code '${prior.staffCode}' already exists at '${command.storeRef}'.`,
+          `Staff code '${prior.staffCode}' already exists at '${command.depotRef}'.`,
           { driverId: clash.id },
         ),
       );
     }
 
-    const driver = DriverUser.reassign(prior, command.storeRef, new Date());
+    const driver = DriverUser.reassign(prior, command.depotRef, new Date());
     const event = new DriverReassigned(scope, {
       ...lifecycleData(driver),
-      previousStoreRef: prior.storeRef,
+      previousDepotRef: prior.depotRef,
     });
     return commitAggregate(this.uow, this.registry, driver, event, command);
   }

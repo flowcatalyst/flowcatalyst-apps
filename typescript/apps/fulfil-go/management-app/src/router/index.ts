@@ -11,6 +11,7 @@ import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
 import VehicleMapPage from '../pages/VehicleMapPage.vue';
 import LoginCallbackPage from '../pages/LoginCallbackPage.vue';
 import TransportOrdersPage from '../pages/TransportOrdersPage.vue';
+import DepotsPage from '../pages/DepotsPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -48,6 +49,7 @@ export const router = createRouter({
       meta: { title: 'Transport orders' },
     },
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
+    { path: '/transport/depots', component: DepotsPage, meta: { title: 'Depots' } },
     {
       path: '/transport/map',
       component: VehicleMapPage,

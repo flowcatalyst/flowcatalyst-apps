@@ -12,12 +12,12 @@ export interface DriverUserRepository {
   /** The login lookup — staff code is unique within a depot. */
   findByStaffCode(
     clientId: string,
-    storeRef: string,
+    depotRef: string,
     staffCode: string,
   ): Promise<DriverUser | null>;
 
   /** Admin listing; optionally narrowed to one depot. Ordered by depot, staffCode. */
-  listByClient(clientId: string, storeRef?: string): Promise<readonly DriverUser[]>;
+  listByClient(clientId: string, depotRef?: string): Promise<readonly DriverUser[]>;
 
   /**
    * Dev/test seeding: plain batch insert, skipping rows whose staff code

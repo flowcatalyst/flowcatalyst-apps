@@ -12,17 +12,19 @@ import { DriverUser } from '../../domain/driver-identity/driver-user.js';
 import { newDriverUserId } from '../../domain/driver-identity/ids.js';
 import { DriverCreated } from '../../domain/driver-identity/events/driver.events.js';
 import type { DriverUserRepository } from '../../domain/driver-identity/driver-user.repository.js';
-import type { StoreRepository } from '../../infrastructure/store-repository.js';
+import type { DepotRepository } from '../../infrastructure/depot-repository.js';
 import { hashSecret } from '../../auth/pick-credentials.js';
 
 export interface CreateDriverCommand {
   readonly clientId: string;
-  /** Home depot — a store registry ref. */
-  readonly storeRef: string;
+  /** Home depot — a depots registry ref. */
+  readonly depotRef: string;
   readonly displayName: string;
   readonly staffCode: string;
   readonly pin: string;
   readonly defaultVehicleReg?: string | null;
+  /** Vehicle class code (client-settings registry). */
+  readonly defaultVehicleClass?: string | null;
 }
 
 /**
@@ -38,7 +40,7 @@ export class CreateDriverUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly drivers: DriverUserRepository,
-    private readonly stores: StoreRepository,
+    private readonly depots: DepotRepository,
   ) {}
 
   async execute(command: CreateDriverCommand): Promise<Result<DriverCreated>> {
@@ -64,27 +66,27 @@ export class CreateDriverUseCase {
       );
     }
 
-    // Drivers bind to a real registry store (their home depot).
-    const storeExists = await this.stores.existsByRef(command.clientId, command.storeRef);
-    if (!storeExists) {
+    // Drivers bind to a real registry depot.
+    const depot = await this.depots.findByRef(command.clientId, command.depotRef);
+    if (!depot) {
       return Result.failure(
         UseCaseError.validation(
-          'STORE_NOT_FOUND',
-          `Store '${command.storeRef}' is not in the registry — sync stores first.`,
+          'DEPOT_NOT_FOUND',
+          `Depot '${command.depotRef}' is not in the registry — create it first.`,
         ),
       );
     }
 
     const existing = await this.drivers.findByStaffCode(
       command.clientId,
-      command.storeRef,
+      command.depotRef,
       staffCode,
     );
     if (existing) {
       return Result.failure(
         UseCaseError.businessRule(
           'STAFF_CODE_EXISTS',
-          `Staff code '${staffCode}' already exists for depot '${command.storeRef}'.`,
+          `Staff code '${staffCode}' already exists for depot '${command.depotRef}'.`,
           { driverId: existing.id },
         ),
       );
@@ -95,10 +97,11 @@ export class CreateDriverUseCase {
     const driver = DriverUser.create({
       id,
       clientId: command.clientId,
-      storeRef: command.storeRef,
+      depotRef: command.depotRef,
       displayName,
       staffCode,
       defaultVehicleReg: command.defaultVehicleReg?.trim() || null,
+      defaultVehicleClass: command.defaultVehicleClass?.trim() || null,
       pinHash,
       now: new Date(),
     });
@@ -106,7 +109,7 @@ export class CreateDriverUseCase {
     const event = new DriverCreated(scope, {
       driverId: id,
       clientId: command.clientId,
-      storeRef: command.storeRef,
+      depotRef: command.depotRef,
       staffCode,
     });
 
