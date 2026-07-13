@@ -49,16 +49,20 @@ interface PickRef {
   readonly pickId: string;
 }
 
-type LoadOutcome =
+export type LoadOutcome =
   | { readonly ok: true; readonly pick: Pick; readonly scope: Scope }
   | { readonly ok: false; readonly failure: Result<never> };
 
 /**
  * Shared guard: picker session scoped to this client, pick exists at the
  * picker's store (cross-store reads as 404 — no id enumeration), pick is
- * claimed, and the CALLER is the claimer.
+ * claimed, and the CALLER is the claimer. Exported for the other
+ * claimer-only operations on the Pick aggregate (bag-label printing).
  */
-async function authorizeAndLoad(picks: PickRepository, command: PickRef): Promise<LoadOutcome> {
+export async function authorizeAndLoad(
+  picks: PickRepository,
+  command: PickRef,
+): Promise<LoadOutcome> {
   const scope = ScopeStore.require();
   const fail = (failure: Result<never>): LoadOutcome => ({ ok: false, failure });
 

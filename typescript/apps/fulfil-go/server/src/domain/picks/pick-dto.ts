@@ -32,6 +32,13 @@ export function toPickDto(pick: Pick): PickDto {
         }))
       : null,
     packages: pick.packages ? [...pick.packages] : null,
+    labels: pick.labels
+      ? {
+          count: pick.labels.count,
+          labels: pick.labels.labels.map((l) => ({ ...l })),
+          voidedRefs: [...pick.labels.voidedRefs],
+        }
+      : null,
     requiresVehicle: pick.requiresVehicle,
     completedAt: pick.completedAt?.toISOString() ?? null,
     failReason: pick.failReason,

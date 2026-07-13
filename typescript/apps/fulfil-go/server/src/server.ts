@@ -25,9 +25,11 @@ import { registerAuthRoutes } from './api/routes/auth/index.js';
 import { registerTelemetryRoutes } from './api/routes/telemetry/index.js';
 import { registerScheduledJobRoutes } from './api/routes/scheduled-jobs/index.js';
 import { registerPickRoutes } from './api/routes/picks/index.js';
+import { registerPickLabelRoutes } from './api/routes/picks/labels.js';
 import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
+import { registerPrinterRoutes } from './api/routes/printers/index.js';
 import { registerProcessRoutes } from './api/routes/processes/index.js';
 import { registerEpodRoutes } from './api/routes/epod/index.js';
 import { registerTransportRoutes } from './api/routes/transport/index.js';
@@ -340,9 +342,11 @@ async function buildServer() {
   registerPickRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });
+  registerPickLabelRoutes(server, appContext);
   registerPickerAdminRoutes(server, appContext);
   registerPickAuthRoutes(server, appContext);
   registerStoreRoutes(server, appContext);
+  registerPrinterRoutes(server, appContext);
   registerProcessRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });

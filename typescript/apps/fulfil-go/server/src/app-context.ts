@@ -40,6 +40,8 @@ import { PICKER_USER_TYPE } from './domain/pick-identity/picker-user.js';
 import type { PickerUserRepository } from './domain/pick-identity/picker-user.repository.js';
 import { createDrizzleStoreRepository } from './infrastructure/store-repository.js';
 import type { StoreRepository } from './infrastructure/store-repository.js';
+import { createDrizzlePrinterRepository } from './infrastructure/printer-repository.js';
+import type { PrinterRepository } from './infrastructure/printer-repository.js';
 import { createDrizzlePickRepository } from './infrastructure/pick-repository.js';
 import { registerPick } from './infrastructure/register-pick.js';
 import { PICK_ID_PREFIX } from './domain/picks/ids.js';
@@ -57,6 +59,10 @@ import {
 } from './operations/manage-picker/manage-picker.use-cases.js';
 import { ReceivePickUseCase } from './operations/receive-pick/receive-pick.use-case.js';
 import { ClaimPickUseCase } from './operations/claim-pick/claim-pick.use-case.js';
+import {
+  AllocatePickLabelsUseCase,
+  ReprintPickLabelUseCase,
+} from './operations/print-pick-labels/print-pick-labels.use-cases.js';
 import {
   CompletePickUseCase,
   FailPickUseCase,
@@ -128,6 +134,7 @@ export interface AppContextRepositories {
   readonly pickerUsers: PickerUserRepository;
   readonly stores: StoreRepository;
   readonly picks: PickRepository;
+  readonly printers: PrinterRepository;
   readonly clientSettings: ClientSettingsRepository;
   readonly transportOrders: TransportOrderRepository;
   readonly processReactions: ProcessReactionRepository;
@@ -147,6 +154,8 @@ export interface AppContextUseCases {
   readonly claimPick: ClaimPickUseCase;
   readonly completePick: CompletePickUseCase;
   readonly failPick: FailPickUseCase;
+  readonly allocatePickLabels: AllocatePickLabelsUseCase;
+  readonly reprintPickLabel: ReprintPickLabelUseCase;
   readonly registerPartPicking: RegisterPartPickingUseCase;
   readonly registerPartPicked: RegisterPartPickedUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
@@ -250,6 +259,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const pickerUserRepo = createDrizzlePickerUserRepository(db);
   const storeRepo = createDrizzleStoreRepository(db);
   const pickRepo = createDrizzlePickRepository(db);
+  const printerRepo = createDrizzlePrinterRepository(db);
   const clientSettingsRepo = createDrizzleClientSettingsRepository(db);
   const processRegistry = createProcessRegistry([standardDefinition]);
   const transportOrderRepo = createDrizzleTransportOrderRepository(db);
@@ -317,6 +327,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       pickerUsers: pickerUserRepo,
       stores: storeRepo,
       picks: pickRepo,
+      printers: printerRepo,
       clientSettings: clientSettingsRepo,
       transportOrders: transportOrderRepo,
       processReactions: processReactionRepo,
@@ -398,6 +409,22 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickRepo,
         activityLogRepo,
         syncEventRepo,
+        pickSessionProjection,
+      ),
+      allocatePickLabels: new AllocatePickLabelsUseCase(
+        uow,
+        aggregateRegistry,
+        pickRepo,
+        printerRepo,
+        activityLogRepo,
+        pickSessionProjection,
+      ),
+      reprintPickLabel: new ReprintPickLabelUseCase(
+        uow,
+        aggregateRegistry,
+        pickRepo,
+        printerRepo,
+        activityLogRepo,
         pickSessionProjection,
       ),
       registerPartPicking: new RegisterPartPickingUseCase(

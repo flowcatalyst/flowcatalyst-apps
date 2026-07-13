@@ -45,6 +45,12 @@ export function fulfilledQuantity(result: PickLineResult): number {
 export type { PackageSize, PackageTemperature } from '@fulfil-go/shared';
 import type { PackageSize, PackageTemperature } from '@fulfil-go/shared';
 
+// Shared contract is the source of truth (docs/bag-label-printing.md):
+// printing X bag labels pre-allocates X package refs; refs are STABLE per
+// (pick, seq) so a replace never migrates bags already in the WIP trolley.
+export type { PickLabel, PickLabelAllocation } from '@fulfil-go/shared';
+import type { PickLabelAllocation } from '@fulfil-go/shared';
+
 /**
  * A physical package produced by packing: a scanned bag (size + temperature
  * type) or a loose item marker (things too big/awkward for a bag). `items`
@@ -96,6 +102,8 @@ export interface Pick {
   readonly lineResults: readonly PickLineResult[] | null;
   /** Packing output (bags + loose), when the station packed. */
   readonly packages: readonly PickPackage[] | null;
+  /** Bag-label allocation, when the station printed labels. */
+  readonly labels: PickLabelAllocation | null;
   /** Picker-supplied at completion: moving this needs a vehicle. Null = unasked. */
   readonly requiresVehicle: boolean | null;
   readonly completedAt: Date | null;
@@ -151,6 +159,7 @@ export const Pick = {
       claimedAt: null,
       lineResults: null,
       packages: null,
+      labels: null,
       requiresVehicle: null,
       completedAt: null,
       failReason: null,
@@ -200,6 +209,68 @@ export const Pick = {
       packages,
       requiresVehicle,
       completedAt: now,
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /**
+   * Set the bag-label count (docs/bag-label-printing.md). First call
+   * allocates labels 1..count; a different count REPLACES the set — kept
+   * seqs keep their refs (the stability invariant the WIP trolley relies
+   * on), the extension mints fresh refs, and refs beyond the new count are
+   * voided (a re-grown seq gets a FRESH ref — its old label is physically
+   * lost). The SAME count re-renders the whole set: every label's reprint
+   * counter bumps, so the write is a real state change and the reprint
+   * history stays honest.
+   */
+  setLabelCount(prior: Pick, count: number, mintRef: () => string, now: Date): Pick {
+    const existing = prior.labels;
+    let labels: PickLabelAllocation;
+    if (!existing) {
+      labels = {
+        count,
+        labels: Array.from({ length: count }, (_, i) => ({
+          seq: i + 1,
+          ref: mintRef(),
+          reprints: 0,
+        })),
+        voidedRefs: [],
+      };
+    } else if (existing.count === count) {
+      labels = {
+        ...existing,
+        labels: existing.labels.map((l) => ({ seq: l.seq, ref: l.ref, reprints: l.reprints + 1 })),
+      };
+    } else {
+      const kept = existing.labels.filter((l) => l.seq <= count);
+      const extension = Array.from({ length: Math.max(0, count - existing.count) }, (_, i) => ({
+        seq: existing.count + i + 1,
+        ref: mintRef(),
+        reprints: 0,
+      }));
+      const voided = existing.labels.filter((l) => l.seq > count).map((l) => l.ref);
+      labels = {
+        count,
+        labels: [...kept, ...extension],
+        voidedRefs: [...existing.voidedRefs, ...voided],
+      };
+    }
+    return { ...prior, labels, version: prior.version + 1, updatedAt: now };
+  },
+
+  /** Reprint one damaged label — same ref, same barcode; only the counter moves. */
+  recordLabelReprint(prior: Pick, seq: number, now: Date): Pick {
+    const existing = prior.labels;
+    if (!existing) throw new Error(`Pick '${prior.id}' has no label allocation.`);
+    return {
+      ...prior,
+      labels: {
+        ...existing,
+        labels: existing.labels.map((l) =>
+          l.seq === seq ? { seq: l.seq, ref: l.ref, reprints: l.reprints + 1 } : l,
+        ),
+      },
       version: prior.version + 1,
       updatedAt: now,
     };

@@ -168,3 +168,74 @@ describe('Pick', () => {
     expect(failed.version).toBe(3);
   });
 });
+
+describe('Pick bag labels (docs/bag-label-printing.md)', () => {
+  const mintFrom = (refs: string[]) => {
+    let i = 0;
+    return () => refs[i++]!;
+  };
+
+  it('setLabelCount allocates seq 1..count with fresh refs', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const pick = Pick.setLabelCount(claimed, 3, mintFrom(['pkg_a', 'pkg_b', 'pkg_c']), NOW);
+    expect(pick.labels).toEqual({
+      count: 3,
+      labels: [
+        { seq: 1, ref: 'pkg_a', reprints: 0 },
+        { seq: 2, ref: 'pkg_b', reprints: 0 },
+        { seq: 3, ref: 'pkg_c', reprints: 0 },
+      ],
+      voidedRefs: [],
+    });
+    expect(pick.version).toBe(claimed.version + 1);
+  });
+
+  it('replace GROW keeps kept refs (the trolley invariant) and extends', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const three = Pick.setLabelCount(claimed, 3, mintFrom(['pkg_a', 'pkg_b', 'pkg_c']), NOW);
+    const five = Pick.setLabelCount(three, 5, mintFrom(['pkg_d', 'pkg_e']), NOW);
+    expect(five.labels!.count).toBe(5);
+    expect(five.labels!.labels.map((l) => l.ref)).toEqual([
+      'pkg_a',
+      'pkg_b',
+      'pkg_c',
+      'pkg_d',
+      'pkg_e',
+    ]);
+    expect(five.labels!.voidedRefs).toEqual([]);
+  });
+
+  it('replace SHRINK voids dropped refs; re-grow mints FRESH refs for re-grown seqs', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const three = Pick.setLabelCount(claimed, 3, mintFrom(['pkg_a', 'pkg_b', 'pkg_c']), NOW);
+    const two = Pick.setLabelCount(three, 2, mintFrom([]), NOW);
+    expect(two.labels!.labels.map((l) => l.ref)).toEqual(['pkg_a', 'pkg_b']);
+    expect(two.labels!.voidedRefs).toEqual(['pkg_c']);
+    const threeAgain = Pick.setLabelCount(two, 3, mintFrom(['pkg_f']), NOW);
+    expect(threeAgain.labels!.labels.map((l) => l.ref)).toEqual(['pkg_a', 'pkg_b', 'pkg_f']);
+    // pkg_c stays voided forever — its physical label is lost.
+    expect(threeAgain.labels!.voidedRefs).toEqual(['pkg_c']);
+  });
+
+  it('same count = re-render: every reprint counter bumps, refs stable', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const three = Pick.setLabelCount(claimed, 3, mintFrom(['pkg_a', 'pkg_b', 'pkg_c']), NOW);
+    const again = Pick.setLabelCount(three, 3, mintFrom(['pkg_never']), NOW);
+    expect(again.labels!.labels.map((l) => l.ref)).toEqual(['pkg_a', 'pkg_b', 'pkg_c']);
+    expect(again.labels!.labels.every((l) => l.reprints === 1)).toBe(true);
+    expect(again.version).toBe(three.version + 1);
+  });
+
+  it('recordLabelReprint bumps only that seq', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const three = Pick.setLabelCount(claimed, 3, mintFrom(['pkg_a', 'pkg_b', 'pkg_c']), NOW);
+    const reprinted = Pick.recordLabelReprint(three, 2, NOW);
+    expect(reprinted.labels!.labels.map((l) => l.reprints)).toEqual([0, 1, 0]);
+    expect(reprinted.labels!.labels.map((l) => l.ref)).toEqual(['pkg_a', 'pkg_b', 'pkg_c']);
+  });
+
+  it('recordLabelReprint without an allocation throws (use-case guards first)', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    expect(() => Pick.recordLabelReprint(claimed, 1, NOW)).toThrow(/no label allocation/);
+  });
+});

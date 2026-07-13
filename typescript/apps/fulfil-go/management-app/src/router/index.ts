@@ -6,6 +6,7 @@ import PickersPage from '../pages/PickersPage.vue';
 import PicksAdminPage from '../pages/PicksAdminPage.vue';
 import DriversPage from '../pages/DriversPage.vue';
 import StoresPage from '../pages/StoresPage.vue';
+import PrintersPage from '../pages/PrintersPage.vue';
 import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
 import VehicleMapPage from '../pages/VehicleMapPage.vue';
 
@@ -51,6 +52,7 @@ export const router = createRouter({
     },
     // Base store registry
     { path: '/stores', component: StoresPage, meta: { title: 'Stores' } },
+    { path: '/stores/printers', component: PrintersPage, meta: { title: 'Printers' } },
     // Old paths — keep deep links working.
     { path: '/pickers', redirect: '/picking/pickers' },
     { path: '/settings/store-profiles', redirect: '/picking/store-profiles' },

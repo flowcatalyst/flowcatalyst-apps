@@ -33,17 +33,28 @@ import { createPicksStore, type PicksStore } from './stores/picks.js';
 interface StationConfig {
   readonly clientId: Ref<string>;
   readonly storeRef: Ref<string>;
+  /** Bound label printer (prt_…) from the store's registry — like the store
+   * binding, device-local; host/port are fetched at print time so equipment
+   * edits take effect without re-binding (docs/bag-label-printing.md). */
+  readonly printerId: Ref<string>;
+  readonly printerName: Ref<string>;
   readonly configured: () => boolean;
 }
 
 function createStationConfig(): StationConfig {
   const clientId = ref(localStorage.getItem('fulfilgo.pick.station.clientId') ?? '');
   const storeRef = ref(localStorage.getItem('fulfilgo.pick.station.storeRef') ?? '');
+  const printerId = ref(localStorage.getItem('fulfilgo.pick.station.printerId') ?? '');
+  const printerName = ref(localStorage.getItem('fulfilgo.pick.station.printerName') ?? '');
   watch(clientId, (v) => localStorage.setItem('fulfilgo.pick.station.clientId', v));
   watch(storeRef, (v) => localStorage.setItem('fulfilgo.pick.station.storeRef', v));
+  watch(printerId, (v) => localStorage.setItem('fulfilgo.pick.station.printerId', v));
+  watch(printerName, (v) => localStorage.setItem('fulfilgo.pick.station.printerName', v));
   return {
     clientId,
     storeRef,
+    printerId,
+    printerName,
     configured: () => clientId.value.length > 0 && storeRef.value.length > 0,
   };
 }

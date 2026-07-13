@@ -54,6 +54,9 @@ export const NAVIGATION: NavGroup[] = [
   },
   {
     label: 'Stores',
-    items: [{ label: 'Stores', to: '/stores', icon: 'i-lucide-store' }],
+    items: [
+      { label: 'Stores', to: '/stores', icon: 'i-lucide-store' },
+      { label: 'Printers', to: '/stores/printers', icon: 'i-lucide-printer' },
+    ],
   },
 ];

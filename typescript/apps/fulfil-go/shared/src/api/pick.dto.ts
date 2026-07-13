@@ -46,6 +46,8 @@ export const PickDtoSchema = Type.Object({
   ]),
   /** Packing output (bags + loose) — captured shape, see PickPackageSchema (Zod). */
   packages: Type.Union([Type.Array(Type.Any()), Type.Null()]),
+  /** Bag-label allocation — see PickLabelAllocationSchema (Zod); null until printed. */
+  labels: Type.Union([Type.Any(), Type.Null()]),
   /** Picker-supplied at completion; null until then. */
   requiresVehicle: Type.Union([Type.Boolean(), Type.Null()]),
   completedAt: Type.Union([Type.String(), Type.Null()]),

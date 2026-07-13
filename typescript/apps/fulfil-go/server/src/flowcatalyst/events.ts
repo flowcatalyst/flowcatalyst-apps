@@ -40,6 +40,7 @@ import {
 } from '../domain/transport-orders/events/transport-order.events.js';
 import { PickCreatedEventType } from '../domain/picks/events/pick-created.event.js';
 import { PickClaimedEventType } from '../domain/picks/events/pick-claimed.event.js';
+import { PickLabelsUpdatedEventType } from '../domain/picks/events/pick-labels.event.js';
 import {
   PickFailedEventType,
   PickPickedEventType,
@@ -65,6 +66,7 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   // Pick context (the fulfilment process manager subscribes to these)
   PickCreatedEventType,
   PickClaimedEventType,
+  PickLabelsUpdatedEventType,
   PickPickedEventType,
   PickShortPickedEventType,
   PickFailedEventType,

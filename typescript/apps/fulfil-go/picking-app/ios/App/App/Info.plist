@@ -61,5 +61,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Printing bag labels sends them directly to the store's label printer on this network.</string>
 </dict>
 </plist>

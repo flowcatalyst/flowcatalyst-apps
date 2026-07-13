@@ -1,6 +1,6 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-13 (transport-context session). Everything below is
+Last updated: 2026-07-13 (bag-label-printing session). Everything below is
 COMMITTED on `main`. Read `CLAUDE.md` first (stack, conventions, gotchas,
 dev loop); this file is "where we are + what's next". SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
@@ -8,7 +8,44 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
 
-## What landed 2026-07-13 (this session, 5 commits)
+## What landed 2026-07-13 (bag-label-printing session)
+
+**Printer registry + bag-label printing** (docs/bag-label-printing.md — the
+design doc; read it before touching the replace flow):
+
+- `printers` table (store-bound reference data, `prt_` ids) + repository +
+  `/clients/:id/printers` CRUD (ManageStores; GET also answers picker
+  sessions scoped to their store). Management app: Stores → Printers page.
+- Pick aggregate gained `labels` jsonb (`PickLabelAllocation`): PUT
+  `/picks/:id/labels {count, printerId?}` allocates/replaces/re-renders,
+  POST `/labels/:seq/reprint` reprints one. **Refs (`pkg_` TSIDs) are STABLE
+  per (pick, seq)** — replace keeps kept seqs' refs, voids dropped ones —
+  that's the invariant keeping the WIP trolley consistent. Domain event
+  `fulfil-go:pick:pick:labels-updated` + activity-log `label-print` entries
+  (allocate/replace/reprint). ZPL rendered server-side
+  (domain/picks/label-zpl.ts), sized from the printer's dpi/label-mm.
+- Picking app: Settings gained station printer binding
+  (`fulfilgo.pick.station.printerId`, list scoped by picker session);
+  PACK stage gained the Bag labels card (count stepper, print/replace,
+  per-label reprint chips, trolley guard: can't shrink below a scanned
+  bag). Scanning a printed label into the drawer shows its `n / X`; voided
+  refs are rejected. Delivery: IN-REPO `TcpPrint` Capacitor plugin (raw TCP
+  :9100, Java + Swift — deliberately not a third-party npm socket plugin);
+  browser dev delivers via Zebra Browser Print's local agent (plain fetch,
+  no SDK). Completion payload unchanged — labels just fill `packages[].ref`;
+  arbitrary barcodes and `loose-N` still work (stores without printers).
+- Smoke-verified end-to-end on :3299 (17 checks: CRUD guards, allocate 3 →
+  reprint → replace 4 → replace 2 with voiding, recovery GET, wrong-store
+  printer 404, completion with label refs). Migration
+  `20260713093811_printers_and_pick_labels` applied to the dev db.
+- NOT verified (device-only): TcpPrint on real Android/iOS hardware +
+  the iOS local-network permission prompt; Xcode project edited by hand
+  (TcpPrintPlugin.swift, PickingViewController.swift registered via
+  storyboard) — build it in Xcode before shipping.
+- `pnpm flowcatalyst:sync` now ALSO registers `pick:labels-updated`
+  (8 events already queued in the dev outbox from the smoke).
+
+## What landed 2026-07-13 (transport session, 5 commits)
 
 1. **Activity log** (`aff6892`): fulfilment_processing_log generalized into
    `activity_log` — subject (fulfilment/part/pick/transport_order/trip) +
@@ -80,7 +117,8 @@ before pushing.
   vehicleRegistration carried but not capacity-checked.
 
 - Run `pnpm flowcatalyst:sync` (server running, platform up): registers the
-  new event types (transport:order:*, fulfilment:transport-scheduled),
+  new event types (transport:order:*, fulfilment:transport-scheduled,
+  pick:labels-updated),
   adds fulfilment:picked to the fulfil-go-fulfilment-process subscription,
   pushes the updated fulfilment:picked schema (serviceLevel/slotStart),
   and creates the fulfil-go-transport-reactions scheduled job (6-field
@@ -97,7 +135,7 @@ before pushing.
 | Context         | State                                                                                                                                                                                                                       |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fulfilment      | create/cancel/release + PM reactions + READY/FAILED derivations + transport trigger (ASAP/STANDARD). Missing: completion leg (consume transport delivered/failed → completing → completed/partially_completed), cancel-while-picking. |
-| Pick            | Full vertical (see previous handoffs). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                                                                       |
+| Pick            | Full vertical incl. bag-label printing (n/X pre-allocated refs, reprint, replace). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                            |
 | Picker identity | PIN-primary complete. Missing: QR badges, device enrollment, break-glass.                                                                                                                                                     |
 | Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                  |
 | Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: PLANNING context (next), management Transport orders page (API exists), positions/map.                                                           |
@@ -128,25 +166,9 @@ before pushing.
 3. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
 4. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
-5. **Printer management + BAG-LABEL printing at the station** (Andrew
-   2026-07-13; requirements settled, build next):
-   - Printers = store-bound reference data (registry under STORES — base
-     equipment; the station selects ITS printer on Settings, like store
-     binding). Server renders label payloads (ZPL); the PICKING APP
-     delivers to the LAN printer (cloud server can't reach store LANs —
-     Capacitor raw TCP :9100; Zebra Browser Print for browser dev).
-   - The barcodes ARE BAG LABELS: printing X pre-allocates X package
-     refs, labels numbered 'n / X' (feeds the packing drawer — scanned
-     bag refs come from these labels).
-   - REPRINT one damaged label (e.g. '2 / 3'): SAME package ref, same
-     barcode, reprint recorded (activity log — chain-relevant once the
-     bag is part of a completed pick).
-   - REPLACE flow: picker declares how many bags they actually have →
-     the label set re-allocates/renumbers to the declared count. Must
-     stay consistent with the WIP trolley (localStorage) — bags already
-     scanned into the trolley keep their refs or the flow migrates them;
-     design this against picking-workflow.md's packing model before
-     building.
+5. ~~Printer management + bag-label printing~~ BUILT this session (see
+   above + docs/bag-label-printing.md). Remaining: device verification of
+   TcpPrint (Android/iOS) and a real Zebra on a store LAN.
 
 ## Known issues / loose ends (not fulfil-go blockers)
 

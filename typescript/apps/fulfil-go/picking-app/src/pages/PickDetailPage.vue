@@ -9,6 +9,7 @@ import {
   type PickSortAlgorithm,
 } from '@fulfil-go/shared';
 import { useAppCtx } from '../context.js';
+import { printZpl, type PrinterEndpoint } from '../print/print.js';
 
 /**
  * Pick-then-pack workflow, SCAN-FIRST (docs/picking-workflow.md):
@@ -78,6 +79,32 @@ interface PackagedUnit {
 
 const packMode = ref<PackMode>('items');
 const packages = ref<PackagedUnit[]>([]);
+
+// ── Bag labels (docs/bag-label-printing.md): printing X pre-allocates X
+// package refs on the pick; the scanned bag refs COME FROM these labels.
+// Refs are stable per (pick, seq) server-side, so a replace never touches
+// bags already in the trolley. ─────────────────────────────────────────────
+interface PickLabel {
+  seq: number;
+  ref: string;
+  reprints: number;
+}
+interface LabelAllocation {
+  count: number;
+  labels: PickLabel[];
+  voidedRefs: string[];
+}
+interface LabelDocument {
+  seq: number;
+  ref: string;
+  zpl: string;
+}
+const labelAlloc = ref<LabelAllocation | null>(null);
+const labelCount = ref(1);
+const labelBusy = ref(false);
+const labelError = ref<string | null>(null);
+/** seq → outcome of the LAST delivery attempt from this station. */
+const labelDelivered = reactive<Record<number, boolean>>({});
 const activeRef = ref<string | null>(null);
 /** "Add bag" takes over the screen (drawer) — the capture form lives there. */
 const bagDrawerOpen = ref(false);
@@ -147,7 +174,14 @@ watch(
       counts[line.externalLineRef] ??= 0;
       subs[line.externalLineRef] ??= [];
     }
-    if (!prev) restoreWip(); // first load of this pick — resume the trolley
+    if (!prev) {
+      restoreWip(); // first load of this pick — resume the trolley
+      // The label allocation is server state (survives station swaps) —
+      // seed from the pick DTO, then track PUT/reprint responses locally.
+      const alloc = (p.labels ?? null) as LabelAllocation | null;
+      labelAlloc.value = alloc;
+      labelCount.value = alloc?.count ?? 1;
+    }
   },
   { immediate: true },
 );
@@ -305,12 +339,120 @@ function switchMode(mode: PackMode): void {
   packMode.value = mode;
 }
 
+// ── Bag-label actions ─────────────────────────────────────────────────────
+const scannedRefs = computed(() => new Set(packages.value.map((p) => p.ref)));
+const labelForRef = (ref_: string): PickLabel | null =>
+  labelAlloc.value?.labels.find((l) => l.ref === ref_) ?? null;
+
+/**
+ * Host/port read fresh from the registry at print time — equipment edits
+ * take effect without re-binding the station. Null = no printer bound
+ * (fine in browser dev, where Browser Print delivers instead).
+ */
+async function stationPrinter(): Promise<(PrinterEndpoint & { id: string }) | null> {
+  const id = ctx.station.printerId.value;
+  if (!id) return null;
+  const res = await ctx.api.json<{
+    printers: { id: string; host: string; port: number; active: boolean }[];
+  }>(`/clients/${ctx.station.clientId.value}/printers`);
+  const printer = res.printers.find((p) => p.id === id && p.active);
+  return printer ? { id: printer.id, host: printer.host, port: printer.port } : null;
+}
+
+/** Delivery is best-effort: the allocation is committed server-side, so a
+ * jammed printer just means tapping that label's reprint chip. */
+async function deliverLabels(
+  documents: readonly LabelDocument[],
+  printer: PrinterEndpoint | null,
+): Promise<void> {
+  for (const doc of documents.toSorted((a, b) => a.seq - b.seq)) {
+    try {
+      await printZpl(printer, doc.zpl);
+      labelDelivered[doc.seq] = true;
+    } catch (err) {
+      labelDelivered[doc.seq] = false;
+      labelError.value = `Label ${doc.seq} didn't print (${err instanceof Error ? err.message : String(err)}) — tap it below to reprint.`;
+    }
+  }
+}
+
+/** Shrinking below a seq whose bag is already in the trolley would void a
+ * ref the picker physically used — the server can't see the trolley, so
+ * the guard lives here. */
+function replaceBlockedBy(newCount: number): PickLabel | null {
+  if (!labelAlloc.value) return null;
+  return (
+    labelAlloc.value.labels.find((l) => l.seq > newCount && scannedRefs.value.has(l.ref)) ?? null
+  );
+}
+
+async function printLabels(): Promise<void> {
+  if (!pick.value || labelBusy.value) return;
+  labelError.value = null;
+  const blocked = replaceBlockedBy(labelCount.value);
+  if (blocked) {
+    labelError.value = `Bag ${blocked.seq} is already in the trolley — remove it before dropping to ${labelCount.value} label(s).`;
+    return;
+  }
+  labelBusy.value = true;
+  try {
+    const printer = await stationPrinter();
+    if (isNative && !printer) {
+      labelError.value = 'No station printer selected — choose one in Settings.';
+      return;
+    }
+    const res = await ctx.api.json<{ allocation: LabelAllocation; documents: LabelDocument[] }>(
+      `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/labels`,
+      {
+        method: 'PUT',
+        body: { count: labelCount.value, ...(printer ? { printerId: printer.id } : {}) },
+      },
+    );
+    labelAlloc.value = res.allocation;
+    labelCount.value = res.allocation.count;
+    await deliverLabels(res.documents, printer);
+  } catch (err) {
+    labelError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    labelBusy.value = false;
+  }
+}
+
+/** Reprint ONE damaged label — same ref, same barcode (server records it). */
+async function reprintLabel(seq: number): Promise<void> {
+  if (!pick.value || labelBusy.value) return;
+  labelBusy.value = true;
+  labelError.value = null;
+  try {
+    const printer = await stationPrinter();
+    if (isNative && !printer) {
+      labelError.value = 'No station printer selected — choose one in Settings.';
+      return;
+    }
+    const res = await ctx.api.json<{ allocation: LabelAllocation; documents: LabelDocument[] }>(
+      `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/labels/${seq}/reprint`,
+      { method: 'POST', body: printer ? { printerId: printer.id } : {} },
+    );
+    labelAlloc.value = res.allocation;
+    await deliverLabels(res.documents, printer);
+  } catch (err) {
+    labelError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    labelBusy.value = false;
+  }
+}
+
 function addBag(): void {
   error.value = null;
   const bagRef = bagForm.ref.trim();
   if (!bagRef || !bagForm.size) return;
   if (packages.value.some((p) => p.ref === bagRef)) {
     error.value = `Bag '${bagRef}' is already added.`;
+    return;
+  }
+  // A voided ref is a label from a replaced set — physically stale.
+  if (labelAlloc.value?.voidedRefs.includes(bagRef)) {
+    error.value = `That label was replaced — scan one of the current ${labelAlloc.value.count} labels.`;
     return;
   }
   packages.value.push({
@@ -737,6 +879,75 @@ async function fail(): Promise<void> {
         Mode locks once packing starts — remove all packages to switch.
       </p>
 
+      <!-- Bag labels: printing X pre-allocates X package refs (n / X on the
+           label). The refs scanned into the drawer come from these. -->
+      <UCard :ui="{ body: 'p-3' }">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-semibold">🏷 Bag labels</p>
+          <p v-if="isNative && !ctx.station.printerId.value" class="text-[11px] text-amber-600">
+            No printer bound — Settings
+          </p>
+        </div>
+        <div class="mt-2 flex items-center gap-1.5">
+          <button
+            class="h-12 w-12 rounded-lg bg-neutral-100 text-2xl font-semibold text-neutral-600 active:bg-neutral-200 disabled:opacity-30"
+            :disabled="labelCount <= 1 || labelBusy"
+            @click="labelCount -= 1"
+          >
+            −
+          </button>
+          <span class="min-w-10 text-center font-mono text-lg">{{ labelCount }}</span>
+          <button
+            class="h-12 w-12 rounded-lg bg-neutral-100 text-2xl font-semibold text-neutral-600 active:bg-neutral-200 disabled:opacity-30"
+            :disabled="labelCount >= 100 || labelBusy"
+            @click="labelCount += 1"
+          >
+            +
+          </button>
+          <UButton class="flex-1" size="lg" :loading="labelBusy" @click="printLabels">
+            {{
+              !labelAlloc
+                ? `Print ${labelCount} label${labelCount === 1 ? '' : 's'}`
+                : labelCount === labelAlloc.count
+                  ? 'Reprint all'
+                  : `Replace with ${labelCount}`
+            }}
+          </UButton>
+        </div>
+        <UAlert
+          v-if="labelError"
+          class="mt-2"
+          :description="labelError"
+          color="error"
+          variant="soft"
+        />
+        <template v-if="labelAlloc">
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <button
+              v-for="l in labelAlloc.labels"
+              :key="l.seq"
+              class="rounded-lg border px-2.5 py-1.5 font-mono text-xs font-semibold transition-colors disabled:opacity-40"
+              :class="
+                scannedRefs.has(l.ref)
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : labelDelivered[l.seq] === false
+                    ? 'border-red-300 bg-red-50 text-red-700'
+                    : 'border-neutral-200 bg-white text-neutral-600'
+              "
+              :disabled="labelBusy"
+              :title="`${l.ref} — tap to reprint (same barcode)`"
+              @click="reprintLabel(l.seq)"
+            >
+              {{ l.seq }}/{{ labelAlloc.count }} ↻
+            </button>
+          </div>
+          <p class="mt-1 text-[11px] text-neutral-400">
+            Tap a label to reprint it — same barcode. Green = its bag is in the trolley; red =
+            didn't print.
+          </p>
+        </template>
+      </UCard>
+
       <!-- Add bag: a button that TAKES OVER the screen for capture. -->
       <div class="flex gap-2">
         <UDrawer v-model:open="bagDrawerOpen" title="Add a bag">
@@ -762,6 +973,14 @@ async function fail(): Promise<void> {
                   📷
                 </UButton>
               </div>
+
+              <!-- Recognise a printed bag label the moment it's scanned. -->
+              <p
+                v-if="labelForRef(bagForm.ref.trim())"
+                class="rounded bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700"
+              >
+                🏷 Label {{ labelForRef(bagForm.ref.trim())!.seq }} / {{ labelAlloc!.count }}
+              </p>
 
               <div>
                 <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
@@ -845,6 +1064,9 @@ async function fail(): Promise<void> {
                 {{ TEMPS.find((t) => t.value === pkg.temperature)?.label }}
                 <template v-if="packMode === 'items'">
                   · {{ Object.values(pkg.items).reduce((a, b) => a + b, 0) }} item(s)
+                </template>
+                <template v-if="labelForRef(pkg.ref)">
+                  · 🏷 {{ labelForRef(pkg.ref)!.seq }}/{{ labelAlloc!.count }}
                 </template>
               </p>
             </div>
