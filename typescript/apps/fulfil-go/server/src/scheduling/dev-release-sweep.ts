@@ -4,7 +4,7 @@ import type { AppContext } from '../app-context.js';
 import { runReleasePicksSweep } from './release-picks.js';
 
 /**
- * Distinct from SystemIdentity.SCHEDULER on purpose: processing-log entries
+ * Distinct from SystemIdentity.SCHEDULER on purpose: activity-log entries
  * carry the actor, so releases attribute to the platform cron
  * (fulfil-go:system:scheduler, via the webhook) vs this local fallback —
  * queryable proof of which path did the work.

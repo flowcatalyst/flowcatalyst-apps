@@ -12,7 +12,7 @@ import { Fulfilment, type CreateFulfilmentPartInput } from '../../domain/fulfilm
 import { newFulfilmentId, newFulfilmentPartId } from '../../domain/fulfilments/ids.js';
 import { FulfilmentCreated } from '../../domain/fulfilments/events/fulfilment-created.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 import { serviceDayOf, type ShortIdAllocator } from '../../infrastructure/short-id-allocator.js';
 import type { CreateFulfilmentCommand } from './create-fulfilment.command.js';
 
@@ -36,7 +36,7 @@ export class CreateFulfilmentUseCase {
     private readonly registry: AggregateRegistryImpl,
     private readonly fulfilments: FulfilmentRepository,
     private readonly shortIds: ShortIdAllocator,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     private readonly pickLeadTime: PickLeadTimeResolver,
   ) {}
 
@@ -156,9 +156,12 @@ export class CreateFulfilmentUseCase {
     });
 
     // Same tx as the aggregate + outbox writes — rolls back together.
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: command.clientId,
       fulfilmentId: id,
+      subjectType: 'fulfilment',
+      subjectId: id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'lifecycle',
       message: `Fulfilment created (${command.type}, ${command.serviceLevel}) with ${parts.length} part(s).`,

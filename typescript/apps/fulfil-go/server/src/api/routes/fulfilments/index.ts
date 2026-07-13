@@ -152,11 +152,11 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
   );
 
   fastify.get(
-    '/clients/:clientId/fulfilments/:fulfilmentId/processing-log',
+    '/clients/:clientId/fulfilments/:fulfilmentId/activity-log',
     {
       schema: {
         tags: ['Fulfilments'],
-        summary: 'Fulfilment processing log',
+        summary: 'Fulfilment activity log (the chain record)',
         params: Type.Object({ clientId: Type.String(), fulfilmentId: Type.String() }),
         response: {
           200: Type.Object({
@@ -164,6 +164,9 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
               Type.Object({
                 id: Type.Number(),
                 at: Type.String(),
+                subjectType: Type.String(),
+                subjectId: Type.String(),
+                source: Type.String(),
                 actor: Type.String(),
                 category: Type.String(),
                 message: Type.String(),
@@ -180,11 +183,14 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { fulfilmentId } = request.params as { clientId: string; fulfilmentId: string };
-      const entries = await appContext.repositories.fulfilmentLog.list(fulfilmentId);
+      const entries = await appContext.repositories.activityLog.listByFulfilment(fulfilmentId);
       return reply.code(200).send({
         entries: entries.map((e) => ({
           id: e.id,
           at: e.at.toISOString(),
+          subjectType: e.subjectType,
+          subjectId: e.subjectId,
+          source: e.source,
           actor: e.actor,
           category: e.category,
           message: e.message,

@@ -23,8 +23,8 @@ import { createDrizzleFulfilmentRepository } from './infrastructure/fulfilment-r
 import { registerFulfilment } from './infrastructure/register-fulfilment.js';
 import { createShortIdAllocator } from './infrastructure/short-id-allocator.js';
 import type { ShortIdAllocator } from './infrastructure/short-id-allocator.js';
-import { createDrizzleFulfilmentProcessingLogRepository } from './infrastructure/fulfilment-processing-log-repository.js';
-import type { FulfilmentProcessingLogRepository } from './infrastructure/fulfilment-processing-log-repository.js';
+import { createDrizzleActivityLogRepository } from './infrastructure/activity-log-repository.js';
+import type { ActivityLogRepository } from './infrastructure/activity-log-repository.js';
 import { FULFILMENT_ID_PREFIX } from './domain/fulfilments/ids.js';
 import { FULFILMENT_TYPE } from './domain/fulfilments/fulfilment.js';
 import type { FulfilmentRepository } from './domain/fulfilments/fulfilment.repository.js';
@@ -91,7 +91,7 @@ import { CompleteJobUseCase } from './operations/complete-job/complete-job.use-c
 export interface AppContextRepositories {
   readonly jobs: JobRepository;
   readonly fulfilments: FulfilmentRepository;
-  readonly fulfilmentLog: FulfilmentProcessingLogRepository;
+  readonly activityLog: ActivityLogRepository;
   readonly shortIds: ShortIdAllocator;
   readonly syncEvents: SyncEventRepository;
   readonly telemetry: TelemetryRepository;
@@ -193,7 +193,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const idempotencyRepo = createDrizzleIdempotencyRepository(db);
 
   const fulfilmentRepo = createDrizzleFulfilmentRepository(db);
-  const fulfilmentLogRepo = createDrizzleFulfilmentProcessingLogRepository(db);
+  const activityLogRepo = createDrizzleActivityLogRepository(db);
   const shortIdAllocator = createShortIdAllocator(db);
   const pickerUserRepo = createDrizzlePickerUserRepository(db);
   const storeRepo = createDrizzleStoreRepository(db);
@@ -236,7 +236,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     repositories: {
       jobs: jobRepo,
       fulfilments: fulfilmentRepo,
-      fulfilmentLog: fulfilmentLogRepo,
+      activityLog: activityLogRepo,
       shortIds: shortIdAllocator,
       syncEvents: syncEventRepo,
       telemetry: telemetryRepo,
@@ -251,7 +251,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         aggregateRegistry,
         fulfilmentRepo,
         shortIdAllocator,
-        fulfilmentLogRepo,
+        activityLogRepo,
         // Lead-time hydration from store profiles (only consulted when the
         // command doesn't carry pickLeadTimeMinutes — explicit values win).
         async (cId, storeRef, type) => {
@@ -266,13 +266,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
       ),
       releasePartForPick: new ReleasePartForPickUseCase(
         uow,
         aggregateRegistry,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         outboxManager,
         { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
       ),
@@ -285,7 +285,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         pickRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         syncEventRepo,
         pickSessionProjection,
         // Sort-algorithm hydration from store profiles, captured onto the
@@ -300,7 +300,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         pickRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         syncEventRepo,
         pickSessionProjection,
       ),
@@ -308,7 +308,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         pickRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         syncEventRepo,
         pickSessionProjection,
       ),
@@ -316,7 +316,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         pickRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         syncEventRepo,
         pickSessionProjection,
       ),
@@ -324,32 +324,31 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
       ),
       registerPartPicked: new RegisterPartPickedUseCase(
         uow,
         aggregateRegistry,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
       ),
       registerPartFailed: new RegisterPartFailedUseCase(
         uow,
         aggregateRegistry,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
       ),
       requestEpodProvisioning: new RequestEpodProvisioningUseCase(
         uow,
         db,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         outboxManager,
         { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
       ),
       provisionEpod: new ProvisionEpodUseCase(
-        transactionManager,
         fulfilmentRepo,
-        fulfilmentLogRepo,
+        activityLogRepo,
         config.epod ? createEpodClient(config.epod) : null,
       ),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),

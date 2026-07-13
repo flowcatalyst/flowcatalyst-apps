@@ -40,11 +40,8 @@ export type { NewFulfilmentPart, FulfilmentPartRow } from './schema/fulfilment-p
 export { shortIdCounters } from './schema/short-id-counters.js';
 export type { ShortIdCounterRow } from './schema/short-id-counters.js';
 
-export { fulfilmentProcessingLog } from './schema/fulfilment-processing-log.js';
-export type {
-  NewFulfilmentLogEntry,
-  FulfilmentLogRow,
-} from './schema/fulfilment-processing-log.js';
+export { activityLog } from './schema/activity-log.js';
+export type { NewActivityLogEntry, ActivityLogRow } from './schema/activity-log.js';
 
 export { pickerUsers } from './schema/picker-users.js';
 export type { NewPickerUser, PickerUserRow } from './schema/picker-users.js';

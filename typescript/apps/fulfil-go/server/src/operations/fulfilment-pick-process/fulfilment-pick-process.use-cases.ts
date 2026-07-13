@@ -38,7 +38,7 @@ import {
   FulfilmentPicked,
 } from '../../domain/fulfilments/events/fulfilment-pick-progress.events.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 
 export interface PickEventRef {
   readonly clientId: string;
@@ -122,7 +122,7 @@ export class RegisterPartPickingUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
   ) {}
 
   async execute(command: PickEventRef): Promise<Result<FulfilmentPartPicking>> {
@@ -142,9 +142,12 @@ export class RegisterPartPickingUseCase {
       shortId: part.shortId,
       pickerId: command.pickerId,
     });
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: fulfilment.clientId,
       fulfilmentId: fulfilment.id,
+      subjectType: 'part',
+      subjectId: part.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-progress',
       message: `Part #${part.shortId} picking started.`,
@@ -159,7 +162,7 @@ export class RegisterPartPickedUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
   ) {}
 
   async execute(command: PartPickedCommand): Promise<Result<FulfilmentPartPicked>> {
@@ -184,9 +187,12 @@ export class RegisterPartPickedUseCase {
       now,
     );
 
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: fulfilment.clientId,
       fulfilmentId: fulfilment.id,
+      subjectType: 'part',
+      subjectId: part.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-progress',
       message: command.short
@@ -211,9 +217,12 @@ export class RegisterPartPickedUseCase {
       });
       const emitted = await emitEvent(this.uow, picked, command);
       if (isFailure(emitted)) return emitted;
-      await this.processingLog.append({
+      await this.activityLog.append({
         clientId: fulfilment.clientId,
         fulfilmentId: fulfilment.id,
+        subjectType: 'fulfilment',
+        subjectId: fulfilment.id,
+        source: 'domain',
         actor: scope.principalId,
         category: 'lifecycle',
         message: 'Fulfilment READY — all parts picked; awaiting transport.',
@@ -244,7 +253,7 @@ export class RegisterPartFailedUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
   ) {}
 
   async execute(command: PartFailedCommand): Promise<Result<FulfilmentPartFailed>> {
@@ -258,9 +267,12 @@ export class RegisterPartFailedUseCase {
     const now = new Date();
     let fulfilment = Fulfilment.partFailed(prior, asFulfilmentPartId(command.partId), now);
 
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: fulfilment.clientId,
       fulfilmentId: fulfilment.id,
+      subjectType: 'part',
+      subjectId: part.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-progress',
       message: `Part #${part.shortId} pick FAILED: ${command.reason}`,
@@ -285,9 +297,12 @@ export class RegisterPartFailedUseCase {
       });
       const emitted = await emitEvent(this.uow, failed, command);
       if (isFailure(emitted)) return emitted;
-      await this.processingLog.append({
+      await this.activityLog.append({
         clientId: fulfilment.clientId,
         fulfilmentId: fulfilment.id,
+        subjectType: 'fulfilment',
+        subjectId: fulfilment.id,
+        source: 'domain',
         actor: scope.principalId,
         category: 'lifecycle',
         message: `Fulfilment FAILED — ${reason}`,
@@ -309,9 +324,12 @@ export class RegisterPartFailedUseCase {
       });
       const emitted = await emitEvent(this.uow, picked, command);
       if (isFailure(emitted)) return emitted;
-      await this.processingLog.append({
+      await this.activityLog.append({
         clientId: fulfilment.clientId,
         fulfilmentId: fulfilment.id,
+        subjectType: 'fulfilment',
+        subjectId: fulfilment.id,
+        source: 'domain',
         actor: scope.principalId,
         category: 'lifecycle',
         message: 'Fulfilment READY — remaining viable parts picked; awaiting transport.',

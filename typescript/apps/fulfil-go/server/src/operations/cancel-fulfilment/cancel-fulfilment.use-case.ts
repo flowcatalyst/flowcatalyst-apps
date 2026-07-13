@@ -12,7 +12,7 @@ import { Fulfilment } from '../../domain/fulfilments/fulfilment.js';
 import { isFulfilmentId } from '../../domain/fulfilments/ids.js';
 import { FulfilmentCancelled } from '../../domain/fulfilments/events/fulfilment-cancelled.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 import type { CancelFulfilmentCommand } from './cancel-fulfilment.command.js';
 
 export class CancelFulfilmentUseCase {
@@ -22,7 +22,7 @@ export class CancelFulfilmentUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
   ) {}
 
   async execute(command: CancelFulfilmentCommand): Promise<Result<FulfilmentCancelled>> {
@@ -86,9 +86,12 @@ export class CancelFulfilmentUseCase {
       ...(command.reason ? { reason: command.reason } : {}),
     });
 
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: fulfilment.clientId,
       fulfilmentId: fulfilment.id,
+      subjectType: 'fulfilment',
+      subjectId: fulfilment.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'lifecycle',
       message: command.reason ? `Fulfilment cancelled: ${command.reason}` : 'Fulfilment cancelled.',

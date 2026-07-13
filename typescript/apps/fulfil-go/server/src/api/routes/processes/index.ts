@@ -165,6 +165,23 @@ export function registerProcessRoutes(
             { eventType, code: result.error.code },
             'process event acked without action',
           );
+          // Log the NON-event too (docs/activity-log.md): the decider's tx
+          // rolled back, so this receipt is a detached best-effort append —
+          // the debugging gold is usually in what was IGNORED and why.
+          const ref = payload as { clientId?: string; fulfilmentId?: string };
+          if (ref.clientId && ref.fulfilmentId) {
+            await appContext.repositories.activityLog.appendDetached({
+              clientId: ref.clientId,
+              fulfilmentId: ref.fulfilmentId,
+              subjectType: 'fulfilment',
+              subjectId: ref.fulfilmentId,
+              source: 'platform',
+              actor: PROCESS_IDENTITY.principalId,
+              category: 'webhook',
+              message: `Delivery of ${eventType} ACKed without action: ${result.error.code}.`,
+              data: { eventType, code: result.error.code, message: result.error.message },
+            });
+          }
           return reply.code(200).send({ handled: false, note: result.error.code });
         }
         request.log.error({ eventType, error: result.error }, 'process event failed');

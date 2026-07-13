@@ -205,7 +205,7 @@ export class DeletePickerUseCase {
     const loaded = await authorizeAndLoad(this.pickers, command);
     if (!loaded.ok) return loaded.failure;
     // Hard delete: the row goes; historical attributions (picks.claimedBy,
-    // processing-log actors) keep the pkr_… id as a plain string.
+    // activity-log actors) keep the pkr_… id as a plain string.
     const event = new PickerDeleted(loaded.scope, lifecycleData(loaded.picker));
     return commitDelete(this.uow, this.registry, loaded.picker, event, command);
   }

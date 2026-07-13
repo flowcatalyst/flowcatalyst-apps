@@ -13,7 +13,7 @@ import { newPickId } from '../../domain/picks/ids.js';
 import { toPickDto } from '../../domain/picks/pick-dto.js';
 import { PickCreated } from '../../domain/picks/events/pick-created.event.js';
 import type { PickRepository } from '../../domain/picks/pick.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 import {
   storeChannel,
   type SyncEventRepository,
@@ -41,7 +41,7 @@ export class ReceivePickUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly picks: PickRepository,
-    private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     private readonly syncEvents: SyncEventRepository,
     private readonly pickSessions: PickSessionProjection,
     /** Store-settings hydration (create-fulfilment lead-time pattern). */
@@ -97,9 +97,12 @@ export class ReceivePickUseCase {
       shortId: pick.shortId,
     });
 
-    await this.fulfilmentLog.append({
+    await this.activityLog.append({
       clientId: pick.clientId,
       fulfilmentId: pick.fulfilmentId,
+      subjectType: 'pick',
+      subjectId: pick.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-release',
       message: `Pick ${pick.id} registered for part #${pick.shortId} at ${pick.storeRef}.`,

@@ -19,8 +19,8 @@
  *   destination + all parts' products to EPOD's upsert endpoints.
  *   Idempotent BY CONSTRUCTION (their upserts key on reference), so replays
  *   are safe and no local guard is needed. The EPOD HTTP calls happen
- *   OUTSIDE any db tx (house rule: keep write txs short); only the
- *   processing-log record rides a short tx afterwards. EPOD/API errors
+ *   OUTSIDE any db tx (house rule: keep write txs short); the activity-log
+ *   record is appended best-effort afterwards. EPOD/API errors
  *   propagate → the route 500s → the platform retries.
  */
 import { CreateDispatchJobDto, type OutboxManager } from '@flowcatalyst/sdk';
@@ -28,17 +28,15 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   Result,
   ScopeStore,
-  TransactionStore,
   UseCaseError,
   emitEvent,
   eventGroup,
-  type TransactionManager,
   type UnitOfWork,
 } from '@fulfil-go/framework';
 import { asFulfilmentId } from '../../domain/fulfilments/ids.js';
 import { FulfilmentEpodProvisionRequested } from '../../domain/fulfilments/events/fulfilment-epod-provision-requested.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 import { loadStoreSettingsResolver } from '../../infrastructure/store-settings-resolver.js';
 import type { EpodClient } from '../../transport/epod/client.js';
 import {
@@ -67,7 +65,7 @@ export class RequestEpodProvisioningUseCase {
     private readonly uow: UnitOfWork,
     private readonly db: PostgresJsDatabase,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     private readonly outbox: OutboxManager,
     private readonly dispatch: EpodDispatchConfig,
   ) {}
@@ -91,7 +89,7 @@ export class RequestEpodProvisioningUseCase {
     }
 
     // State guard (same tx as the writes below): dispatched once, ever.
-    if (await this.processingLog.hasEntry(fulfilment.id, EPOD_PROVISION_DISPATCHED_CATEGORY)) {
+    if (await this.activityLog.hasEntry(fulfilment.id, EPOD_PROVISION_DISPATCHED_CATEGORY)) {
       return Result.failure(
         UseCaseError.businessRule(
           'EPOD_PROVISION_ALREADY_DISPATCHED',
@@ -136,9 +134,12 @@ export class RequestEpodProvisioningUseCase {
     // job, the guard entry and the event commit (or roll back) together.
     await this.outbox.createDispatchJob(dispatchJob);
 
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: fulfilment.clientId,
       fulfilmentId: fulfilment.id,
+      subjectType: 'fulfilment',
+      subjectId: fulfilment.id,
+      source: 'domain',
       actor: scope.principalId,
       category: EPOD_PROVISION_DISPATCHED_CATEGORY,
       message: `EPOD provisioning dispatched (origin store${epodOrigins.length === 1 ? '' : 's'} ${epodOrigins.join(', ')}).`,
@@ -185,19 +186,18 @@ function summarize(count: number, response: EpodUpsertResponse): UpsertSummary {
 
 export class ProvisionEpodUseCase {
   constructor(
-    private readonly transactionManager: TransactionManager,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     /** null = FULFILGO_EPOD_BASE_URL / _TENANT_CODE unset (dev) — log + skip. */
     private readonly client: EpodClient | null,
   ) {}
 
   /**
    * NOT the Result/commitAggregate shape on purpose: the EPOD HTTP calls
-   * must run OUTSIDE any db tx, and the only local write is a processing-log
-   * record — so this returns a plain outcome and opens its own short tx for
-   * the log. EpodApiError/network failures THROW so the route can 500 for a
-   * platform retry.
+   * must run OUTSIDE any db tx, and the only local write is a best-effort
+   * activity-log record appended after the response — so this returns a
+   * plain outcome. EpodApiError/network failures THROW so the route can 500
+   * for a platform retry.
    */
   async execute(command: EpodProvisioningCommand): Promise<ProvisionEpodOutcome> {
     const scope = ScopeStore.require();
@@ -208,19 +208,20 @@ export class ProvisionEpodUseCase {
     );
     if (!fulfilment) return { kind: 'not_found' };
 
+    // Best-effort-after (docs/activity-log.md): there is no shared tx with
+    // EPOD — the record of the external interaction must never fail it.
     const appendLog = (category: string, message: string, data: unknown): Promise<void> =>
-      this.transactionManager.inTransaction((tx) =>
-        TransactionStore.run(tx, () =>
-          this.processingLog.append({
-            clientId: fulfilment.clientId,
-            fulfilmentId: fulfilment.id,
-            actor: scope.principalId,
-            category,
-            message,
-            data,
-          }),
-        ),
-      );
+      this.activityLog.appendDetached({
+        clientId: fulfilment.clientId,
+        fulfilmentId: fulfilment.id,
+        subjectType: 'fulfilment',
+        subjectId: fulfilment.id,
+        source: 'epod',
+        actor: scope.principalId,
+        category,
+        message,
+        data,
+      });
 
     if (!this.client) {
       const reason =

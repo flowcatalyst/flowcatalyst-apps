@@ -12,7 +12,7 @@ import { Fulfilment } from '../../domain/fulfilments/fulfilment.js';
 import type { FulfilmentId, FulfilmentPartId } from '../../domain/fulfilments/ids.js';
 import { FulfilmentPartPickRequested } from '../../domain/fulfilments/events/fulfilment-part-pick-requested.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 
 export interface ReleasePartCommand {
   readonly clientId: string;
@@ -30,7 +30,7 @@ export interface ReleaseDispatchConfig {
  * Release one part to the pick context (invoked by the release-picks sweep
  * under the SCHEDULER identity — no per-user permission check). In ONE tx:
  * part `pending → pick_requested` (+ fulfilment `created → in_progress`),
- * processing-log entry, the `part.pick-requested` event (fact), and the
+ * activity-log entry, the `part.pick-requested` event (fact), and the
  * create-pick DISPATCH JOB (command) — the platform delivers it to the pick
  * context with retries/pooling. Idempotent: a non-pending part short-circuits,
  * and optimistic locking guards the transition.
@@ -40,7 +40,7 @@ export class ReleasePartForPickUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly fulfilments: FulfilmentRepository,
-    private readonly processingLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     private readonly outbox: OutboxManager,
     private readonly dispatch: ReleaseDispatchConfig,
   ) {}
@@ -134,9 +134,12 @@ export class ReleasePartForPickUseCase {
     // command rolls back with the transition if anything fails.
     await this.outbox.createDispatchJob(dispatchJob);
 
-    await this.processingLog.append({
+    await this.activityLog.append({
       clientId: fulfilment.clientId,
       fulfilmentId: fulfilment.id,
+      subjectType: 'part',
+      subjectId: part.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-release',
       message: releasedLate

@@ -38,7 +38,7 @@ import {
   PickShortPicked,
 } from '../../domain/picks/events/pick-outcome.events.js';
 import type { PickRepository } from '../../domain/picks/pick.repository.js';
-import type { FulfilmentProcessingLogRepository } from '../../infrastructure/fulfilment-processing-log-repository.js';
+import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 import {
   storeChannel,
   type SyncEventRepository,
@@ -128,7 +128,7 @@ export class CompletePickUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly picks: PickRepository,
-    private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     private readonly syncEvents: SyncEventRepository,
     private readonly pickSessions: PickSessionProjection,
   ) {}
@@ -300,9 +300,12 @@ export class CompletePickUseCase {
 
     const units = results.reduce((sum, r) => sum + r.pickedQuantity, 0);
     const ordered = prior.lines.reduce((sum, l) => sum + l.quantity, 0);
-    await this.fulfilmentLog.append({
+    await this.activityLog.append({
       clientId: pick.clientId,
       fulfilmentId: pick.fulfilmentId,
+      subjectType: 'pick',
+      subjectId: pick.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-release',
       message: full
@@ -330,7 +333,7 @@ export class FailPickUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly picks: PickRepository,
-    private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
+    private readonly activityLog: ActivityLogRepository,
     private readonly syncEvents: SyncEventRepository,
     private readonly pickSessions: PickSessionProjection,
   ) {}
@@ -353,9 +356,12 @@ export class FailPickUseCase {
       reason: command.reason,
     });
 
-    await this.fulfilmentLog.append({
+    await this.activityLog.append({
       clientId: pick.clientId,
       fulfilmentId: pick.fulfilmentId,
+      subjectType: 'pick',
+      subjectId: pick.id,
+      source: 'domain',
       actor: scope.principalId,
       category: 'pick-release',
       message: `Part #${pick.shortId} pick FAILED at ${pick.storeRef}: ${command.reason}`,

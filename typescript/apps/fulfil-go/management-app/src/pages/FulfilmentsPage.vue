@@ -8,6 +8,9 @@ import PageHeader from '../components/PageHeader.vue';
 interface LogEntry {
   id: number;
   at: string;
+  subjectType: string;
+  subjectId: string;
+  source: string;
   actor: string;
   category: string;
   message: string;
@@ -79,7 +82,7 @@ function fulfilmentStores(f: FulfilmentDto): string[] {
 async function loadLog(id: string): Promise<void> {
   log.value = [];
   const res = await api.json<{ entries: LogEntry[] }>(
-    `/clients/${clientId.value}/fulfilments/${id}/processing-log`,
+    `/clients/${clientId.value}/fulfilments/${id}/activity-log`,
   );
   log.value = res.entries;
 }
@@ -416,10 +419,16 @@ function fmt(iso: string): string {
         </section>
 
         <section>
-          <h3 class="mb-1 text-sm font-semibold text-navy-700">Processing log</h3>
+          <h3 class="mb-1 text-sm font-semibold text-navy-700">Activity log</h3>
           <ol class="flex flex-col gap-1 text-xs">
             <li v-for="entry in log" :key="entry.id" class="rounded bg-neutral-50 px-2 py-1">
-              <span class="text-neutral-400">{{ fmt(entry.at) }}</span> · {{ entry.message }}
+              <span class="text-neutral-400">{{ fmt(entry.at) }}</span>
+              <span
+                v-if="entry.source !== 'domain'"
+                class="ml-1 rounded bg-neutral-200 px-1 text-[10px] uppercase tracking-wide text-neutral-500"
+                >{{ entry.source }}</span
+              >
+              · {{ entry.message }}
             </li>
           </ol>
         </section>
