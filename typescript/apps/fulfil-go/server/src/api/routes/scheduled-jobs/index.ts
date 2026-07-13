@@ -16,6 +16,7 @@ import {
   type WebhookAuthHookOptions,
 } from '../../plugins/flowcatalyst-webhook-auth.js';
 import { runReleasePicksSweep, SystemIdentity } from '../../../scheduling/release-picks.js';
+import { runTransportReactionsSweep } from '../../../scheduling/transport-reactions.js';
 
 const SweepResponseSchema = Type.Object({
   attempted: Type.Integer({ minimum: 0 }),
@@ -63,6 +64,35 @@ export function registerScheduledJobRoutes(
       const result = await runJob(
         { name: 'fulfil-go-release-picks', identity: SystemIdentity.SCHEDULER },
         () => runReleasePicksSweep(appContext),
+      );
+      return reply.code(200).send(result);
+    },
+  );
+
+  fastify.post(
+    '/jobs/run-transport-reactions',
+    {
+      preHandler: [authHook],
+      schema: {
+        tags: ['Jobs'],
+        body: Type.Object({}, { additionalProperties: true }),
+        response: {
+          200: Type.Object({
+            attempted: Type.Integer({ minimum: 0 }),
+            executed: Type.Integer({ minimum: 0 }),
+            skipped: Type.Integer({ minimum: 0 }),
+            failed: Type.Integer({ minimum: 0 }),
+            failures: Type.Array(Type.Object({ reactionId: Type.String(), error: Type.String() })),
+          }),
+          401: WebhookErrorSchema,
+          500: WebhookErrorSchema,
+        },
+      },
+    },
+    async (_request, reply) => {
+      const result = await runJob(
+        { name: 'fulfil-go-transport-reactions', identity: SystemIdentity.SCHEDULER },
+        () => runTransportReactionsSweep(appContext),
       );
       return reply.code(200).send(result);
     },

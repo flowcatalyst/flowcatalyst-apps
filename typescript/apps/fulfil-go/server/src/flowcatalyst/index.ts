@@ -43,6 +43,8 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
         target: `${config.publicBaseUrl}/processes/fulfilment`,
         eventTypes: [
           { eventTypeCode: 'fulfil-go:fulfilment:fulfilment:created' },
+          // Its own READY signal — the transport-request trigger.
+          { eventTypeCode: 'fulfil-go:fulfilment:fulfilment:picked' },
           { eventTypeCode: 'fulfil-go:pick:pick:claimed' },
           { eventTypeCode: 'fulfil-go:pick:pick:picked' },
           { eventTypeCode: 'fulfil-go:pick:pick:short-picked' },
@@ -80,6 +82,21 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
         tracksCompletion: false,
         timeoutSeconds: 60,
         targetUrl: `${config.publicBaseUrl}/jobs/release-picks`,
+        clientId: config.tenantClientId ?? null,
+      },
+      {
+        code: 'fulfil-go-transport-reactions',
+        name: 'Run transport reactions',
+        description:
+          'Timed-reactions sweep: executes due process reactions — first ' +
+          'consumer is the STANDARD service-level transport request ' +
+          '(slotStart − transportLeadTime).',
+        crons: ['0 * * * * *'],
+        timezone: 'UTC',
+        concurrent: false,
+        tracksCompletion: false,
+        timeoutSeconds: 60,
+        targetUrl: `${config.publicBaseUrl}/jobs/run-transport-reactions`,
         clientId: config.tenantClientId ?? null,
       },
     ],

@@ -60,3 +60,6 @@ export type { PickSessionRow } from './schema/pick-sessions.js';
 
 export { picks } from './schema/picks.js';
 export type { NewPick, PickRow } from './schema/picks.js';
+
+export { transportOrders, processReactions } from './schema/transport-orders.js';
+export type { TransportOrderRow, ProcessReactionRow } from './schema/transport-orders.js';

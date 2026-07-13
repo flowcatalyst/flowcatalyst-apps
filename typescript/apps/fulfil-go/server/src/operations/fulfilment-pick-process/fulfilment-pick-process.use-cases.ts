@@ -209,6 +209,8 @@ export class RegisterPartPickedUseCase {
         clientId: fulfilment.clientId,
         externalSource: fulfilment.externalSource,
         externalRef: fulfilment.externalRef,
+        serviceLevel: fulfilment.serviceLevel,
+        slotStart: fulfilment.slotStart.toISOString(),
         parts: Fulfilment.viableParts(fulfilment).map((p) => ({
           partId: p.id,
           shortId: p.shortId,
@@ -316,6 +318,8 @@ export class RegisterPartFailedUseCase {
         clientId: fulfilment.clientId,
         externalSource: fulfilment.externalSource,
         externalRef: fulfilment.externalRef,
+        serviceLevel: fulfilment.serviceLevel,
+        slotStart: fulfilment.slotStart.toISOString(),
         parts: Fulfilment.viableParts(fulfilment).map((p) => ({
           partId: p.id,
           shortId: p.shortId,

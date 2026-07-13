@@ -9,6 +9,7 @@ import {
   type RequestToken,
 } from '@fulfil-go/framework';
 import { db, sqlClient } from './infrastructure/db.js';
+import type { UberAdapterConfig } from './transport/uber/adapter.js';
 import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
@@ -82,6 +83,30 @@ function loadEpodConfig(log: { warn: (msg: string) => void }): {
     return null;
   }
   return { baseUrl: baseUrl.replace(/\/$/, ''), tenantCode, platformUrl, clientId, clientSecret };
+}
+
+/**
+ * Uber Direct adapter config — null when creds are unset ('uber' then simply
+ * isn't a registered transport provider). Test vs production is SEPARATE
+ * CREDENTIALS on the same URLs; FULFILGO_UBER_ROBO_COURIER=auto enables the
+ * Robo Courier lifecycle simulation (test creds only).
+ */
+function loadUberConfig(): UberAdapterConfig | null {
+  const clientId = process.env['FULFILGO_UBER_CLIENT_ID'];
+  const clientSecret = process.env['FULFILGO_UBER_CLIENT_SECRET'];
+  const customerId = process.env['FULFILGO_UBER_CUSTOMER_ID'];
+  if (!clientId || !clientSecret || !customerId) return null;
+  return {
+    clientId,
+    clientSecret,
+    customerId,
+    ...(process.env['FULFILGO_UBER_ROBO_COURIER'] === 'auto'
+      ? { testSpecifications: { mode: 'auto' as const } }
+      : {}),
+    ...(process.env['FULFILGO_UBER_OBFUSCATE_MANIFEST'] === 'true'
+      ? { obfuscateManifest: true }
+      : {}),
+  };
 }
 
 /**
@@ -214,6 +239,7 @@ async function buildServer() {
     dispatchPoolCode: DISPATCH_POOL_CODE,
     auth: loadAuthConfig(),
     epod: loadEpodConfig(server.log),
+    uber: loadUberConfig(),
   });
 
   // onRequest: bind a Scope on ALS for authenticated requests. The hook is
@@ -302,7 +328,10 @@ async function buildServer() {
   registerEpodRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });
-  registerTransportRoutes(server, appContext);
+  registerTransportRoutes(server, appContext, {
+    webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
+    uberWebhookSecret: process.env['FULFILGO_UBER_WEBHOOK_SECRET'],
+  });
 
   if (appContext.auth.config.picker.usingDevSecret) {
     server.log.warn(

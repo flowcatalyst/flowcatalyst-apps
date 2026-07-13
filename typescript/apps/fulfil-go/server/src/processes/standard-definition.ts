@@ -8,6 +8,7 @@
  * policies, state-guard idempotency.
  */
 import { Result, UseCaseError } from '@fulfil-go/framework';
+import type { FulfilmentPickedData } from '../domain/fulfilments/events/fulfilment-pick-progress.events.js';
 import type { PickClaimedData } from '../domain/picks/events/pick-claimed.event.js';
 import type {
   PickFailedData,
@@ -18,6 +19,7 @@ import type { ProcessDefinition, ProcessEvent, ProcessCommands } from './process
 
 const HANDLES = [
   'fulfil-go:fulfilment:fulfilment:created',
+  'fulfil-go:fulfilment:fulfilment:picked',
   'fulfil-go:pick:pick:claimed',
   'fulfil-go:pick:pick:picked',
   'fulfil-go:pick:pick:short-picked',
@@ -39,6 +41,22 @@ export const standardDefinition: ProcessDefinition = {
           clientId: event.clientId,
           fulfilmentId: event.fulfilmentId,
         });
+
+      case 'fulfil-go:fulfilment:fulfilment:picked': {
+        // Fulfilment READY → the transport trigger. THE standard timing
+        // policy: ASAP requests immediately; STANDARD books a timed
+        // reaction at slotStart − transportLeadTime (reactions sweep).
+        const data = event.payload as FulfilmentPickedData;
+        return data.serviceLevel === 'ASAP'
+          ? commands.requestTransport.execute({
+              clientId: event.clientId,
+              fulfilmentId: event.fulfilmentId,
+            })
+          : commands.scheduleTransportRequest.execute({
+              clientId: event.clientId,
+              fulfilmentId: event.fulfilmentId,
+            });
+      }
 
       case 'fulfil-go:pick:pick:claimed': {
         const data = event.payload as PickClaimedData;

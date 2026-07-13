@@ -15,11 +15,21 @@ export interface StoreSummary {
   readonly transportProfileCode: string;
 }
 
+/** Registry row detail the transport context builds stops from. */
+export interface StoreDetail {
+  readonly storeRef: string;
+  readonly name: string;
+  readonly geo: { lat: number; lng: number } | null;
+  /** The captured as-received record (address, contact, instructions, …). */
+  readonly data: StoreRecord;
+}
+
 export interface StoreRepository {
   /** Idempotent bulk sync keyed on (clientId, storeRef). Returns rows written. */
   upsertMany(clientId: string, records: readonly StoreRecord[]): Promise<number>;
   listByClient(clientId: string): Promise<readonly StoreSummary[]>;
   existsByRef(clientId: string, storeRef: string): Promise<boolean>;
+  findByRef(clientId: string, storeRef: string): Promise<StoreDetail | null>;
 }
 
 function toSummary(row: StoreRow): StoreSummary {
@@ -91,6 +101,21 @@ export function createDrizzleStoreRepository(db: PostgresJsDatabase): StoreRepos
         .where(and(eq(stores.clientId, clientId), eq(stores.storeRef, storeRef)))
         .limit(1);
       return row !== undefined;
+    },
+
+    async findByRef(clientId: string, storeRef: string): Promise<StoreDetail | null> {
+      const [row] = await current()
+        .select()
+        .from(stores)
+        .where(and(eq(stores.clientId, clientId), eq(stores.storeRef, storeRef)))
+        .limit(1);
+      if (!row) return null;
+      return {
+        storeRef: row.storeRef,
+        name: row.name,
+        geo: row.lat !== null && row.lng !== null ? { lat: row.lat, lng: row.lng } : null,
+        data: row.data as StoreRecord,
+      };
     },
   };
 }

@@ -69,6 +69,9 @@ export const FulfilmentPickedDataSchema = Type.Object({
   clientId: Type.String(),
   externalSource: Type.String(),
   externalRef: Type.String(),
+  /** Drives the transport-request timing policy (ASAP now, STANDARD timed). */
+  serviceLevel: Type.String(),
+  slotStart: Type.String(),
   parts: Type.Array(
     Type.Object({ partId: Type.String(), shortId: Type.String(), short: Type.Boolean() }),
   ),

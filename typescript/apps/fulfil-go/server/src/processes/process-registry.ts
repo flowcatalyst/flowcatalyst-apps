@@ -20,6 +20,10 @@ import type {
   RegisterPartPickedUseCase,
   RegisterPartPickingUseCase,
 } from '../operations/fulfilment-pick-process/fulfilment-pick-process.use-cases.js';
+import type {
+  RequestTransportUseCase,
+  ScheduleTransportRequestUseCase,
+} from '../operations/request-transport/request-transport.use-cases.js';
 
 /** One platform delivery, normalized by the webhook route. */
 export interface ProcessEvent {
@@ -40,6 +44,8 @@ export interface ProcessCommands {
   readonly registerPartPicked: RegisterPartPickedUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
   readonly requestEpodProvisioning: RequestEpodProvisioningUseCase;
+  readonly requestTransport: RequestTransportUseCase;
+  readonly scheduleTransportRequest: ScheduleTransportRequestUseCase;
 }
 
 export interface ProcessDefinition {
