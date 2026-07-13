@@ -22,6 +22,8 @@ export const PickDtoSchema = Type.Object({
   requireFullPick: Type.Boolean(),
   allowSubstitutes: Type.Boolean(),
   releasedLate: Type.Boolean(),
+  /** Station line ordering, captured at intake — see PickSortAlgorithm (Zod). */
+  sortAlgorithm: Type.String(),
   claimedBy: Type.Union([Type.String(), Type.Null()]),
   claimedAt: Type.Union([Type.String(), Type.Null()]),
   lineResults: Type.Union([

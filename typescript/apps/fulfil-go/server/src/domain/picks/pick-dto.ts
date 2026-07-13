@@ -21,6 +21,7 @@ export function toPickDto(pick: Pick): PickDto {
     requireFullPick: pick.requireFullPick,
     allowSubstitutes: pick.allowSubstitutes,
     releasedLate: pick.releasedLate,
+    sortAlgorithm: pick.sortAlgorithm,
     claimedBy: pick.claimedBy,
     claimedAt: pick.claimedAt?.toISOString() ?? null,
     lineResults: pick.lineResults

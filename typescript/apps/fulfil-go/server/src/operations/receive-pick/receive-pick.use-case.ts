@@ -7,7 +7,7 @@ import {
   type AggregateRegistryImpl,
   type UnitOfWork,
 } from '@fulfil-go/framework';
-import { SyncEventType, type CreatePickRequest } from '@fulfil-go/shared';
+import { SyncEventType, type CreatePickRequest, type PickSortAlgorithm } from '@fulfil-go/shared';
 import { Pick } from '../../domain/picks/pick.js';
 import { newPickId } from '../../domain/picks/ids.js';
 import { toPickDto } from '../../domain/picks/pick-dto.js';
@@ -31,6 +31,10 @@ import {
  * Receipt is recorded on the fulfilment's processing log in the same tx —
  * observability only (the log is cross-context but same-DB, and nothing reads
  * it to make decisions).
+ *
+ * The origin store's `pickSortAlgorithm` is resolved here and CAPTURED onto
+ * the pick (requireFullPick hydration pattern) — config retunes affect new
+ * picks only; a picker mid-trolley is never resorted.
  */
 export class ReceivePickUseCase {
   constructor(
@@ -40,6 +44,11 @@ export class ReceivePickUseCase {
     private readonly fulfilmentLog: FulfilmentProcessingLogRepository,
     private readonly syncEvents: SyncEventRepository,
     private readonly pickSessions: PickSessionProjection,
+    /** Store-settings hydration (create-fulfilment lead-time pattern). */
+    private readonly resolveSortAlgorithm: (
+      clientId: string,
+      storeRef: string,
+    ) => Promise<PickSortAlgorithm>,
   ) {}
 
   async execute(command: CreatePickRequest): Promise<Result<PickCreated>> {
@@ -55,6 +64,8 @@ export class ReceivePickUseCase {
         ),
       );
     }
+
+    const sortAlgorithm = await this.resolveSortAlgorithm(command.clientId, command.origin.ref);
 
     const now = new Date();
     const pick = Pick.create({
@@ -73,6 +84,7 @@ export class ReceivePickUseCase {
       requireFullPick: command.requireFullPick,
       allowSubstitutes: command.allowSubstitutes,
       releasedLate: command.releasedLate,
+      sortAlgorithm,
       now,
     });
 

@@ -10,6 +10,7 @@ import type {
   FulfilmentLine,
   FulfilmentType,
   OriginLocation,
+  PickSortAlgorithm,
   ServiceLevel,
 } from '@fulfil-go/shared';
 import { asPickId, type PickId } from '../domain/picks/ids.js';
@@ -42,6 +43,7 @@ function toDomain(row: PickRow): Pick {
     requireFullPick: row.requireFullPick,
     allowSubstitutes: row.allowSubstitutes,
     releasedLate: row.releasedLate,
+    sortAlgorithm: row.sortAlgorithm as PickSortAlgorithm,
     claimedBy: row.claimedBy,
     claimedAt: row.claimedAt,
     lineResults: (row.lineResults as PickLineResult[] | null) ?? null,
@@ -86,6 +88,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             requireFullPick: aggregate.requireFullPick,
             allowSubstitutes: aggregate.allowSubstitutes,
             releasedLate: aggregate.releasedLate,
+            sortAlgorithm: aggregate.sortAlgorithm,
             claimedBy: aggregate.claimedBy,
             claimedAt: aggregate.claimedAt,
             lineResults: aggregate.lineResults,

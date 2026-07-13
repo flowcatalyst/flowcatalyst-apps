@@ -2,7 +2,12 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import { useRoute, useRouter } from 'vue-router';
-import type { PickDto } from '@fulfil-go/shared';
+import {
+  sortPickLines,
+  type FulfilmentLineLocation,
+  type PickDto,
+  type PickSortAlgorithm,
+} from '@fulfil-go/shared';
 import { useAppCtx } from '../context.js';
 
 /**
@@ -11,10 +16,12 @@ import { useAppCtx } from '../context.js';
  * Stage PICK: scanning is the primary interaction — each scan confirms the
  * right product (gtin/sku match) and +1s the line. The wedge input serves
  * USB/Bluetooth keyboard scanners (and browser dev); native adds the camera.
- * Manual +/- stays as the fallback. Lines sort in WALK ORDER when the
- * integration supplied per-store aisle attributes. Substitution (when the
- * line/fulfilment allows it) records the replacement's scanned barcode —
- * approved-substitute lists arrive with the master-data gateway.
+ * Manual +/- stays as the fallback. Lines sort per the pick's CAPTURED
+ * sortAlgorithm (walk-sequence / aisle-bay-shelf / as-received — shared
+ * sortPickLines over line.location, legacy attributes.aisle as fallback).
+ * Substitution (when the line/fulfilment allows it) records the
+ * replacement's scanned barcode — approved-substitute lists arrive with
+ * the master-data gateway.
  *
  * Stage PACK: unchanged sub-modes; packable units = picked + substituted.
  */
@@ -152,15 +159,28 @@ type Line = {
   quantity: number;
   temperatureClass?: string;
   allowSubstitutes?: boolean;
+  location?: FulfilmentLineLocation;
   attributes?: Record<string, string>;
 };
 
-/** Walk order: sort by the per-store aisle attribute when present. */
+/** The algorithm captured on the pick at intake; guarded for pre-feature picks. */
+const sortAlgorithm = computed<PickSortAlgorithm>(() => {
+  const value = pick.value?.sortAlgorithm;
+  return value === 'aisle-bay-shelf' || value === 'as-received' ? value : 'walk-sequence';
+});
+
+/** Walk order per the pick's CAPTURED sort algorithm (shared sortPickLines). */
 const lines = computed(() =>
-  [...((pick.value?.lines ?? []) as Line[])].sort((a, b) =>
-    (a.attributes?.['aisle'] ?? 'zzz').localeCompare(b.attributes?.['aisle'] ?? 'zzz'),
-  ),
+  sortPickLines((pick.value?.lines ?? []) as Line[], sortAlgorithm.value),
 );
+
+/** Location pill: locationDisplay > composed aisle·bay·shelf > legacy attributes.aisle. */
+function lineLocationLabel(line: Line): string | null {
+  if (line.location?.locationDisplay) return line.location.locationDisplay;
+  const parts = [line.location?.aisle, line.location?.bay, line.location?.shelf].filter(Boolean);
+  if (parts.length > 0) return parts.join('·');
+  return line.attributes?.['aisle'] ?? null;
+}
 
 // ── Quantities ────────────────────────────────────────────────────────────
 const subUnits = (ref_: string): number => (subs[ref_] ?? []).reduce((s, x) => s + x.quantity, 0);
@@ -538,10 +558,10 @@ async function fail(): Promise<void> {
             <p class="truncate font-medium">{{ line.description }}</p>
             <p class="flex items-center gap-1.5 text-[11px] text-neutral-400">
               <span
-                v-if="line.attributes?.['aisle']"
+                v-if="lineLocationLabel(line)"
                 class="rounded bg-brand-50 px-1.5 py-0.5 font-mono font-semibold text-brand-700"
               >
-                {{ line.attributes['aisle'] }}
+                {{ lineLocationLabel(line) }}
               </span>
               <span class="font-mono">{{ line.sku }}</span>
               <span

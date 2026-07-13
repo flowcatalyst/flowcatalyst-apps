@@ -46,6 +46,7 @@ function make() {
     requireFullPick: true,
     allowSubstitutes: false,
     releasedLate: false,
+    sortAlgorithm: 'walk-sequence',
     now: NOW,
   });
 }

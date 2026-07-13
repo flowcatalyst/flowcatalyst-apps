@@ -83,6 +83,31 @@ export type Volumetric = z.infer<typeof VolumetricSchema>;
 export const TemperatureClass = z.enum(['ambient', 'chilled', 'frozen']);
 export type TemperatureClass = z.infer<typeof TemperatureClass>;
 
+/**
+ * In-store shelf location for a line — first-class PROCESS INPUT (the pick
+ * sort algorithms read it), unlike the free-form `attributes` bag which stays
+ * as-received reference data. Every field optional: integrations send what
+ * their slotting/planogram data has. `shelf` accepts string or int upstream
+ * and normalizes to string. Flows fulfilment line → pick line at intake.
+ */
+export const FulfilmentLineLocationSchema = z
+  .object({
+    aisle: z.string().min(1).max(32).optional(),
+    bay: z.string().min(1).max(32).optional(),
+    shelf: z
+      .union([z.string().min(1).max(32), z.number().int().nonnegative()])
+      .transform((value) => String(value))
+      .optional(),
+    /** Position within the shelf/bay — the finest ordering grain. */
+    positionIndex: z.number().int().nonnegative().optional(),
+    /** Absolute store-walk ordinal (planogram walk order), when known. */
+    walkSequence: z.number().int().nonnegative().optional(),
+    /** Ready-to-show label; stations prefer it over composing the parts. */
+    locationDisplay: z.string().min(1).max(120).optional(),
+  })
+  .strict();
+export type FulfilmentLineLocation = z.infer<typeof FulfilmentLineLocationSchema>;
+
 /** A fulfilment line: immutable value object owned by exactly one part. */
 export const FulfilmentLineSchema = z
   .object({
@@ -97,6 +122,8 @@ export const FulfilmentLineSchema = z
     temperatureClass: TemperatureClass.default('ambient'),
     /** Overrides the fulfilment-level allowSubstitutes default when present. */
     allowSubstitutes: z.boolean().optional(),
+    /** In-store shelf location — drives the station's pick sort when present. */
+    location: FulfilmentLineLocationSchema.optional(),
     /** Product attributes as received — reference data, not process input. */
     attributes: z.record(z.string().max(64), z.string().max(500)).optional(),
   })

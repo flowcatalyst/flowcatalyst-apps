@@ -34,6 +34,8 @@ export const picks = pgTable(
     requireFullPick: boolean('require_full_pick').notNull(),
     allowSubstitutes: boolean('allow_substitutes').notNull(),
     releasedLate: boolean('released_late').notNull().default(false),
+    /** Station line ordering, captured at intake from store settings. */
+    sortAlgorithm: varchar('sort_algorithm', { length: 20 }).notNull().default('walk-sequence'),
     claimedBy: text('claimed_by'),
     claimedAt: timestampColumn('claimed_at'),
     lineResults: jsonb('line_results'),

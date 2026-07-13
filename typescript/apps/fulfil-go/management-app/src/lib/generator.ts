@@ -83,13 +83,26 @@ function sampleProducts(count: number): Product[] {
  * sits in the same aisle at a given store. Zero-padded so lexicographic sort
  * = walk order; a real integration would pass slotting/planogram data here.
  */
-function aisleFor(storeRef: string, sku: string): string {
+function locationFor(storeRef: string, sku: string) {
   let h = 0;
   const key = `${storeRef}:${sku}`;
   for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  const aisle = 1 + (h % 24);
-  const bay = 1 + ((h >>> 5) % 6);
-  return `A${String(aisle).padStart(2, '0')}·B${bay}`;
+  const aisleNo = 1 + (h % 24);
+  const bayNo = 1 + ((h >>> 5) % 6);
+  const shelfNo = 1 + ((h >>> 9) % 5);
+  const positionIndex = 1 + ((h >>> 12) % 8);
+  const aisle = `A${String(aisleNo).padStart(2, '0')}`;
+  const bay = `B${bayNo}`;
+  const shelf = `S${shelfNo}`;
+  return {
+    aisle,
+    bay,
+    shelf,
+    positionIndex,
+    // Serpentine store walk: odd aisles walked B1→B6, even aisles B6→B1.
+    walkSequence: aisleNo * 100 + (aisleNo % 2 === 1 ? bayNo : 7 - bayNo) * 10 + shelfNo,
+    locationDisplay: `${aisle}·${bay}·${shelf}`,
+  };
 }
 
 function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
@@ -105,7 +118,9 @@ function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
         quantity: Math.floor(between(1, 5)),
         volumetric: product.volumetric,
         temperatureClass: product.temperatureClass as 'ambient' | 'chilled' | 'frozen',
-        attributes: { aisle: aisleFor(store.ref, product.sku) },
+        location: locationFor(store.ref, product.sku),
+        // Legacy aisle attribute kept for back-compat display fallbacks.
+        attributes: { aisle: locationFor(store.ref, product.sku).locationDisplay },
       },
       Math.random() < 0.1 ? { allowSubstitutes: false } : {},
     ),

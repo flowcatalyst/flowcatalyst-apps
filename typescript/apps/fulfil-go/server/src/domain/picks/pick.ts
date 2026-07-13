@@ -2,6 +2,7 @@ import type {
   FulfilmentLine,
   FulfilmentType,
   OriginLocation,
+  PickSortAlgorithm,
   ServiceLevel,
 } from '@fulfil-go/shared';
 import type { PickId } from './ids.js';
@@ -83,6 +84,9 @@ export interface Pick {
   readonly requireFullPick: boolean;
   readonly allowSubstitutes: boolean;
   readonly releasedLate: boolean;
+  /** Station line ordering, resolved from the origin store's settings at
+   * intake and captured — a config retune never resorts a picker mid-trolley. */
+  readonly sortAlgorithm: PickSortAlgorithm;
   /** Picker (pkr_…) who claimed this pick. */
   readonly claimedBy: string | null;
   readonly claimedAt: Date | null;
@@ -116,6 +120,7 @@ export interface CreatePickInput {
   readonly requireFullPick: boolean;
   readonly allowSubstitutes: boolean;
   readonly releasedLate: boolean;
+  readonly sortAlgorithm: PickSortAlgorithm;
   readonly now: Date;
 }
 
@@ -139,6 +144,7 @@ export const Pick = {
       requireFullPick: input.requireFullPick,
       allowSubstitutes: input.allowSubstitutes,
       releasedLate: input.releasedLate,
+      sortAlgorithm: input.sortAlgorithm,
       claimedBy: null,
       claimedAt: null,
       lineResults: null,

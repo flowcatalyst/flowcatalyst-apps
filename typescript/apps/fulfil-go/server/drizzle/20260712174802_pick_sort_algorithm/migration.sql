@@ -1,0 +1,1 @@
+ALTER TABLE "picks" ADD COLUMN "sort_algorithm" varchar(20) DEFAULT 'walk-sequence' NOT NULL;
