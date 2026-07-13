@@ -233,3 +233,84 @@ planning v1 (1 order = 1 trip) + own-app claim/assign, (3) EPOD channel
 router/VROOM multi-order trips + positions map. Stores migrate
 channel-by-channel via store-profile provider config — the incremental
 off-EPOD story is a config change per store, not a cutover.
+
+## EPOD adapter (fulfil-go side) — BUILT 2026-07-12 (provisioning + claim stubs)
+
+The fulfil-go half of the EPOD channel's integration plumbing exists; the
+planning-context pieces (reservation/claim/route-plan push) remain stubs
+until the transport context lands.
+
+- `server/src/transport/epod/` — typed `EpodClient` (uber-client pattern):
+  FlowCatalyst SERVICE-TOKEN auth (client-credentials at
+  `{FLOWCATALYST_URL}/oauth/token`, cached with margin; their side
+  validates via `fc.or-passport`), `X-INHANCE-TENANT` header, endpoints
+  `POST {base}/api/v1/tms/epod/fulfilgo/{locations/upsert,products/upsert,
+routes/plans}` (route plan loosely typed until the claim flow). Pure
+  provisioning mapper + unit tests alongside.
+- **Provisioning trigger**: store settings gained OPTIONAL
+  `executionSystems: string[]` / `defaultExecutionSystem` (API-set — no UI;
+  the Settings page preserves them on save but doesn't edit them). The
+  fulfilment PM subscription now also receives
+  `fulfil-go:fulfilment:fulfilment:created`; the decider
+  (`operations/epod-provisioning`) dispatches a platform job to
+  `/clients/:id/epod/provision` when any origin store selects 'epod'.
+  Exactly-once: 'epod-provision-dispatched' processing-log entry as the
+  state guard (same tx as the outbox write) + dispatch idempotency key;
+  fact event `…:epod-provision-requested`.
+- **Landing pad** `POST /clients/:id/epod/provision` (HMAC dispatch
+  target): upserts the delivery destination (ref = `location.ref` else
+  `fulfilgo-dest-{fulfilmentId}`; skipped when no geo or collect) + all
+  parts' products (deduped by sku). Idempotent by construction; failures
+  500 for platform retry; env unset (`FULFILGO_EPOD_BASE_URL` /
+  `FULFILGO_EPOD_TENANT_CODE`) logs + skips.
+- **Claim surface stubs**: `POST /clients/:id/transport/epod/
+claimable-trips` → `{offers: []}` and `POST …/claims/:groupId` → 410 —
+  Integral's claim proxy targets; the planning context fills them in
+  (offer reservation, driver+vehicle bound at offer time, sync route-plan
+  push on claim).
+
+## Offer composition — multi-stop + anchor claims (Andrew, 2026-07-13)
+
+The planning context's claimable-trips composition (fills the current stub;
+the offer contract already carries plural transportOrderRefs/partReferences
+under one groupId, and orderReference already flows driver app → Integral
+proxy → our endpoint):
+
+- **Multi-stop WHEN POSSIBLE**: an offer is a TRIP (ordered stop sequence —
+  a single-order trip is just the degenerate case). Compose greedily from
+  READY transport orders at the driver's store/depot:
+  compatibility filters first — same origin store, slot windows overlapping
+  within a tolerance, combined capacity within the vehicle's practical
+  limit (bag counts/sizes from the pick actuals; requiresVehicle honoured),
+  temperature mix acceptable — then SEQUENCE the dropoffs via the router
+  service (VROOM); cap stops (config: maxStopsPerTrip, store-settings
+  layered) and cap total detour vs the single-order baseline.
+- **Anchor claims ("visible id")**: the driver-entered reference resolves
+  against the part SHORT ID (per store + service-day — the number on the
+  packaging) falling back to fulfilment externalRef. If the anchor's
+  transport order is offerable at that store: it goes in the offer FIRST,
+  then companions are selected by the same compatibility filters ranked by
+  least added detour to the anchor's route. If the anchor is not available
+  (claimed/gone/not ready): empty offer with the reason — never substitute
+  a different order for an explicit request.
+- **Reservation covers the WHOLE group atomically** (the expiring
+  optimistic-locked hold): all orders in the offer reserve together or the
+  offer shrinks before being presented — no partial-claim races. Claim →
+  ONE multi-stop route plan pushed synchronously (their intake is natively
+  multi-stop); rejection releases the whole group.
+- Offer ranking default when no anchor: ASAP first, then oldest slot
+  (flightboard rule), then best multi-stop consolidation.
+
+## Allocation strategies (Andrew, 2026-07-13 — locked)
+
+How planned trips reach drivers is a NAMED STRATEGY, selected via store
+settings (layered, like pickSortAlgorithm): **`claim` is the default** —
+our OWN execution app consumes the SAME offer/claim surface as EPOD (one
+marketplace, one reservation model, same offer composition incl. multi-stop
+and anchor claims; the execution app simply speaks it natively instead of
+through the Integral proxy). Future strategies slot in behind the same
+port: `assign` (dispatcher-directed), later perhaps `auto-assign` /
+`broadcast`. Strategy is a planning-context concern — execution channels
+(own app / EPOD driver app) are consumers of whatever the strategy
+surfaces. This supersedes any claim-vs-assign wording above: it is one
+strategy port with 'claim' first.

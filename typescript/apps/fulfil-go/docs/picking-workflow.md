@@ -73,3 +73,38 @@ PickPackage
   deterministic aisles per (store, sku).
 - **Images**: `line.imageUrl` renders with an initial-letter placeholder
   when missing or failing to load (generator seeds picsum URLs per sku).
+
+## Line locations & pick sort (BUILT 2026-07-12)
+
+Lines gain an OPTIONAL first-class `location` object (process input — NOT
+the free-form `attributes`, which stays as-received reference data):
+`{aisle?, bay?, shelf? (string|int, normalized to string), positionIndex?,
+walkSequence?, locationDisplay?}`. Flows upstream payload → fulfilment
+line → pick line at intake; the station shows `locationDisplay` (fallback:
+composed aisle·bay·shelf).
+
+Walk order becomes a STORE-SETTINGS field `pickSortAlgorithm` (layered:
+default profile = global ⇐ store profile ⇐ store override):
+
+- `walk-sequence` (default): walkSequence (nulls last) → aisle → bay →
+  shelf → positionIndex → original order; degrades to today's aisle-only
+  behaviour when only aisle data exists.
+- `aisle-bay-shelf`: pure location ordering, walkSequence ignored.
+- `as-received`: upstream line order preserved.
+
+Rules: NATURAL sort on aisle/bay/shelf ("A2" < "A10"); algorithm CAPTURED
+onto the pick at intake (requireFullPick hydration pattern) — config
+retunes affect new picks only, a picker mid-trolley is never resorted.
+Generator fixtures to carry location data so dev exercises it.
+
+Build notes: `FulfilmentLineLocationSchema` + `line.location` in shared
+value-objects (flows create -> part -> pick untouched -- the pick contracts
+reuse the shared line schema); `pickSortAlgorithm` on store settings;
+captured onto the pick at intake (`picks.sort_algorithm`, migration
+20260712174802); shared `sortPickLines` (natural sort, nulls-last, stable --
+unit-tested); PickDetailPage sorts by the captured algorithm and shows
+locationDisplay (fallback composed aisle-bay-shelf, then legacy
+attributes.aisle); SettingsPage has the algorithm select (empty = inherit);
+generator derives deterministic per-(store,sku) locations with a SERPENTINE
+walkSequence (odd aisles B1->B6, even B6->B1) -- new generated fulfilments
+exercise the sort immediately.

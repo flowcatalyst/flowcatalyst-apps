@@ -1,8 +1,12 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-11. Everything below is MERGED to `main` (@ `6e6f852`,
-branch `feat/fulfil-go-pick-claim` == main). Read `CLAUDE.md` first (stack,
-conventions, gotchas, dev loop); this file is "where we are + what's next".
+Last updated: 2026-07-13. Everything below is COMMITTED on `main`. Read
+`CLAUDE.md` first (stack, conventions, gotchas, dev loop); this file is
+"where we are + what's next". SISTER REPO: InhanceMono has branch
+`feature/fulfilgo-epod-integration` (worktree
+~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
+the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
+before pushing.
 
 ## What works, end-to-end, against the LIVE fc-dev platform
 
@@ -58,9 +62,13 @@ persists per pick in localStorage; dead-letter UI in station Settings.
    activity-log-repository rename + pick/PM writers) so every transport
    adapter writes the chain record from day one. Alongside it: the
    process-definition registry + ownership stamp + client integration
-   processes (docs/process-definitions.md), planning context + EPOD channel
-   (transport-context.md "Execution channels"). Open decision: 'own'
-   adapter backend = execution-app jobs vs fulfil last-mile.
+   processes (docs/process-definitions.md — registry v1 = stamp + split +
+   plain-module selector; DSL deferred), PLANNING CONTEXT with the
+   allocation-strategy port ('claim' default — one marketplace for own app
+   + EPOD; offer composition incl. multi-stop + anchor claims:
+   transport-context.md "Offer composition" + "Allocation strategies").
+   Open decision: 'own' adapter backend = execution-app jobs vs fulfil
+   last-mile.
 2. Fulfilment completion leg: PM consumes transport events → ready →
    completing → completed/partially_completed.
 3. Pick-into-bag-directly mode (+ per-line server-side state as rows).
@@ -118,16 +126,26 @@ current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
   epod.POD.GENERATED / workflow + allocation events; outbound today =
   Basic-auth Actuals POST (CLIENT_CONFIG/EPOD_ACTUALS) or WEBHOOK_CE
   connector subs; an Integral→FlowCatalyst sync bridge already exists.
-  Adapter considerations: claim endpoints will PROXY to fulfil-go (their
-  driver app unchanged); route-plan push becomes a new SYNCHRONOUS EPOD
-  ingest endpoint (explicit accept/reject) protected by FlowCatalyst
-  tokens via existing middleware alias 'fc.or-passport'; provisioning
-  (destinations+products) via PM dispatch job on fulfilment.created when
-  EPOD is default/available; origin = part origin.ref == EPOD location
-  reference (depots/territories manually maintained there); tenant match =
-  our client code == EPOD tenant code; map statuses ONLY on string
-  references (numeric ids differ per tenant). Migration is proposed for a
-  focused ondemand execution experience, adopted incrementally per store.
+  **fulfil-go-side integration pieces BUILT 2026-07-12** (see
+  transport-context.md "EPOD adapter (fulfil-go side)"): typed EpodClient
+  (`server/src/transport/epod/` — FC service-token auth + X-INHANCE-TENANT;
+  locations/products upsert + loosely-typed routes/plans), provisioning
+  landing pad `POST /clients/:id/epod/provision` (HMAC dispatch target;
+  env-gated by FULFILGO_EPOD_BASE_URL/\_TENANT_CODE, unset logs + skips),
+  PM decider on fulfilment.created (subscription now includes it; guard =
+  'epod-provision-dispatched' processing-log entry in the dispatch tx +
+  platform idempotency key; fact event `…:epod-provision-requested`),
+  store settings `executionSystems`/`defaultExecutionSystem` (API-set, no
+  UI — the Settings page preserves them on save), and claim-surface STUBS
+  `/clients/:id/transport/epod/claimable-trips` (empty offers) +
+  `…/claims/:groupId` (410) for Integral's claim proxy. STILL TO DO (their
+  side + planning context): claim-proxy update, reservation/claim + sync
+  route-plan push, status webhooks → TransportOrder. Constraints that
+  stand: origin = part origin.ref == EPOD location reference
+  (depots/territories manually maintained there); tenant match = our
+  client code == EPOD tenant code; map statuses ONLY on string references
+  (numeric ids differ per tenant). Migration is proposed for a focused
+  ondemand execution experience, adopted incrementally per store.
 - Flightboard (management /flightboard, GET /clients/:id/flightboard):
   controller view LIVE 2026-07-12 — KPIs, exception list (release_overdue /
   pick_late_unclaimed / pick_late_incomplete; transport kinds reserved),
@@ -136,6 +154,13 @@ current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
   want tuning. Delivery-side KPIs (delivered, on-time, OTIF) render as
   "awaits transport" until that context lands. NOTE: "claimed but not
   STARTED" is indistinguishable server-side until pick_lines become rows.
+- **Line locations + pick sort LIVE 2026-07-12**: line.location
+  (aisle/bay/shelf/positionIndex/walkSequence/locationDisplay) first-class
+  on lines; store-settings pickSortAlgorithm (walk-sequence default |
+  aisle-bay-shelf | as-received) captured per pick at intake
+  (picks.sort_algorithm); shared sortPickLines (natural sort, unit-tested);
+  station sorts by captured algorithm + shows locationDisplay; Settings
+  select; generator derives serpentine walk locations.
 - Fulfilments page could render the captured part ACTUALS (line_results/
   packages/requiresVehicle are already on the DTO) — small UI win.
 - Offered, not built: management "Products" reference page (sku/gtin lookup

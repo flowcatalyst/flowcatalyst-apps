@@ -73,6 +73,7 @@ fulfilment use cases write the processing log, so the migration touches
 one repository and a handful of call sites.
 
 Concretely, in order, as the opening commits of the transport branch:
+
 1. Migration: create `activity_log` (+ migrate existing
    fulfilment_processing_log rows into it: subject_type='fulfilment',
    source='domain'); drop the old table.

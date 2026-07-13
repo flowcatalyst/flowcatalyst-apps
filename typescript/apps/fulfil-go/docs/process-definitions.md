@@ -96,3 +96,41 @@ anything, so diagrams can't drift from behaviour. Output:
 - Later: a management-app "Process" page per client rendering the same
   model live (mermaid renders client-side) — ops can see a tenant's flow
   without reading code.
+
+## Staging & risk posture (revised with Andrew, 2026-07-12)
+
+Robustness assessment: runtime safety is unchanged by the registry (same
+webhook tx, state-guard idempotency, ACK/retry, optimistic locking — those
+live in the commands, not the coordinator). The risks are DESIGN risks —
+indirection and DSL lock-in — so the build is staged by risk:
+
+**Registry v1 (build with transport — ~2 days, no flexibility cost):**
+
+1. Ownership stamp (`process_definition` on fulfilment, default 'standard')
+   - minimal client_settings home for the per-client selection.
+2. Invariants/policy split: aggregate commands stay commands; deciders
+   become thin policy modules.
+3. Registry-as-SELECTOR: `processDefinition → coordinator module`, each
+   module PLAIN TypeScript. Full per-client variance, zero DSL constraint.
+
+**The `on/when/do` DSL + generated diagrams: DEFERRED until N≥2** — i.e.
+until the second real process definition exists (first client integration
+or EPOD-era variance). Rationale: a DSL designed against one process is a
+guess; the first flow needing a missing verb (per-part fan-out, timed
+step, compensation) forces ad-hoc DSL growth or code escape-hatches. Also
+honest limits: with guards/commands as functions, generated diagrams are
+truthful about STRUCTURE, not semantics. Guardrails when it is built:
+typed literals (not strings), definitions may remain plain-code modules
+(DSL optional per definition), one model → many renderers (mermaid;
+railroad diagrams are a candidate second renderer for lifecycle-shaped
+processes — no mermaid railroad type exists; tabatkins railroad-diagrams
+SVG + platform diagramType support would be needed).
+
+Until the DSL lands: mermaid stays hand-authored in docs/processes/ (drift
+bounded by how rarely the standard flow changes), and the ACTIVITY LOG
+(docs/activity-log.md) is the runtime truth — the recorded chain beats the
+promised diagram in any incident.
+
+Timed reactions (bookkeeping table + deadline sweep, the LastMileFulfilment
+pattern) remain transport-scoped — first consumer is the STANDARD
+service-level transport request; defer until that step exists.
