@@ -2,7 +2,11 @@
 
 Last updated: 2026-07-13 (bag-label-printing session). Everything below is
 COMMITTED on `main`. Read `CLAUDE.md` first (stack, conventions, gotchas,
-dev loop); this file is "where we are + what's next". SISTER REPO:
+dev loop); this file is "where we are + what's next".
+**NEXT SESSION: the Transport PLANNING context** ("Agreed next steps" item 1
+below — Trip aggregate, VROOM via the router, the claim marketplace).
+Product decision 2026-07-13: fulfil-go has NO iOS APP — picking stations
+are Android or browser; don't build/maintain ios/ projects. SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
@@ -30,18 +34,17 @@ design doc; read it before touching the replace flow):
   per-label reprint chips, trolley guard: can't shrink below a scanned
   bag). Scanning a printed label into the drawer shows its `n / X`; voided
   refs are rejected. Delivery: IN-REPO `TcpPrint` Capacitor plugin (raw TCP
-  :9100, Java + Swift — deliberately not a third-party npm socket plugin);
-  browser dev delivers via Zebra Browser Print's local agent (plain fetch,
-  no SDK). Completion payload unchanged — labels just fill `packages[].ref`;
-  arbitrary barcodes and `loose-N` still work (stores without printers).
+  :9100, ANDROID-ONLY Java — no iOS app, Andrew 2026-07-13; deliberately
+  not a third-party npm socket plugin); browser dev delivers via Zebra
+  Browser Print's local agent (plain fetch, no SDK). Completion payload
+  unchanged — labels just fill `packages[].ref`; arbitrary barcodes and
+  `loose-N` still work (stores without printers).
 - Smoke-verified end-to-end on :3299 (17 checks: CRUD guards, allocate 3 →
   reprint → replace 4 → replace 2 with voiding, recovery GET, wrong-store
   printer 404, completion with label refs). Migration
   `20260713093811_printers_and_pick_labels` applied to the dev db.
-- NOT verified (device-only): TcpPrint on real Android/iOS hardware +
-  the iOS local-network permission prompt; Xcode project edited by hand
-  (TcpPrintPlugin.swift, PickingViewController.swift registered via
-  storyboard) — build it in Xcode before shipping.
+- NOT verified (device-only): TcpPrint on real Android hardware against a
+  real Zebra on a store LAN.
 - `pnpm flowcatalyst:sync` now ALSO registers `pick:labels-updated`
   (8 events already queued in the dev outbox from the smoke).
 
@@ -168,7 +171,7 @@ design doc; read it before touching the replace flow):
 4. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
 5. ~~Printer management + bag-label printing~~ BUILT this session (see
    above + docs/bag-label-printing.md). Remaining: device verification of
-   TcpPrint (Android/iOS) and a real Zebra on a store LAN.
+   TcpPrint (Android) against a real Zebra on a store LAN.
 
 ## Known issues / loose ends (not fulfil-go blockers)
 

@@ -103,11 +103,12 @@ UTF-8. No printer-specific extensions — plain ZPL II.
 
 ## Delivery (picking app)
 
-- **Native (the real path)**: minimal IN-REPO Capacitor plugin `TcpPrint`
-  (Kotlin + Swift, ~40 lines each) — `send({host, port, dataBase64})` opens a
-  raw TCP socket to the printer's :9100 and writes the ZPL. In-repo because a
-  raw socket write is tiny and third-party socket plugins are exactly the
-  npm supply-chain surface we hold at arm's length (workspace memory).
+- **Native (the real path — ANDROID ONLY, there is no iOS app)**: minimal
+  IN-REPO Capacitor plugin `TcpPrint` (~50 lines of Java) —
+  `send({host, port, dataBase64})` opens a raw TCP socket to the printer's
+  :9100 and writes the ZPL. In-repo because a raw socket write is tiny and
+  third-party socket plugins are exactly the npm supply-chain surface we
+  hold at arm's length (workspace memory).
 - **Browser dev**: Zebra Browser Print's local agent (no SDK — plain fetch to
   `http://127.0.0.1:9100/default` + `/write`). If the agent isn't running,
   the print action surfaces the error and offers the ZPL as a download.
