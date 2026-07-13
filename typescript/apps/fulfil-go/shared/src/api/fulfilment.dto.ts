@@ -41,6 +41,8 @@ export const FulfilmentDtoSchema = Type.Object({
   type: Type.String(),
   serviceLevel: Type.String(),
   status: Type.String(),
+  /** Core process-definition stamp (registry code, resolved at creation). */
+  processDefinition: Type.String(),
   slotStart: Type.String(),
   slotEnd: Type.String(),
   timezone: Type.String(),

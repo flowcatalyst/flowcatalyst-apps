@@ -11,6 +11,7 @@ export function toFulfilmentDto(fulfilment: Fulfilment): FulfilmentDto {
     type: fulfilment.type,
     serviceLevel: fulfilment.serviceLevel,
     status: fulfilment.status,
+    processDefinition: fulfilment.processDefinition,
     slotStart: fulfilment.slotStart.toISOString(),
     slotEnd: fulfilment.slotEnd.toISOString(),
     timezone: fulfilment.timezone,

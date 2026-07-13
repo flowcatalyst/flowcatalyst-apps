@@ -16,6 +16,13 @@ export interface FulfilmentRepository {
   /** Tenant-scoped read — a fulfilment is never visible across clients. */
   findById(clientId: string, id: FulfilmentId): Promise<Fulfilment | null>;
   /**
+   * The OWNERSHIP STAMP alone (docs/process-definitions.md) — the process
+   * webhook's registry lookup, cheap enough to run before the write tx.
+   * Null when the fulfilment doesn't exist (dispatch to the standard
+   * definition, whose deciders return the not_found the route ACKs).
+   */
+  getProcessDefinition(clientId: string, id: FulfilmentId): Promise<string | null>;
+  /**
    * Pending parts whose releaseAt has passed, on releasable fulfilments
    * (created/in_progress) — oldest due first. The release sweep's query.
    */

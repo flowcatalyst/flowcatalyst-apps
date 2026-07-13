@@ -11,6 +11,15 @@ export const fulfilments = pgTable(
     type: varchar('type', { length: 16 }).notNull(),
     serviceLevel: varchar('service_level', { length: 16 }).notNull(),
     status: varchar('status', { length: 24 }).notNull().default('created'),
+    /**
+     * OWNERSHIP STAMP (docs/process-definitions.md): the core process
+     * definition coordinating this fulfilment, resolved from client settings
+     * at creation. Reactions dispatch on the stamp — reconfiguring a client
+     * migrates NEW fulfilments only; in-flight ones finish on theirs.
+     */
+    processDefinition: varchar('process_definition', { length: 64 })
+      .notNull()
+      .default('standard'),
     slotStart: timestampColumn('slot_start').notNull(),
     slotEnd: timestampColumn('slot_end').notNull(),
     timezone: varchar('timezone', { length: 64 }).notNull(),

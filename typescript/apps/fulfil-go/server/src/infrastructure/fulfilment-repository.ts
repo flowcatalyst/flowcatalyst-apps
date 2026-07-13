@@ -56,6 +56,7 @@ function toDomain(row: FulfilmentRow, partRows: readonly FulfilmentPartRow[]): F
     type: row.type as FulfilmentType,
     serviceLevel: row.serviceLevel as ServiceLevel,
     status: row.status as FulfilmentStatus,
+    processDefinition: row.processDefinition,
     slotStart: row.slotStart,
     slotEnd: row.slotEnd,
     timezone: row.timezone,
@@ -98,6 +99,7 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
             type: aggregate.type,
             serviceLevel: aggregate.serviceLevel,
             status: aggregate.status,
+            processDefinition: aggregate.processDefinition,
             slotStart: aggregate.slotStart,
             slotEnd: aggregate.slotEnd,
             timezone: aggregate.timezone,
@@ -179,6 +181,15 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
         .where(eq(fulfilments.id, aggregate.id))
         .returning();
       return rows.length > 0;
+    },
+
+    async getProcessDefinition(clientId: string, id: FulfilmentId): Promise<string | null> {
+      const [row] = await current()
+        .select({ processDefinition: fulfilments.processDefinition })
+        .from(fulfilments)
+        .where(and(eq(fulfilments.id, id), eq(fulfilments.clientId, clientId)))
+        .limit(1);
+      return row?.processDefinition ?? null;
     },
 
     async findById(clientId: string, id: FulfilmentId): Promise<Fulfilment | null> {

@@ -1,4 +1,5 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { resolveClientSettings } from '@fulfil-go/shared';
 import {
   buildOutboxManager,
   createAggregateRegistry,
@@ -25,6 +26,10 @@ import { createShortIdAllocator } from './infrastructure/short-id-allocator.js';
 import type { ShortIdAllocator } from './infrastructure/short-id-allocator.js';
 import { createDrizzleActivityLogRepository } from './infrastructure/activity-log-repository.js';
 import type { ActivityLogRepository } from './infrastructure/activity-log-repository.js';
+import { createDrizzleClientSettingsRepository } from './infrastructure/client-settings-repository.js';
+import type { ClientSettingsRepository } from './infrastructure/client-settings-repository.js';
+import { createProcessRegistry, type ProcessRegistry } from './processes/process-registry.js';
+import { standardDefinition } from './processes/standard-definition.js';
 import { FULFILMENT_ID_PREFIX } from './domain/fulfilments/ids.js';
 import { FULFILMENT_TYPE } from './domain/fulfilments/fulfilment.js';
 import type { FulfilmentRepository } from './domain/fulfilments/fulfilment.repository.js';
@@ -99,6 +104,7 @@ export interface AppContextRepositories {
   readonly pickerUsers: PickerUserRepository;
   readonly stores: StoreRepository;
   readonly picks: PickRepository;
+  readonly clientSettings: ClientSettingsRepository;
 }
 
 export interface AppContextUseCases {
@@ -147,6 +153,8 @@ export interface AppContext {
   readonly auth: AppContextAuth;
   /** Picker station login (PIN/QR → session token). */
   readonly pickAuth: PickerAuthService;
+  /** Ownership-stamp → coordinator module (docs/process-definitions.md). */
+  readonly processRegistry: ProcessRegistry;
   /** Started by server.ts on boot; routes nudge it after successful writes. */
   readonly sseBroker: SseBroker;
   /**
@@ -198,6 +206,8 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const pickerUserRepo = createDrizzlePickerUserRepository(db);
   const storeRepo = createDrizzleStoreRepository(db);
   const pickRepo = createDrizzlePickRepository(db);
+  const clientSettingsRepo = createDrizzleClientSettingsRepository(db);
+  const processRegistry = createProcessRegistry([standardDefinition]);
 
   registerJob(aggregateRegistry, jobRepo);
   registerFulfilment(aggregateRegistry, fulfilmentRepo);
@@ -244,6 +254,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       pickerUsers: pickerUserRepo,
       stores: storeRepo,
       picks: pickRepo,
+      clientSettings: clientSettingsRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -261,6 +272,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
             ? settings.pickLeadTimeMinutesDelivery
             : settings.pickLeadTimeMinutesCollect;
         },
+        // Ownership stamp (docs/process-definitions.md): the client's core
+        // process definition, resolved once at creation.
+        async (cId) => resolveClientSettings(await clientSettingsRepo.get(cId)).processDefinition,
       ),
       cancelFulfilment: new CancelFulfilmentUseCase(
         uow,
@@ -363,6 +377,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       pickerTokenService,
     },
     pickAuth: pickerAuthService,
+    processRegistry,
     sseBroker,
     runWrite,
   };

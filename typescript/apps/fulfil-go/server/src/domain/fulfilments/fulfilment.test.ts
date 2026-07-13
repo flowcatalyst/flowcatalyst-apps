@@ -20,6 +20,7 @@ function make(policies: Partial<FulfilmentPolicies> = {}) {
     externalRef: 'T1',
     type: 'delivery',
     serviceLevel: 'ASAP',
+    processDefinition: 'standard',
     slotStart: NOW,
     slotEnd: LATER,
     timezone: 'Africa/Johannesburg',

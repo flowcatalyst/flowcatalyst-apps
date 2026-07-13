@@ -28,6 +28,14 @@ export type PickLeadTimeResolver = (
   type: 'delivery' | 'collect',
 ) => Promise<number>;
 
+/**
+ * Resolves the client's core process-definition code (client settings,
+ * default 'standard') — STAMPED onto the fulfilment at creation so every
+ * later reaction dispatches on what was configured when it entered, not
+ * what is configured now (docs/process-definitions.md).
+ */
+export type ProcessDefinitionResolver = (clientId: string) => Promise<string>;
+
 export class CreateFulfilmentUseCase {
   static readonly requiredPermission = FulfilGoPermission.CreateFulfilment;
 
@@ -38,6 +46,7 @@ export class CreateFulfilmentUseCase {
     private readonly shortIds: ShortIdAllocator,
     private readonly activityLog: ActivityLogRepository,
     private readonly pickLeadTime: PickLeadTimeResolver,
+    private readonly processDefinition: ProcessDefinitionResolver,
   ) {}
 
   async execute(command: CreateFulfilmentCommand): Promise<Result<FulfilmentCreated>> {
@@ -128,6 +137,7 @@ export class CreateFulfilmentUseCase {
       externalRef: command.externalRef,
       type: command.type,
       serviceLevel: command.serviceLevel,
+      processDefinition: await this.processDefinition(command.clientId),
       slotStart,
       slotEnd,
       timezone: command.timezone,

@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { Type } from '@sinclair/typebox';
 import { ScopeStore } from '@fulfil-go/framework';
 import {
+  CLIENT_SETTINGS_DEFAULTS,
+  ClientSettingsSchema,
   DEFAULT_STORE_PROFILE_CODE,
   STORE_SETTINGS_DEFAULTS,
   StoreSettingsSchema,
@@ -29,6 +31,84 @@ const ProfileSchema = Type.Object({
 
 export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   const profileRepo = createDrizzleStoreProfileRepository(appContext.db);
+
+  fastify.get(
+    '/clients/:clientId/config/client-settings',
+    {
+      schema: {
+        tags: ['Config'],
+        summary: 'Client-level settings',
+        description:
+          'Per-tenant operational settings (sparse — absent fields mean the code default in ' +
+          '`defaults`). First resident: `processDefinition`, the core process-definition code ' +
+          'stamped onto NEW fulfilments at creation.',
+        params: Type.Object({ clientId: Type.String() }),
+        response: {
+          200: Type.Object({
+            defaults: Type.Record(Type.String(), Type.Unknown()),
+            settings: Type.Record(Type.String(), Type.Unknown()),
+          }),
+          401: ErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const settings = await appContext.repositories.clientSettings.get(clientId);
+      return reply.send({
+        defaults: CLIENT_SETTINGS_DEFAULTS as unknown as Record<string, unknown>,
+        settings: (settings ?? {}) as Record<string, unknown>,
+      });
+    },
+  );
+
+  fastify.put(
+    '/clients/:clientId/config/client-settings',
+    {
+      schema: {
+        tags: ['Config'],
+        summary: 'Update client-level settings',
+        description:
+          'Replaces the sparse settings row wholesale. Changing `processDefinition` affects ' +
+          'NEW fulfilments only — in-flight ones finish on their stamped definition.',
+        params: Type.Object({ clientId: Type.String() }),
+        body: Type.Object({ settings: Type.Record(Type.String(), Type.Unknown()) }),
+        response: {
+          200: Type.Object({ settings: Type.Record(Type.String(), Type.Unknown()) }),
+          400: ErrorSchema,
+          401: ErrorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const { settings } = request.body as { settings: unknown };
+      const parsed = ClientSettingsSchema.safeParse(settings);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
+      }
+      // A definition code that isn't registered would strand new fulfilments
+      // at dispatch time — reject it at the edge instead.
+      if (parsed.data.processDefinition !== undefined) {
+        try {
+          appContext.processRegistry.resolve(parsed.data.processDefinition);
+        } catch {
+          return reply.code(400).send({
+            error: 'ValidationError',
+            message: `Unknown process definition '${parsed.data.processDefinition}'.`,
+          });
+        }
+      }
+      const saved = await appContext.repositories.clientSettings.upsert(clientId, parsed.data);
+      return reply.send({ settings: saved as Record<string, unknown> });
+    },
+  );
 
   fastify.get(
     '/clients/:clientId/config/store-profiles',

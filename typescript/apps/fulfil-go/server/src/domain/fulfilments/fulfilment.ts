@@ -75,6 +75,13 @@ export interface Fulfilment {
   readonly type: FulfilmentType;
   readonly serviceLevel: ServiceLevel;
   readonly status: FulfilmentStatus;
+  /**
+   * OWNERSHIP STAMP: the core process-definition code coordinating this
+   * fulfilment (resolved from client settings at creation, immutable).
+   * Reactions check the stamp before acting — a client config change
+   * migrates new fulfilments only.
+   */
+  readonly processDefinition: string;
   readonly slotStart: Date;
   readonly slotEnd: Date;
   readonly timezone: string;
@@ -103,6 +110,7 @@ export interface CreateFulfilmentInput {
   readonly externalRef: string;
   readonly type: FulfilmentType;
   readonly serviceLevel: ServiceLevel;
+  readonly processDefinition: string;
   readonly slotStart: Date;
   readonly slotEnd: Date;
   readonly timezone: string;
@@ -124,6 +132,7 @@ export const Fulfilment = {
       type: input.type,
       serviceLevel: input.serviceLevel,
       status: 'created',
+      processDefinition: input.processDefinition,
       slotStart: input.slotStart,
       slotEnd: input.slotEnd,
       timezone: input.timezone,

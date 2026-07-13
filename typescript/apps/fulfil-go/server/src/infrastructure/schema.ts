@@ -52,6 +52,9 @@ export type { NewStore, StoreRow } from './schema/stores.js';
 export { storeProfiles } from './schema/store-profiles.js';
 export type { StoreProfileRow } from './schema/store-profiles.js';
 
+export { clientSettings } from './schema/client-settings.js';
+export type { ClientSettingsRow } from './schema/client-settings.js';
+
 export { pickSessions } from './schema/pick-sessions.js';
 export type { PickSessionRow } from './schema/pick-sessions.js';
 
