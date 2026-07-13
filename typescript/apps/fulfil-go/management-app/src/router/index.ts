@@ -7,6 +7,7 @@ import PicksAdminPage from '../pages/PicksAdminPage.vue';
 import DriversPage from '../pages/DriversPage.vue';
 import StoresPage from '../pages/StoresPage.vue';
 import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
+import VehicleMapPage from '../pages/VehicleMapPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -37,6 +38,11 @@ export const router = createRouter({
     },
     // Transport context (owns its user management + config)
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
+    {
+      path: '/transport/map',
+      component: VehicleMapPage,
+      meta: { title: 'Vehicle map' },
+    },
     {
       path: '/transport/store-profiles',
       component: StoreProfilesPage,

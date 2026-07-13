@@ -73,6 +73,23 @@ export function registerTelemetryRoutes(fastify: FastifyInstance, appContext: Ap
       }
 
       const inserted = await appContext.repositories.telemetry.insertBatch(rows);
+
+      // Vehicle-map read model: latest fix per driver (executionSystem
+      // 'own'). Batches arrive oldest-first; the repo's latest-wins guard
+      // makes order irrelevant anyway. clientId is null until the
+      // execution app binds to a tenant (planning-context work).
+      const newest = rows.reduce((a, b) => (a.recordedAt >= b.recordedAt ? a : b));
+      await appContext.repositories.transportPositions.upsertLatest({
+        clientId: null,
+        executionSystem: 'own',
+        vehicleRef: scope.principalId,
+        lat: newest.latitude,
+        lng: newest.longitude,
+        heading: newest.heading ?? null,
+        speed: newest.speed ?? null,
+        recordedAt: newest.recordedAt,
+      });
+
       return reply.code(200).send({ success: true, inserted });
     },
   );

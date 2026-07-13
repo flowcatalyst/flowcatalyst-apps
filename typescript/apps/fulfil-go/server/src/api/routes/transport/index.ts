@@ -24,6 +24,9 @@ import {
 
 const TRANSPORT_IDENTITY = { principalId: 'fulfil-go:transport:system' } as const;
 
+/** A vehicle with no fix inside this window renders as inactive. */
+const ACTIVE_POSITION_WINDOW_MS = 10 * 60 * 1000;
+
 const ClaimableTripsRequestSchema = Type.Object({
   /** EPOD driver reference (e.g. 'CS001') — bound to the offer, not the claim. */
   driverReference: Type.String({ minLength: 1 }),
@@ -139,6 +142,61 @@ export function registerTransportRoutes(
     },
   );
 
+  fastify.get(
+    '/clients/:clientId/transport/positions',
+    {
+      schema: {
+        tags: ['Transport'],
+        summary: 'Latest vehicle positions (the map read model)',
+        description:
+          'One entry per vehicle across execution systems (own app drivers, Uber couriers, ' +
+          'EPOD drivers when that channel lands). `active` = a fix within the last 10 minutes.',
+        params: Type.Object({ clientId: Type.String() }),
+        response: {
+          200: Type.Object({
+            vehicles: Type.Array(
+              Type.Object({
+                executionSystem: Type.String(),
+                vehicleRef: Type.String(),
+                label: Type.Union([Type.String(), Type.Null()]),
+                lat: Type.Number(),
+                lng: Type.Number(),
+                heading: Type.Union([Type.Number(), Type.Null()]),
+                speed: Type.Union([Type.Number(), Type.Null()]),
+                recordedAt: Type.String(),
+                active: Type.Boolean(),
+                tripRef: Type.Union([Type.String(), Type.Null()]),
+              }),
+            ),
+          }),
+          401: UnauthorizedSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const rows = await appContext.repositories.transportPositions.listForClient(clientId);
+      const activeCutoff = Date.now() - ACTIVE_POSITION_WINDOW_MS;
+      return reply.send({
+        vehicles: rows.map((r) => ({
+          executionSystem: r.executionSystem,
+          vehicleRef: r.vehicleRef,
+          label: r.label,
+          lat: r.lat,
+          lng: r.lng,
+          heading: r.heading,
+          speed: r.speed,
+          recordedAt: r.recordedAt.toISOString(),
+          active: r.recordedAt.getTime() >= activeCutoff,
+          tripRef: r.tripRef,
+        })),
+      });
+    },
+  );
+
   fastify.post(
     '/clients/:clientId/transport/orders/:orderId/book',
     {
@@ -232,6 +290,30 @@ export function registerTransportRoutes(
         return reply.code(200).send({ handled: false, note: 'NOT_A_DELIVERY_EVENT' });
       }
       const update = toStatusUpdate(event);
+
+      // Vehicle-map read model — courier_update fires every 20s once
+      // assigned and is usually a STALE status (ACKed below), so the
+      // position upsert happens FIRST, unconditionally.
+      const courierGeo = update.courierLocation ?? update.delivery.courier?.location;
+      if (courierGeo) {
+        const order = await appContext.repositories.transportOrders.findByProviderRef(
+          'uber',
+          update.providerRef,
+        );
+        await appContext.repositories.transportPositions.upsertLatest({
+          clientId: order?.clientId ?? null,
+          executionSystem: 'uber',
+          vehicleRef: update.providerRef,
+          label: update.delivery.courier?.name ?? null,
+          lat: courierGeo.lat,
+          lng: courierGeo.lng,
+          recordedAt: new Date(),
+          tripRef: order?.id ?? null,
+          meta: update.delivery.courier?.vehicleType
+            ? { vehicleType: update.delivery.courier.vehicleType }
+            : null,
+        });
+      }
 
       const result = await runJob(
         { name: 'uber-webhook', identity: TRANSPORT_IDENTITY },

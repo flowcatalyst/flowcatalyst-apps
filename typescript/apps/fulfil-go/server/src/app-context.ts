@@ -92,6 +92,9 @@ import {
 } from './operations/request-transport/request-transport.use-cases.js';
 import { BookTransportOrderUseCase } from './operations/book-transport-order/book-transport-order.use-case.js';
 import { ApplyTransportStatusUseCase } from './operations/apply-transport-status/apply-transport-status.use-case.js';
+import { createDrizzleTransportPositionRepository } from './infrastructure/transport-position-repository.js';
+import type { TransportPositionRepository } from './infrastructure/transport-position-repository.js';
+import { createRouterClient, type RouterClient, type RouterClientConfig } from './transport/router/client.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -128,6 +131,7 @@ export interface AppContextRepositories {
   readonly clientSettings: ClientSettingsRepository;
   readonly transportOrders: TransportOrderRepository;
   readonly processReactions: ProcessReactionRepository;
+  readonly transportPositions: TransportPositionRepository;
 }
 
 export interface AppContextUseCases {
@@ -182,6 +186,8 @@ export interface AppContext {
   readonly pickAuth: PickerAuthService;
   /** Ownership-stamp → coordinator module (docs/process-definitions.md). */
   readonly processRegistry: ProcessRegistry;
+  /** Router service client — null when unconfigured (planning features off). */
+  readonly router: RouterClient | null;
   /** Started by server.ts on boot; routes nudge it after successful writes. */
   readonly sseBroker: SseBroker;
   /**
@@ -213,6 +219,11 @@ export interface AppContextConfig {
    * unset; 'uber' then simply isn't a registered provider.
    */
   readonly uber: UberAdapterConfig | null;
+  /**
+   * Router service (VROOM/OSRM — planning + map legs) — null when the
+   * FULFILGO_ROUTER_* creds are unset.
+   */
+  readonly router: RouterClientConfig | null;
 }
 
 export async function createAppContext(config: AppContextConfig): Promise<AppContext> {
@@ -243,6 +254,8 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const processRegistry = createProcessRegistry([standardDefinition]);
   const transportOrderRepo = createDrizzleTransportOrderRepository(db);
   const processReactionRepo = createDrizzleProcessReactionRepository(db);
+  const transportPositionRepo = createDrizzleTransportPositionRepository(db);
+  const routerClient = config.router ? createRouterClient(config.router) : null;
 
   // Transport provider registry: our-planned channels are always available;
   // 'uber' registers only when credentials are configured.
@@ -307,6 +320,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       clientSettings: clientSettingsRepo,
       transportOrders: transportOrderRepo,
       processReactions: processReactionRepo,
+      transportPositions: transportPositionRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -463,6 +477,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     },
     pickAuth: pickerAuthService,
     processRegistry,
+    router: routerClient,
     sseBroker,
     runWrite,
   };

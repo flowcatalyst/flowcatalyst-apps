@@ -10,6 +10,7 @@ import {
 } from '@fulfil-go/framework';
 import { db, sqlClient } from './infrastructure/db.js';
 import type { UberAdapterConfig } from './transport/uber/adapter.js';
+import type { RouterClientConfig } from './transport/router/client.js';
 import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
@@ -83,6 +84,25 @@ function loadEpodConfig(log: { warn: (msg: string) => void }): {
     return null;
   }
   return { baseUrl: baseUrl.replace(/\/$/, ''), tenantCode, platformUrl, clientId, clientSecret };
+}
+
+/**
+ * Router service config (VROOM/OSRM — planning + map legs). Token is a
+ * FlowCatalyst client-credentials grant at the PLATFORM url (production
+ * router auths against production platform). Unset = router features off.
+ */
+function loadRouterConfig(): RouterClientConfig | null {
+  const baseUrl = process.env['FULFILGO_ROUTER_BASE_URL'];
+  const platformUrl = process.env['FULFILGO_ROUTER_PLATFORM_URL'];
+  const clientId = process.env['FULFILGO_ROUTER_CLIENT_ID'];
+  const clientSecret = process.env['FULFILGO_ROUTER_CLIENT_SECRET'];
+  if (!baseUrl || !platformUrl || !clientId || !clientSecret) return null;
+  return {
+    baseUrl: baseUrl.replace(/\/$/, ''),
+    platformUrl: platformUrl.replace(/\/$/, ''),
+    clientId,
+    clientSecret,
+  };
 }
 
 /**
@@ -240,6 +260,7 @@ async function buildServer() {
     auth: loadAuthConfig(),
     epod: loadEpodConfig(server.log),
     uber: loadUberConfig(),
+    router: loadRouterConfig(),
   });
 
   // onRequest: bind a Scope on ALS for authenticated requests. The hook is
