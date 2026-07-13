@@ -128,6 +128,16 @@ before pushing.
 3. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
 4. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
+5. **Printer management + station label printing** (Andrew 2026-07-13):
+   print X barcodes at the pick station. Shape agreed in principle:
+   printers = store-bound reference data (registry under STORES — base
+   equipment; station picks ITS printer in Settings, like store binding);
+   server renders label payloads (ZPL), the PICKING APP delivers to the
+   LAN printer (cloud server can't reach store LANs — Capacitor raw TCP
+   :9100 or Zebra Browser Print in browser dev). OPEN QUESTION for
+   Andrew: what are the X barcodes — bag/package labels (pre-allocated
+   package refs the packing flow scans), part short-id labels, or
+   product barcodes for scan testing? Content drives the label template.
 
 ## Known issues / loose ends (not fulfil-go blockers)
 
