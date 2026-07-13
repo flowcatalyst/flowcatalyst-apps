@@ -80,6 +80,11 @@ async function loadStores(): Promise<void> {
   }
 }
 
+/** Every store the registry offers this user — one click, no 100-row drag. */
+function selectAllStores(): void {
+  storeFilter.value = stores.value.map((s) => s.storeRef);
+}
+
 async function refresh(): Promise<void> {
   loading.value = true;
   try {
@@ -239,13 +244,24 @@ function fmtPct(value: number | null): string {
         class="w-96"
       />
       <UButton
+        v-if="storeFilter.length < stores.length"
+        size="xs"
+        color="neutral"
+        variant="ghost"
+        icon="i-lucide-list-checks"
+        @click="selectAllStores"
+      >
+        Select all ({{ stores.length }})
+      </UButton>
+      <UButton
         v-if="storeFilter.length > 0"
         size="xs"
         color="neutral"
         variant="ghost"
+        icon="i-lucide-list-x"
         @click="storeFilter = []"
       >
-        Clear ({{ storeFilter.length }})
+        Clear all ({{ storeFilter.length }})
       </UButton>
     </div>
 

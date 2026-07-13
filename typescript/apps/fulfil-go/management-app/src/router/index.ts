@@ -9,11 +9,14 @@ import StoresPage from '../pages/StoresPage.vue';
 import PrintersPage from '../pages/PrintersPage.vue';
 import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
 import VehicleMapPage from '../pages/VehicleMapPage.vue';
+import LoginCallbackPage from '../pages/LoginCallbackPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/flightboard' },
+    // OIDC redirect landing (NOT under /auth — that prefix is dev-proxied).
+    { path: '/login/callback', component: LoginCallbackPage, meta: { title: 'Signing in…' } },
     // Operations — the controller's live view
     { path: '/flightboard', component: FlightboardPage, meta: { title: 'Flightboard' } },
     // Fulfilment context

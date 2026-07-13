@@ -19,6 +19,10 @@
     "./sse": {
       "types": "./src/sse/sse-client.ts",
       "default": "./src/sse/sse-client.ts"
+    },
+    "./auth-web": {
+      "types": "./src/auth/auth-web.ts",
+      "default": "./src/auth/auth-web.ts"
     }
   },
   "scripts": {

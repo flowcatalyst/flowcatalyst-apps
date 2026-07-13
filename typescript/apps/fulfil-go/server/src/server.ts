@@ -89,6 +89,23 @@ function loadEpodConfig(log: { warn: (msg: string) => void }): {
 }
 
 /**
+ * Platform API client config (service account) — backs the management
+ * chrome's client-registry lookups (GET /auth/clients). Same creds the
+ * EPOD provisioning + flowcatalyst:sync flows use.
+ */
+function loadPlatformApiConfig(): {
+  baseUrl: string;
+  clientId: string;
+  clientSecret: string;
+} | null {
+  const baseUrl = process.env['FLOWCATALYST_URL'];
+  const clientId = process.env['FLOWCATALYST_API_CLIENT_ID'];
+  const clientSecret = process.env['FLOWCATALYST_API_CLIENT_SECRET'];
+  if (!baseUrl || !clientId || !clientSecret) return null;
+  return { baseUrl: baseUrl.replace(/\/$/, ''), clientId, clientSecret };
+}
+
+/**
  * Router service config (VROOM/OSRM — planning + map legs). Token is a
  * FlowCatalyst client-credentials grant at the PLATFORM url (production
  * router auths against production platform). Unset = router features off.
@@ -263,6 +280,7 @@ async function buildServer() {
     epod: loadEpodConfig(server.log),
     uber: loadUberConfig(),
     router: loadRouterConfig(),
+    platformApi: loadPlatformApiConfig(),
   });
 
   // onRequest: bind a Scope on ALS for authenticated requests. The hook is

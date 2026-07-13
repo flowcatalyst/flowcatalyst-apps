@@ -74,7 +74,8 @@ const DEV_PICKER_SECRET = 'dev-insecure-picker-session-secret-change-me';
 const DEFAULT_REDIRECTS: Record<FulfilGoApp, readonly string[]> = {
   execution: ['fulfilgo-exec://auth/callback', 'http://localhost:5175/auth/callback'],
   picking: ['fulfilgo-pick://auth/callback', 'http://localhost:5176/auth/callback'],
-  management: ['http://localhost:5177/auth/callback'],
+  // /auth/* is dev-proxied to the server — the SPA callback lives on /login.
+  management: ['http://localhost:5177/login/callback'],
 };
 
 function parseList(value: string | undefined): string[] {

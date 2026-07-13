@@ -1,16 +1,88 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-13 (bag-label-printing session). Everything below is
-COMMITTED on `main`. Read `CLAUDE.md` first (stack, conventions, gotchas,
-dev loop); this file is "where we are + what's next".
-**NEXT SESSION: the Transport PLANNING context** ("Agreed next steps" item 1
-below — Trip aggregate, VROOM via the router, the claim marketplace).
+Last updated: 2026-07-13 (transport-planning + management-chrome session).
+Everything below is COMMITTED on `main`. Read `CLAUDE.md` first (stack,
+conventions, gotchas, dev loop); this file is "where we are + what's next".
+**NEXT SESSION: execution-app migration onto the claim marketplace**
+(replace the demo jobs vertical with /transport/offers — "Agreed next
+steps" item 1), or the fulfilment completion leg (item 2).
 Product decision 2026-07-13: fulfil-go has NO iOS APP — picking stations
 are Android or browser; don't build/maintain ios/ projects. SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
+
+## What landed 2026-07-13 (transport-planning + management-chrome session)
+
+**Transport PLANNING context** (docs/transport-context.md status header has
+the full summary):
+
+- Trip aggregate (`trp_`, `domain/trips/`): offered → claimed | expired |
+  released; driver+vehicle+depot bound at OFFER time; stops = VROOM-ordered
+  dropoffs with leg estimates. Trips ARE the reservation record; member
+  orders carry an expiring `reservation` jsonb hold (expiry frees
+  implicitly — NO sweeper; readers treat a lapsed hold as free).
+- Offer composition (`transport/planning/offer-composition.ts`, unit-
+  tested): anchor claims resolve part SHORT ID → fulfilment externalRef
+  (never substitute — empty offer with reason); hot parcels never
+  consolidate; companions same-store + windows overlap ±30min + drop
+  within 5km of the seed's; caps from NEW store settings maxStopsPerTrip
+  (3) / maxBagsPerTrip (12) + allocationStrategy ('claim' — the port for
+  future 'assign'); VROOM `solve` via the LIVE router, slot-order fallback.
+- ONE marketplace, two doors (api/routes/transport):
+  `/clients/:id/transport/epod/claimable-trips` + `/claims/:groupId`
+  (exact contract of Integral's `FulfilGoClaimClient` proxy) and
+  `/clients/:id/transport/offers` + `/offers/:groupId/claim` (execution
+  app, driver = principal). Claim on 'epod' builds the route plan
+  (`transport/epod/route-plan-mapper.ts` — typed `EpodRoutePlan`
+  mirroring their `FulfilGoRoutePlansSyncTest` payload; items from part
+  lines + PICKED quantities; store NEVER embedded in masterdata) and
+  pushes it SYNCHRONOUSLY via EpodClient; failure releases the whole
+  group → 410 (driver sees offer-expired). Orders → `assigned` on claim
+  (booked+assigned collapse; providerRef = trip id; courier = driver ref +
+  vehicle reg). Idempotent re-claim replays the success response.
+- Events `fulfil-go:transport:trip:{offered,claimed,released}` registered +
+  schemas pushed (`pnpm flowcatalyst:sync` RUN this session). Migration
+  `20260713104149_trips_and_reservations` applied to the dev db.
+- Smoke-verified on :3299 (mock EPOD intake on :3298 + LIVE router VROOM):
+  solo + multi-stop offers, anchor + anchor-held reasons, expiry release,
+  422-rejection release, idempotent re-claim, wrong-driver/unknown 410s,
+  native own-channel claim (no plan push). Smoke rows remain on the dev db
+  (trips trp_0QZSB*/trp_0QZSC*, synthetic orders tro_0QZSMK000000{1,2,3}) —
+  `purge:dev-data` clears them.
+- EPOD offer→store mapping: the store's 'epod' transportProviders entry
+  config carries `{depotReference, territoryReference?, companyReference?,
+  companyName?, transporterReference?, vehicleTypeReference?}` (API-set;
+  dev data: dark-store profile → SMOKE-DEPOT-1). vehicleType defaults to a
+  self-provisioned FULFILGO-VAN — point `vehicleTypeReference` at a REAL
+  EPOD type per store if retyping their vehicle on plan ingest matters.
+
+**Management chrome** (Andrew's mid-session batch):
+
+- Web OIDC sign-in/out: mobile-kit gained the `auth-web` subpath
+  (PKCE pair + token session + localStorage store) and the api client now
+  falls back to dev headers only while SIGNED OUT; management app got
+  `src/auth/session.ts`, `/login/callback` (NOT under /auth — that prefix
+  is dev-proxied), and Sign in/Sign out in the profile popover. NOTE: the
+  platform's "Fulfil Go Login" OAuth client had NO redirect for the SPA —
+  registered `http://localhost:5177/login/callback` by DIRECT INSERT into
+  fc-dev's `oauth_client_redirect_uris` (oac_6FME1MN9PH83B). Do this
+  properly (platform UI/API) for real environments. Full round trip
+  verified up to the IdP login redirect (307) — the interactive login is
+  the remaining manual check.
+- GET /auth/clients (server) → platform client registry via a service-
+  account `FlowCatalystClient` (new `appContext.platform`; 60s cache;
+  v1 = every ACTIVE client — move to the platform's user-scoped
+  /api/me/clients when management runs fully on user tokens). Profile
+  popover switches clients by NAME (falls back to raw-id input when the
+  platform is down).
+- Flightboard store filter: "Select all (N)" + "Clear all" buttons.
+- `pnpm --filter @fulfil-go/server purge:dev-data [-- --client clt_X]` —
+  clears operational data (fulfilments/picks/transport/trips/logs/queues/
+  short-id counters), keeps reference data; refuses non-local DATABASE_URL
+  without --force; --client skips client-blind tables (sync_events, jobs,
+  telemetry, outbox, audit, idempotency).
 
 ## What landed 2026-07-13 (bag-label-printing session)
 
@@ -119,14 +191,9 @@ design doc; read it before touching the replace flow):
   maxStopsPerTrip/maxBagsPerTrip, NO vehicle registry yet; EPOD
   vehicleRegistration carried but not capacity-checked.
 
-- Run `pnpm flowcatalyst:sync` (server running, platform up): registers the
-  new event types (transport:order:*, fulfilment:transport-scheduled,
-  pick:labels-updated),
-  adds fulfilment:picked to the fulfil-go-fulfilment-process subscription,
-  pushes the updated fulfilment:picked schema (serviceLevel/slotStart),
-  and creates the fulfil-go-transport-reactions scheduled job (6-field
-  cron). Until then the transport trigger only fires via manual webhook
-  POSTs (that's how it was smoke-verified).
+- ~~Run `pnpm flowcatalyst:sync`~~ RUN 2026-07-13 (planning session):
+  everything registered incl. transport:trip:* (26 event types, schemas
+  pushed). Re-run after any new event/subscription work as usual.
 - Set per-store transport profiles: the smoke left the CLIENT-WIDE
   'default' transport profile with transportProviders [own, uber(15km)] +
   defaultTransportProvider 'own' on clt_6F9GM54BB5G2Y (dev data).
@@ -141,35 +208,33 @@ design doc; read it before touching the replace flow):
 | Pick            | Full vertical incl. bag-label printing (n/X pre-allocated refs, reprint, replace). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                            |
 | Picker identity | PIN-primary complete. Missing: QR badges, device enrollment, break-glass.                                                                                                                                                     |
 | Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                  |
-| Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: PLANNING context (next), management Transport orders page (API exists), positions/map.                                                           |
-| Planning        | NOT BUILT — the next big build (see below). EPOD claim stubs still answer empty offers / 410.                                                                                                                                 |
-| Jobs (demo)     | Throwaway vertical; still powers execution-app. SUPERSEDED as the 'own' backend by the planning marketplace decision — execution-app will consume the claim surface natively; migrate it when planning lands.                  |
+| Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: management Transport orders page (API exists), EPOD status flow BACK (their workflow/stop webhooks → order machine).                             |
+| Planning        | LIVE — Trip aggregate + group-atomic reservations + offer/claim marketplace (EPOD proxy door + native door), VROOM sequencing, sync route-plan push. Missing: execution-app consumption, real-EPOD-tenant verification.        |
+| Jobs (demo)     | Throwaway vertical; still powers execution-app. SUPERSEDED — the claim marketplace is live server-side; migrate execution-app onto /transport/offers and delete the vertical.                                                  |
 
 ## Agreed next steps (priority order)
 
-1. **Transport PLANNING context** (docs/transport-context.md "Offer
-   composition" + "Allocation strategies", both locked 2026-07-13):
-   Trip aggregate (v1: one order = one trip; VROOM via the router service
-   for multi-stop sequencing — VROOM IS AVAILABLE, see memory);
-   allocation-strategy port with **'claim' default** — ONE offer/claim
-   marketplace for our execution app AND EPOD: offer = a TRIP (multi-stop
-   when possible: same store, overlapping windows, capacity/temperature
-   compatible, capped stops/detour), anchor claims resolve the
-   driver-entered part SHORT ID first + companions by least added detour,
-   RESERVATION covers the whole group atomically (expiring
-   optimistic-locked hold, driver+vehicle bound at OFFER time). Fill the
-   EPOD claim stubs (claimable-trips → reserved offer; claims/:groupId →
-   confirm + SYNCHRONOUS route-plan push via EpodClient, reject = release);
-   execution app consumes the same surface natively (replaces the demo
-   jobs vertical). `listRequestedByStore` on the transport-order repo is
-   the marketplace feed.
-2. Fulfilment completion leg: subscription gains transport:order:delivered/
+1. **Execution-app migration onto the claim marketplace**: consume
+   `/clients/:id/transport/offers` + `/offers/:groupId/claim` natively
+   (offer card with the stop sequence, claim → drive → per-stop
+   delivered/failed reporting — which needs the status-report API below),
+   then DELETE the demo jobs vertical (routes, aggregate, use cases,
+   execution-app pages). ~~Build the planning context~~ BUILT this
+   session — server-side marketplace is live and smoke-verified.
+   Companion piece: a driver status-report surface for 'own' trips
+   (collected/delivered/failed per stop → apply-transport-status), since
+   own-channel execution has no webhook source.
+2. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
+   normalizes (string references only) → TransportOrder machine — plus
+   real-EPOD-tenant verification of the claim proxy + sync plan intake
+   (their branch is still unpushed).
+3. Fulfilment completion leg: subscription gains transport:order:delivered/
    failed/cancelled → PM: ready → completing → completed/partially_completed
    (+ commerce hook seam per docs/process-definitions.md layer 2).
-3. Management Transport orders page (list API already live) + flightboard
+4. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
-4. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
-5. ~~Printer management + bag-label printing~~ BUILT this session (see
+5. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
+6. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
    above + docs/bag-label-printing.md). Remaining: device verification of
    TcpPrint (Android) against a real Zebra on a store LAN.
 

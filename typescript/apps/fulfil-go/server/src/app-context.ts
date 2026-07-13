@@ -1,4 +1,5 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { FlowCatalystClient } from '@flowcatalyst/sdk';
 import { resolveClientSettings } from '@fulfil-go/shared';
 import {
   buildOutboxManager,
@@ -211,6 +212,11 @@ export interface AppContext {
   readonly processRegistry: ProcessRegistry;
   /** Router service client — null when unconfigured (planning features off). */
   readonly router: RouterClient | null;
+  /**
+   * Platform API client (service account) — client registry lookups for the
+   * management chrome. Null when the FLOWCATALYST_* creds are unset.
+   */
+  readonly platform: FlowCatalystClient | null;
   /** Started by server.ts on boot; routes nudge it after successful writes. */
   readonly sseBroker: SseBroker;
   /**
@@ -247,6 +253,12 @@ export interface AppContextConfig {
    * FULFILGO_ROUTER_* creds are unset.
    */
   readonly router: RouterClientConfig | null;
+  /** Platform API creds (FLOWCATALYST_URL + API client) — null when unset. */
+  readonly platformApi: {
+    readonly baseUrl: string;
+    readonly clientId: string;
+    readonly clientSecret: string;
+  } | null;
 }
 
 export async function createAppContext(config: AppContextConfig): Promise<AppContext> {
@@ -284,6 +296,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const routerClient = config.router ? createRouterClient(config.router) : null;
   // ONE EPOD client (token cache shared by provisioning + the claim flow).
   const epodClient = config.epod ? createEpodClient(config.epod) : null;
+  const platformClient = config.platformApi ? new FlowCatalystClient(config.platformApi) : null;
 
   // Transport provider registry: our-planned channels are always available;
   // 'uber' registers only when credentials are configured.
@@ -544,6 +557,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     pickAuth: pickerAuthService,
     processRegistry,
     router: routerClient,
+    platform: platformClient,
     sseBroker,
     runWrite,
   };

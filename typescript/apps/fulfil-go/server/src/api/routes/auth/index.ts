@@ -101,6 +101,78 @@ export function registerAuthRoutes(fastify: FastifyInstance, appContext: AppCont
     },
   );
 
+  // Client registry for the management chrome (name + switcher). Served
+  // from the platform via the SERVICE ACCOUNT (v1: every ACTIVE client —
+  // when management runs on real user tokens, this can move to the
+  // platform's user-scoped /api/me/clients). Cached briefly: the registry
+  // changes rarely and every page render asks.
+  let clientsCache: {
+    at: number;
+    clients: { id: string; name: string; identifier: string }[];
+  } | null = null;
+  const CLIENTS_CACHE_MS = 60_000;
+
+  fastify.get(
+    '/auth/clients',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Clients available to the management UI',
+        response: {
+          200: Type.Object({
+            clients: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                name: Type.String(),
+                identifier: Type.String(),
+              }),
+            ),
+          }),
+          401: ErrorResponseSchema,
+          503: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({
+          error: 'authentication',
+          code: 'UNAUTHENTICATED',
+          message: 'Authentication required.',
+          details: null,
+        });
+      }
+      if (!appContext.platform) {
+        return reply.code(503).send({
+          error: 'infrastructure',
+          code: 'PLATFORM_NOT_CONFIGURED',
+          message: 'FLOWCATALYST_URL / API credentials are not configured on this server.',
+          details: null,
+        });
+      }
+      if (clientsCache && Date.now() - clientsCache.at < CLIENTS_CACHE_MS) {
+        return reply.send({ clients: clientsCache.clients });
+      }
+      const result = await appContext.platform.clients().list();
+      if (result.isErr()) {
+        request.log.error({ err: result.error }, 'platform clients list failed');
+        // Serve the stale cache over an error — the switcher degrades soft.
+        if (clientsCache) return reply.send({ clients: clientsCache.clients });
+        return reply.code(503).send({
+          error: 'infrastructure',
+          code: 'PLATFORM_UNAVAILABLE',
+          message: 'The platform client registry is unreachable.',
+          details: null,
+        });
+      }
+      const clients = (result.value.clients ?? [])
+        .filter((c) => c.status === 'ACTIVE')
+        .map((c) => ({ id: c.id, name: c.name, identifier: c.identifier }));
+      clientsCache = { at: Date.now(), clients };
+      return reply.send({ clients });
+    },
+  );
+
   function resolveClient(reply: FastifyReply, app: string | undefined): ResolvedOidcClient | null {
     const { oidcBroker } = appContext.auth;
     if (!oidcBroker) {

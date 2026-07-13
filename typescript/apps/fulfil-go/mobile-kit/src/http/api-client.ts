@@ -16,7 +16,11 @@ export interface TokenProvider {
 export interface ApiClientOptions {
   readonly baseUrl: string;
   readonly tokens?: TokenProvider;
-  /** Browser-dev fallback principal (sent as x-user-id). Ignored when tokens provided. */
+  /**
+   * Browser-dev fallback principal (sent as x-user-id). When `tokens` is
+   * also provided, a bearer wins while SIGNED IN — the dev headers only
+   * cover the signed-out state (dev servers with the fallback enabled).
+   */
   readonly devUserId?: string;
   /** Display name for the dev-fallback principal (sent as x-user-name). */
   readonly devUserName?: string;
@@ -45,7 +49,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   async function authHeaders(): Promise<Record<string, string>> {
     if (options.tokens) {
       const token = await options.tokens.getAccessToken();
-      return token ? { authorization: `Bearer ${token}` } : {};
+      if (token) return { authorization: `Bearer ${token}` };
+      // Signed out — fall through to the dev fallback when configured.
     }
     if (options.devUserId) {
       return {
