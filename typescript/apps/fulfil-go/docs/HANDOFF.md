@@ -68,6 +68,16 @@ before pushing.
 
 ## ⚠️ Operational to-dos before the platform loop covers transport
 
+- **Router creds REJECTED by production platform** (invalid_client at
+  https://platform.inhanceapps.com/oauth/token with
+  client_id=prn_6F9TTP8ZANC2T): fc convention is oac_… OAuth client ids
+  with prn_… as the service-account principal — likely needs the oac_ id
+  (or the client provisioned). Creds live in server/.env
+  (FULFILGO_ROUTER_*); the RouterClient works unchanged once fixed.
+- Vehicle map tiles: VITE_MAP_STYLE_URL points at the MapLibre demo style
+  until the router tile stack is exposed (no tile endpoints in the router
+  OpenAPI spec — ask Andrew for the style/tile URL).
+
 - Run `pnpm flowcatalyst:sync` (server running, platform up): registers the
   new event types (transport:order:*, fulfilment:transport-scheduled),
   adds fulfilment:picked to the fulfil-go-fulfilment-process subscription,
