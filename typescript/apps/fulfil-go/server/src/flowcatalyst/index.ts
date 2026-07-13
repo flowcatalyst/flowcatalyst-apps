@@ -37,9 +37,12 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
         description:
           'The fulfilment process manager: subscribes to pick-context outcomes ' +
           'and advances part + fulfilment state (picking → picked/short_picked ' +
-          '→ ready, or the all-or-nothing failure fan-out).',
+          '→ ready, or the all-or-nothing failure fan-out). Also reacts to its ' +
+          'own fulfilment:created to dispatch EPOD master-data provisioning ' +
+          'when an origin store runs the EPOD execution system.',
         target: `${config.publicBaseUrl}/processes/fulfilment`,
         eventTypes: [
+          { eventTypeCode: 'fulfil-go:fulfilment:fulfilment:created' },
           { eventTypeCode: 'fulfil-go:pick:pick:claimed' },
           { eventTypeCode: 'fulfil-go:pick:pick:picked' },
           { eventTypeCode: 'fulfil-go:pick:pick:short-picked' },

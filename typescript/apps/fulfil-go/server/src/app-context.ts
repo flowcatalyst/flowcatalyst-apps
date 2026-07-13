@@ -61,6 +61,11 @@ import {
   RegisterPartPickedUseCase,
   RegisterPartPickingUseCase,
 } from './operations/fulfilment-pick-process/fulfilment-pick-process.use-cases.js';
+import {
+  ProvisionEpodUseCase,
+  RequestEpodProvisioningUseCase,
+} from './operations/epod-provisioning/epod-provisioning.use-cases.js';
+import { createEpodClient, type EpodClientConfig } from './transport/epod/client.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -112,6 +117,8 @@ export interface AppContextUseCases {
   readonly registerPartPicking: RegisterPartPickingUseCase;
   readonly registerPartPicked: RegisterPartPickedUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
+  readonly requestEpodProvisioning: RequestEpodProvisioningUseCase;
+  readonly provisionEpod: ProvisionEpodUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -160,6 +167,12 @@ export interface AppContextConfig {
   /** Dispatch pool for fulfil-go-emitted dispatch jobs. */
   readonly dispatchPoolCode: string;
   readonly auth: AuthConfig;
+  /**
+   * EPOD (Integral) integration client config — null when
+   * FULFILGO_EPOD_BASE_URL / FULFILGO_EPOD_TENANT_CODE (or the platform
+   * service-account creds) are unset; provisioning then logs + skips.
+   */
+  readonly epod: EpodClientConfig | null;
 }
 
 export async function createAppContext(config: AppContextConfig): Promise<AppContext> {
@@ -275,6 +288,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         fulfilmentLogRepo,
         syncEventRepo,
         pickSessionProjection,
+        // Sort-algorithm hydration from store profiles, captured onto the
+        // pick at intake (same shape as create-fulfilment's lead times).
+        // loadStoreSettingsResolver joins the ambient tx — pool-safe here.
+        async (cId, storeRef) => {
+          const resolver = await loadStoreSettingsResolver(db, cId, [storeRef]);
+          return resolver.resolve(storeRef).pickSortAlgorithm;
+        },
       ),
       claimPick: new ClaimPickUseCase(
         uow,
@@ -317,6 +337,20 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         aggregateRegistry,
         fulfilmentRepo,
         fulfilmentLogRepo,
+      ),
+      requestEpodProvisioning: new RequestEpodProvisioningUseCase(
+        uow,
+        db,
+        fulfilmentRepo,
+        fulfilmentLogRepo,
+        outboxManager,
+        { publicBaseUrl: config.publicBaseUrl, dispatchPoolCode: config.dispatchPoolCode },
+      ),
+      provisionEpod: new ProvisionEpodUseCase(
+        transactionManager,
+        fulfilmentRepo,
+        fulfilmentLogRepo,
+        config.epod ? createEpodClient(config.epod) : null,
       ),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),

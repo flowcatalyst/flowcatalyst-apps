@@ -18,10 +18,13 @@ import { createDrizzleStoreProfileRepository } from '../../../infrastructure/sto
  */
 const ErrorSchema = Type.Object({ error: Type.String() }, { additionalProperties: true });
 
+// Settings values are heterogeneous since the execution-system fields landed
+// (numbers + string[] + string) — the response/request schema is deliberately
+// loose here; `StoreSettingsSchema` (zod) is the real validator on writes.
 const ProfileSchema = Type.Object({
   code: Type.String(),
   name: Type.String(),
-  settings: Type.Record(Type.String(), Type.Number()),
+  settings: Type.Record(Type.String(), Type.Unknown()),
 });
 
 export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppContext): void {
@@ -40,7 +43,7 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
         params: Type.Object({ clientId: Type.String() }),
         response: {
           200: Type.Object({
-            defaults: Type.Record(Type.String(), Type.Number()),
+            defaults: Type.Record(Type.String(), Type.Unknown()),
             profiles: Type.Array(ProfileSchema),
           }),
           401: ErrorSchema,
@@ -54,11 +57,11 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
       const { clientId } = request.params as { clientId: string };
       const profiles = await profileRepo.listByClient(clientId);
       return reply.send({
-        defaults: STORE_SETTINGS_DEFAULTS as unknown as Record<string, number>,
+        defaults: STORE_SETTINGS_DEFAULTS as unknown as Record<string, unknown>,
         profiles: profiles.map((p) => ({
           code: p.code,
           name: p.name,
-          settings: p.settings as Record<string, number>,
+          settings: p.settings as Record<string, unknown>,
         })),
       });
     },
@@ -97,7 +100,7 @@ export function registerConfigRoutes(fastify: FastifyInstance, appContext: AppCo
       return reply.send({
         code: saved.code,
         name: saved.name,
-        settings: saved.settings as Record<string, number>,
+        settings: saved.settings as Record<string, unknown>,
       });
     },
   );

@@ -27,6 +27,8 @@ import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
 import { registerProcessRoutes } from './api/routes/processes/index.js';
+import { registerEpodRoutes } from './api/routes/epod/index.js';
+import { registerTransportRoutes } from './api/routes/transport/index.js';
 import { listenForSyncEvents } from './sse/sync-notify.js';
 import { schedulePruneTask } from './scheduling/prune-events.js';
 import { scheduleDevReleaseSweep } from './scheduling/dev-release-sweep.js';
@@ -52,6 +54,35 @@ const DISPATCH_POOL_CODE = process.env['FULFILGO_DISPATCH_POOL'] ?? 'fulfil-go-d
  * Unset (local dev) = per-request warning + bypass. NEVER deploy unset.
  */
 const FLOWCATALYST_SIGNING_SECRET = process.env['FLOWCATALYST_SIGNING_SECRET'];
+
+/**
+ * EPOD (Integral) integration — all five must be present for a live client:
+ * the EPOD host + tenant code, and the FlowCatalyst service-account creds
+ * (their endpoints validate our platform service tokens via fc.or-passport).
+ * Any missing → provisioning requests log + skip (dev friendliness).
+ */
+function loadEpodConfig(log: { warn: (msg: string) => void }): {
+  baseUrl: string;
+  tenantCode: string;
+  platformUrl: string;
+  clientId: string;
+  clientSecret: string;
+} | null {
+  const baseUrl = process.env['FULFILGO_EPOD_BASE_URL'];
+  const tenantCode = process.env['FULFILGO_EPOD_TENANT_CODE'];
+  if (!baseUrl || !tenantCode) return null;
+  const platformUrl = process.env['FLOWCATALYST_URL'];
+  const clientId = process.env['FLOWCATALYST_API_CLIENT_ID'];
+  const clientSecret = process.env['FLOWCATALYST_API_CLIENT_SECRET'];
+  if (!platformUrl || !clientId || !clientSecret) {
+    log.warn(
+      'FULFILGO_EPOD_BASE_URL is set but FLOWCATALYST_URL / FLOWCATALYST_API_CLIENT_ID / ' +
+        'FLOWCATALYST_API_CLIENT_SECRET are not — EPOD provisioning will be skipped.',
+    );
+    return null;
+  }
+  return { baseUrl: baseUrl.replace(/\/$/, ''), tenantCode, platformUrl, clientId, clientSecret };
+}
 
 /**
  * Resolve the principal for an inbound request.
@@ -170,6 +201,7 @@ async function buildServer() {
     publicBaseUrl: PUBLIC_BASE_URL,
     dispatchPoolCode: DISPATCH_POOL_CODE,
     auth: loadAuthConfig(),
+    epod: loadEpodConfig(server.log),
   });
 
   // onRequest: bind a Scope on ALS for authenticated requests. The hook is
@@ -217,6 +249,12 @@ async function buildServer() {
         { name: 'PickAuth', description: 'Picker station auth: device-bound PIN/QR login' },
         { name: 'Stores', description: 'Store registry (reference data pickers bind to)' },
         { name: 'Picks', description: 'Pick work items: platform intake + picker claim' },
+        {
+          name: 'Transport',
+          description:
+            'Transport execution channels: EPOD provisioning + claim surface ' +
+            '(claim endpoints are stubs until the transport planning context lands)',
+        },
       ],
     },
   });
@@ -249,6 +287,10 @@ async function buildServer() {
   registerProcessRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
   });
+  registerEpodRoutes(server, appContext, {
+    webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
+  });
+  registerTransportRoutes(server, appContext);
 
   if (appContext.auth.config.picker.usingDevSecret) {
     server.log.warn(

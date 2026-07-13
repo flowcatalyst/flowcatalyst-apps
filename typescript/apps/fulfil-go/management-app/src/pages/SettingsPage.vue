@@ -13,7 +13,9 @@ import PageHeader from '../components/PageHeader.vue';
 interface Profile {
   code: string;
   name: string;
-  settings: Record<string, number>;
+  /** Numeric fields edited here; execution-system fields (string/string[])
+   *  are API-set for now and must survive a UI save untouched. */
+  settings: Record<string, unknown>;
 }
 
 const FIELDS: Array<{ key: string; label: string; help: string }> = [
@@ -49,10 +51,20 @@ const FIELDS: Array<{ key: string; label: string; help: string }> = [
   },
 ];
 
-const defaults = ref<Record<string, number>>({});
+/** Pick sort algorithm — the one non-numeric field this page edits.
+ *  '' = inherit (field omitted from the profile's settings on save). */
+const SORT_ALGORITHMS = [
+  { label: 'Walk sequence (planogram walk order)', value: 'walk-sequence' },
+  { label: 'Aisle → bay → shelf', value: 'aisle-bay-shelf' },
+  { label: 'As received (upstream order)', value: 'as-received' },
+];
+
+const defaults = ref<Record<string, unknown>>({});
 const profiles = ref<Profile[]>([]);
 const selectedCode = ref('default');
 const form = reactive<Record<string, number | ''>>({});
+/** Separate from the numeric FIELDS loop — string-valued select. */
+const formPickSort = ref<string>('');
 const formName = ref('');
 const newProfile = reactive({ code: '', name: '' });
 const busy = ref(false);
@@ -66,14 +78,30 @@ const defaultProfile = computed(() => profiles.value.find((p) => p.code === 'def
 function inheritedValue(key: string): number {
   if (selectedCode.value !== 'default') {
     const fromDefault = defaultProfile.value?.settings[key];
-    if (fromDefault !== undefined) return fromDefault;
+    if (typeof fromDefault === 'number') return fromDefault;
   }
-  return defaults.value[key] ?? 0;
+  const fallback = defaults.value[key];
+  return typeof fallback === 'number' ? fallback : 0;
 }
+
+/** What pickSortAlgorithm inherits when unset on THIS profile. */
+const inheritedPickSort = computed<string>(() => {
+  if (selectedCode.value !== 'default') {
+    const fromDefault = defaultProfile.value?.settings['pickSortAlgorithm'];
+    if (typeof fromDefault === 'string') return fromDefault;
+  }
+  const fallback = defaults.value['pickSortAlgorithm'];
+  return typeof fallback === 'string' ? fallback : 'walk-sequence';
+});
 
 function loadForm(): void {
   const settings = selected.value?.settings ?? {};
-  for (const field of FIELDS) form[field.key] = settings[field.key] ?? '';
+  for (const field of FIELDS) {
+    const value = settings[field.key];
+    form[field.key] = typeof value === 'number' ? value : '';
+  }
+  const sort = settings['pickSortAlgorithm'];
+  formPickSort.value = typeof sort === 'string' ? sort : '';
   formName.value = selected.value?.name ?? selectedCode.value;
 }
 
@@ -96,11 +124,16 @@ async function save(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    const settings: Record<string, number> = {};
+    // Start from the saved settings so API-set fields the UI doesn't edit
+    // (executionSystems / defaultExecutionSystem) survive the PUT replace.
+    const settings: Record<string, unknown> = { ...selected.value?.settings };
     for (const field of FIELDS) {
       const value = form[field.key];
       if (value !== '' && value !== undefined) settings[field.key] = Number(value);
+      else delete settings[field.key];
     }
+    if (formPickSort.value !== '') settings['pickSortAlgorithm'] = formPickSort.value;
+    else delete settings['pickSortAlgorithm'];
     await api.json(`/clients/${clientId.value}/config/store-profiles/${selectedCode.value}`, {
       method: 'PUT',
       body: { name: formName.value || selectedCode.value, settings },
@@ -232,6 +265,18 @@ watch(selectedCode, loadForm);
                 (v: string | number | null) =>
                   (form[field.key] = v === '' || v === null ? '' : Number(v))
               "
+            />
+          </UFormField>
+
+          <UFormField
+            label="Pick sort algorithm"
+            help="How the station orders pick lines. Captured onto each pick at intake — a change
+              affects new picks only, never a picker mid-trolley."
+          >
+            <USelect
+              v-model="formPickSort"
+              :items="[{ label: `Inherit (${inheritedPickSort})`, value: '' }, ...SORT_ALGORITHMS]"
+              class="w-64"
             />
           </UFormField>
         </div>

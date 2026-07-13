@@ -1,9 +1,10 @@
 /**
  * POST /processes/fulfilment — the fulfilment process manager's single
  * inbound webhook. One platform subscription binds every pick event type
- * onto it (dataOnly: the body is the event's `data`; metadata rides x-fc-*
- * headers); this route dispatches on `x-fc-event-type` to the decider use
- * cases in operations/fulfilment-pick-process.
+ * PLUS the fulfilment's own `created` event onto it (dataOnly: the body is
+ * the event's `data`; metadata rides x-fc-* headers); this route dispatches
+ * on `x-fc-event-type` to the decider use cases in
+ * operations/fulfilment-pick-process and operations/epod-provisioning.
  *
  * Delivery semantics: the platform retries on non-2xx. Idempotent replays
  * and stale/out-of-order events surface as business_rule / not_found
@@ -13,6 +14,7 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { isFailure, runJob, type Result } from '@fulfil-go/framework';
+import type { FulfilmentCreatedData } from '../../../domain/fulfilments/events/fulfilment-created.event.js';
 import type { PickClaimedData } from '../../../domain/picks/events/pick-claimed.event.js';
 import type {
   PickFailedData,
@@ -27,6 +29,7 @@ import {
 const PROCESS_IDENTITY = { principalId: 'fulfil-go:process:fulfilment' } as const;
 
 const SUPPORTED = [
+  'fulfil-go:fulfilment:fulfilment:created',
   'fulfil-go:pick:pick:claimed',
   'fulfil-go:pick:pick:picked',
   'fulfil-go:pick:pick:short-picked',
@@ -99,8 +102,20 @@ export function registerProcessRoutes(
       const result = await runJob(
         { name: 'fulfilment-pick-process', identity: PROCESS_IDENTITY },
         (): Promise<Result<unknown>> =>
-          appContext.runWrite(() => {
+          appContext.runWrite((): Promise<Result<unknown>> => {
             switch (eventType as SupportedEventType) {
+              case 'fulfil-go:fulfilment:fulfilment:created': {
+                // EPOD pre-provisioning decider: when an origin store's
+                // settings select EPOD, dispatch the provisioning job.
+                // Guarded by the 'epod-provision-dispatched' log entry (no
+                // aggregate transition exists for this decision) — replays
+                // return a business_rule failure ACKed below.
+                const data = payload as FulfilmentCreatedData;
+                return appContext.useCases.requestEpodProvisioning.execute({
+                  clientId: data.clientId,
+                  fulfilmentId: data.fulfilmentId,
+                });
+              }
               case 'fulfil-go:pick:pick:claimed': {
                 const data = payload as PickClaimedData;
                 return appContext.useCases.registerPartPicking.execute({

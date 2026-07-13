@@ -19,6 +19,7 @@ import type { sync } from '@flowcatalyst/sdk';
 
 import { FulfilmentCreatedEventType } from '../domain/fulfilments/events/fulfilment-created.event.js';
 import { FulfilmentCancelledEventType } from '../domain/fulfilments/events/fulfilment-cancelled.event.js';
+import { FulfilmentEpodProvisionRequestedEventType } from '../domain/fulfilments/events/fulfilment-epod-provision-requested.event.js';
 import { FulfilmentPartPickRequestedEventType } from '../domain/fulfilments/events/fulfilment-part-pick-requested.event.js';
 import {
   FulfilmentFailedEventType,
@@ -49,6 +50,7 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   FulfilmentPartFailedEventType,
   FulfilmentPickedEventType,
   FulfilmentFailedEventType,
+  FulfilmentEpodProvisionRequestedEventType,
   // Pick context (the fulfilment process manager subscribes to these)
   PickCreatedEventType,
   PickClaimedEventType,

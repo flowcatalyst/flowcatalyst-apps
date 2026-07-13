@@ -3,9 +3,11 @@ import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 /**
  * Append-only per-fulfilment timeline, written in the same tx as the state
- * change it describes (sync_events pattern). Observability only — nothing
- * reads it to make decisions, and it stays OUT of the aggregate so unbounded
- * growth never rides the optimistic-concurrency payload.
+ * change it describes (sync_events pattern). Observability first — the one
+ * sanctioned decision-making read is the process manager's dispatch guard
+ * (`hasEntry`, e.g. category 'epod-provision-dispatched' — deciders with no
+ * aggregate transition to lean on). It stays OUT of the aggregate so
+ * unbounded growth never rides the optimistic-concurrency payload.
  */
 export const fulfilmentProcessingLog = pgTable(
   'fulfilment_processing_log',
