@@ -17,6 +17,13 @@ export const FulfilGoPermission = {
   ViewStorePicks: 'viewStorePicks',
   ClaimPick: 'claimPick',
   ReportPickOutcome: 'reportPickOutcome',
+  // Transport-context identity administration (platform-OIDC admins).
+  ManageDrivers: 'manageDrivers',
+  // Depot-scoped driver permissions — issued by the DRIVER session token
+  // after staff-code/PIN login (the picker pattern; Andrew 2026-07-13).
+  ViewStoreTransport: 'viewStoreTransport',
+  ClaimTrip: 'claimTrip',
+  ReportTransportOutcome: 'reportTransportOutcome',
 } as const;
 export type FulfilGoPermission = (typeof FulfilGoPermission)[keyof typeof FulfilGoPermission];
 
@@ -40,6 +47,7 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
       FulfilGoPermission.CreateJob,
       FulfilGoPermission.AssignJob,
       FulfilGoPermission.ManagePickers,
+      FulfilGoPermission.ManageDrivers,
       FulfilGoPermission.ManageStores,
     ],
     [FulfilGoRole.FieldWorker]: [
@@ -61,4 +69,17 @@ export const PICKER_SESSION_PERMISSIONS: readonly FulfilGoPermission[] = [
   FulfilGoPermission.ViewStorePicks,
   FulfilGoPermission.ClaimPick,
   FulfilGoPermission.ReportPickOutcome,
+];
+
+/**
+ * Permissions a driver holds for the duration of an app session. Granted by
+ * the driver login (staff code + PIN — the picker pattern) and stamped into
+ * the session token; drivers are NOT platform principals. Depot scoping
+ * (which store's trips) comes from `scope.attributes.storeRef`.
+ */
+export const DRIVER_SESSION_PERMISSIONS: readonly FulfilGoPermission[] = [
+  FulfilGoPermission.ViewStoreTransport,
+  FulfilGoPermission.ClaimTrip,
+  FulfilGoPermission.ReportTransportOutcome,
+  FulfilGoPermission.WriteTelemetry,
 ];

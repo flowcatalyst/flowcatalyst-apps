@@ -19,6 +19,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { ScopeStore, isFailure, runJob, type Result } from '@fulfil-go/framework';
 import type { AppContext } from '../../../app-context.js';
 import { isTransportOrderId } from '../../../domain/transport-orders/ids.js';
+import { asDriverUserId, isDriverUserId } from '../../../domain/driver-identity/ids.js';
 import {
   OFFER_GONE,
   TRIP_ALREADY_CLAIMED,
@@ -582,9 +583,14 @@ export function registerTransportRoutes(
       schema: {
         tags: ['Transport'],
         summary: 'Compose + reserve a trip offer for the authenticated driver',
+        description:
+          'A DRIVER SESSION (staff code + PIN login) needs no body — the depot comes from ' +
+          "the session and the vehicle defaults to the driver's registered one. Other " +
+          'principals (dev fallback, admins) must name the store.',
         params: Type.Object({ clientId: Type.String() }),
         body: Type.Object({
-          storeRef: Type.String({ minLength: 1 }),
+          /** Required unless the caller is a driver session (depot-bound). */
+          storeRef: Type.Optional(Type.String({ minLength: 1 })),
           vehicleRef: Type.Optional(Type.String()),
           /** Anchor claim — driver-entered part reference. */
           orderReference: Type.Optional(Type.String()),
@@ -594,6 +600,7 @@ export function registerTransportRoutes(
             offers: Type.Array(Type.Unknown()),
             reason: Type.Optional(Type.String()),
           }),
+          400: Type.Object({ error: Type.String(), message: Type.String() }),
           401: UnauthorizedSchema,
           500: Type.Object({ error: Type.String(), message: Type.String() }),
         },
@@ -606,16 +613,34 @@ export function registerTransportRoutes(
       }
       const { clientId } = request.params as { clientId: string };
       const body = request.body as {
-        storeRef: string;
+        storeRef?: string;
         vehicleRef?: string;
         orderReference?: string;
       };
+
+      // Driver session: depot + default vehicle ride the identity.
+      const driverRef = scope.attributes['driverRef'] ?? null;
+      const storeRef = body.storeRef ?? (driverRef ? scope.attributes['storeRef'] : undefined);
+      if (!storeRef) {
+        return reply
+          .code(400)
+          .send({ error: 'STORE_REQUIRED', message: 'storeRef is required for this principal.' });
+      }
+      let vehicleRef = body.vehicleRef;
+      if (!vehicleRef && driverRef && isDriverUserId(driverRef)) {
+        const driver = await appContext.repositories.driverUsers.findById(
+          clientId,
+          asDriverUserId(driverRef),
+        );
+        vehicleRef = driver?.defaultVehicleReg ?? undefined;
+      }
+
       const result = await appContext.useCases.composeTransportOffer.execute({
         clientId,
         channel: 'own',
-        driverRef: scope.principalId,
-        vehicleRef: body.vehicleRef ?? 'unspecified',
-        storeRef: body.storeRef,
+        driverRef: driverRef ?? scope.principalId,
+        vehicleRef: vehicleRef ?? 'unspecified',
+        storeRef,
         orderRef: body.orderReference ?? null,
       });
       return sendOfferResult(reply, result);

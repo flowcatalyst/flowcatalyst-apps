@@ -28,6 +28,8 @@ import { registerPickRoutes } from './api/routes/picks/index.js';
 import { registerPickLabelRoutes } from './api/routes/picks/labels.js';
 import { registerPickerAdminRoutes } from './api/routes/pickers/index.js';
 import { registerPickAuthRoutes } from './api/routes/pick-auth/index.js';
+import { registerDriverAdminRoutes } from './api/routes/drivers/index.js';
+import { registerDriverAuthRoutes } from './api/routes/driver-auth/index.js';
 import { registerStoreRoutes } from './api/routes/stores/index.js';
 import { registerPrinterRoutes } from './api/routes/printers/index.js';
 import { registerProcessRoutes } from './api/routes/processes/index.js';
@@ -164,7 +166,7 @@ async function extractRequestToken(
   req: FastifyRequest,
   appContext: AppContext,
 ): Promise<RequestToken | null> {
-  const { tokenValidator, pickerTokenService, config } = appContext.auth;
+  const { tokenValidator, pickerTokenService, driverTokenService, config } = appContext.auth;
 
   const authHeader = req.headers['authorization'];
   if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
@@ -188,6 +190,25 @@ async function extractRequestToken(
           };
         } catch (err) {
           req.log.warn({ err }, 'picker session token validation failed');
+        }
+      } else if (driverTokenService.isPickerToken(token)) {
+        // Driver session (issuer `fulfilgo-drive`) — same token machinery,
+        // driver attributes: storeRef is the HOME DEPOT, driverRef the id.
+        try {
+          const claims = await driverTokenService.verifyAccess(token);
+          const attributes: Record<string, string> = {
+            clientId: claims.clientId,
+            storeRef: claims.storeRef,
+            driverRef: claims.pickerId,
+          };
+          if (claims.deviceId) attributes['deviceId'] = claims.deviceId;
+          return {
+            sub: claims.pickerId,
+            permissions: new Set(claims.permissions),
+            attributes,
+          };
+        } catch (err) {
+          req.log.warn({ err }, 'driver session token validation failed');
         }
       } else if (tokenValidator) {
         try {
@@ -363,6 +384,8 @@ async function buildServer() {
   registerPickLabelRoutes(server, appContext);
   registerPickerAdminRoutes(server, appContext);
   registerPickAuthRoutes(server, appContext);
+  registerDriverAdminRoutes(server, appContext);
+  registerDriverAuthRoutes(server, appContext);
   registerStoreRoutes(server, appContext);
   registerPrinterRoutes(server, appContext);
   registerProcessRoutes(server, appContext, {

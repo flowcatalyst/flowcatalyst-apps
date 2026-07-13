@@ -107,6 +107,19 @@ import {
   type RouterClientConfig,
 } from './transport/router/client.js';
 import { createDrizzleTripRepository } from './infrastructure/trip-repository.js';
+import { createDrizzleDriverUserRepository } from './infrastructure/driver-user-repository.js';
+import { registerDriverUser } from './infrastructure/register-driver-user.js';
+import { DRIVER_USER_ID_PREFIX } from './domain/driver-identity/ids.js';
+import { DRIVER_USER_TYPE } from './domain/driver-identity/driver-user.js';
+import type { DriverUserRepository } from './domain/driver-identity/driver-user.repository.js';
+import { CreateDriverUseCase } from './operations/create-driver/create-driver.use-case.js';
+import {
+  DeleteDriverUseCase,
+  ReactivateDriverUseCase,
+  ReassignDriverUseCase,
+  SuspendDriverUseCase,
+} from './operations/manage-driver/manage-driver.use-cases.js';
+import { createDriverAuthService, type DriverAuthService } from './auth/driver-auth-service.js';
 import { registerTrip } from './infrastructure/register-trip.js';
 import { TRIP_ID_PREFIX } from './domain/trips/ids.js';
 import { TRIP_TYPE } from './domain/trips/trip.js';
@@ -152,6 +165,7 @@ export interface AppContextRepositories {
   readonly processReactions: ProcessReactionRepository;
   readonly transportPositions: TransportPositionRepository;
   readonly trips: TripRepository;
+  readonly driverUsers: DriverUserRepository;
 }
 
 export interface AppContextUseCases {
@@ -180,6 +194,11 @@ export interface AppContextUseCases {
   readonly applyTransportStatus: ApplyTransportStatusUseCase;
   readonly composeTransportOffer: ComposeTransportOfferUseCase;
   readonly claimTransportTrip: ClaimTransportTripUseCase;
+  readonly createDriver: CreateDriverUseCase;
+  readonly suspendDriver: SuspendDriverUseCase;
+  readonly reactivateDriver: ReactivateDriverUseCase;
+  readonly reassignDriver: ReassignDriverUseCase;
+  readonly deleteDriver: DeleteDriverUseCase;
   readonly createJob: CreateJobUseCase;
   readonly assignJob: AssignJobUseCase;
   readonly acceptJob: AcceptJobUseCase;
@@ -197,6 +216,8 @@ export interface AppContextAuth {
   readonly oidcBroker: MobileOidcBroker | null;
   /** Fulfil-go-issued picker session tokens (shared-station picking app). */
   readonly pickerTokenService: PickerTokenService;
+  /** Driver session tokens — same machinery, issuer `fulfilgo-drive`. */
+  readonly driverTokenService: PickerTokenService;
 }
 
 export interface AppContext {
@@ -208,6 +229,8 @@ export interface AppContext {
   readonly auth: AppContextAuth;
   /** Picker station login (PIN/QR → session token). */
   readonly pickAuth: PickerAuthService;
+  /** Driver app login (staff code + PIN → depot-scoped session token). */
+  readonly driverAuth: DriverAuthService;
   /** Ownership-stamp → coordinator module (docs/process-definitions.md). */
   readonly processRegistry: ProcessRegistry;
   /** Router service client — null when unconfigured (planning features off). */
@@ -273,6 +296,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     [PICK_ID_PREFIX]: PICK_TYPE,
     [TRANSPORT_ORDER_ID_PREFIX]: TRANSPORT_ORDER_TYPE,
     [TRIP_ID_PREFIX]: TRIP_TYPE,
+    [DRIVER_USER_ID_PREFIX]: DRIVER_USER_TYPE,
   });
 
   const jobRepo = createDrizzleJobRepository(db);
@@ -293,6 +317,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const processReactionRepo = createDrizzleProcessReactionRepository(db);
   const transportPositionRepo = createDrizzleTransportPositionRepository(db);
   const tripRepo = createDrizzleTripRepository(db);
+  const driverUserRepo = createDrizzleDriverUserRepository(db);
   const routerClient = config.router ? createRouterClient(config.router) : null;
   // ONE EPOD client (token cache shared by provisioning + the claim flow).
   const epodClient = config.epod ? createEpodClient(config.epod) : null;
@@ -318,6 +343,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   registerPick(aggregateRegistry, pickRepo);
   registerTransportOrder(aggregateRegistry, transportOrderRepo);
   registerTrip(aggregateRegistry, tripRepo);
+  registerDriverUser(aggregateRegistry, driverUserRepo);
 
   // One OutboxManager backs the UoW so events + local audit logs ride the
   // same ALS-bound Drizzle tx as the aggregate writes.
@@ -334,6 +360,15 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const oidcBroker =
     config.auth.oidc !== null ? await createMobileOidcBroker(config.auth.oidc) : null;
   const pickerTokenService = createPickerTokenService(config.auth.picker);
+  // Same signing machinery, distinct issuer — extractRequestToken routes a
+  // driver token to the driver verifier and stamps driver attributes.
+  const driverAuthConfig = { ...config.auth.picker, issuer: 'fulfilgo-drive' };
+  const driverTokenService = createPickerTokenService(driverAuthConfig);
+  const driverAuthService = createDriverAuthService(
+    driverUserRepo,
+    driverTokenService,
+    driverAuthConfig,
+  );
   const pickerAuthService = createPickerAuthService(
     pickerUserRepo,
     pickerTokenService,
@@ -365,6 +400,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       processReactions: processReactionRepo,
       transportPositions: transportPositionRepo,
       trips: tripRepo,
+      driverUsers: driverUserRepo,
     },
     useCases: {
       createFulfilment: new CreateFulfilmentUseCase(
@@ -543,6 +579,11 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         { tenantCode: config.epod?.tenantCode ?? null },
         runWrite,
       ),
+      createDriver: new CreateDriverUseCase(uow, aggregateRegistry, driverUserRepo, storeRepo),
+      suspendDriver: new SuspendDriverUseCase(uow, aggregateRegistry, driverUserRepo),
+      reactivateDriver: new ReactivateDriverUseCase(uow, aggregateRegistry, driverUserRepo),
+      reassignDriver: new ReassignDriverUseCase(uow, aggregateRegistry, driverUserRepo, storeRepo),
+      deleteDriver: new DeleteDriverUseCase(uow, aggregateRegistry, driverUserRepo),
       createJob: new CreateJobUseCase(uow, aggregateRegistry),
       assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
       acceptJob: new AcceptJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
@@ -553,8 +594,10 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       tokenValidator,
       oidcBroker,
       pickerTokenService,
+      driverTokenService,
     },
     pickAuth: pickerAuthService,
+    driverAuth: driverAuthService,
     processRegistry,
     router: routerClient,
     platform: platformClient,

@@ -160,7 +160,11 @@ watch(clientId, () => {
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
 
     <div class="mb-2 flex items-center gap-4 text-xs text-neutral-500">
-      <span v-for="(color, system) in SYSTEM_COLORS" :key="system" class="flex items-center gap-1.5">
+      <span
+        v-for="(color, system) in SYSTEM_COLORS"
+        :key="system"
+        class="flex items-center gap-1.5"
+      >
         <span
           class="inline-block size-3 rounded-full border-2 border-white shadow"
           :style="{ background: color }"
@@ -177,6 +181,9 @@ watch(clientId, () => {
       </span>
     </div>
 
-    <div ref="mapEl" class="min-h-[480px] flex-1 overflow-hidden rounded-lg border border-neutral-200" />
+    <div
+      ref="mapEl"
+      class="min-h-[480px] flex-1 overflow-hidden rounded-lg border border-neutral-200"
+    />
   </div>
 </template>

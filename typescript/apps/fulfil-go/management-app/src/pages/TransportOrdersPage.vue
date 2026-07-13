@@ -111,7 +111,9 @@ async function load(): Promise<void> {
       api.json<{ orders: TransportOrder[] }>(
         `/clients/${clientId.value}/transport/orders?limit=100${orderQuery}`,
       ),
-      api.json<{ trips: Trip[] }>(`/clients/${clientId.value}/transport/trips?limit=100${tripQuery}`),
+      api.json<{ trips: Trip[] }>(
+        `/clients/${clientId.value}/transport/trips?limit=100${tripQuery}`,
+      ),
     ]);
     orders.value = o.orders;
     trips.value = t.trips;
@@ -138,7 +140,13 @@ watch([clientId, orderStatus, tripStatus], () => void load());
   <div class="p-6">
     <PageHeader title="Transport orders">
       <template #actions>
-        <UButton size="sm" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="load">
+        <UButton
+          size="sm"
+          variant="soft"
+          icon="i-lucide-refresh-cw"
+          :loading="loading"
+          @click="load"
+        >
           Refresh
         </UButton>
       </template>
@@ -208,7 +216,10 @@ watch([clientId, orderStatus, tripStatus], () => void load());
                 {{ o.courier.vehicleType }}
               </span>
             </td>
-            <td class="max-w-56 truncate px-3 py-2 text-xs text-neutral-500" :title="o.failureReason ?? o.providerRef ?? ''">
+            <td
+              class="max-w-56 truncate px-3 py-2 text-xs text-neutral-500"
+              :title="o.failureReason ?? o.providerRef ?? ''"
+            >
               {{ o.failureReason ?? o.providerRef ?? '—' }}
             </td>
           </tr>
@@ -273,7 +284,10 @@ watch([clientId, orderStatus, tripStatus], () => void load());
               <template v-else>—</template>
             </td>
             <td class="px-3 py-2 text-xs">{{ fmtTime(t.offerExpiresAt) }}</td>
-            <td class="max-w-56 truncate px-3 py-2 text-xs text-neutral-500" :title="t.failureReason ?? ''">
+            <td
+              class="max-w-56 truncate px-3 py-2 text-xs text-neutral-500"
+              :title="t.failureReason ?? ''"
+            >
               {{ t.failureReason ?? '—' }}
             </td>
           </tr>

@@ -233,7 +233,10 @@ async function createProfile(): Promise<void> {
 onMounted(() => void load());
 watch(clientId, () => void load());
 watch(selectedCode, loadForm);
-watch(() => props.domain, () => void load());
+watch(
+  () => props.domain,
+  () => void load(),
+);
 </script>
 
 <template>
@@ -371,7 +374,11 @@ watch(() => props.domain, () => void load());
               label="Alternative execution systems"
               help="Comma-separated codes also allowed at this store (e.g. own, epod)."
             >
-              <UInput v-model="formExecAlternatives" placeholder="own, epod" class="w-64 font-mono" />
+              <UInput
+                v-model="formExecAlternatives"
+                placeholder="own, epod"
+                class="w-64 font-mono"
+              />
             </UFormField>
             <UFormField
               label="Default transport provider"

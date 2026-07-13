@@ -222,13 +222,23 @@ design doc; read it before touching the replace flow):
    execution-app pages). ~~Build the planning context~~ BUILT this
    session — server-side marketplace is live and smoke-verified.
    Companion pieces:
-   - **Driver identity (DECIDED, Andrew 2026-07-13): PICKER-STYLE** —
-     staff code + PIN against a local driver registry, sessions bound to
-     the operating context; NOT platform OIDC. Mirror the picker-identity
-     vertical (aggregate, PIN credentials, auth service, session tokens,
-     seeding, management Drivers page — placeholder copy already states
-     the decision). The native claim surface's driverRef then comes from
-     the driver session.
+   - ~~Driver identity~~ **BUILT 2026-07-13 (same session)** — PICKER-STYLE
+     per Andrew's decisions: staff code + PIN ONLY (no device pinning —
+     device enrollment is the shared phase-2 story; the token's deviceId
+     claim is the seam), drivers LINKED TO DEPOTS (`driver_users.store_ref`
+     = home store; the session carries it), optional defaultVehicleReg.
+     `domain/driver-identity/` + `/driver-auth/{login/pin,refresh,me}` +
+     `/clients/:id/drivers` CRUD/seed (ManageDrivers — dispatcher role,
+     roles synced) + management Drivers page (roster/create/suspend/move/
+     seed). Seeder: D01–Dnn per store, shared PIN default 374837 (DRIVER
+     on a keypad), deterministic vehicle regs; dev db seeded (300 drivers,
+     3/store). Driver tokens ride the picker token machinery with issuer
+     `fulfilgo-drive`; scope attributes carry clientId/storeRef/driverRef.
+     POST /transport/offers with a driver session needs NO body — depot +
+     default vehicle come from the identity (smoke-verified: login, wrong
+     PIN 401, refresh, me, session-scoped offer). REMAINING: the execution
+     app's login screen + offer/claim UI (mobile-kit picker-session
+     pattern; point it at /driver-auth + /transport/offers).
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.
