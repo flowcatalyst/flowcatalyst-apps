@@ -90,8 +90,11 @@ const profiles = ref<Profile[]>([]);
 const selectedCode = ref('default');
 const form = reactive<Record<string, number | ''>>({});
 /** String-valued fields (selects / free text); '' = inherit. */
-const formPickSort = ref<string>('');
-const formDefaultExec = ref<string>('');
+// Reka-ui (Nuxt UI 4.9+) forbids '' as a SelectItem value — 'inherit' is
+// the sentinel for "no override at this layer".
+const INHERIT = 'inherit';
+const formPickSort = ref<string>(INHERIT);
+const formDefaultExec = ref<string>(INHERIT);
 const formExecAlternatives = ref<string>('');
 const formDefaultProvider = ref<string>('');
 const formName = ref('');
@@ -129,9 +132,9 @@ function loadForm(): void {
     form[field.key] = typeof value === 'number' ? value : '';
   }
   const sort = settings['pickSortAlgorithm'];
-  formPickSort.value = typeof sort === 'string' ? sort : '';
+  formPickSort.value = typeof sort === 'string' ? sort : INHERIT;
   const exec = settings['defaultExecutionSystem'];
-  formDefaultExec.value = typeof exec === 'string' ? exec : '';
+  formDefaultExec.value = typeof exec === 'string' ? exec : INHERIT;
   const alts = settings['executionSystems'];
   formExecAlternatives.value = Array.isArray(alts) ? alts.join(', ') : '';
   const provider = settings['defaultTransportProvider'];
@@ -168,10 +171,10 @@ async function save(): Promise<void> {
       else delete settings[field.key];
     }
     if (props.domain === 'pick') {
-      if (formPickSort.value !== '') settings['pickSortAlgorithm'] = formPickSort.value;
+      if (formPickSort.value !== INHERIT) settings['pickSortAlgorithm'] = formPickSort.value;
       else delete settings['pickSortAlgorithm'];
     } else {
-      if (formDefaultExec.value !== '') {
+      if (formDefaultExec.value !== INHERIT) {
         settings['defaultExecutionSystem'] = formDefaultExec.value;
       } else {
         delete settings['defaultExecutionSystem'];
@@ -337,7 +340,10 @@ watch(() => props.domain, () => void load());
             <USelect
               v-model="formPickSort"
               :items="[
-                { label: `Inherit (${inheritedString('pickSortAlgorithm', 'walk-sequence')})`, value: '' },
+                {
+                  label: `Inherit (${inheritedString('pickSortAlgorithm', 'walk-sequence')})`,
+                  value: INHERIT,
+                },
                 ...SORT_ALGORITHMS,
               ]"
               class="w-64"
@@ -354,7 +360,7 @@ watch(() => props.domain, () => void load());
                 :items="[
                   {
                     label: `Inherit (${inheritedString('defaultExecutionSystem', 'none')})`,
-                    value: '',
+                    value: INHERIT,
                   },
                   ...EXECUTION_SYSTEMS,
                 ]"
