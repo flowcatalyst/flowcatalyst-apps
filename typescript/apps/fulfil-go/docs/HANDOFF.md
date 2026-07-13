@@ -128,16 +128,25 @@ before pushing.
 3. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
 4. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
-5. **Printer management + station label printing** (Andrew 2026-07-13):
-   print X barcodes at the pick station. Shape agreed in principle:
-   printers = store-bound reference data (registry under STORES — base
-   equipment; station picks ITS printer in Settings, like store binding);
-   server renders label payloads (ZPL), the PICKING APP delivers to the
-   LAN printer (cloud server can't reach store LANs — Capacitor raw TCP
-   :9100 or Zebra Browser Print in browser dev). OPEN QUESTION for
-   Andrew: what are the X barcodes — bag/package labels (pre-allocated
-   package refs the packing flow scans), part short-id labels, or
-   product barcodes for scan testing? Content drives the label template.
+5. **Printer management + BAG-LABEL printing at the station** (Andrew
+   2026-07-13; requirements settled, build next):
+   - Printers = store-bound reference data (registry under STORES — base
+     equipment; the station selects ITS printer on Settings, like store
+     binding). Server renders label payloads (ZPL); the PICKING APP
+     delivers to the LAN printer (cloud server can't reach store LANs —
+     Capacitor raw TCP :9100; Zebra Browser Print for browser dev).
+   - The barcodes ARE BAG LABELS: printing X pre-allocates X package
+     refs, labels numbered 'n / X' (feeds the packing drawer — scanned
+     bag refs come from these labels).
+   - REPRINT one damaged label (e.g. '2 / 3'): SAME package ref, same
+     barcode, reprint recorded (activity log — chain-relevant once the
+     bag is part of a completed pick).
+   - REPLACE flow: picker declares how many bags they actually have →
+     the label set re-allocates/renumbers to the declared count. Must
+     stay consistent with the WIP trolley (localStorage) — bags already
+     scanned into the trolley keep their refs or the flow migrates them;
+     design this against picking-workflow.md's packing model before
+     building.
 
 ## Known issues / loose ends (not fulfil-go blockers)
 
