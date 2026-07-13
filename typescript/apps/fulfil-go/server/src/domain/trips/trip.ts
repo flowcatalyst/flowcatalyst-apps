@@ -17,11 +17,13 @@ export const TRIP_TYPE = 'Trip' as const;
  *
  * Status machine (forward-only):
  *   offered → claimed                     (driver confirmed; orders assigned)
+ *   claimed → completed                   (every member order terminal —
+ *                                          driver reporting closes the trip)
  *   offered → expired                     (hold lapsed — lazy, on next touch)
  *   offered|claimed → released            (route-plan push rejected, or an
  *                                          explicit release — orders freed)
  */
-export type TripStatus = 'offered' | 'claimed' | 'expired' | 'released';
+export type TripStatus = 'offered' | 'claimed' | 'completed' | 'expired' | 'released';
 
 /** One planned dropoff, in driving sequence. Leg metrics are estimates. */
 export interface TripStop {
@@ -118,6 +120,11 @@ export const Trip = {
 
   claim(prior: Trip, now: Date): Trip {
     return { ...prior, status: 'claimed', version: prior.version + 1, updatedAt: now };
+  },
+
+  /** Every member order reached a terminal status — the trip is done. */
+  complete(prior: Trip, now: Date): Trip {
+    return { ...prior, status: 'completed', version: prior.version + 1, updatedAt: now };
   },
 
   expire(prior: Trip, now: Date): Trip {

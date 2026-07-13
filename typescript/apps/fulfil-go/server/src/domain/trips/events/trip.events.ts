@@ -48,6 +48,11 @@ export class TripReleased extends BaseDomainEvent<TripEventData> {
     super(envelope('released', data), scope as never, data);
   }
 }
+export class TripCompleted extends BaseDomainEvent<TripEventData> {
+  constructor(scope: Scope, data: TripEventData) {
+    super(envelope('completed', data), scope as never, data);
+  }
+}
 
 function eventType(action: string, name: string, description: string) {
   return {
@@ -72,4 +77,9 @@ export const TripReleasedEventType = eventType(
   'released',
   'Trip Released',
   'An offered/claimed trip was released (route-plan rejection or explicit release) — its orders returned to the marketplace.',
+);
+export const TripCompletedEventType = eventType(
+  'completed',
+  'Trip Completed',
+  'Every order on the trip reached a terminal status — the trip is closed.',
 );

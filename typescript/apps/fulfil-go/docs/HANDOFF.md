@@ -301,8 +301,23 @@ design doc; read it before touching the replace flow):
      Driver shift survives app restarts (bootstrap restores from the
      persisted refresh token). Execution-app vite proxy gained '/clients'
      (the known gotcha) — RESTART the :5175 dev server to pick it up.
-     REMAINING: per-stop collected/delivered/failed reporting (needs the
-     driver status-report API), then DELETE the demo jobs vertical.
+     ~~REMAINING: per-stop reporting~~ BUILT (same session): driver
+     status-report API — POST /transport/my-trips/:tripId/collected
+     (trip-wide) + /stops/:orderId/{delivered,failed} (reason on failed);
+     forward-only on the order machine, double-taps ACK 200
+     (ALREADY_REPORTED), driver binding = the authz boundary (404 on
+     another driver's trip). When the LAST order goes terminal the TRIP
+     auto-completes (`trip:completed` event, registered+pushed) and drops
+     off my-trips. Work tab is fully actionable: Collected button →
+     per-stop Delivered/Failed chips with status badges; my-trips carries
+     per-stop order status. Jobs tab REMOVED from the app chrome (routes
+     still reachable). Smoke-verified live: collected → replay-ACK →
+     delivered #1002 → failed #1003 ('customer not home') → trip
+     completed and gone from my-trips.
+     REMAINING: delete the demo jobs vertical (server + app pages + the
+     CLAUDE.md dev-loop references); offline-queue the report calls
+     (mobile-kit outbox, like pick outcomes — drivers lose signal);
+     fulfilment completion leg now has its input events flowing.
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.

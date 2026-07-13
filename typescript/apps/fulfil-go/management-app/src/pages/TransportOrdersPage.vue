@@ -53,7 +53,7 @@ const ORDER_STATUSES = [
   'failed',
   'cancelled',
 ];
-const TRIP_STATUSES = ['offered', 'claimed', 'expired', 'released'];
+const TRIP_STATUSES = ['offered', 'claimed', 'completed', 'expired', 'released'];
 
 const orders = ref<TransportOrder[]>([]);
 const trips = ref<Trip[]>([]);
@@ -83,6 +83,7 @@ const ORDER_BADGE: Record<string, string> = {
 const TRIP_BADGE: Record<string, string> = {
   offered: 'bg-amber-100 text-amber-700',
   claimed: 'bg-emerald-100 text-emerald-700',
+  completed: 'bg-blue-100 text-blue-700',
   expired: 'bg-neutral-200 text-neutral-600',
   released: 'bg-red-100 text-red-700',
 };

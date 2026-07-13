@@ -15,7 +15,7 @@
  *   execution app (driver = the authenticated principal).
  */
 import { Type } from '@sinclair/typebox';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ScopeStore, isFailure, runJob, type Result } from '@fulfil-go/framework';
 import type { AppContext } from '../../../app-context.js';
 import { isTransportOrderId } from '../../../domain/transport-orders/ids.js';
@@ -693,6 +693,12 @@ export function registerTransportRoutes(
         ['claimed'],
         limit ?? 5,
       );
+      const orderIds = trips.flatMap((t) => [...t.orderIds]);
+      const orders = await appContext.repositories.transportOrders.findManyByIds(
+        clientId,
+        orderIds,
+      );
+      const statusById = new Map<string, string>(orders.map((o) => [o.id, o.status]));
       return reply.send({
         trips: trips.map((t) => ({
           tripId: t.id,
@@ -706,10 +712,96 @@ export function registerTransportRoutes(
             destination: s.destination,
             legKm: s.legKm,
             legMinutes: s.legMinutes,
+            status: statusById.get(s.orderId) ?? 'assigned',
           })),
         })),
       });
     },
+  );
+
+  // Driver status reporting (own-channel trips have no webhook source —
+  // the driver IS the signal). Idempotent: replays/double-taps ACK 200.
+  const reportSchema = (withOrder: boolean) => ({
+    tags: ['Transport'],
+    params: withOrder
+      ? Type.Object({ clientId: Type.String(), tripId: Type.String(), orderId: Type.String() })
+      : Type.Object({ clientId: Type.String(), tripId: Type.String() }),
+    body: Type.Object(
+      { reason: Type.Optional(Type.String({ maxLength: 300 })) },
+      { additionalProperties: false },
+    ),
+    response: {
+      200: Type.Object({
+        updatedOrders: Type.Array(Type.String()),
+        tripCompleted: Type.Boolean(),
+        note: Type.Optional(Type.String()),
+      }),
+      401: UnauthorizedSchema,
+      403: Type.Object({ error: Type.String(), message: Type.String() }),
+      404: Type.Object({ error: Type.String(), message: Type.String() }),
+      500: Type.Object({ error: Type.String(), message: Type.String() }),
+    },
+  });
+
+  const handleReport = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    action: 'collected' | 'delivered' | 'failed',
+  ) => {
+    const scope = ScopeStore.get();
+    if (!scope) {
+      return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+    }
+    const driverRef = scope.attributes['driverRef'];
+    if (!driverRef) {
+      return reply
+        .code(403)
+        .send({ error: 'forbidden', message: 'This endpoint requires a driver session.' });
+    }
+    const params = request.params as { clientId: string; tripId: string; orderId?: string };
+    const body = (request.body ?? {}) as { reason?: string };
+    const result = await appContext.runWrite(() =>
+      appContext.useCases.reportTripProgress.execute({
+        clientId: params.clientId,
+        tripId: params.tripId,
+        driverRef,
+        action,
+        orderId: params.orderId ?? null,
+        reason: body.reason ?? null,
+      }),
+    );
+    if (isFailure(result)) {
+      if (result.error.code === 'ALREADY_REPORTED') {
+        // Double-tap/replay — the state is already what the driver said.
+        return reply
+          .code(200)
+          .send({ updatedOrders: [], tripCompleted: false, note: result.error.code });
+      }
+      if (result.error.type === 'not_found') {
+        return reply.code(404).send({ error: result.error.code, message: result.error.message });
+      }
+      if (result.error.type === 'authorization') {
+        return reply.code(403).send({ error: result.error.code, message: result.error.message });
+      }
+      return reply.code(500).send({ error: result.error.code, message: result.error.message });
+    }
+    return reply.code(200).send(result.value);
+  };
+
+  fastify.post(
+    '/clients/:clientId/transport/my-trips/:tripId/collected',
+    { schema: reportSchema(false) },
+    (request, reply) => handleReport(request, reply, 'collected'),
+  );
+  fastify.post(
+    '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/delivered',
+    { schema: reportSchema(true) },
+    (request, reply) => handleReport(request, reply, 'delivered'),
+  );
+  fastify.post(
+    '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/failed',
+    { schema: reportSchema(true) },
+    (request, reply) => handleReport(request, reply, 'failed'),
   );
 
   fastify.post(

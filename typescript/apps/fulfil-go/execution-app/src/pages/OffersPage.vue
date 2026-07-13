@@ -34,13 +34,17 @@ interface Offer {
   routeMinutes: number | null;
 }
 
+interface MyTripStop extends OfferStop {
+  status: string;
+}
+
 interface MyTrip {
   tripId: string;
   originRef: string;
   claimedAt: string;
   routeKm: number | null;
   routeMinutes: number | null;
-  stops: OfferStop[];
+  stops: MyTripStop[];
 }
 
 const ctx = useAppCtx();
@@ -74,6 +78,34 @@ async function loadMyTrips(): Promise<void> {
   } catch {
     // Offline / stale session — keep whatever we had; next load recovers.
   }
+}
+
+const reportBusy = ref<string | null>(null);
+
+async function report(trip: MyTrip, action: string, orderId?: string): Promise<void> {
+  reportBusy.value = orderId ?? trip.tripId;
+  error.value = null;
+  try {
+    let reason: string | null = null;
+    if (action === 'failed') {
+      reason = window.prompt('Why did this delivery fail?');
+      if (reason === null) return; // cancelled the prompt
+    }
+    const path = orderId
+      ? `/clients/${ctx.station.clientId.value}/transport/my-trips/${trip.tripId}/stops/${orderId}/${action}`
+      : `/clients/${ctx.station.clientId.value}/transport/my-trips/${trip.tripId}/collected`;
+    await ctx.api.json(path, { method: 'POST', body: reason ? { reason } : {} });
+    await loadMyTrips();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    reportBusy.value = null;
+  }
+}
+
+/** Collected happens once, trip-wide — shown while any stop is 'assigned'. */
+function needsCollection(trip: MyTrip): boolean {
+  return trip.stops.some((s) => s.status === 'assigned');
 }
 
 function stopCountdown(): void {
@@ -238,23 +270,76 @@ onUnmounted(stopCountdown);
         <div
           v-for="t in myTrips"
           :key="t.tripId"
-          class="rounded-xl border border-emerald-300 bg-emerald-50 p-4"
+          class="rounded-xl border border-emerald-300 bg-white p-4"
         >
-          <p class="mb-1 text-sm font-semibold text-emerald-800">
+          <p class="mb-2 text-sm font-semibold text-neutral-800">
             Collect at <span class="font-mono">{{ t.originRef }}</span>
-            <span v-if="t.routeKm !== null" class="font-normal text-emerald-700">
+            <span v-if="t.routeKm !== null" class="font-normal text-neutral-500">
               · ≈{{ t.routeKm.toFixed(1) }} km
             </span>
           </p>
-          <ol class="mb-2 flex flex-col gap-1">
-            <li v-for="(s, i) in t.stops" :key="s.orderId" class="text-sm text-emerald-900">
-              {{ i + 1 }}. <span class="font-semibold">#{{ s.shortId }}</span>
-              {{ s.destination.name }} — {{ s.destination.address?.line1 }}
+
+          <!-- Before leaving the store: one trip-wide Collected action -->
+          <UButton
+            v-if="needsCollection(t)"
+            block
+            size="lg"
+            icon="i-lucide-package-check"
+            :loading="reportBusy === t.tripId"
+            @click="report(t, 'collected')"
+          >
+            Collected — leaving the store
+          </UButton>
+
+          <ol class="mt-2 flex flex-col gap-2">
+            <li
+              v-for="(s, i) in t.stops"
+              :key="s.orderId"
+              class="flex items-center justify-between gap-2"
+            >
+              <span class="min-w-0 text-sm">
+                <span class="font-semibold">{{ i + 1 }}. #{{ s.shortId }}</span>
+                {{ s.destination.name }}
+                <span class="block truncate text-xs text-neutral-500">
+                  {{ s.destination.address?.line1 }}
+                </span>
+              </span>
+              <!-- Per-stop outcomes once collected -->
+              <span v-if="s.status === 'collected'" class="flex shrink-0 gap-1">
+                <UButton
+                  size="xs"
+                  color="success"
+                  variant="soft"
+                  :loading="reportBusy === s.orderId"
+                  @click="report(t, 'delivered', s.orderId)"
+                >
+                  Delivered
+                </UButton>
+                <UButton
+                  size="xs"
+                  color="error"
+                  variant="soft"
+                  :disabled="reportBusy === s.orderId"
+                  @click="report(t, 'failed', s.orderId)"
+                >
+                  Failed
+                </UButton>
+              </span>
+              <span
+                v-else
+                class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                :class="
+                  s.status === 'delivered'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : s.status === 'failed'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-neutral-100 text-neutral-500'
+                "
+              >
+                {{ s.status === 'assigned' ? 'to collect' : s.status }}
+              </span>
             </li>
           </ol>
-          <p class="text-xs text-emerald-700">
-            Scan the bag labels at collection. Delivery reporting arrives in the next app update.
-          </p>
         </div>
       </section>
 

@@ -40,6 +40,7 @@ import {
 } from '../domain/transport-orders/events/transport-order.events.js';
 import {
   TripClaimedEventType,
+  TripCompletedEventType,
   TripOfferedEventType,
   TripReleasedEventType,
 } from '../domain/trips/events/trip.events.js';
@@ -87,4 +88,5 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   TripOfferedEventType,
   TripClaimedEventType,
   TripReleasedEventType,
+  TripCompletedEventType,
 ];

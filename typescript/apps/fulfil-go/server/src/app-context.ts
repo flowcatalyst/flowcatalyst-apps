@@ -128,6 +128,7 @@ import { TRIP_TYPE } from './domain/trips/trip.js';
 import type { TripRepository } from './domain/trips/trip.repository.js';
 import { ComposeTransportOfferUseCase } from './operations/transport-planning/compose-transport-offer.use-case.js';
 import { ClaimTransportTripUseCase } from './operations/transport-planning/claim-transport-trip.use-case.js';
+import { ReportTripProgressUseCase } from './operations/report-trip-progress/report-trip-progress.use-case.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -197,6 +198,7 @@ export interface AppContextUseCases {
   readonly applyTransportStatus: ApplyTransportStatusUseCase;
   readonly composeTransportOffer: ComposeTransportOfferUseCase;
   readonly claimTransportTrip: ClaimTransportTripUseCase;
+  readonly reportTripProgress: ReportTripProgressUseCase;
   readonly createDriver: CreateDriverUseCase;
   readonly suspendDriver: SuspendDriverUseCase;
   readonly reactivateDriver: ReactivateDriverUseCase;
@@ -585,6 +587,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         epodClient,
         { tenantCode: config.epod?.tenantCode ?? null },
         runWrite,
+      ),
+      reportTripProgress: new ReportTripProgressUseCase(
+        uow,
+        aggregateRegistry,
+        tripRepo,
+        transportOrderRepo,
+        activityLogRepo,
       ),
       createDriver: new CreateDriverUseCase(uow, aggregateRegistry, driverUserRepo, depotRepo),
       suspendDriver: new SuspendDriverUseCase(uow, aggregateRegistry, driverUserRepo),
