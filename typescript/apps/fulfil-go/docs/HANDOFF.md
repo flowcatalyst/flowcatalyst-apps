@@ -221,9 +221,17 @@ design doc; read it before touching the replace flow):
    then DELETE the demo jobs vertical (routes, aggregate, use cases,
    execution-app pages). ~~Build the planning context~~ BUILT this
    session — server-side marketplace is live and smoke-verified.
-   Companion piece: a driver status-report surface for 'own' trips
-   (collected/delivered/failed per stop → apply-transport-status), since
-   own-channel execution has no webhook source.
+   Companion pieces:
+   - **Driver identity (DECIDED, Andrew 2026-07-13): PICKER-STYLE** —
+     staff code + PIN against a local driver registry, sessions bound to
+     the operating context; NOT platform OIDC. Mirror the picker-identity
+     vertical (aggregate, PIN credentials, auth service, session tokens,
+     seeding, management Drivers page — placeholder copy already states
+     the decision). The native claim surface's driverRef then comes from
+     the driver session.
+   - A driver status-report surface for 'own' trips (collected/delivered/
+     failed per stop → apply-transport-status), since own-channel
+     execution has no webhook source.
 2. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
    normalizes (string references only) → TransportOrder machine — plus
    real-EPOD-tenant verification of the claim proxy + sync plan intake

@@ -155,6 +155,96 @@ export function registerTransportRoutes(
   );
 
   fastify.get(
+    '/clients/:clientId/transport/trips',
+    {
+      schema: {
+        tags: ['Transport'],
+        summary: 'List planned trips (the claim marketplace record)',
+        params: Type.Object({ clientId: Type.String() }),
+        querystring: Type.Object({
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
+          offset: Type.Optional(Type.Integer({ minimum: 0 })),
+          statuses: Type.Optional(Type.String({ description: 'Comma-separated status filter' })),
+        }),
+        response: {
+          200: Type.Object({
+            trips: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                status: Type.String(),
+                provider: Type.String(),
+                originRef: Type.String(),
+                driverRef: Type.String(),
+                vehicleRef: Type.String(),
+                anchorOrderId: Type.Union([Type.String(), Type.Null()]),
+                stops: Type.Array(
+                  Type.Object({
+                    orderId: Type.String(),
+                    shortId: Type.String(),
+                    legKm: Type.Union([Type.Number(), Type.Null()]),
+                    legMinutes: Type.Union([Type.Number(), Type.Null()]),
+                  }),
+                ),
+                offerExpiresAt: Type.String(),
+                routeKm: Type.Union([Type.Number(), Type.Null()]),
+                routeMinutes: Type.Union([Type.Number(), Type.Null()]),
+                failureReason: Type.Union([Type.String(), Type.Null()]),
+                createdAt: Type.String(),
+                updatedAt: Type.String(),
+              }),
+            ),
+          }),
+          401: UnauthorizedSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const { limit, offset, statuses } = request.query as {
+        limit?: number;
+        offset?: number;
+        statuses?: string;
+      };
+      const statusFilter = statuses
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const trips = await appContext.repositories.trips.listByClient(
+        clientId,
+        limit ?? 50,
+        offset ?? 0,
+        statusFilter,
+      );
+      return reply.send({
+        trips: trips.map((t) => ({
+          id: t.id,
+          status: t.status,
+          provider: t.provider,
+          originRef: t.originRef,
+          driverRef: t.driverRef,
+          vehicleRef: t.vehicleRef,
+          anchorOrderId: t.anchorOrderId,
+          stops: t.stops.map((s) => ({
+            orderId: s.orderId,
+            shortId: s.shortId,
+            legKm: s.legKm,
+            legMinutes: s.legMinutes,
+          })),
+          offerExpiresAt: t.offerExpiresAt.toISOString(),
+          routeKm: t.routeKm,
+          routeMinutes: t.routeMinutes,
+          failureReason: t.failureReason,
+          createdAt: t.createdAt.toISOString(),
+          updatedAt: t.updatedAt.toISOString(),
+        })),
+      });
+    },
+  );
+
+  fastify.get(
     '/clients/:clientId/transport/positions',
     {
       schema: {

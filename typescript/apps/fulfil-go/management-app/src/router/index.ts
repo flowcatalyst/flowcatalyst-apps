@@ -10,6 +10,7 @@ import PrintersPage from '../pages/PrintersPage.vue';
 import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
 import VehicleMapPage from '../pages/VehicleMapPage.vue';
 import LoginCallbackPage from '../pages/LoginCallbackPage.vue';
+import TransportOrdersPage from '../pages/TransportOrdersPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -41,6 +42,11 @@ export const router = createRouter({
       meta: { title: 'Pick profiles' },
     },
     // Transport context (owns its user management + config)
+    {
+      path: '/transport/orders',
+      component: TransportOrdersPage,
+      meta: { title: 'Transport orders' },
+    },
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
     {
       path: '/transport/map',

@@ -44,6 +44,7 @@ export const NAVIGATION: NavGroup[] = [
     label: 'Transport',
     items: [
       { label: 'Vehicle map', to: '/transport/map', icon: 'i-lucide-map' },
+      { label: 'Transport orders', to: '/transport/orders', icon: 'i-lucide-route' },
       { label: 'Drivers', to: '/transport/drivers', icon: 'i-lucide-truck' },
       {
         label: 'Transport profiles',
