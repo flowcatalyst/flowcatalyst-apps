@@ -104,6 +104,18 @@ export function createDrizzleTripRepository(db: PostgresJsDatabase): TripReposit
       return row ? toDomain(row) : null;
     },
 
+    async listByDriver(clientId, driverRef, statuses, limit) {
+      const conditions = [eq(trips.clientId, clientId), eq(trips.driverRef, driverRef)];
+      if (statuses.length > 0) conditions.push(inArray(trips.status, [...statuses]));
+      const rows = await current()
+        .select()
+        .from(trips)
+        .where(and(...conditions))
+        .orderBy(desc(trips.createdAt))
+        .limit(limit);
+      return rows.map(toDomain);
+    },
+
     async listByClient(clientId, limit, offset, statuses) {
       const conditions = [eq(trips.clientId, clientId)];
       if (statuses && statuses.length > 0) {

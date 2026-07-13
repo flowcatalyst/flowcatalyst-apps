@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useAppCtx } from '../context.js';
 
 /**
@@ -8,8 +8,9 @@ import { useAppCtx } from '../context.js';
  * 30s hold) → claim it before the countdown lapses. Anchor entry lets the
  * driver type the part number off the packaging.
  *
- * v1 shows the claimed trip's stop sequence; per-stop collected/delivered
- * reporting lands with the driver status-report API.
+ * Claimed trips come from GET /transport/my-trips — SERVER state, so a
+ * claim survives tab switches and app restarts. Per-stop collected/
+ * delivered reporting lands with the driver status-report API.
  */
 interface OfferStop {
   orderId: string;
@@ -33,9 +34,18 @@ interface Offer {
   routeMinutes: number | null;
 }
 
+interface MyTrip {
+  tripId: string;
+  originRef: string;
+  claimedAt: string;
+  routeKm: number | null;
+  routeMinutes: number | null;
+  stops: OfferStop[];
+}
+
 const ctx = useAppCtx();
 const offer = ref<Offer | null>(null);
-const claimed = ref<Offer | null>(null);
+const myTrips = ref<MyTrip[]>([]);
 const emptyReason = ref<string | null>(null);
 const error = ref<string | null>(null);
 const busy = ref(false);
@@ -53,6 +63,18 @@ const EMPTY_MESSAGES: Record<string, string> = {
 const emptyMessage = computed(() =>
   emptyReason.value ? (EMPTY_MESSAGES[emptyReason.value] ?? 'No work available right now.') : null,
 );
+
+async function loadMyTrips(): Promise<void> {
+  if (!ctx.driverSignedIn.value) return;
+  try {
+    const res = await ctx.api.json<{ trips: MyTrip[] }>(
+      `/clients/${ctx.station.clientId.value}/transport/my-trips`,
+    );
+    myTrips.value = res.trips;
+  } catch {
+    // Offline / stale session — keep whatever we had; next load recovers.
+  }
+}
 
 function stopCountdown(): void {
   if (countdown) clearInterval(countdown);
@@ -108,9 +130,9 @@ async function claim(): Promise<void> {
       `/clients/${ctx.station.clientId.value}/transport/offers/${offer.value.groupId}/claim`,
       { method: 'POST' },
     );
-    claimed.value = offer.value;
     offer.value = null;
     stopCountdown();
+    await loadMyTrips();
   } catch (err) {
     // 410 = the hold lapsed or someone raced us — just look again.
     offer.value = null;
@@ -128,6 +150,8 @@ function passOffer(): void {
   stopCountdown();
 }
 
+onMounted(() => void loadMyTrips());
+watch(ctx.driverSignedIn, () => void loadMyTrips());
 onUnmounted(stopCountdown);
 </script>
 
@@ -159,7 +183,7 @@ onUnmounted(stopCountdown);
       </div>
 
       <!-- Find work (optionally anchored on a typed part number) -->
-      <div v-if="!offer && !claimed" class="flex flex-col gap-2">
+      <div v-if="!offer" class="flex flex-col gap-2">
         <UInput
           v-model="anchorRef"
           placeholder="Part number (optional — e.g. 1024)"
@@ -208,23 +232,31 @@ onUnmounted(stopCountdown);
         </div>
       </div>
 
-      <!-- Claimed — v1 summary until per-stop reporting lands -->
-      <div v-if="claimed" class="rounded-xl border border-emerald-300 bg-emerald-50 p-4">
-        <p class="mb-1 text-sm font-semibold text-emerald-800">
-          Trip claimed — collect at
-          <span class="font-mono">{{ claimed.originRef }}</span>
-        </p>
-        <ol class="mb-2 flex flex-col gap-1">
-          <li v-for="(s, i) in claimed.stops" :key="s.orderId" class="text-sm text-emerald-900">
-            {{ i + 1 }}. <span class="font-semibold">#{{ s.shortId }}</span>
-            {{ s.destination.name }} — {{ s.destination.address?.line1 }}
-          </li>
-        </ol>
-        <p class="mb-3 text-xs text-emerald-700">
-          Scan the bag labels at collection. Delivery reporting arrives in the next app update.
-        </p>
-        <UButton variant="soft" color="neutral" block @click="claimed = null">Done</UButton>
-      </div>
+      <!-- My trips — SERVER state, survives restarts (claims live here) -->
+      <section v-if="myTrips.length > 0" class="flex flex-col gap-2">
+        <h2 class="text-sm font-semibold text-neutral-700">My trips</h2>
+        <div
+          v-for="t in myTrips"
+          :key="t.tripId"
+          class="rounded-xl border border-emerald-300 bg-emerald-50 p-4"
+        >
+          <p class="mb-1 text-sm font-semibold text-emerald-800">
+            Collect at <span class="font-mono">{{ t.originRef }}</span>
+            <span v-if="t.routeKm !== null" class="font-normal text-emerald-700">
+              · ≈{{ t.routeKm.toFixed(1) }} km
+            </span>
+          </p>
+          <ol class="mb-2 flex flex-col gap-1">
+            <li v-for="(s, i) in t.stops" :key="s.orderId" class="text-sm text-emerald-900">
+              {{ i + 1 }}. <span class="font-semibold">#{{ s.shortId }}</span>
+              {{ s.destination.name }} — {{ s.destination.address?.line1 }}
+            </li>
+          </ol>
+          <p class="text-xs text-emerald-700">
+            Scan the bag labels at collection. Delivery reporting arrives in the next app update.
+          </p>
+        </div>
+      </section>
 
       <UAlert v-if="error" :description="error" color="error" variant="soft" />
     </template>

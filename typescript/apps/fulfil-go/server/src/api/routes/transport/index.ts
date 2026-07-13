@@ -655,6 +655,63 @@ export function registerTransportRoutes(
     },
   );
 
+  // The driver's own trips — the Work tab's persistent state (a claimed
+  // trip must survive app restarts; page-local state does not).
+  fastify.get(
+    '/clients/:clientId/transport/my-trips',
+    {
+      schema: {
+        tags: ['Transport'],
+        summary: "The authenticated driver's claimed trips (newest first)",
+        params: Type.Object({ clientId: Type.String() }),
+        querystring: Type.Object({
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
+        }),
+        response: {
+          200: Type.Object({ trips: Type.Array(Type.Unknown()) }),
+          401: UnauthorizedSchema,
+          403: Type.Object({ error: Type.String(), message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const driverRef = scope.attributes['driverRef'];
+      if (!driverRef) {
+        return reply
+          .code(403)
+          .send({ error: 'forbidden', message: 'This endpoint requires a driver session.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const { limit } = request.query as { limit?: number };
+      const trips = await appContext.repositories.trips.listByDriver(
+        clientId,
+        driverRef,
+        ['claimed'],
+        limit ?? 5,
+      );
+      return reply.send({
+        trips: trips.map((t) => ({
+          tripId: t.id,
+          originRef: t.originRef,
+          claimedAt: t.updatedAt.toISOString(),
+          routeKm: t.routeKm,
+          routeMinutes: t.routeMinutes,
+          stops: t.stops.map((s) => ({
+            orderId: s.orderId,
+            shortId: s.shortId,
+            destination: s.destination,
+            legKm: s.legKm,
+            legMinutes: s.legMinutes,
+          })),
+        })),
+      });
+    },
+  );
+
   fastify.post(
     '/clients/:clientId/transport/offers/:groupId/claim',
     {

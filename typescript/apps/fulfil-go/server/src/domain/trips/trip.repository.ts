@@ -16,4 +16,12 @@ export interface TripRepository {
     offset: number,
     statuses?: readonly string[],
   ): Promise<readonly Trip[]>;
+
+  /** The driver app's "my trips" — this driver's trips, newest first. */
+  listByDriver(
+    clientId: string,
+    driverRef: string,
+    statuses: readonly string[],
+    limit: number,
+  ): Promise<readonly Trip[]>;
 }
