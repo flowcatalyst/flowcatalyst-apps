@@ -1,170 +1,143 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-13. Everything below is COMMITTED on `main`. Read
-`CLAUDE.md` first (stack, conventions, gotchas, dev loop); this file is
-"where we are + what's next". SISTER REPO: InhanceMono has branch
-`feature/fulfilgo-epod-integration` (worktree
+Last updated: 2026-07-13 (transport-context session). Everything below is
+COMMITTED on `main`. Read `CLAUDE.md` first (stack, conventions, gotchas,
+dev loop); this file is "where we are + what's next". SISTER REPO:
+InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
 
-## What works, end-to-end, against the LIVE fc-dev platform
+## What landed 2026-07-13 (this session, 5 commits)
 
-The full demo loop is autonomous and verified:
+1. **Activity log** (`aff6892`): fulfilment_processing_log generalized into
+   `activity_log` — subject (fulfilment/part/pick/transport_order/trip) +
+   source (domain/platform/uber/epod/admin) on every entry, fulfilment_id
+   as root correlation. Same-tx `append` for domain writes, best-effort
+   `appendDetached` for external interactions, `hasEntry` stays the PM
+   dispatch guard. Webhook deliveries ACKed-without-action are recorded
+   (source=platform, category=webhook). API renamed to
+   `/fulfilments/:id/activity-log`.
+2. **Process registry v1** (`cdfb66a`, docs/process-definitions.md):
+   `fulfilments.process_definition` ownership stamp (default 'standard')
+   resolved at creation from the new `client_settings` table (GET/PUT
+   `/clients/:id/config/client-settings`, registry-validated).
+   `src/processes/`: registry (stamp → definition; unknown stamp = 500,
+   deploy error) + the standard definition — the /processes/fulfilment
+   switch reshaped into a thin policy module; the route is now shared
+   infrastructure. DSL/diagrams deferred until N≥2.
+3. **Management chrome fixes** (`e3e323a`): GET /auth/me (name/email from
+   OIDC claims; dev fallback honours x-user-name via mobile-kit's
+   devUserName / VITE_DEV_USER_NAME); SidebarProfile shows the real
+   identity; content panes left-aligned (mx-auto dropped).
+4. **Config reshape** (`588944c`, Andrew's mid-session direction):
+   - 'hot' temperature class chain-wide (products + packages; packing
+     drawer has a Hot square; generator fixtures ~5% hot items).
+   - pickSortAlgorithm 'temperature-zone': ambient → chilled → frozen →
+     hot, walk-sequence WITHIN each band.
+   - **Store profiles SPLIT by owning domain**: store_profiles.domain
+     ('pick'|'transport'), stores carry pick_/transport_ profile codes +
+     per-domain override columns. Config API is
+     `/clients/:id/config/:domain/store-profiles`; management pages live
+     under Picking → Pick profiles and Transport → Transport profiles.
+     Transport profile owns defaultExecutionSystem + executionSystems
+     (alternatives, both now editable), transportLeadTimeMinutes (default
+     45), defaultTransportProvider + transportProviders allowed[] entries
+     ({code, serviceRadiusKm?, config?} — API-set, no UI).
+   - stores gained lat/lng columns (extracted from the captured record).
+5. **Transport context — demand side** (`9775e96`,
+   docs/transport-context.md): TransportOrder aggregate (tro_, one per
+   picked part, forward-only machine requested → booked → assigned →
+   collected → delivered|failed|cancelled) + fulfil-go:transport:order:*
+   events; provider registry ('own'/'epod' = OUR-PLANNED → orders stay
+   requested for the planning marketplace; 'uber' = provider-planned,
+   registers when FULFILGO_UBER_* creds set); resolver = transport profile
+   allowed[] ∩ registry ∩ vehicle capability ∩ radius coverage (haversine
+   v1 on store lat/lng — same oracle seam for future PostGIS/pinpoint
+   polygons), store default ranked first, remainder = fallback chain.
+   Trigger: standard definition on its own fulfilment:picked (payload now
+   carries serviceLevel/slotStart) — ASAP requests immediately, STANDARD
+   books a `process_reactions` row due slotStart − transportLeadTime,
+   released by the fulfil-go-transport-reactions cron →
+   /jobs/run-transport-reactions. Booking: dispatch job → HMAC landing pad
+   /clients/:id/transport/orders/:id/book walks the chain OUTSIDE any tx
+   (uber 4xx = next candidate, 5xx = platform retry), then one short tx
+   books/fails. Uber webhook /transport/webhooks/uber (raw-body signature;
+   FULFILGO_UBER_WEBHOOK_SECRET) → apply-transport-status (stale ACKed).
+   GET /clients/:id/transport/orders for management.
 
-```
-Generator (management app, optionally per-store)
-  → create-fulfilment (parts pending)
-  → platform cron fulfil-go-release-picks (client-scoped job, 6-FIELD cron
-    '0 * * * * *') fires /jobs/release-picks every minute
-  → parts pick_requested + create-pick DISPATCH JOB (outbox → platform)
-  → platform dispatcher POSTs /clients/:id/picks (HMAC; idempotent intake)
-  → Pick aggregate 'requested' → SSE store channel → picking station LIVE
-  → picker claims (online-only by design) → pick:claimed event
-  → platform SUBSCRIPTION fulfil-go-fulfilment-process delivers to
-    /processes/fulfilment → PROCESS MANAGER: part → picking
-  → picker picks (scan-first wedge input; substitutes when allowed; walk-
-    order by attributes.aisle; images) → packs (pick-then-pack; bag drawer
-    with size/temp squares; items-into-bags or bags-only) → vehicle question
-    (big NO default / double-confirmed Yes) → complete
-  → pick:picked/short-picked → PM: part picked + ACTUALS captured on the
-    part (line_results incl substitutions, packages, requires_vehicle)
-  → all viable parts picked ⇒ fulfilment READY + fulfilment:picked event
-    (the future request-transport trigger)
-  fail path: pick:failed → all-or-nothing cancels sibling parts +
-    fulfilment FAILED + fulfilment:failed
-```
+## ⚠️ Operational to-dos before the platform loop covers transport
 
-Offline: complete/fail queue client-side (2.5s→10s backoff cap, network
-errors never dead-letter, Idempotency-Key + server replay); WIP trolley
-persists per pick in localStorage; dead-letter UI in station Settings.
+- Run `pnpm flowcatalyst:sync` (server running, platform up): registers the
+  new event types (transport:order:*, fulfilment:transport-scheduled),
+  adds fulfilment:picked to the fulfil-go-fulfilment-process subscription,
+  pushes the updated fulfilment:picked schema (serviceLevel/slotStart),
+  and creates the fulfil-go-transport-reactions scheduled job (6-field
+  cron). Until then the transport trigger only fires via manual webhook
+  POSTs (that's how it was smoke-verified).
+- Set per-store transport profiles: the smoke left the CLIENT-WIDE
+  'default' transport profile with transportProviders [own, uber(15km)] +
+  defaultTransportProvider 'own' on clt_6F9GM54BB5G2Y (dev data).
+- Smoke data: ful_0QZ26YJKR0E34 + ful_0QYSMFFFQ4RZB now have transport
+  orders (status requested, provider 'own') on the dev db.
 
 ## Contexts & status
 
-| Context         | State                                                                                                                                                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fulfilment      | create/cancel/release + PM first slice (pick reactions, ready/failed derivation). Missing: transport request on ready, handover, completion, cancel-while-picking (`cancelling`).                                                                                                           |
-| Pick            | Full: intake, claim, pick-then-pack, substitutes (captured-as-scanned), outcomes, packages, requiresVehicle. Missing: pick-into-bag-directly mode (needs pick_lines as ROWS — see picking-workflow.md), approved-substitute lists (master-data gateway).                                    |
-| Picker identity | PIN-primary complete (login/refresh/lifecycle/seeding, dev PIN 385345). Missing: QR badges, device enrollment, break-glass (pick-context-auth-plan.md phases).                                                                                                                              |
-| Stores          | Base registry section (sync from fixtures). Real master-data sync later; transport config per store later.                                                                                                                                                                                  |
-| Transport       | Aggregate NOT BUILT, but the provider port + FULL UBER DIRECT ADAPTER exist (server/src/transport/ — typed client, quote/create/cancel, webhook verify, robo-courier test mode, 15 tests; see transport-context.md "Uber Direct adapter"). All inputs already captured on fulfilment parts. |
-| Jobs (demo)     | Throwaway vertical; still powers execution-app. Candidate backend for the 'own' transport adapter — DECIDE before transport build (vs fulfil's last-mile).                                                                                                                                  |
+| Context         | State                                                                                                                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fulfilment      | create/cancel/release + PM reactions + READY/FAILED derivations + transport trigger (ASAP/STANDARD). Missing: completion leg (consume transport delivered/failed → completing → completed/partially_completed), cancel-while-picking. |
+| Pick            | Full vertical (see previous handoffs). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                                                                       |
+| Picker identity | PIN-primary complete. Missing: QR badges, device enrollment, break-glass.                                                                                                                                                     |
+| Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                  |
+| Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: PLANNING context (next), management Transport orders page (API exists), positions/map.                                                           |
+| Planning        | NOT BUILT — the next big build (see below). EPOD claim stubs still answer empty offers / 410.                                                                                                                                 |
+| Jobs (demo)     | Throwaway vertical; still powers execution-app. SUPERSEDED as the 'own' backend by the planning marketplace decision — execution-app will consume the claim surface natively; migrate it when planning lands.                  |
 
-## Agreed next steps (priority order per Andrew's direction)
+## Agreed next steps (priority order)
 
-1. **Transport context** (the big one): TransportOrder aggregate, provider
-   port ('own' driver execution for ROA stores, 'uber' Direct, 'inmotion'),
-   store/client provider config + store `geo` + PostGIS coverage oracle
-   (transport-context.md "Provider selection & coverage"), PM requests
-   transport on READY (ASAP immediate, STANDARD timed via reaction
-   bookkeeping + deadline sweep). STEP 0 of this build: generalize the
-   processing log into the ACTIVITY LOG (docs/activity-log.md — table +
-   activity-log-repository rename + pick/PM writers) so every transport
-   adapter writes the chain record from day one. Alongside it: the
-   process-definition registry + ownership stamp + client integration
-   processes (docs/process-definitions.md — registry v1 = stamp + split +
-   plain-module selector; DSL deferred), PLANNING CONTEXT with the
-   allocation-strategy port ('claim' default — one marketplace for own app
-   + EPOD; offer composition incl. multi-stop + anchor claims:
-   transport-context.md "Offer composition" + "Allocation strategies").
-   Open decision: 'own' adapter backend = execution-app jobs vs fulfil
-   last-mile.
-2. Fulfilment completion leg: PM consumes transport events → ready →
-   completing → completed/partially_completed.
-3. Pick-into-bag-directly mode (+ per-line server-side state as rows).
-4. Picker auth phase 2: QR badges + device enrollment + break-glass.
+1. **Transport PLANNING context** (docs/transport-context.md "Offer
+   composition" + "Allocation strategies", both locked 2026-07-13):
+   Trip aggregate (v1: one order = one trip; VROOM via the router service
+   for multi-stop sequencing — VROOM IS AVAILABLE, see memory);
+   allocation-strategy port with **'claim' default** — ONE offer/claim
+   marketplace for our execution app AND EPOD: offer = a TRIP (multi-stop
+   when possible: same store, overlapping windows, capacity/temperature
+   compatible, capped stops/detour), anchor claims resolve the
+   driver-entered part SHORT ID first + companions by least added detour,
+   RESERVATION covers the whole group atomically (expiring
+   optimistic-locked hold, driver+vehicle bound at OFFER time). Fill the
+   EPOD claim stubs (claimable-trips → reserved offer; claims/:groupId →
+   confirm + SYNCHRONOUS route-plan push via EpodClient, reject = release);
+   execution app consumes the same surface natively (replaces the demo
+   jobs vertical). `listRequestedByStore` on the transport-order repo is
+   the marketplace feed.
+2. Fulfilment completion leg: subscription gains transport:order:delivered/
+   failed/cancelled → PM: ready → completing → completed/partially_completed
+   (+ commerce hook seam per docs/process-definitions.md layer 2).
+3. Management Transport orders page (list API already live) + flightboard
+   delivery KPIs (transport exception kinds reserved).
+4. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
 
 ## Known issues / loose ends (not fulfil-go blockers)
 
 - **pinpoint shares the pool-self-deadlock pattern** (bare `db.` reads inside
-  runWrite) — MUST sweep before its prod cutover. Fix pattern: `const
-current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
-  repos + CLAUDE.md gotcha).
-- pinpoint `test/auth/session-refresh.test.ts`: 2 pre-existing failures
-  (mocked happy path returns undefined; possibly SDK-bump related).
+  runWrite) — MUST sweep before its prod cutover (see CLAUDE.md gotcha).
+- pinpoint `test/auth/session-refresh.test.ts`: 2 pre-existing failures.
 - Two `fc-dev outbox` poller processes tend to accumulate — kill duplicates.
-- Platform observations flagged to Andrew: dataOnly subscription payloads
-  arrive double-encoded (JSON string); 5-field crons validate but never fire
-  (his other session is fixing validation); scheduled-job client-scope
-  migration strands the old platform-scoped duplicate (archiveUnlisted can't
-  reach it — deleted manually via API).
-- TypeScript 7: repo stays on TS6 until 7.1 (vue-tsc needs the new API);
-  Andrew's ~/.Brewfile has a note; brew formula still 6.0.3.
-- **Store profiles LIVE 2026-07-12** (config vertical): layered operational
-  settings — code defaults ⇐ 'default' profile (THE global config; virtual
-  until first saved) ⇐ store's profile ⇐ store overrides. Shared contract
-  `StoreSettingsSchema` (+ resolveStoreSettings); tables store_profiles +
-  stores.profile_code/settings_overrides; API /clients/:id/config/\*;
-  management "Configuration → Store profiles" page + per-store profile
-  select on Stores. CONSUMERS: create-fulfilment hydrates per-part pick
-  lead times when the command omits pickLeadTimeMinutes (explicit upstream
-  values ALWAYS win); flightboard thresholds resolve live per store.
-  Dev note: a 'dark-store' demo profile exists, store-001 assigned to it.
-  Store-override editing UI not built (API is).
-- **Flightboard SSE LIVE 2026-07-12**: /clients/:id/sse/ops streams
-  invalidation nudges (broker wildcard '\*' subscription filtered to the
-  client's store channels); page debounce-refetches, badge shows
-  live/polling, poll stays as fallback (15s) and safety net (60s when SSE
-  open — covers signals store channels don't carry, e.g. creation).
-- Projections (docs/projections.md — session tables + stats-as-views, the
-  anti-CDC/Redshift demo story): **pick_sessions LIVE 2026-07-12** —
-  flat row per pick written in the pick txs (receive/claim/complete/fail,
-  idempotent full-row upserts via pick-session-projection.ts), BACKFILLED
-  from historical picks in the migration, `handling_seconds` =
-  claim→complete COMBINED (Andrew's call; split needs station-reported
-  durations — option documented). Views `pick_stats_daily` +
-  `pick_stats_by_picker` (join picker names) query live. NEXT:
-  fulfilment_sessions + Stats page; flightboard re-reads sessions;
-  transport_sessions with transport.
-- EPOD/Integral execution system: **docs/epod-integration-notes.md
-  WRITTEN 2026-07-12** (880 lines, file-cited from InhanceMono) — feeds the
-  'epod' transport provider adapter. Essence: claim is a DRIVER-PULL
-  marketplace (claimable-trips offer w/ 30s TTL + claim-trip/{groupId}; no
-  unclaim, offers expire; driver+vehicle bound at OFFER time) built on
-  ondemand's od*transport_orders (status ready, execution_system='EPOD')
-  over a SHARED DB with epod*\* tables. Events: EPOD.STOP.STATUS.CHANGED /
-  epod.POD.GENERATED / workflow + allocation events; outbound today =
-  Basic-auth Actuals POST (CLIENT_CONFIG/EPOD_ACTUALS) or WEBHOOK_CE
-  connector subs; an Integral→FlowCatalyst sync bridge already exists.
-  **fulfil-go-side integration pieces BUILT 2026-07-12** (see
-  transport-context.md "EPOD adapter (fulfil-go side)"): typed EpodClient
-  (`server/src/transport/epod/` — FC service-token auth + X-INHANCE-TENANT;
-  locations/products upsert + loosely-typed routes/plans), provisioning
-  landing pad `POST /clients/:id/epod/provision` (HMAC dispatch target;
-  env-gated by FULFILGO_EPOD_BASE_URL/\_TENANT_CODE, unset logs + skips),
-  PM decider on fulfilment.created (subscription now includes it; guard =
-  'epod-provision-dispatched' processing-log entry in the dispatch tx +
-  platform idempotency key; fact event `…:epod-provision-requested`),
-  store settings `executionSystems`/`defaultExecutionSystem` (API-set, no
-  UI — the Settings page preserves them on save), and claim-surface STUBS
-  `/clients/:id/transport/epod/claimable-trips` (empty offers) +
-  `…/claims/:groupId` (410) for Integral's claim proxy. STILL TO DO (their
-  side + planning context): claim-proxy update, reservation/claim + sync
-  route-plan push, status webhooks → TransportOrder. Constraints that
-  stand: origin = part origin.ref == EPOD location reference
-  (depots/territories manually maintained there); tenant match = our
-  client code == EPOD tenant code; map statuses ONLY on string references
-  (numeric ids differ per tenant). Migration is proposed for a focused
-  ondemand execution experience, adopted incrementally per store.
-- Flightboard (management /flightboard, GET /clients/:id/flightboard):
-  controller view LIVE 2026-07-12 — KPIs, exception list (release_overdue /
-  pick_late_unclaimed / pick_late_incomplete; transport kinds reserved),
-  ASAP-first board, 15s poll. Thresholds are v1 constants in
-  flightboard-query.ts — promote to client/store config when controllers
-  want tuning. Delivery-side KPIs (delivered, on-time, OTIF) render as
-  "awaits transport" until that context lands. NOTE: "claimed but not
-  STARTED" is indistinguishable server-side until pick_lines become rows.
-- **Line locations + pick sort LIVE 2026-07-12**: line.location
-  (aisle/bay/shelf/positionIndex/walkSequence/locationDisplay) first-class
-  on lines; store-settings pickSortAlgorithm (walk-sequence default |
-  aisle-bay-shelf | as-received) captured per pick at intake
-  (picks.sort_algorithm); shared sortPickLines (natural sort, unit-tested);
-  station sorts by captured algorithm + shows locationDisplay; Settings
-  select; generator derives serpentine walk locations.
-- Fulfilments page could render the captured part ACTUALS (line_results/
-  packages/requiresVehicle are already on the DTO) — small UI win.
-- Offered, not built: management "Products" reference page (sku/gtin lookup
-  - rendered barcodes for scan testing).
+- Platform observations flagged to Andrew: dataOnly payloads double-encoded;
+  5-field crons validate but never fire; scheduled-job client-scope
+  migration strands platform-scoped duplicates.
+- TypeScript 7: repo stays on TS6 until 7.1 (vue-tsc needs the new API).
+- Historical activity_log rows (pre-split) carry subject_type='fulfilment'
+  for pick entries — migrated as-is by design; new writes carry pick/part.
+- EPOD integration detail: docs/epod-integration-notes.md (their side) +
+  transport-context.md "EPOD adapter (fulfil-go side)". Constraints stand:
+  origin.ref == EPOD location reference; our client code == EPOD tenant
+  code; map statuses only on string references.
+- Projections (docs/projections.md): pick_sessions LIVE; NEXT
+  fulfilment_sessions + transport_sessions + Stats page.
+- Fulfilments page could render captured part ACTUALS (already on the DTO).
+- Offered, not built: management "Products" reference page.
 
 ## Debugging the platform (hard-won)
 
@@ -182,3 +155,7 @@ current = () => resolveDb(db, TransactionStore.get())` (see fulfil-go
   override silently).
 - fulfil-go smoke pattern: run a throwaway server on :3299 against the same
   DB (never kill the user's :3200 tsx-watch; kill by port when done).
+- Drizzle-kit 1.0 prompts on ambiguous diffs and needs a TTY — answer via
+  `expect` (see scratchpad gen.exp pattern) or split schema changes into
+  unambiguous phases (add-only → drop-only) and hand-edit the data copy
+  into migration.sql.

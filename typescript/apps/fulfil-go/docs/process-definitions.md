@@ -1,8 +1,13 @@
 # Process definitions & client integration processes — design
 
-Status: direction agreed with Andrew 2026-07-11; NOT built. Land the
-registry refactor alongside the transport build (transport adds the timed
-reaction bookkeeping that should live with the process definition).
+Status: **Registry v1 BUILT 2026-07-13** (commit `cdfb66a`) — ownership
+stamp `fulfilments.process_definition` (default 'standard', resolved from
+the new `client_settings` row at creation; GET/PUT
+`/clients/:id/config/client-settings`), `src/processes/` registry +
+standard definition (the webhook route's switch reshaped into a thin
+policy module; the route is shared infrastructure). Timed reactions landed
+with transport (`process_reactions` + sweep). The `on/when/do` DSL +
+generated diagrams stay DEFERRED until N≥2 (see Staging below).
 
 ## The idea
 

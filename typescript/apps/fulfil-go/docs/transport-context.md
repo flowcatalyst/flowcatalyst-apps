@@ -1,8 +1,17 @@
 # Transport context — design sketch (pre-build)
 
-Status: direction agreed with Andrew 2026-07-10; NOT built. This is the
-next major context after picking. Inputs it needs from the fulfilment are
-already captured (see "Inputs" below).
+Status: **DEMAND SIDE BUILT 2026-07-13** (commit `9775e96`): TransportOrder
+aggregate + events, provider registry ('own'/'epod' our-planned, 'uber'
+provider-planned when creds set), resolver (transport store profile
+allowed[] ∩ capability ∩ radius coverage — haversine v1 on stores.lat/lng,
+same oracle seam PostGIS/pinpoint polygons slot into), PM trigger on
+fulfilment:picked (ASAP immediate; STANDARD via process_reactions +
+fulfil-go-transport-reactions cron sweep), book landing pad walking the
+candidate chain (uber createDelivery outside tx), uber status webhook →
+forward-only order machine. NOT built yet: the PLANNING context (Trip,
+reservations, offer composition, claim strategy — the EPOD claim stubs
+still answer empty), fulfilment completion leg, positions/map. The notes
+below are the design it implements.
 
 ## The core decision: pluggable execution
 

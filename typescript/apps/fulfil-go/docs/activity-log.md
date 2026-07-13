@@ -1,7 +1,11 @@
 # Activity log — the immutable chain record (design)
 
-Status: direction agreed with Andrew 2026-07-12; generalization NOT built
-(the fulfilment processing log is the live seed of this pattern).
+Status: **BUILT 2026-07-13** (commit `aff6892`) — `activity_log` table,
+`activity-log-repository` (same-tx `append`, best-effort `appendDetached`
+for external interactions, `hasEntry` guard), all fulfilment/pick/PM
+writers stamped with subject+source, webhook ACKed-without-action receipts
+recorded, `/fulfilments/:id/activity-log` API + panel. The notes below are
+the design it implements.
 
 ## What it is
 
