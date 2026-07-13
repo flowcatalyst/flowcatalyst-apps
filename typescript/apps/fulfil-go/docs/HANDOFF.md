@@ -3,9 +3,11 @@
 Last updated: 2026-07-13 (transport-planning + management-chrome session).
 Everything below is COMMITTED on `main`. Read `CLAUDE.md` first (stack,
 conventions, gotchas, dev loop); this file is "where we are + what's next".
-**NEXT SESSION: execution-app migration onto the claim marketplace**
-(replace the demo jobs vertical with /transport/offers — "Agreed next
-steps" item 1), or the fulfilment completion leg (item 2).
+**NEXT SESSION (Andrew, 2026-07-13): INDEX PASS — review access patterns
+and plan an optimal index set balancing write vs query performance**
+("Agreed next steps" item 1 below has the access-pattern map). After
+that: driver status-report API + delete the jobs vertical, or the
+fulfilment completion leg.
 Product decision 2026-07-13: fulfil-go has NO iOS APP — picking stations
 are Android or browser; don't build/maintain ios/ projects. SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
@@ -214,7 +216,38 @@ design doc; read it before touching the replace flow):
 
 ## Agreed next steps (priority order)
 
-1. **Execution-app migration onto the claim marketplace**: consume
+1. **INDEX PASS (Andrew, 2026-07-13)**: review access patterns across the
+   schema and design an index set balancing WRITE cost (every aggregate
+   persist is an optimistic-locked UPDATE; outbox/sync/activity append on
+   every commit) against the hot reads. Access-pattern map to work from:
+   - WRITE-HEAVY, keep lean: `outbox_messages` (append + poller drain
+     scan by status), `sync_events` (append + broker poll with the
+     visibility-horizon predicate `txid < pg_snapshot_xmin(...)` +
+     channel/id cursor — check the poll plan!), `activity_log` (append;
+     read only per-fulfilment timeline), `audit_logs`, `idempotency_keys`
+     (PK hit), `telemetry_locations` (batch insert).
+   - HOT READS to EXPLAIN against realistic volume (generator can make
+     thousands): flightboard-query (fulfilment_parts by client+status+
+     store + SLA time predicates), `picks` store-channel lists
+     (client+store+status) + pick_sessions projection reads,
+     transport marketplace feed `listRequestedByStore` (client+origin+
+     status='requested'+provider IN — existing idx_transport_orders_
+     store_status lacks provider), trips listByClient (client+status+
+     created_at DESC — index exists but not covering the sort),
+     `fulfilments.listDueParts` (release sweep: status+release_at across
+     clients — check it isn't a seq scan), depot_stores lookups (both
+     directions — indexed), driver/picker login (unique index = covered),
+     process_reactions due sweep (status+due_at — indexed).
+   - Balance questions: jsonb columns queried by expression? (none yet —
+     keep it that way or add expression indexes deliberately); partial
+     indexes for status='requested'/'pending' hot subsets vs full
+     composites; whether flightboard needs the projections planned in
+     docs/projections.md instead of more indexes on the write tables.
+   - Method: seed a big dataset with the generator, `EXPLAIN (ANALYZE,
+     BUFFERS)` each query-module SQL + repo read, check pg_stat_user_
+     indexes for dead weight afterwards. Embedded PG has no
+     pg_stat_statements by default — drive the known query list instead.
+2. **Execution-app migration onto the claim marketplace**: consume
    `/clients/:id/transport/offers` + `/offers/:groupId/claim` natively
    (offer card with the stop sequence, claim → drive → per-stop
    delivered/failed reporting — which needs the status-report API below),
@@ -273,17 +306,17 @@ design doc; read it before touching the replace flow):
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.
-2. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
+3. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
    normalizes (string references only) → TransportOrder machine — plus
    real-EPOD-tenant verification of the claim proxy + sync plan intake
    (their branch is still unpushed).
-3. Fulfilment completion leg: subscription gains transport:order:delivered/
+4. Fulfilment completion leg: subscription gains transport:order:delivered/
    failed/cancelled → PM: ready → completing → completed/partially_completed
    (+ commerce hook seam per docs/process-definitions.md layer 2).
-4. Management Transport orders page (list API already live) + flightboard
+5. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
-5. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
-6. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
+6. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
+7. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
    above + docs/bag-label-printing.md). Remaining: device verification of
    TcpPrint (Android) against a real Zebra on a store LAN.
 
@@ -292,7 +325,13 @@ design doc; read it before touching the replace flow):
 - **pinpoint shares the pool-self-deadlock pattern** (bare `db.` reads inside
   runWrite) — MUST sweep before its prod cutover (see CLAUDE.md gotcha).
 - pinpoint `test/auth/session-refresh.test.ts`: 2 pre-existing failures.
-- Two `fc-dev outbox` poller processes tend to accumulate — kill duplicates.
+- `fc-dev outbox` pollers accumulate AND die silently (bit us 2026-07-13:
+  a days-old poller stopped ingesting mid-session — flightboard showed
+  work, no picks materialized). Signature: outbox_messages rows pile up
+  while platform msg_events stops advancing. Kill stale pollers (check
+  process start dates) and restart standalone:
+  `fc-dev outbox --source-db-url postgresql://postgres:postgres@localhost:15432/fulfilgo --target-url http://localhost:8080 --client-id $FLOWCATALYST_API_CLIENT_ID --client-secret $FLOWCATALYST_API_CLIENT_SECRET`
+  (also saved to workspace memory).
 - Platform observations flagged to Andrew: dataOnly payloads double-encoded;
   5-field crons validate but never fire; scheduled-job client-scope
   migration strands platform-scoped duplicates.
