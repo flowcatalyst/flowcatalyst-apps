@@ -59,11 +59,13 @@ const subForm = reactive({ barcode: '', description: '', quantity: 1 });
 // ── Packing state (unchanged model) ───────────────────────────────────────
 type PackMode = 'items' | 'bags';
 const SIZES = ['XS', 'S', 'M', 'L', 'XL'] as const;
-// Chain-wide temperature terminology: ambient / chilled / frozen.
+// Chain-wide temperature terminology: ambient / chilled / frozen / hot
+// ('hot' = warm prepared food, coffee — kept apart, picked & packed last).
 const TEMPS = [
   { value: 'ambient', label: 'Ambient' },
   { value: 'chilled', label: 'Chilled' },
   { value: 'frozen', label: 'Frozen' },
+  { value: 'hot', label: 'Hot' },
 ] as const;
 
 interface PackagedUnit {

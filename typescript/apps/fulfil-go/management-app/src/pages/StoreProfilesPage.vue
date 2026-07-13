@@ -4,21 +4,30 @@ import { api, clientId } from '../context.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
- * Store profiles — layered operational settings. The 'default' profile IS
- * the global config; other profiles override it selectively; stores link
- * to a profile on the Stores page (field-level per-store overrides exist
- * in the API, UI later). Empty input = inherit (placeholder shows the
- * inherited value).
+ * Store profiles for ONE owning domain — layered operational settings. The
+ * 'default' profile IS that domain's global config; other profiles override
+ * it selectively; stores link to a profile per domain on the Stores page
+ * (field-level per-store overrides exist in the API, UI later). Empty
+ * input = inherit (placeholder shows the inherited value).
+ *
+ * Two instances of this page exist: Picking → Pick profiles and
+ * Transport → Transport profiles (Andrew, 2026-07-13 split).
  */
+const props = defineProps<{ domain: 'pick' | 'transport' }>();
+
 interface Profile {
   code: string;
   name: string;
-  /** Numeric fields edited here; execution-system fields (string/string[])
-   *  are API-set for now and must survive a UI save untouched. */
   settings: Record<string, unknown>;
 }
 
-const FIELDS: Array<{ key: string; label: string; help: string }> = [
+interface NumberFieldDef {
+  key: string;
+  label: string;
+  help: string;
+}
+
+const PICK_FIELDS: NumberFieldDef[] = [
   {
     key: 'pickLeadTimeMinutesDelivery',
     label: 'Pick lead time — delivery (min)',
@@ -51,20 +60,40 @@ const FIELDS: Array<{ key: string; label: string; help: string }> = [
   },
 ];
 
-/** Pick sort algorithm — the one non-numeric field this page edits.
- *  '' = inherit (field omitted from the profile's settings on save). */
+const TRANSPORT_FIELDS: NumberFieldDef[] = [
+  {
+    key: 'transportLeadTimeMinutes',
+    label: 'Transport lead time (min)',
+    help: 'STANDARD service level requests transport this long before slot start.',
+  },
+];
+
+/** Pick sort — '' = inherit (field omitted from the profile on save). */
 const SORT_ALGORITHMS = [
   { label: 'Walk sequence (planogram walk order)', value: 'walk-sequence' },
   { label: 'Aisle → bay → shelf', value: 'aisle-bay-shelf' },
+  { label: 'Temperature zones (ambient → chilled → frozen → hot)', value: 'temperature-zone' },
   { label: 'As received (upstream order)', value: 'as-received' },
 ];
+
+/** Known execution systems — free codes; the common ones get a select. */
+const EXECUTION_SYSTEMS = [
+  { label: 'FulfilGo execution app', value: 'own' },
+  { label: 'EPOD (Integral driver app)', value: 'epod' },
+];
+
+const title = computed(() => (props.domain === 'pick' ? 'Pick profiles' : 'Transport profiles'));
+const numberFields = computed(() => (props.domain === 'pick' ? PICK_FIELDS : TRANSPORT_FIELDS));
 
 const defaults = ref<Record<string, unknown>>({});
 const profiles = ref<Profile[]>([]);
 const selectedCode = ref('default');
 const form = reactive<Record<string, number | ''>>({});
-/** Separate from the numeric FIELDS loop — string-valued select. */
+/** String-valued fields (selects / free text); '' = inherit. */
 const formPickSort = ref<string>('');
+const formDefaultExec = ref<string>('');
+const formExecAlternatives = ref<string>('');
+const formDefaultProvider = ref<string>('');
 const formName = ref('');
 const newProfile = reactive({ code: '', name: '' });
 const busy = ref(false);
@@ -84,32 +113,37 @@ function inheritedValue(key: string): number {
   return typeof fallback === 'number' ? fallback : 0;
 }
 
-/** What pickSortAlgorithm inherits when unset on THIS profile. */
-const inheritedPickSort = computed<string>(() => {
+function inheritedString(key: string, codeFallback: string): string {
   if (selectedCode.value !== 'default') {
-    const fromDefault = defaultProfile.value?.settings['pickSortAlgorithm'];
+    const fromDefault = defaultProfile.value?.settings[key];
     if (typeof fromDefault === 'string') return fromDefault;
   }
-  const fallback = defaults.value['pickSortAlgorithm'];
-  return typeof fallback === 'string' ? fallback : 'walk-sequence';
-});
+  const fallback = defaults.value[key];
+  return typeof fallback === 'string' ? fallback : codeFallback;
+}
 
 function loadForm(): void {
   const settings = selected.value?.settings ?? {};
-  for (const field of FIELDS) {
+  for (const field of numberFields.value) {
     const value = settings[field.key];
     form[field.key] = typeof value === 'number' ? value : '';
   }
   const sort = settings['pickSortAlgorithm'];
   formPickSort.value = typeof sort === 'string' ? sort : '';
+  const exec = settings['defaultExecutionSystem'];
+  formDefaultExec.value = typeof exec === 'string' ? exec : '';
+  const alts = settings['executionSystems'];
+  formExecAlternatives.value = Array.isArray(alts) ? alts.join(', ') : '';
+  const provider = settings['defaultTransportProvider'];
+  formDefaultProvider.value = typeof provider === 'string' ? provider : '';
   formName.value = selected.value?.name ?? selectedCode.value;
 }
 
 async function load(): Promise<void> {
   error.value = null;
   try {
-    const res = await api.json<{ defaults: Record<string, number>; profiles: Profile[] }>(
-      `/clients/${clientId.value}/config/store-profiles`,
+    const res = await api.json<{ defaults: Record<string, unknown>; profiles: Profile[] }>(
+      `/clients/${clientId.value}/config/${props.domain}/store-profiles`,
     );
     defaults.value = res.defaults;
     profiles.value = res.profiles;
@@ -123,21 +157,44 @@ async function load(): Promise<void> {
 async function save(): Promise<void> {
   busy.value = true;
   error.value = null;
+  notice.value = null;
   try {
     // Start from the saved settings so API-set fields the UI doesn't edit
-    // (executionSystems / defaultExecutionSystem) survive the PUT replace.
+    // (e.g. transportProviders entries) survive the PUT replace.
     const settings: Record<string, unknown> = { ...selected.value?.settings };
-    for (const field of FIELDS) {
+    for (const field of numberFields.value) {
       const value = form[field.key];
       if (value !== '' && value !== undefined) settings[field.key] = Number(value);
       else delete settings[field.key];
     }
-    if (formPickSort.value !== '') settings['pickSortAlgorithm'] = formPickSort.value;
-    else delete settings['pickSortAlgorithm'];
-    await api.json(`/clients/${clientId.value}/config/store-profiles/${selectedCode.value}`, {
-      method: 'PUT',
-      body: { name: formName.value || selectedCode.value, settings },
-    });
+    if (props.domain === 'pick') {
+      if (formPickSort.value !== '') settings['pickSortAlgorithm'] = formPickSort.value;
+      else delete settings['pickSortAlgorithm'];
+    } else {
+      if (formDefaultExec.value !== '') {
+        settings['defaultExecutionSystem'] = formDefaultExec.value;
+      } else {
+        delete settings['defaultExecutionSystem'];
+      }
+      const alternatives = formExecAlternatives.value
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      if (alternatives.length > 0) settings['executionSystems'] = alternatives;
+      else delete settings['executionSystems'];
+      if (formDefaultProvider.value !== '') {
+        settings['defaultTransportProvider'] = formDefaultProvider.value;
+      } else {
+        delete settings['defaultTransportProvider'];
+      }
+    }
+    await api.json(
+      `/clients/${clientId.value}/config/${props.domain}/store-profiles/${selectedCode.value}`,
+      {
+        method: 'PUT',
+        body: { name: formName.value || selectedCode.value, settings },
+      },
+    );
     notice.value = `Saved '${selectedCode.value}'.`;
     await load();
   } catch (err) {
@@ -152,10 +209,13 @@ async function createProfile(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    await api.json(`/clients/${clientId.value}/config/store-profiles/${newProfile.code}`, {
-      method: 'PUT',
-      body: { name: newProfile.name || newProfile.code, settings: {} },
-    });
+    await api.json(
+      `/clients/${clientId.value}/config/${props.domain}/store-profiles/${newProfile.code}`,
+      {
+        method: 'PUT',
+        body: { name: newProfile.name || newProfile.code, settings: {} },
+      },
+    );
     selectedCode.value = newProfile.code;
     newProfile.code = '';
     newProfile.name = '';
@@ -170,16 +230,16 @@ async function createProfile(): Promise<void> {
 onMounted(() => void load());
 watch(clientId, () => void load());
 watch(selectedCode, loadForm);
+watch(() => props.domain, () => void load());
 </script>
 
 <template>
   <div class="max-w-4xl p-6">
     <PageHeader
-      title="Store profiles"
-      subtitle="Operational settings, layered: defaults → 'default' profile (the global config) →
-        profile → per-store overrides. Empty fields inherit — placeholders show the inherited
-        value. Process settings hydrate onto fulfilments at creation; flightboard SLAs apply
-        live."
+      :title="title"
+      :subtitle="`${domain === 'pick' ? 'Picking' : 'Transport'} settings, layered: defaults →
+        'default' profile (the global config) → profile → per-store overrides. Empty fields
+        inherit — placeholders show the inherited value.`"
     />
 
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
@@ -250,7 +310,7 @@ watch(selectedCode, loadForm);
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <UFormField
-            v-for="field in FIELDS"
+            v-for="field in numberFields"
             :key="field.key"
             :label="field.label"
             :help="field.help"
@@ -269,16 +329,52 @@ watch(selectedCode, loadForm);
           </UFormField>
 
           <UFormField
+            v-if="domain === 'pick'"
             label="Pick sort algorithm"
             help="How the station orders pick lines. Captured onto each pick at intake — a change
               affects new picks only, never a picker mid-trolley."
           >
             <USelect
               v-model="formPickSort"
-              :items="[{ label: `Inherit (${inheritedPickSort})`, value: '' }, ...SORT_ALGORITHMS]"
+              :items="[
+                { label: `Inherit (${inheritedString('pickSortAlgorithm', 'walk-sequence')})`, value: '' },
+                ...SORT_ALGORITHMS,
+              ]"
               class="w-64"
             />
           </UFormField>
+
+          <template v-if="domain === 'transport'">
+            <UFormField
+              label="Default execution system"
+              help="The system transport defaults to for this store's work."
+            >
+              <USelect
+                v-model="formDefaultExec"
+                :items="[
+                  {
+                    label: `Inherit (${inheritedString('defaultExecutionSystem', 'none')})`,
+                    value: '',
+                  },
+                  ...EXECUTION_SYSTEMS,
+                ]"
+                class="w-64"
+              />
+            </UFormField>
+            <UFormField
+              label="Alternative execution systems"
+              help="Comma-separated codes also allowed at this store (e.g. own, epod)."
+            >
+              <UInput v-model="formExecAlternatives" placeholder="own, epod" class="w-64 font-mono" />
+            </UFormField>
+            <UFormField
+              label="Default transport provider"
+              help="Provider the resolver ranks first when it is a candidate (e.g. own, uber, epod).
+                Allowed-provider entries with coverage/config are API-managed."
+            >
+              <UInput v-model="formDefaultProvider" placeholder="inherit" class="w-64 font-mono" />
+            </UFormField>
+          </template>
         </div>
       </section>
     </div>

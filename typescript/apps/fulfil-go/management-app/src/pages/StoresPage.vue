@@ -10,33 +10,50 @@ interface StoreSummary {
   name: string;
   city: string | null;
   region: string | null;
-  profileCode: string;
+  pickProfileCode: string;
+  transportProfileCode: string;
 }
 
+type ProfileDomain = 'pick' | 'transport';
+
 const stores = ref<StoreSummary[]>([]);
-const profileOptions = ref<Array<{ label: string; value: string }>>([]);
+const profileOptions = ref<Record<ProfileDomain, Array<{ label: string; value: string }>>>({
+  pick: [],
+  transport: [],
+});
 const profileBusy = ref<string | null>(null);
 
 async function loadProfiles(): Promise<void> {
-  try {
-    const res = await api.json<{ profiles: Array<{ code: string; name: string }> }>(
-      `/clients/${clientId.value}/config/store-profiles`,
-    );
-    profileOptions.value = res.profiles.map((p) => ({ label: p.name, value: p.code }));
-  } catch {
-    profileOptions.value = [{ label: 'Default', value: 'default' }];
+  for (const domain of ['pick', 'transport'] as const) {
+    try {
+      const res = await api.json<{ profiles: Array<{ code: string; name: string }> }>(
+        `/clients/${clientId.value}/config/${domain}/store-profiles`,
+      );
+      profileOptions.value[domain] = res.profiles.map((p) => ({ label: p.name, value: p.code }));
+    } catch {
+      profileOptions.value[domain] = [{ label: 'Default', value: 'default' }];
+    }
   }
 }
 
-async function assignProfile(store: StoreSummary, profileCode: string): Promise<void> {
-  if (profileCode === store.profileCode) return;
-  profileBusy.value = store.storeRef;
+function assignedCode(store: StoreSummary, domain: ProfileDomain): string {
+  return domain === 'pick' ? store.pickProfileCode : store.transportProfileCode;
+}
+
+async function assignProfile(
+  store: StoreSummary,
+  domain: ProfileDomain,
+  profileCode: string,
+): Promise<void> {
+  if (profileCode === assignedCode(store, domain)) return;
+  profileBusy.value = `${store.storeRef}:${domain}`;
   try {
-    await api.json(`/clients/${clientId.value}/config/stores/${store.storeRef}`, {
+    await api.json(`/clients/${clientId.value}/config/${domain}/stores/${store.storeRef}`, {
       method: 'PATCH',
       body: { profileCode },
     });
-    store.profileCode = profileCode;
+    if (domain === 'pick') store.pickProfileCode = profileCode;
+    else store.transportProfileCode = profileCode;
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
@@ -102,11 +119,12 @@ watch(clientId, () => {
 </script>
 
 <template>
-  <div class="max-w-4xl p-6">
+  <div class="max-w-5xl p-6">
     <PageHeader title="Stores">
       <template #subtitle>
         Base store setup — the registry every other context (picking, fulfilment, transport) binds
-        to by <span class="font-mono">storeRef</span>.
+        to by <span class="font-mono">storeRef</span>. Each store carries a PICK profile and a
+        TRANSPORT profile (edited under their sections).
       </template>
     </PageHeader>
 
@@ -130,7 +148,8 @@ watch(clientId, () => {
             <th class="px-3 py-2">Name</th>
             <th class="px-3 py-2">City</th>
             <th class="px-3 py-2">Region</th>
-            <th class="px-3 py-2">Profile</th>
+            <th class="px-3 py-2">Pick profile</th>
+            <th class="px-3 py-2">Transport profile</th>
           </tr>
         </thead>
         <tbody>
@@ -141,18 +160,29 @@ watch(clientId, () => {
             <td class="px-3 py-2 text-neutral-500">{{ s.region ?? '—' }}</td>
             <td class="px-3 py-2">
               <USelect
-                :model-value="s.profileCode"
-                :items="profileOptions"
+                :model-value="s.pickProfileCode"
+                :items="profileOptions.pick"
                 value-key="value"
                 size="xs"
                 class="w-36"
-                :loading="profileBusy === s.storeRef"
-                @update:model-value="(v: string) => assignProfile(s, v)"
+                :loading="profileBusy === `${s.storeRef}:pick`"
+                @update:model-value="(v: string) => assignProfile(s, 'pick', v)"
+              />
+            </td>
+            <td class="px-3 py-2">
+              <USelect
+                :model-value="s.transportProfileCode"
+                :items="profileOptions.transport"
+                value-key="value"
+                size="xs"
+                class="w-36"
+                :loading="profileBusy === `${s.storeRef}:transport`"
+                @update:model-value="(v: string) => assignProfile(s, 'transport', v)"
               />
             </td>
           </tr>
           <tr v-if="stores.length === 0 && !loading">
-            <td colspan="5" class="px-3 py-8 text-center text-neutral-400">
+            <td colspan="6" class="px-3 py-8 text-center text-neutral-400">
               No stores yet — sync from fixtures to get started.
             </td>
           </tr>

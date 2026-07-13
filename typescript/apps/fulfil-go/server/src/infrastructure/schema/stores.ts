@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { doublePrecision, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 
 /**
@@ -18,10 +18,17 @@ export const stores = pgTable(
     city: text('city'),
     region: text('region'),
     data: jsonb('data').notNull(),
-    /** Store-profile link — 'default' unless assigned (see store-profiles). */
-    profileCode: text('profile_code').notNull().default('default'),
-    /** Field-level setting overrides on top of the profile (StoreSettings shape). */
-    settingsOverrides: jsonb('settings_overrides'),
+    /** Store geo (from master data / fixtures) — coverage oracle + planning. */
+    lat: doublePrecision('lat'),
+    lng: doublePrecision('lng'),
+    /** PICK profile link — 'default' unless assigned (see store-profiles). */
+    pickProfileCode: text('pick_profile_code').notNull().default('default'),
+    /** Field-level pick overrides on top of the profile (PickStoreSettings). */
+    pickSettingsOverrides: jsonb('pick_settings_overrides'),
+    /** TRANSPORT profile link — 'default' unless assigned. */
+    transportProfileCode: text('transport_profile_code').notNull().default('default'),
+    /** Field-level transport overrides (TransportStoreSettings). */
+    transportSettingsOverrides: jsonb('transport_settings_overrides'),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),
   },

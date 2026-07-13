@@ -40,8 +40,10 @@ export function fulfilledQuantity(result: PickLineResult): number {
   return result.pickedQuantity + (result.substitutions?.reduce((s, x) => s + x.quantity, 0) ?? 0);
 }
 
-export type PackageSize = 'XS' | 'S' | 'M' | 'L' | 'XL';
-export type PackageTemperature = 'ambient' | 'chilled' | 'frozen';
+// Re-exported from the shared contract - a locally re-declared union drifted
+// when 'hot' landed chain-wide (2026-07-13); single source of truth now.
+export type { PackageSize, PackageTemperature } from '@fulfil-go/shared';
+import type { PackageSize, PackageTemperature } from '@fulfil-go/shared';
 
 /**
  * A physical package produced by packing: a scanned bag (size + temperature

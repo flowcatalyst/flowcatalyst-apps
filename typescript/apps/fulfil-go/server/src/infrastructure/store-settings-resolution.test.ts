@@ -1,64 +1,77 @@
 import { describe, expect, it } from 'vitest';
 import {
-  STORE_SETTINGS_DEFAULTS,
-  StoreSettingsSchema,
-  resolveStoreSettings,
+  PICK_SETTINGS_DEFAULTS,
+  TransportStoreSettingsSchema,
+  resolvePickStoreSettings,
+  resolveTransportStoreSettings,
 } from '@fulfil-go/shared';
 
 /**
- * Layered store-settings resolution — focused on the execution-system
- * fields added for the EPOD channel (transport-context.md). The resolver
- * infrastructure (profile/override loading) is exercised end-to-end by the
+ * Layered store-settings resolution, split by owning domain (Andrew,
+ * 2026-07-13): pick settings and transport settings resolve independently
+ * through their own profile chains. The resolver infrastructure
+ * (profile/override loading) is exercised end-to-end by the
  * create-fulfilment path; the merge itself is pure and tested here.
  */
-describe('store settings — execution-system fields', () => {
+describe('transport store settings — execution-system fields', () => {
   it('defaults to no execution systems and a null default system', () => {
-    const resolved = resolveStoreSettings();
+    const resolved = resolveTransportStoreSettings();
     expect(resolved.executionSystems).toEqual([]);
     expect(resolved.defaultExecutionSystem).toBeNull();
-    // Numeric defaults untouched by the new fields.
-    expect(resolved.pickLeadTimeMinutesDelivery).toBe(
-      STORE_SETTINGS_DEFAULTS.pickLeadTimeMinutesDelivery,
-    );
+    expect(resolved.defaultTransportProvider).toBeNull();
+    expect(resolved.transportProviders).toEqual([]);
   });
 
   it('arrays pass through layers wholesale (replace, never merge)', () => {
-    const resolved = resolveStoreSettings(
+    const resolved = resolveTransportStoreSettings(
       { executionSystems: ['own', 'uber'] }, // 'default' profile
       { executionSystems: ['epod'] }, // store's profile wins per field
     );
     expect(resolved.executionSystems).toEqual(['epod']);
   });
 
-  it('a later layer sets defaultExecutionSystem without disturbing numerics', () => {
-    const resolved = resolveStoreSettings(
-      { pickLeadTimeMinutesDelivery: 120 },
+  it('a later layer sets defaultExecutionSystem without disturbing others', () => {
+    const resolved = resolveTransportStoreSettings(
+      { transportLeadTimeMinutes: 60 },
       { defaultExecutionSystem: 'epod' },
     );
     expect(resolved.defaultExecutionSystem).toBe('epod');
-    expect(resolved.pickLeadTimeMinutesDelivery).toBe(120);
+    expect(resolved.transportLeadTimeMinutes).toBe(60);
     expect(resolved.executionSystems).toEqual([]);
   });
 
-  it('a layer that says nothing about execution systems inherits them', () => {
-    const resolved = resolveStoreSettings(
-      { executionSystems: ['epod'], defaultExecutionSystem: 'epod' },
-      { pickClaimSlaMinutes: 30 }, // store override, silent on execution
-    );
-    expect(resolved.executionSystems).toEqual(['epod']);
-    expect(resolved.defaultExecutionSystem).toBe('epod');
-    expect(resolved.pickClaimSlaMinutes).toBe(30);
-  });
-
-  it('zod accepts the new fields and still rejects malformed values', () => {
+  it('zod accepts provider entries and rejects malformed values', () => {
     expect(
-      StoreSettingsSchema.safeParse({
+      TransportStoreSettingsSchema.safeParse({
         executionSystems: ['epod', 'own'],
         defaultExecutionSystem: 'epod',
+        transportProviders: [{ code: 'uber', serviceRadiusKm: 12 }],
+        defaultTransportProvider: 'uber',
       }).success,
     ).toBe(true);
-    expect(StoreSettingsSchema.safeParse({ executionSystems: 'epod' }).success).toBe(false);
-    expect(StoreSettingsSchema.safeParse({ defaultExecutionSystem: '' }).success).toBe(false);
-    expect(StoreSettingsSchema.safeParse({ unknownField: 1 }).success).toBe(false);
+    expect(TransportStoreSettingsSchema.safeParse({ executionSystems: 'epod' }).success).toBe(
+      false,
+    );
+    expect(TransportStoreSettingsSchema.safeParse({ defaultExecutionSystem: '' }).success).toBe(
+      false,
+    );
+    expect(TransportStoreSettingsSchema.safeParse({ unknownField: 1 }).success).toBe(false);
+    expect(
+      TransportStoreSettingsSchema.safeParse({ transportProviders: [{ serviceRadiusKm: 5 }] })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('pick store settings', () => {
+  it('a layer that says nothing about a field inherits it', () => {
+    const resolved = resolvePickStoreSettings(
+      { pickSortAlgorithm: 'temperature-zone', pickLeadTimeMinutesDelivery: 120 },
+      { pickClaimSlaMinutes: 30 }, // store override, silent on the rest
+    );
+    expect(resolved.pickSortAlgorithm).toBe('temperature-zone');
+    expect(resolved.pickLeadTimeMinutesDelivery).toBe(120);
+    expect(resolved.pickClaimSlaMinutes).toBe(30);
+    expect(resolved.releaseOverdueMinutes).toBe(PICK_SETTINGS_DEFAULTS.releaseOverdueMinutes);
   });
 });

@@ -6,6 +6,7 @@ type TestLine = {
   ref: string;
   location?: Partial<FulfilmentLineLocation>;
   attributes?: Record<string, string>;
+  temperatureClass?: string;
 };
 
 const refs = (lines: readonly TestLine[]): string[] => lines.map((l) => l.ref);
@@ -115,5 +116,31 @@ describe('sortPickLines', () => {
       'walk-sequence',
     );
     expect(refs(out)).toEqual(['legacy-early', 'located', 'legacy-late', 'bare']);
+  });
+
+  it('temperature-zone bands ambient → chilled → frozen → hot, walk order within a band', () => {
+    const out = sortPickLines<TestLine>(
+      [
+        { ref: 'hot', temperatureClass: 'hot', location: { walkSequence: 1 } },
+        { ref: 'frozen', temperatureClass: 'frozen', location: { walkSequence: 2 } },
+        { ref: 'ambient-late', temperatureClass: 'ambient', location: { walkSequence: 9 } },
+        { ref: 'chilled', temperatureClass: 'chilled', location: { walkSequence: 3 } },
+        { ref: 'ambient-early', temperatureClass: 'ambient', location: { walkSequence: 4 } },
+      ],
+      'temperature-zone',
+    );
+    expect(refs(out)).toEqual(['ambient-early', 'ambient-late', 'chilled', 'frozen', 'hot']);
+  });
+
+  it('temperature-zone treats a missing/unknown class as ambient (never pushed to the end)', () => {
+    const out = sortPickLines<TestLine>(
+      [
+        { ref: 'frozen', temperatureClass: 'frozen', location: { walkSequence: 1 } },
+        { ref: 'unclassified', location: { walkSequence: 2 } },
+        { ref: 'weird', temperatureClass: 'lava', location: { walkSequence: 3 } },
+      ],
+      'temperature-zone',
+    );
+    expect(refs(out)).toEqual(['unclassified', 'weird', 'frozen']);
   });
 });

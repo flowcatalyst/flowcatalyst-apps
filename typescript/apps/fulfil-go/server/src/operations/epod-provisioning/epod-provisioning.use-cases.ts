@@ -37,7 +37,7 @@ import { asFulfilmentId } from '../../domain/fulfilments/ids.js';
 import { FulfilmentEpodProvisionRequested } from '../../domain/fulfilments/events/fulfilment-epod-provision-requested.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
 import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
-import { loadStoreSettingsResolver } from '../../infrastructure/store-settings-resolver.js';
+import { loadTransportSettingsResolver } from '../../infrastructure/store-settings-resolver.js';
 import type { EpodClient } from '../../transport/epod/client.js';
 import {
   toEpodDestinationLocation,
@@ -99,7 +99,7 @@ export class RequestEpodProvisioningUseCase {
     }
 
     const originRefs = [...new Set(fulfilment.parts.map((p) => p.origin.ref))];
-    const resolver = await loadStoreSettingsResolver(this.db, fulfilment.clientId, originRefs);
+    const resolver = await loadTransportSettingsResolver(this.db, fulfilment.clientId, originRefs);
     const epodOrigins = originRefs.filter((ref) => {
       const settings = resolver.resolve(ref);
       return (

@@ -6,7 +6,7 @@ import PickersPage from '../pages/PickersPage.vue';
 import PicksAdminPage from '../pages/PicksAdminPage.vue';
 import DriversPage from '../pages/DriversPage.vue';
 import StoresPage from '../pages/StoresPage.vue';
-import SettingsPage from '../pages/SettingsPage.vue';
+import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -17,7 +17,7 @@ export const router = createRouter({
     // Fulfilment context
     { path: '/fulfilments', component: FulfilmentsPage, meta: { title: 'Fulfilments' } },
     { path: '/generator', component: GeneratorPage, meta: { title: 'Generator' } },
-    // Picking context (owns its user management + operational views)
+    // Picking context (owns its user management + operational views + config)
     { path: '/picking/pickers', component: PickersPage, meta: { title: 'Pickers' } },
     {
       path: '/picking/picks/requested',
@@ -29,17 +29,24 @@ export const router = createRouter({
       component: PicksAdminPage,
       meta: { title: 'Active picks', pickStatus: 'claimed' },
     },
-    // Transport context (placeholder until the context is built)
+    {
+      path: '/picking/store-profiles',
+      component: StoreProfilesPage,
+      props: { domain: 'pick' },
+      meta: { title: 'Pick profiles' },
+    },
+    // Transport context (owns its user management + config)
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
+    {
+      path: '/transport/store-profiles',
+      component: StoreProfilesPage,
+      props: { domain: 'transport' },
+      meta: { title: 'Transport profiles' },
+    },
     // Base store registry
     { path: '/stores', component: StoresPage, meta: { title: 'Stores' } },
-    // Configuration (store profiles = layered operational settings)
-    {
-      path: '/settings/store-profiles',
-      component: SettingsPage,
-      meta: { title: 'Store profiles' },
-    },
-    // Old flat path — keep deep links working.
+    // Old paths — keep deep links working.
     { path: '/pickers', redirect: '/picking/pickers' },
+    { path: '/settings/store-profiles', redirect: '/picking/store-profiles' },
   ],
 });

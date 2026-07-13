@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const PackageSizeSchema = z.enum(['XS', 'S', 'M', 'L', 'XL']);
 export type PackageSize = z.infer<typeof PackageSizeSchema>;
 
-export const PackageTemperatureSchema = z.enum(['ambient', 'chilled', 'frozen']);
+export const PackageTemperatureSchema = z.enum(['ambient', 'chilled', 'frozen', 'hot']);
 export type PackageTemperature = z.infer<typeof PackageTemperatureSchema>;
 
 /**

@@ -76,11 +76,13 @@ export const VolumetricSchema = z
 export type Volumetric = z.infer<typeof VolumetricSchema>;
 
 /**
- * Cold-chain class of a product — informs the pick context's packaging
- * requirements (frozen/chilled lines need appropriate packing units).
- * Terminology is ambient/chilled/frozen chain-wide (Andrew, 2026-07-11).
+ * Temperature class of a product — informs the pick context's packaging
+ * requirements (frozen/chilled lines need appropriate packing units; hot
+ * lines are warm prepared food/coffee, kept apart and picked last).
+ * Terminology is ambient/chilled/frozen/hot chain-wide (Andrew, 2026-07-13
+ * added 'hot').
  */
-export const TemperatureClass = z.enum(['ambient', 'chilled', 'frozen']);
+export const TemperatureClass = z.enum(['ambient', 'chilled', 'frozen', 'hot']);
 export type TemperatureClass = z.infer<typeof TemperatureClass>;
 
 /**

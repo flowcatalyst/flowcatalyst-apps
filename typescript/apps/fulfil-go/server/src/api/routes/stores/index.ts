@@ -15,7 +15,8 @@ const StoreSummarySchema = Type.Object({
   storeRef: Type.String(),
   name: Type.String(),
   city: Type.Union([Type.String(), Type.Null()]),
-  profileCode: Type.String(),
+  pickProfileCode: Type.String(),
+  transportProfileCode: Type.String(),
   region: Type.Union([Type.String(), Type.Null()]),
 });
 

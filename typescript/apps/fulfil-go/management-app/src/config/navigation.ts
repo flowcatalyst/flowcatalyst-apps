@@ -33,24 +33,26 @@ export const NAVIGATION: NavGroup[] = [
       { label: 'Requested picks', to: '/picking/picks/requested', icon: 'i-lucide-clipboard-list' },
       { label: 'Active picks', to: '/picking/picks/active', icon: 'i-lucide-shopping-cart' },
       { label: 'Pickers', to: '/picking/pickers', icon: 'i-lucide-users' },
+      {
+        label: 'Pick profiles',
+        to: '/picking/store-profiles',
+        icon: 'i-lucide-sliders-horizontal',
+      },
     ],
   },
   {
     label: 'Transport',
-    items: [{ label: 'Drivers', to: '/transport/drivers', icon: 'i-lucide-truck' }],
+    items: [
+      { label: 'Drivers', to: '/transport/drivers', icon: 'i-lucide-truck' },
+      {
+        label: 'Transport profiles',
+        to: '/transport/store-profiles',
+        icon: 'i-lucide-sliders-horizontal',
+      },
+    ],
   },
   {
     label: 'Stores',
     items: [{ label: 'Stores', to: '/stores', icon: 'i-lucide-store' }],
-  },
-  {
-    label: 'Configuration',
-    items: [
-      {
-        label: 'Store profiles',
-        to: '/settings/store-profiles',
-        icon: 'i-lucide-sliders-horizontal',
-      },
-    ],
   },
 ];

@@ -107,6 +107,22 @@ const stores = Array.from({ length: 100 }, (_, i) => {
 // ── Products ──────────────────────────────────────────────────────────────────
 const CATEGORIES = [
   {
+    // Warm prepared food & coffee — picked LAST under 'temperature-zone'.
+    temperatureClass: 'hot',
+    share: 0.06,
+    weight: [150, 1200],
+    items: [
+      'Rotisserie Chicken',
+      'Flat White',
+      'Pepper Steak Pie',
+      'Boerie Roll',
+      'Hot Chips',
+      'Butter Chicken Curry Bowl',
+      'Toasted Chicken Mayo Sandwich',
+      'Cappuccino',
+    ],
+  },
+  {
     temperatureClass: 'frozen',
     share: 0.15,
     weight: [200, 2500],
@@ -194,13 +210,15 @@ const SIZES = [
 
 const products = [];
 for (let i = 0; i < 1000; i++) {
-  const roll = rand();
-  const category =
-    roll < CATEGORIES[0].share
-      ? CATEGORIES[0]
-      : roll < CATEGORIES[0].share + CATEGORIES[1].share
-        ? CATEGORIES[1]
-        : CATEGORIES[2];
+  let roll = rand();
+  let category = CATEGORIES[CATEGORIES.length - 1];
+  for (const candidate of CATEGORIES) {
+    if (roll < candidate.share) {
+      category = candidate;
+      break;
+    }
+    roll -= candidate.share;
+  }
   const item = pick(category.items);
   const brand = pick(BRANDS);
   const size = pick(SIZES);

@@ -16,7 +16,7 @@ import type { TelemetryRepository } from './infrastructure/telemetry-repository.
 import { createDrizzleIdempotencyRepository } from './infrastructure/idempotency-repository.js';
 import type { IdempotencyRepository } from './infrastructure/idempotency-repository.js';
 import { createDrizzleSyncEventRepository } from './infrastructure/sync-event-repository.js';
-import { loadStoreSettingsResolver } from './infrastructure/store-settings-resolver.js';
+import { loadPickSettingsResolver } from './infrastructure/store-settings-resolver.js';
 import { createPickSessionProjection } from './infrastructure/pick-session-projection.js';
 import type { SyncEventRepository } from './infrastructure/sync-event-repository.js';
 import { registerJob } from './infrastructure/register-job.js';
@@ -266,7 +266,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         // Lead-time hydration from store profiles (only consulted when the
         // command doesn't carry pickLeadTimeMinutes — explicit values win).
         async (cId, storeRef, type) => {
-          const resolver = await loadStoreSettingsResolver(db, cId, [storeRef]);
+          const resolver = await loadPickSettingsResolver(db, cId, [storeRef]);
           const settings = resolver.resolve(storeRef);
           return type === 'delivery'
             ? settings.pickLeadTimeMinutesDelivery
@@ -304,9 +304,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         pickSessionProjection,
         // Sort-algorithm hydration from store profiles, captured onto the
         // pick at intake (same shape as create-fulfilment's lead times).
-        // loadStoreSettingsResolver joins the ambient tx — pool-safe here.
+        // loadPickSettingsResolver joins the ambient tx — pool-safe here.
         async (cId, storeRef) => {
-          const resolver = await loadStoreSettingsResolver(db, cId, [storeRef]);
+          const resolver = await loadPickSettingsResolver(db, cId, [storeRef]);
           return resolver.resolve(storeRef).pickSortAlgorithm;
         },
       ),

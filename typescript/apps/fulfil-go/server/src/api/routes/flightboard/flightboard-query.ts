@@ -3,7 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { fulfilments } from '../../../infrastructure/schema/fulfilments.js';
 import { fulfilmentParts } from '../../../infrastructure/schema/fulfilment-parts.js';
 import { picks } from '../../../infrastructure/schema/picks.js';
-import { loadStoreSettingsResolver } from '../../../infrastructure/store-settings-resolver.js';
+import { loadPickSettingsResolver } from '../../../infrastructure/store-settings-resolver.js';
 
 /**
  * Operational flightboard: one read across fulfilments + parts + picks in
@@ -11,7 +11,7 @@ import { loadStoreSettingsResolver } from '../../../infrastructure/store-setting
  * materialized view is this module's return shape).
  *
  * Exception thresholds come from STORE-PROFILE resolution (shared
- * StoreSettingsSchema; defaults ⇐ default profile ⇐ store profile ⇐ store
+ * Pick profile settings; defaults ⇐ default profile ⇐ store profile ⇐ store
  * overrides) — observation settings resolve LIVE, so retuning re-evaluates
  * everything in flight:
  * - release_overdue: part still `pending` past releaseAt — the platform
@@ -114,7 +114,7 @@ export async function queryFlightboard(
 ): Promise<FlightboardResult> {
   const windowStart = new Date(now.getTime() - 24 * 60 * MINUTE_MS);
   const windowEnd = new Date(now.getTime() + 24 * 60 * MINUTE_MS);
-  const settingsResolver = await loadStoreSettingsResolver(db, clientId);
+  const settingsResolver = await loadPickSettingsResolver(db, clientId);
 
   const fulfilmentRows = await db
     .select()

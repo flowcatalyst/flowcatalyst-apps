@@ -11,7 +11,8 @@ export interface StoreSummary {
   readonly name: string;
   readonly city: string | null;
   readonly region: string | null;
-  readonly profileCode: string;
+  readonly pickProfileCode: string;
+  readonly transportProfileCode: string;
 }
 
 export interface StoreRepository {
@@ -28,7 +29,8 @@ function toSummary(row: StoreRow): StoreSummary {
     name: row.name,
     city: row.city,
     region: row.region,
-    profileCode: row.profileCode,
+    pickProfileCode: row.pickProfileCode,
+    transportProfileCode: row.transportProfileCode,
   };
 }
 
@@ -50,6 +52,8 @@ export function createDrizzleStoreRepository(db: PostgresJsDatabase): StoreRepos
             name: record.name,
             city: record.city ?? null,
             region: record.region ?? null,
+            lat: record.geo?.lat ?? null,
+            lng: record.geo?.lng ?? null,
             data: record,
             createdAt: now,
             updatedAt: now,
@@ -61,6 +65,8 @@ export function createDrizzleStoreRepository(db: PostgresJsDatabase): StoreRepos
             name: sql`excluded.name`,
             city: sql`excluded.city`,
             region: sql`excluded.region`,
+            lat: sql`excluded.lat`,
+            lng: sql`excluded.lng`,
             data: sql`excluded.data`,
             updatedAt: now,
           },
