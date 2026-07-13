@@ -68,15 +68,16 @@ before pushing.
 
 ## ⚠️ Operational to-dos before the platform loop covers transport
 
-- **Router creds REJECTED by production platform** (invalid_client at
-  https://platform.inhanceapps.com/oauth/token with
-  client_id=prn_6F9TTP8ZANC2T): fc convention is oac_… OAuth client ids
-  with prn_… as the service-account principal — likely needs the oac_ id
-  (or the client provisioned). Creds live in server/.env
-  (FULFILGO_ROUTER_*); the RouterClient works unchanged once fixed.
-- Vehicle map tiles: VITE_MAP_STYLE_URL points at the MapLibre demo style
-  until the router tile stack is exposed (no tile endpoints in the router
-  OpenAPI spec — ask Andrew for the style/tile URL).
+- Router creds LIVE (2026-07-13, second set from Andrew: prn_6F8EC3HVN302N
+  in server/.env) — token minted at platform.inhanceapps.com, /v1/route/
+  simple and /v1/solve verified against production. VROOM is ready for the
+  planning context.
+- Vehicle map tiles: Andrew will expose the tile stack via the router and
+  share the style URL — set VITE_MAP_STYLE_URL then (MapLibre demo style
+  is the interim fallback).
+- Planning v1 capacity decision (Andrew): SIMPLE CAPS ONLY — store-settings
+  maxStopsPerTrip/maxBagsPerTrip, NO vehicle registry yet; EPOD
+  vehicleRegistration carried but not capacity-checked.
 
 - Run `pnpm flowcatalyst:sync` (server running, platform up): registers the
   new event types (transport:order:*, fulfilment:transport-scheduled),
