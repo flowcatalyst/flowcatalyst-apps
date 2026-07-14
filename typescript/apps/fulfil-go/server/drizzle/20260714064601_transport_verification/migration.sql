@@ -1,0 +1,1 @@
+ALTER TABLE "transport_orders" ADD COLUMN "verification" jsonb;

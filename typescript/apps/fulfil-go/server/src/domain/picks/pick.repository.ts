@@ -10,7 +10,13 @@ export interface PickRepository {
   /** The create-pick idempotency lookup: (clientId, partId) is unique. */
   findByPartId(clientId: string, partId: string): Promise<Pick | null>;
   /** Store-scoped listing for pickers — oldest slot first. */
-  listByStore(clientId: string, storeRef: string, status?: PickStatus): Promise<readonly Pick[]>;
+  listByStore(
+    clientId: string,
+    storeRef: string,
+    status?: PickStatus,
+    /** slotStart window — the station snapshot is bounded to ~the day. */
+    window?: { from: Date; to: Date },
+  ): Promise<readonly Pick[]>;
 
   /** Admin listing across stores — oldest slot first; optional narrowing. */
   listByClient(

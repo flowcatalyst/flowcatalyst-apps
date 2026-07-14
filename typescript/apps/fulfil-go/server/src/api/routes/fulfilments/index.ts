@@ -5,7 +5,9 @@ import {
   CancelFulfilmentCommandSchema,
   CreateFulfilmentCommandSchema,
   CreateFulfilmentResponseSchema,
+  FulfilGoPermission,
   FulfilmentDtoSchema,
+  HandoverPinsSchema,
 } from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
 import { asFulfilmentId } from '../../../domain/fulfilments/ids.js';
@@ -56,11 +58,17 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
       if (isFailure(result)) return sendUseCaseError(reply, result.error);
       appContext.sseBroker.nudge();
 
-      const data = result.value.getData();
+      const data = result.value.event.getData();
       return reply.code(201).send({
         fulfilmentId: data.fulfilmentId,
         parts: data.parts,
-        createdAt: result.value.time.toISOString(),
+        // Pins ride the CREATE RESPONSE only (upstream pulls and messages
+        // the customer) — never events, never list/detail DTOs.
+        handover: {
+          deliveryPin: result.value.handover.deliveryPin,
+          pickupPins: [...result.value.handover.pickupPins],
+        },
+        createdAt: result.value.event.time.toISOString(),
       });
     },
   );
@@ -235,6 +243,102 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
         });
       }
       return reply.code(200).send(toFulfilmentDto(fulfilment));
+    },
+  );
+
+  fastify.get(
+    '/clients/:clientId/fulfilments/:fulfilmentId/handover-pins',
+    {
+      schema: {
+        tags: ['Fulfilments'],
+        summary: 'Reveal handover PINs (audited)',
+        description:
+          'EVERY grant of this read writes a pin-viewed activity-log entry BEFORE the pins ' +
+          'are returned (audit-before-disclose). Management principals (viewHandoverPins) see ' +
+          'everything; picker sessions see only the pickup pins for parts at their store.',
+        params: Type.Object({ clientId: Type.String(), fulfilmentId: Type.String() }),
+        response: {
+          200: Type.Composite([Type.Object({ fulfilmentId: Type.String() }), HandoverPinsSchema]),
+          401: UnauthorizedSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, fulfilmentId } = request.params as {
+        clientId: string;
+        fulfilmentId: string;
+      };
+
+      const managerGrant = scope.permissions.has(FulfilGoPermission.ViewHandoverPins);
+      // Picker sessions may read THEIR store's pickup pins (the staff member
+      // reading the pin out to a driver who can't scan).
+      const pickerStoreRef =
+        !managerGrant &&
+        scope.permissions.has(FulfilGoPermission.ViewStorePicks) &&
+        scope.attributes['clientId'] === clientId
+          ? scope.attributes['storeRef']
+          : undefined;
+      if (!managerGrant && !pickerStoreRef) {
+        return reply.code(403).send({
+          error: 'forbidden',
+          code: 'PERMISSION_DENIED',
+          message: 'Revealing handover pins requires viewHandoverPins or a picker session.',
+          details: null,
+        });
+      }
+
+      const fulfilment = await appContext.repositories.fulfilments.findById(
+        clientId,
+        asFulfilmentId(fulfilmentId),
+      );
+      if (!fulfilment) {
+        return reply.code(404).send({
+          error: 'not_found',
+          code: 'FULFILMENT_NOT_FOUND',
+          message: `Fulfilment '${fulfilmentId}' does not exist for this client.`,
+          details: null,
+        });
+      }
+
+      const parts = fulfilment.parts.filter(
+        (p) => p.pickupPin !== null && (!pickerStoreRef || p.origin.ref === pickerStoreRef),
+      );
+
+      // Audit BEFORE disclose — if this write fails, the reveal fails.
+      await appContext.repositories.activityLog.appendAudited({
+        clientId,
+        fulfilmentId: fulfilment.id,
+        subjectType: 'fulfilment',
+        subjectId: fulfilment.id,
+        source: 'admin',
+        actor: scope.principalId,
+        category: 'pin-viewed',
+        message: pickerStoreRef
+          ? `Pickup pin(s) viewed by store ${pickerStoreRef} staff.`
+          : 'Handover pins viewed from management.',
+        data: {
+          surface: pickerStoreRef ? 'picking-app' : 'management',
+          partIds: parts.map((p) => p.id),
+          deliveryPinIncluded: !pickerStoreRef && fulfilment.deliveryPin !== null,
+        },
+      });
+
+      return reply.code(200).send({
+        fulfilmentId: fulfilment.id,
+        deliveryPin: pickerStoreRef ? null : fulfilment.deliveryPin,
+        pickupPins: parts.map((p) => ({
+          partId: p.id,
+          shortId: p.shortId,
+          originRef: p.origin.ref,
+          pin: p.pickupPin as string,
+        })),
+      });
     },
   );
 }

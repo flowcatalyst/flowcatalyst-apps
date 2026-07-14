@@ -23,6 +23,16 @@ export const fulfilments = pgTable(
     timezone: varchar('timezone', { length: 64 }).notNull(),
     destination: jsonb('destination').notNull(),
     policies: jsonb('policies').notNull(),
+    /**
+     * Handover policy stamp + secrets (docs/handover-verification.md).
+     * Pins are one-shot handover codes stored plaintext (they must be
+     * retrievable for the audited reveal and provider pushes) — they never
+     * appear on DTOs, events, or the driver app. Null = pre-feature rows.
+     */
+    handoverPolicy: jsonb('handover_policy'),
+    deliveryPin: varchar('delivery_pin', { length: 8 }),
+    /** Highest line restrictedMinAge; null = nothing age-restricted. */
+    maxRestrictedAge: integer('max_restricted_age'),
     provenance: jsonb('provenance'),
     additionalData: jsonb('additional_data'),
     version: integer('version').notNull().default(1),

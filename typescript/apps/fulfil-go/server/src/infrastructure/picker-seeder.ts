@@ -91,6 +91,9 @@ export async function seedPickers(
           displayName,
           staffCode: `P${String(i + 1).padStart(2, '0')}`,
           primaryAuthMethod: 'pin',
+          // P01 at every store is the shift SUPERVISOR (station supervisor
+          // mode — car-or-larger flagging).
+          role: i === 0 ? 'supervisor' : 'picker',
           pinHash,
           now,
         }),

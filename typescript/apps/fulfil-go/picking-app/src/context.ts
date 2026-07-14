@@ -76,6 +76,8 @@ export interface AppCtx {
   readonly signedIn: Ref<boolean>;
   /** Signed-in picker id (pkr_…) from /pick-auth/me; null between shifts. */
   readonly pickerId: Ref<string | null>;
+  /** Supervisor session (role='supervisor' at login) — unlocks supervisor mode. */
+  readonly supervisor: Ref<boolean>;
   /** After login (or on app start with a live session): me + snapshot + stream. */
   startShift(): Promise<void>;
   /** Person sign-out (Exit) — station binding survives; stream stops. */
@@ -90,6 +92,7 @@ export async function createAppCtx(): Promise<AppCtx> {
   const station = createStationConfig();
   const signedIn = ref(false);
   const pickerId = ref<string | null>(null);
+  const supervisor = ref(false);
 
   const session = createPickerSession({
     store: createPreferencesTokenStore('fulfilgo.picker.tokens'),
@@ -98,6 +101,7 @@ export async function createAppCtx(): Promise<AppCtx> {
     onSignedOut: () => {
       signedIn.value = false;
       pickerId.value = null;
+      supervisor.value = false;
       sse.disconnect();
     },
   });
@@ -146,11 +150,13 @@ export async function createAppCtx(): Promise<AppCtx> {
     queue,
     signedIn,
     pickerId,
+    supervisor,
     async startShift(): Promise<void> {
-      const me = await api.json<{ pickerId: string }>(
+      const me = await api.json<{ pickerId: string; permissions?: string[] }>(
         `/clients/${station.clientId.value}/pick-auth/me`,
       );
       pickerId.value = me.pickerId;
+      supervisor.value = me.permissions?.includes('supervisePicks') ?? false;
       signedIn.value = true;
       await picks.hydrate().catch(() => {
         // Offline start — SSE reconnect recovers.

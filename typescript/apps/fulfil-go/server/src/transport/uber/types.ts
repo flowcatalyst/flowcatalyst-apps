@@ -91,6 +91,10 @@ export interface UberCreateDeliveryRequest extends UberQuoteRequest {
   external_id?: string;
   undeliverable_action?: 'leave_at_door' | 'return' | 'discard';
   deliverable_action?: 'deliverable_action_meet_at_door' | 'deliverable_action_leave_at_door';
+  /** Uber Direct proof-of-delivery: the courier verifies the recipient. */
+  dropoff_verification?: {
+    identification?: { min_age: number };
+  };
   test_specifications?: { robo_courier_specification: UberRoboCourierSpecification };
 }
 

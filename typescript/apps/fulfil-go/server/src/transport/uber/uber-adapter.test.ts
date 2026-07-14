@@ -71,7 +71,7 @@ function bookingRequest(overrides: Partial<TransportBookingRequest> = {}): Trans
         description: 'Bag L · chilled',
       },
     ],
-    requiresVehicle: false,
+    requiresCarOrLarger: false,
     externalRef: 'ful_X-1234',
     idempotencyKey: 'idem-1',
     ...overrides,
@@ -158,7 +158,7 @@ describe('mapping', () => {
     expect(items.map((i) => i.name)).toEqual(['Bag M · ambient', 'Bag L · chilled']);
   });
 
-  it('requiresVehicle promotes the largest parcel to xlarge (best-effort nudge)', () => {
+  it('requiresCarOrLarger promotes the largest parcel to xlarge (best-effort nudge)', () => {
     const items = toManifestItems(bookingRequest().parcels, true);
     expect(items.map((i) => i.size)).toEqual(['medium', 'xlarge']);
   });

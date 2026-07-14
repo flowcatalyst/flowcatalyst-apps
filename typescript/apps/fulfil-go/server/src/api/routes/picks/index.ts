@@ -247,6 +247,44 @@ export function registerPickRoutes(
     },
   );
 
+  // SUPERVISOR: flag a pick as needing a CAR OR BIGGER (no bike/scooter).
+  // Settable anytime the pick isn't failed/cancelled; a supervisor 'true'
+  // survives the picker's completion answer.
+  fastify.post(
+    '/clients/:clientId/picks/:pickId/car-flag',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String(), pickId: Type.String() }),
+        body: Type.Object(
+          { requiresCarOrLarger: Type.Boolean() },
+          { additionalProperties: false },
+        ),
+        response: {
+          200: Type.Object({ pickId: Type.String(), requiresCarOrLarger: Type.Boolean() }),
+          ...WRITE_RESPONSES,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, pickId } = request.params as { clientId: string; pickId: string };
+      const { requiresCarOrLarger } = request.body as { requiresCarOrLarger: boolean };
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.flagPickVehicle.execute({ clientId, pickId, requiresCarOrLarger }),
+      );
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
+      appContext.sseBroker.nudge();
+
+      return reply.code(200).send({
+        pickId: result.value.getData().pickId,
+        requiresCarOrLarger: result.value.getData().requiresCarOrLarger,
+      });
+    },
+  );
+
   // Complete a claimed pick with per-line picked quantities (claimer only).
   // Short quantities are rejected when the pick requires a full pick.
   fastify.post(

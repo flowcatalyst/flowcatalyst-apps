@@ -26,6 +26,14 @@ function make(policies: Partial<FulfilmentPolicies> = {}) {
     timezone: 'Africa/Johannesburg',
     destination,
     policies: { allowSubstitutes: true, allowPartialFulfilment: true, ...policies },
+    handoverPolicy: {
+      pickupPinEnabled: true,
+      deliveryPinEnabled: true,
+      deliveryPinSource: 'random',
+      ageVisualOverrideAllowed: false,
+    },
+    deliveryPin: '1234',
+    maxRestrictedAge: null,
     provenance: null,
     additionalData: null,
     parts: [
@@ -35,6 +43,7 @@ function make(policies: Partial<FulfilmentPolicies> = {}) {
         releaseAt: NOW,
         origin: origin('store-1'),
         lines: [],
+        pickupPin: '5678',
       },
       {
         id: 'fpt_b' as FulfilmentPartId,
@@ -42,6 +51,7 @@ function make(policies: Partial<FulfilmentPolicies> = {}) {
         releaseAt: NOW,
         origin: origin('store-2'),
         lines: [],
+        pickupPin: '9012',
       },
     ],
     now: NOW,
@@ -55,7 +65,20 @@ function make(policies: Partial<FulfilmentPolicies> = {}) {
 const partStatus = (f: ReturnType<typeof make>, id: string) =>
   f.parts.find((p) => p.id === id)?.status;
 
-const ACTUALS = { lineResults: [], packages: [], requiresVehicle: false };
+const ACTUALS = { lineResults: [], packages: [], requiresCarOrLarger: false };
+
+describe('Fulfilment.partCarFlag', () => {
+  it('re-stamps a picked part; pending parts are untouched', () => {
+    const f = make();
+    const picked = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, NOW);
+    const flagged = Fulfilment.partCarFlag(picked, 'fpt_a' as FulfilmentPartId, true, LATER);
+    expect(flagged.parts.find((p) => p.id === 'fpt_a')?.requiresCarOrLarger).toBe(true);
+    expect(flagged.version).toBe(picked.version + 1);
+    // A part still pick_requested is not re-stamped (flag rides completion).
+    const notFlagged = Fulfilment.partCarFlag(picked, 'fpt_b' as FulfilmentPartId, true, LATER);
+    expect(notFlagged.parts.find((p) => p.id === 'fpt_b')?.requiresCarOrLarger).toBeNull();
+  });
+});
 
 describe('Fulfilment pick-progress transitions', () => {
   it('partPicking: pick_requested → picking, one version bump', () => {

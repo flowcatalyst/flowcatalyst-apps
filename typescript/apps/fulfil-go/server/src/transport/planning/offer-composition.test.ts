@@ -38,7 +38,7 @@ function order(overrides: Partial<TransportOrder> & { id?: string } = {}): Trans
     parcels: [
       { ref: `pkg_${seq}A`, kind: 'bag', size: 'M', temperature: 'ambient', description: 'Bag' },
     ],
-    requiresVehicle: false,
+    requiresCarOrLarger: false,
     provider: 'own',
     candidateProviders: ['own'],
     providerRef: null,

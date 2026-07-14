@@ -576,13 +576,13 @@ async function submitOutcome(
   }
 }
 
-async function complete(requiresVehicle: boolean): Promise<void> {
+async function complete(requiresCarOrLarger: boolean): Promise<void> {
   if (!pick.value) return;
   vehicleOpen.value = false;
   await submitOutcome(
     `/clients/${ctx.station.clientId.value}/picks/${pick.value.id}/complete`,
     {
-      requiresVehicle,
+      requiresCarOrLarger,
       lines: lines.value.map((l) => ({
         externalLineRef: l.externalLineRef,
         pickedQuantity: counts[l.externalLineRef] ?? 0,
@@ -1198,11 +1198,32 @@ async function fail(): Promise<void> {
             {{ packMode === 'items' && unassignedTotal > 0 ? `(${unassignedTotal} unpacked)` : '' }}
           </UButton>
           <template #body>
-            <div class="flex flex-col gap-4 p-1">
-              <p class="text-center text-lg font-semibold">Does this pick require a vehicle?</p>
+            <!-- Supervisor pre-flagged: the question is DECIDED — the
+                 picker's answer can never downgrade it. -->
+            <div v-if="pick.requiresCarOrLarger === true" class="flex flex-col gap-4 p-1">
+              <p class="text-center text-lg font-semibold">🚗 Car or bigger — flagged</p>
+              <p class="-mt-2 text-center text-xs text-neutral-500">
+                A supervisor flagged this pick: it can't go on a bike or scooter.
+              </p>
+              <UButton size="xl" block class="h-16 text-xl font-bold" @click="complete(true)">
+                Complete pick
+              </UButton>
+              <UButton color="neutral" variant="ghost" block @click="vehicleOpen = false">
+                Cancel
+              </UButton>
+            </div>
+            <div v-else class="flex flex-col gap-4 p-1">
+              <!-- Clear language (Andrew, 2026-07-14): a scooter/bike does
+                   NOT count — the flag means car or bigger. -->
+              <p class="text-center text-lg font-semibold">
+                Does this need a car or bigger?
+              </p>
+              <p class="-mt-2 text-center text-xs text-neutral-500">
+                Too big/heavy for a bike or scooter.
+              </p>
               <!-- "No" is the norm — big and primary. -->
               <UButton size="xl" block class="h-16 text-xl font-bold" @click="complete(false)">
-                No
+                No — any vehicle is fine
               </UButton>
               <!-- "Yes" is deliberate — smaller than No, and double-confirmed.
                    Solid orange + white for contrast against the big No. -->
@@ -1213,7 +1234,7 @@ async function fail(): Promise<void> {
                 class="h-12 bg-orange-500 font-semibold text-white hover:bg-orange-600 active:bg-orange-600"
                 @click="vehicleYesConfirm = true"
               >
-                Yes — this needs a vehicle
+                Yes — car or bigger
               </UButton>
               <UButton
                 v-else
@@ -1222,7 +1243,7 @@ async function fail(): Promise<void> {
                 class="h-14 bg-orange-500 text-lg font-bold text-white hover:bg-orange-600 active:bg-orange-600"
                 @click="complete(true)"
               >
-                Confirm: vehicle required
+                Confirm: 🚗 car or bigger required
               </UButton>
               <UButton color="neutral" variant="ghost" block @click="vehicleOpen = false">
                 Cancel

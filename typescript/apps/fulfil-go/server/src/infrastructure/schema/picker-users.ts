@@ -15,6 +15,8 @@ export const pickerUsers = pgTable(
     displayName: text('display_name').notNull(),
     staffCode: text('staff_code').notNull(),
     primaryAuthMethod: varchar('primary_auth_method', { length: 8 }).notNull(),
+    /** 'picker' | 'supervisor' — supervisor unlocks the station's supervisor mode. */
+    role: varchar('role', { length: 16 }).notNull().default('picker'),
     status: varchar('status', { length: 16 }).notNull().default('active'),
     pinHash: text('pin_hash'),
     failedPinAttempts: integer('failed_pin_attempts').notNull().default(0),

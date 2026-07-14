@@ -33,7 +33,7 @@ export const transportOrders = pgTable(
     slotStart: timestampColumn('slot_start').notNull(),
     slotEnd: timestampColumn('slot_end').notNull(),
     parcels: jsonb('parcels').notNull(),
-    requiresVehicle: boolean('requires_vehicle').notNull().default(false),
+    requiresCarOrLarger: boolean('requires_car_or_larger').notNull().default(false),
     provider: varchar('provider', { length: 32 }).notNull(),
     candidateProviders: jsonb('candidate_providers').notNull(),
     providerRef: text('provider_ref'),
@@ -43,6 +43,9 @@ export const transportOrders = pgTable(
     // Planning-marketplace hold: {tripId, driverRef, vehicleRef, expiresAt}.
     // Expiry frees the order implicitly — no sweeper touches this column.
     reservation: jsonb('reservation'),
+    // Handover verification: requirements at request time (booleans/ages,
+    // NEVER pin values) + driver-report evidence + server-stamped outcomes.
+    verification: jsonb('verification'),
     version: integer('version').notNull().default(1),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),

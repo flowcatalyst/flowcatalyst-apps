@@ -23,6 +23,7 @@ import { FulfilmentEpodProvisionRequestedEventType } from '../domain/fulfilments
 import { FulfilmentPartPickRequestedEventType } from '../domain/fulfilments/events/fulfilment-part-pick-requested.event.js';
 import {
   FulfilmentFailedEventType,
+  FulfilmentPartCarFlaggedEventType,
   FulfilmentPartFailedEventType,
   FulfilmentPartPickedEventType,
   FulfilmentPartPickingEventType,
@@ -46,6 +47,7 @@ import {
 } from '../domain/trips/events/trip.events.js';
 import { PickCreatedEventType } from '../domain/picks/events/pick-created.event.js';
 import { PickClaimedEventType } from '../domain/picks/events/pick-claimed.event.js';
+import { PickCarFlagUpdatedEventType } from '../domain/picks/events/pick-car-flag.event.js';
 import { PickLabelsUpdatedEventType } from '../domain/picks/events/pick-labels.event.js';
 import {
   PickFailedEventType,
@@ -64,6 +66,7 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   FulfilmentPartPickRequestedEventType,
   FulfilmentPartPickingEventType,
   FulfilmentPartPickedEventType,
+  FulfilmentPartCarFlaggedEventType,
   FulfilmentPartFailedEventType,
   FulfilmentPickedEventType,
   FulfilmentFailedEventType,
@@ -72,6 +75,7 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   // Pick context (the fulfilment process manager subscribes to these)
   PickCreatedEventType,
   PickClaimedEventType,
+  PickCarFlagUpdatedEventType,
   PickLabelsUpdatedEventType,
   PickPickedEventType,
   PickShortPickedEventType,

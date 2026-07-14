@@ -283,7 +283,7 @@ export class CompletePickUseCase {
     }
 
     const now = new Date();
-    const pick = Pick.complete(prior, results, packages, command.requiresVehicle, now);
+    const pick = Pick.complete(prior, results, packages, command.requiresCarOrLarger, now);
     const data = {
       pickId: pick.id,
       clientId: pick.clientId,
@@ -292,7 +292,7 @@ export class CompletePickUseCase {
       partId: pick.partId,
       shortId: pick.shortId,
       pickerId: scope.principalId,
-      requiresVehicle: command.requiresVehicle,
+      requiresCarOrLarger: command.requiresCarOrLarger,
       lineResults: results.map((r) => ({
         externalLineRef: r.externalLineRef,
         pickedQuantity: r.pickedQuantity,

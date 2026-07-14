@@ -6,7 +6,7 @@ import { haversineKm, resolveProviders } from './provider-resolver.js';
 const UBER_CHANNEL = {
   code: 'uber',
   kind: 'provider-planned',
-  capabilities: { vehicleGuarantee: false },
+  capabilities: { vehicleGuarantee: false, ageCheck: true, deliveryPin: false },
 } as const;
 
 const registry = createProviderRegistry([OWN_CHANNEL, EPOD_CHANNEL, UBER_CHANNEL]);
@@ -32,7 +32,8 @@ describe('resolveProviders', () => {
     const resolved = resolveProviders({
       settings: settings({}),
       registry,
-      requiresVehicle: false,
+      minAgeRequired: null,
+      requiresCarOrLarger: false,
       storeGeo: JHB,
       dropoffGeo: NEARBY,
     });
@@ -46,7 +47,8 @@ describe('resolveProviders', () => {
         defaultTransportProvider: 'own',
       }),
       registry,
-      requiresVehicle: false,
+      minAgeRequired: null,
+      requiresCarOrLarger: false,
       storeGeo: JHB,
       dropoffGeo: NEARBY,
     });
@@ -57,7 +59,8 @@ describe('resolveProviders', () => {
     const resolved = resolveProviders({
       settings: settings({ transportProviders: [{ code: 'uber' }, { code: 'own' }] }),
       registry,
-      requiresVehicle: true,
+      minAgeRequired: null,
+      requiresCarOrLarger: true,
       storeGeo: JHB,
       dropoffGeo: NEARBY,
     });
@@ -65,11 +68,30 @@ describe('resolveProviders', () => {
     expect(resolved.rejected).toEqual([{ code: 'uber', reason: 'cannot guarantee a vehicle' }]);
   });
 
+  it('excludes channels that cannot verify age on restricted orders (epod)', () => {
+    const resolved = resolveProviders({
+      settings: settings({
+        transportProviders: [{ code: 'epod' }, { code: 'uber' }, { code: 'own' }],
+      }),
+      registry,
+      minAgeRequired: 18,
+      requiresCarOrLarger: false,
+      storeGeo: JHB,
+      dropoffGeo: NEARBY,
+    });
+    // own + uber verify age; epod cannot — hard gate per the locked design.
+    expect(resolved.candidates).toEqual(['uber', 'own']);
+    expect(resolved.rejected).toEqual([
+      { code: 'epod', reason: 'cannot verify customer age (order requires 18+)' },
+    ]);
+  });
+
   it('coverage radius excludes far dropoffs and FAILS CLOSED on missing geo', () => {
     const base = {
       settings: settings({ transportProviders: [{ code: 'uber', serviceRadiusKm: 10 }] }),
       registry,
-      requiresVehicle: false,
+      minAgeRequired: null,
+      requiresCarOrLarger: false,
     };
     expect(resolveProviders({ ...base, storeGeo: JHB, dropoffGeo: NEARBY }).candidates).toEqual([
       'uber',
@@ -84,7 +106,8 @@ describe('resolveProviders', () => {
     const resolved = resolveProviders({
       settings: settings({ transportProviders: [{ code: 'carrier-pigeon' }] }),
       registry,
-      requiresVehicle: false,
+      minAgeRequired: null,
+      requiresCarOrLarger: false,
       storeGeo: null,
       dropoffGeo: null,
     });

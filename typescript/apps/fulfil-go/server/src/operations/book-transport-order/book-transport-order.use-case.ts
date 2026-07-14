@@ -93,7 +93,12 @@ export class BookTransportOrderUseCase {
           destination: order.destination,
           window: order.window,
           parcels: order.parcels,
-          requiresVehicle: order.requiresVehicle,
+          requiresCarOrLarger: order.requiresCarOrLarger,
+          // Requirements only — the provider performs the check (uber maps
+          // minAge to dropoff_verification.identification).
+          ...(order.verification?.requirements.minAge != null
+            ? { verification: { minAge: order.verification.requirements.minAge } }
+            : {}),
           externalRef: order.id,
           idempotencyKey: order.id,
         });

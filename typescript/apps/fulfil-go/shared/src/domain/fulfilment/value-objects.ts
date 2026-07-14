@@ -122,6 +122,13 @@ export const FulfilmentLineSchema = z
     quantity: z.number().int().min(1),
     volumetric: VolumetricSchema,
     temperatureClass: TemperatureClass.default('ambient'),
+    /**
+     * Age-restricted product (liquor, tobacco, …): minimum buyer age.
+     * PROCESS INPUT (unlike `attributes`): the fulfilment stamps
+     * max(restrictedMinAge) at creation and the delivery leg must verify it
+     * (docs/handover-verification.md).
+     */
+    restrictedMinAge: z.number().int().min(1).max(99).optional(),
     /** Overrides the fulfilment-level allowSubstitutes default when present. */
     allowSubstitutes: z.boolean().optional(),
     /** In-store shelf location — drives the station's pick sort when present. */
@@ -170,6 +177,23 @@ export const FulfilmentPoliciesSchema = z
   })
   .strict();
 export type FulfilmentPolicies = z.infer<typeof FulfilmentPoliciesSchema>;
+
+/**
+ * HANDOVER POLICY STAMP (docs/handover-verification.md): the client's
+ * fulfilment settings resolved at creation, immutable thereafter — the
+ * processDefinition pattern. Pin VALUES live on the aggregate (root
+ * deliveryPin, part pickupPin) and never ride events or the driver app.
+ */
+export const HandoverPolicySchema = z
+  .object({
+    pickupPinEnabled: z.boolean(),
+    deliveryPinEnabled: z.boolean(),
+    deliveryPinSource: z.enum(['random', 'phone-last4']),
+    /** Driver may attest "visibly older" instead of an ID check. */
+    ageVisualOverrideAllowed: z.boolean(),
+  })
+  .strict();
+export type HandoverPolicy = z.infer<typeof HandoverPolicySchema>;
 
 /** Pinpoint provenance — creation-time reference only, not process input. */
 export const ProvenanceSchema = z

@@ -60,6 +60,7 @@ import {
 } from './operations/manage-picker/manage-picker.use-cases.js';
 import { ReceivePickUseCase } from './operations/receive-pick/receive-pick.use-case.js';
 import { ClaimPickUseCase } from './operations/claim-pick/claim-pick.use-case.js';
+import { FlagPickVehicleUseCase } from './operations/flag-pick-vehicle/flag-pick-vehicle.use-case.js';
 import {
   AllocatePickLabelsUseCase,
   ReprintPickLabelUseCase,
@@ -69,6 +70,7 @@ import {
   FailPickUseCase,
 } from './operations/report-pick-outcome/report-pick-outcome.use-cases.js';
 import {
+  RegisterPartCarFlagUseCase,
   RegisterPartFailedUseCase,
   RegisterPartPickedUseCase,
   RegisterPartPickingUseCase,
@@ -128,7 +130,10 @@ import { TRIP_TYPE } from './domain/trips/trip.js';
 import type { TripRepository } from './domain/trips/trip.repository.js';
 import { ComposeTransportOfferUseCase } from './operations/transport-planning/compose-transport-offer.use-case.js';
 import { ClaimTransportTripUseCase } from './operations/transport-planning/claim-transport-trip.use-case.js';
-import { ReportTripProgressUseCase } from './operations/report-trip-progress/report-trip-progress.use-case.js';
+import {
+  ReportTripProgressUseCase,
+  VerifyHandoverPinUseCase,
+} from './operations/report-trip-progress/report-trip-progress.use-case.js';
 import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
 import { JOB_TYPE } from './domain/jobs/job.js';
 import type { JobRepository } from './domain/jobs/job.repository.js';
@@ -183,12 +188,14 @@ export interface AppContextUseCases {
   readonly deletePicker: DeletePickerUseCase;
   readonly receivePick: ReceivePickUseCase;
   readonly claimPick: ClaimPickUseCase;
+  readonly flagPickVehicle: FlagPickVehicleUseCase;
   readonly completePick: CompletePickUseCase;
   readonly failPick: FailPickUseCase;
   readonly allocatePickLabels: AllocatePickLabelsUseCase;
   readonly reprintPickLabel: ReprintPickLabelUseCase;
   readonly registerPartPicking: RegisterPartPickingUseCase;
   readonly registerPartPicked: RegisterPartPickedUseCase;
+  readonly registerPartCarFlag: RegisterPartCarFlagUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
   readonly requestEpodProvisioning: RequestEpodProvisioningUseCase;
   readonly provisionEpod: ProvisionEpodUseCase;
@@ -199,6 +206,7 @@ export interface AppContextUseCases {
   readonly composeTransportOffer: ComposeTransportOfferUseCase;
   readonly claimTransportTrip: ClaimTransportTripUseCase;
   readonly reportTripProgress: ReportTripProgressUseCase;
+  readonly verifyHandoverPin: VerifyHandoverPinUseCase;
   readonly createDriver: CreateDriverUseCase;
   readonly suspendDriver: SuspendDriverUseCase;
   readonly reactivateDriver: ReactivateDriverUseCase;
@@ -425,9 +433,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
             ? settings.pickLeadTimeMinutesDelivery
             : settings.pickLeadTimeMinutesCollect;
         },
-        // Ownership stamp (docs/process-definitions.md): the client's core
-        // process definition, resolved once at creation.
-        async (cId) => resolveClientSettings(await clientSettingsRepo.get(cId)).processDefinition,
+        // Ownership stamps (docs/process-definitions.md + handover-
+        // verification.md): the client's settings, resolved once at creation.
+        async (cId) => resolveClientSettings(await clientSettingsRepo.get(cId)),
       ),
       cancelFulfilment: new CancelFulfilmentUseCase(
         uow,
@@ -471,6 +479,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         syncEventRepo,
         pickSessionProjection,
       ),
+      flagPickVehicle: new FlagPickVehicleUseCase(
+        uow,
+        aggregateRegistry,
+        pickRepo,
+        activityLogRepo,
+        syncEventRepo,
+      ),
       completePick: new CompletePickUseCase(
         uow,
         aggregateRegistry,
@@ -513,6 +528,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         fulfilmentRepo,
+        activityLogRepo,
+      ),
+      registerPartCarFlag: new RegisterPartCarFlagUseCase(
+        uow,
+        aggregateRegistry,
+        fulfilmentRepo,
+        transportOrderRepo,
         activityLogRepo,
       ),
       registerPartFailed: new RegisterPartFailedUseCase(
@@ -593,6 +615,13 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         aggregateRegistry,
         tripRepo,
         transportOrderRepo,
+        fulfilmentRepo,
+        activityLogRepo,
+      ),
+      verifyHandoverPin: new VerifyHandoverPinUseCase(
+        tripRepo,
+        transportOrderRepo,
+        fulfilmentRepo,
         activityLogRepo,
       ),
       createDriver: new CreateDriverUseCase(uow, aggregateRegistry, driverUserRepo, depotRepo),

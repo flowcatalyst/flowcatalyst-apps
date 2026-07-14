@@ -42,7 +42,7 @@ export const picks = pgTable(
     packages: jsonb('packages'),
     /** Bag-label allocation (docs/bag-label-printing.md); null until printed. */
     labels: jsonb('labels'),
-    requiresVehicle: boolean('requires_vehicle'),
+    requiresCarOrLarger: boolean('requires_car_or_larger'),
     completedAt: timestampColumn('completed_at'),
     failReason: text('fail_reason'),
     version: integer('version').notNull().default(1),

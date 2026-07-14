@@ -96,6 +96,35 @@ function closePanel(): void {
   void router.replace({ query: rest });
 }
 
+// Handover PINs (docs/handover-verification.md): revealed ON DEMAND only —
+// the server writes a pin-viewed audit entry as part of the read, so the
+// activity log refreshes right after to make the trail visible.
+interface HandoverPins {
+  deliveryPin: string | null;
+  pickupPins: { partId: string; shortId: string; originRef: string; pin: string }[];
+}
+const pins = ref<HandoverPins | null>(null);
+const pinsBusy = ref(false);
+
+async function revealPins(): Promise<void> {
+  if (!selected.value) return;
+  if (pins.value) {
+    pins.value = null;
+    return;
+  }
+  pinsBusy.value = true;
+  try {
+    pins.value = await api.json<HandoverPins>(
+      `/clients/${clientId.value}/fulfilments/${selected.value.id}/handover-pins`,
+    );
+    await loadLog(selected.value.id);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    pinsBusy.value = false;
+  }
+}
+
 async function cancelSelected(): Promise<void> {
   if (!selected.value) return;
   cancelBusy.value = true;
@@ -126,6 +155,7 @@ watch(clientId, () => {
 });
 watch(storeFilter, () => void refresh());
 watch(selectedId, (id) => {
+  pins.value = null; // never carry a reveal across rows
   if (id) void loadLog(id);
 });
 
@@ -404,6 +434,45 @@ function fmt(iso: string): string {
                 </li>
               </ul>
             </div>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-navy-700">
+              Handover PINs
+              <span
+                v-if="selected.maxRestrictedAge"
+                class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+              >
+                🔞 {{ selected.maxRestrictedAge }}+
+              </span>
+            </h3>
+            <UButton size="xs" variant="soft" :loading="pinsBusy" @click="revealPins">
+              {{ pins ? 'Hide' : 'Reveal (audited)' }}
+            </UButton>
+          </div>
+          <div v-if="pins" class="rounded-lg bg-neutral-50 p-2 text-sm">
+            <p v-if="pins.deliveryPin" class="flex items-baseline justify-between">
+              <span class="text-neutral-500">Delivery (customer)</span>
+              <span class="font-mono text-lg font-bold tracking-widest">{{
+                pins.deliveryPin
+              }}</span>
+            </p>
+            <p
+              v-for="p in pins.pickupPins"
+              :key="p.partId"
+              class="flex items-baseline justify-between"
+            >
+              <span class="text-neutral-500">Pickup #{{ p.shortId }} ({{ p.originRef }})</span>
+              <span class="font-mono text-lg font-bold tracking-widest">{{ p.pin }}</span>
+            </p>
+            <p
+              v-if="!pins.deliveryPin && pins.pickupPins.length === 0"
+              class="text-xs text-neutral-400"
+            >
+              No pins on this fulfilment (created before PINs or policy off).
+            </p>
           </div>
         </section>
 

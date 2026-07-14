@@ -56,6 +56,49 @@ export interface TransportReservation {
   readonly expiresAt: Date;
 }
 
+/**
+ * Handover verification (docs/handover-verification.md): REQUIREMENTS are
+ * captured at request time (from the fulfilment's stamped policy + pins —
+ * booleans/ages only, never the pin VALUES); EVIDENCE is recorded by the
+ * driver reports. Verification is DEFERRED, never blocking: reports are
+ * always accepted (the physical handover already happened) and a mismatch
+ * surfaces as a flightboard exception, not a rejection.
+ */
+export interface OrderVerificationRequirements {
+  /** A pickup pin exists on the part (store can override a failed scan). */
+  readonly pickupPin: boolean;
+  /** A delivery pin exists on the fulfilment (customer handover). */
+  readonly deliveryPin: boolean;
+  /** Age-restricted order: minimum customer age; null = unrestricted. */
+  readonly minAge: number | null;
+  readonly ageVisualOverrideAllowed: boolean;
+}
+
+export type PinVerificationOutcome = 'verified' | 'mismatch' | 'not-checked';
+
+export interface CollectionEvidence {
+  /** scan = parcel barcodes matched; pin = store pin override; bulk = trip-wide button. */
+  readonly method: 'scan' | 'pin' | 'bulk';
+  readonly scannedRefs?: readonly string[];
+  readonly pinOutcome?: PinVerificationOutcome;
+  readonly at: string;
+}
+
+export interface DeliveryEvidence {
+  readonly pinOutcome: PinVerificationOutcome | 'not-required';
+  readonly ageCheck?: {
+    readonly method: 'id-attestation' | 'visual-override';
+    readonly docType?: string | undefined;
+  } | null;
+  readonly at: string;
+}
+
+export interface OrderVerification {
+  readonly requirements: OrderVerificationRequirements;
+  readonly collection?: CollectionEvidence;
+  readonly delivery?: DeliveryEvidence;
+}
+
 export interface TransportOrder {
   readonly id: TransportOrderId;
   readonly clientId: string;
@@ -71,7 +114,7 @@ export interface TransportOrder {
   readonly destination: TransportStop;
   readonly window: TransportWindow;
   readonly parcels: readonly TransportParcel[];
-  readonly requiresVehicle: boolean;
+  readonly requiresCarOrLarger: boolean;
   /** Selected provider code; the ranked remainder backs the fallback chain. */
   readonly provider: string;
   readonly candidateProviders: readonly string[];
@@ -82,6 +125,8 @@ export interface TransportOrder {
   readonly failureReason: string | null;
   /** Live only while `requested` — the planning marketplace's hold. */
   readonly reservation: TransportReservation | null;
+  /** Requirements at request time + driver-report evidence; null pre-feature. */
+  readonly verification: OrderVerification | null;
   readonly version: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -99,9 +144,10 @@ export interface CreateTransportOrderInput {
   readonly destination: TransportStop;
   readonly window: TransportWindow;
   readonly parcels: readonly TransportParcel[];
-  readonly requiresVehicle: boolean;
+  readonly requiresCarOrLarger: boolean;
   readonly provider: string;
   readonly candidateProviders: readonly string[];
+  readonly verificationRequirements: OrderVerificationRequirements;
   readonly now: Date;
 }
 
@@ -120,7 +166,7 @@ export const TransportOrder = {
       destination: input.destination,
       window: input.window,
       parcels: input.parcels,
-      requiresVehicle: input.requiresVehicle,
+      requiresCarOrLarger: input.requiresCarOrLarger,
       provider: input.provider,
       candidateProviders: input.candidateProviders,
       providerRef: null,
@@ -128,6 +174,7 @@ export const TransportOrder = {
       courier: null,
       failureReason: null,
       reservation: null,
+      verification: { requirements: input.verificationRequirements },
       version: 1,
       createdAt: input.now,
       updatedAt: input.now,
@@ -186,6 +233,33 @@ export const TransportOrder = {
   },
 
   /**
+   * The recorded handover evidence, judged against the captured
+   * requirements (docs/handover-verification.md): returns a human reason
+   * when verification is missing/failed, null when everything checks out.
+   * ONE truth for the report flagging and the flightboard exception.
+   */
+  verificationIssue(order: { readonly verification: OrderVerification | null }): string | null {
+    const v = order.verification;
+    if (!v) return null;
+    if (v.collection?.pinOutcome === 'mismatch') return 'pickup pin mismatch at collection';
+    if (!v.delivery) return null;
+    if (v.delivery.pinOutcome === 'mismatch') return 'delivery pin mismatch';
+    if (v.requirements.deliveryPin && v.delivery.pinOutcome === 'not-checked') {
+      return 'delivery pin not checked';
+    }
+    if (v.requirements.minAge != null) {
+      if (!v.delivery.ageCheck) return `age check missing (requires ${v.requirements.minAge}+)`;
+      if (
+        v.delivery.ageCheck.method === 'visual-override' &&
+        !v.requirements.ageVisualOverrideAllowed
+      ) {
+        return 'visual age override used but not permitted';
+      }
+    }
+    return null;
+  },
+
+  /**
    * Forward-only status advance from a provider signal. Same-rank or
    * backwards signals are stale — callers state-guard on `canAdvance`.
    */
@@ -201,8 +275,26 @@ export const TransportOrder = {
       readonly courier?: TransportCourier | null;
       readonly trackingUrl?: string | null;
       readonly failureReason?: string | null;
+      /** Handover evidence recorded WITH the transition (one version bump). */
+      readonly collectionEvidence?: CollectionEvidence;
+      readonly deliveryEvidence?: DeliveryEvidence;
     },
   ): TransportOrder {
+    const verification =
+      detail?.collectionEvidence || detail?.deliveryEvidence
+        ? {
+            requirements: prior.verification?.requirements ?? {
+              pickupPin: false,
+              deliveryPin: false,
+              minAge: null,
+              ageVisualOverrideAllowed: false,
+            },
+            ...(prior.verification?.collection ? { collection: prior.verification.collection } : {}),
+            ...(prior.verification?.delivery ? { delivery: prior.verification.delivery } : {}),
+            ...(detail.collectionEvidence ? { collection: detail.collectionEvidence } : {}),
+            ...(detail.deliveryEvidence ? { delivery: detail.deliveryEvidence } : {}),
+          }
+        : prior.verification;
     return {
       ...prior,
       status: next,
@@ -210,6 +302,7 @@ export const TransportOrder = {
       trackingUrl: detail?.trackingUrl !== undefined ? detail.trackingUrl : prior.trackingUrl,
       failureReason:
         detail?.failureReason !== undefined ? detail.failureReason : prior.failureReason,
+      verification,
       version: prior.version + 1,
       updatedAt: now,
     };

@@ -107,6 +107,24 @@ const stores = Array.from({ length: 100 }, (_, i) => {
 // ── Products ──────────────────────────────────────────────────────────────────
 const CATEGORIES = [
   {
+    // Age-restricted (liquor) — drives the delivery age-check flow
+    // (docs/handover-verification.md): line restrictedMinAge 18.
+    temperatureClass: 'ambient',
+    restrictedMinAge: 18,
+    share: 0.04,
+    weight: [330, 3000],
+    items: [
+      'Castle Lager 6-pack',
+      'Merlot Red Wine',
+      'Sauvignon Blanc',
+      'Craft Gin',
+      'Whisky',
+      'Brandy',
+      'Cider 4-pack',
+      'Sparkling Wine',
+    ],
+  },
+  {
     // Warm prepared food & coffee — picked LAST under 'temperature-zone'.
     temperatureClass: 'hot',
     share: 0.06,
@@ -228,6 +246,7 @@ for (let i = 0; i < 1000; i++) {
     gtin: `600${String(Math.floor(rand() * 1e10)).padStart(10, '0')}`,
     description: `${brand} ${item} ${size}`,
     temperatureClass: category.temperatureClass,
+    ...(category.restrictedMinAge ? { restrictedMinAge: category.restrictedMinAge } : {}),
     volumetric: {
       weightGrams,
       lengthMm: Math.round(between(50, 400)),

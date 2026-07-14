@@ -5,6 +5,7 @@ import type {
   FulfilmentPolicies,
   FulfilmentStatus,
   FulfilmentType,
+  HandoverPolicy,
   OriginLocation,
   PartStatus,
   Provenance,
@@ -47,7 +48,7 @@ export interface PartPickActuals {
   readonly lineResults: readonly PartLineActual[];
   readonly packages: readonly PartPackageActual[];
   /** Picker-supplied: moving this part needs a vehicle (transport input). */
-  readonly requiresVehicle: boolean | null;
+  readonly requiresCarOrLarger: boolean | null;
 }
 
 export interface FulfilmentPart {
@@ -59,10 +60,17 @@ export interface FulfilmentPart {
   readonly lines: readonly FulfilmentLine[];
   /** When this part becomes eligible for pick release (precomputed, immutable). */
   readonly releaseAt: Date;
+  /**
+   * Store→driver handover code (docs/handover-verification.md): the store
+   * reads it out when a driver can't scan. Null when the stamped policy has
+   * pickup pins off (and on pre-feature rows). SECRET-ish: never on events,
+   * DTOs, or the driver app — reveal is a dedicated audited read.
+   */
+  readonly pickupPin: string | null;
   /** Captured on part:picked — null until the pick completes. */
   readonly lineResults: readonly PartLineActual[] | null;
   readonly packages: readonly PartPackageActual[] | null;
-  readonly requiresVehicle: boolean | null;
+  readonly requiresCarOrLarger: boolean | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -87,6 +95,16 @@ export interface Fulfilment {
   readonly timezone: string;
   readonly destination: Destination;
   readonly policies: FulfilmentPolicies;
+  /**
+   * HANDOVER POLICY STAMP (docs/handover-verification.md) — client fulfilment
+   * settings resolved at creation, immutable (processDefinition pattern).
+   * Null only on pre-feature rows: readers treat null as everything-off.
+   */
+  readonly handoverPolicy: HandoverPolicy | null;
+  /** Customer handover code — one per fulfilment; see FulfilmentPart.pickupPin. */
+  readonly deliveryPin: string | null;
+  /** Highest restrictedMinAge across all lines; null = nothing restricted. */
+  readonly maxRestrictedAge: number | null;
   readonly provenance: Provenance | null;
   readonly additionalData: AdditionalData | null;
   readonly parts: readonly FulfilmentPart[];
@@ -101,6 +119,7 @@ export interface CreateFulfilmentPartInput {
   readonly releaseAt: Date;
   readonly origin: OriginLocation;
   readonly lines: readonly FulfilmentLine[];
+  readonly pickupPin: string | null;
 }
 
 export interface CreateFulfilmentInput {
@@ -116,6 +135,9 @@ export interface CreateFulfilmentInput {
   readonly timezone: string;
   readonly destination: Destination;
   readonly policies: FulfilmentPolicies;
+  readonly handoverPolicy: HandoverPolicy;
+  readonly deliveryPin: string | null;
+  readonly maxRestrictedAge: number | null;
   readonly provenance: Provenance | null;
   readonly additionalData: AdditionalData | null;
   readonly parts: readonly CreateFulfilmentPartInput[];
@@ -138,6 +160,9 @@ export const Fulfilment = {
       timezone: input.timezone,
       destination: input.destination,
       policies: input.policies,
+      handoverPolicy: input.handoverPolicy,
+      deliveryPin: input.deliveryPin,
+      maxRestrictedAge: input.maxRestrictedAge,
       provenance: input.provenance,
       additionalData: input.additionalData,
       parts: input.parts.map((part) => ({
@@ -147,9 +172,10 @@ export const Fulfilment = {
         status: 'pending',
         origin: part.origin,
         lines: part.lines,
+        pickupPin: part.pickupPin,
         lineResults: null,
         packages: null,
-        requiresVehicle: null,
+        requiresCarOrLarger: null,
         createdAt: input.now,
         updatedAt: input.now,
       })),
@@ -218,9 +244,32 @@ export const Fulfilment = {
               status: short ? 'short_picked' : 'picked',
               lineResults: actuals.lineResults,
               packages: actuals.packages,
-              requiresVehicle: actuals.requiresVehicle,
+              requiresCarOrLarger: actuals.requiresCarOrLarger,
               updatedAt: now,
             }
+          : part,
+      ),
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /**
+   * SUPERVISOR re-stamp of a picked part's car-or-larger requirement
+   * (Andrew, 2026-07-14): valid only while the part sits picked/short_picked
+   * and no transport order exists — the caller guards the transport check.
+   */
+  partCarFlag(
+    prior: Fulfilment,
+    partId: FulfilmentPartId,
+    requiresCarOrLarger: boolean,
+    now: Date,
+  ): Fulfilment {
+    return {
+      ...prior,
+      parts: prior.parts.map((part) =>
+        part.id === partId && (part.status === 'picked' || part.status === 'short_picked')
+          ? { ...part, requiresCarOrLarger, updatedAt: now }
           : part,
       ),
       version: prior.version + 1,

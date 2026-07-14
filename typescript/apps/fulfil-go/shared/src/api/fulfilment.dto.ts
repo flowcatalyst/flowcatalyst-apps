@@ -7,6 +7,25 @@ import { type Static, Type } from '@sinclair/typebox';
  * schemas use Type.Any() for those nodes rather than duplicating the Zod
  * shapes in TypeBox.
  */
+/**
+ * Handover pins as returned to the CREATING integration (upstream pulls;
+ * docs/handover-verification.md) and by the audited reveal endpoint — the
+ * client's commerce system messages the customer. Pins never appear on
+ * list/detail DTOs or events.
+ */
+export const HandoverPinsSchema = Type.Object({
+  deliveryPin: Type.Union([Type.String(), Type.Null()]),
+  pickupPins: Type.Array(
+    Type.Object({
+      partId: Type.String(),
+      shortId: Type.String(),
+      originRef: Type.String(),
+      pin: Type.String(),
+    }),
+  ),
+});
+export type HandoverPinsDto = Static<typeof HandoverPinsSchema>;
+
 export const CreateFulfilmentResponseSchema = Type.Object({
   fulfilmentId: Type.String(),
   parts: Type.Array(
@@ -16,6 +35,8 @@ export const CreateFulfilmentResponseSchema = Type.Object({
       originRef: Type.String(),
     }),
   ),
+  /** Generated handover pins (per the client's fulfilment settings). */
+  handover: HandoverPinsSchema,
   createdAt: Type.String(),
 });
 export type CreateFulfilmentResponse = Static<typeof CreateFulfilmentResponseSchema>;
@@ -29,7 +50,7 @@ export const FulfilmentPartDtoSchema = Type.Object({
   /** Pick ACTUALS captured from part:picked — null until the pick completes. */
   lineResults: Type.Union([Type.Array(Type.Any()), Type.Null()]),
   packages: Type.Union([Type.Array(Type.Any()), Type.Null()]),
-  requiresVehicle: Type.Union([Type.Boolean(), Type.Null()]),
+  requiresCarOrLarger: Type.Union([Type.Boolean(), Type.Null()]),
 });
 export type FulfilmentPartDto = Static<typeof FulfilmentPartDtoSchema>;
 
@@ -51,6 +72,10 @@ export const FulfilmentDtoSchema = Type.Object({
     allowSubstitutes: Type.Boolean(),
     allowPartialFulfilment: Type.Boolean(),
   }),
+  /** Handover policy STAMP (non-secret; pin VALUES only via audited reveal). */
+  handoverPolicy: Type.Union([Type.Any(), Type.Null()]),
+  /** Highest line restrictedMinAge; null = nothing age-restricted. */
+  maxRestrictedAge: Type.Union([Type.Integer(), Type.Null()]),
   provenance: Type.Union([Type.Any(), Type.Null()]),
   additionalData: Type.Union([Type.Record(Type.String(), Type.String()), Type.Null()]),
   parts: Type.Array(FulfilmentPartDtoSchema),

@@ -1,0 +1,1 @@
+ALTER TABLE "picker_users" ADD COLUMN "role" varchar(16) DEFAULT 'picker' NOT NULL;

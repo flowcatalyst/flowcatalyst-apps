@@ -9,6 +9,7 @@
  */
 import { Result, UseCaseError } from '@fulfil-go/framework';
 import type { FulfilmentPickedData } from '../domain/fulfilments/events/fulfilment-pick-progress.events.js';
+import type { PickCarFlagUpdatedData } from '../domain/picks/events/pick-car-flag.event.js';
 import type { PickClaimedData } from '../domain/picks/events/pick-claimed.event.js';
 import type {
   PickFailedData,
@@ -24,6 +25,7 @@ const HANDLES = [
   'fulfil-go:pick:pick:picked',
   'fulfil-go:pick:pick:short-picked',
   'fulfil-go:pick:pick:failed',
+  'fulfil-go:pick:pick:car-flag-updated',
 ] as const;
 
 export const standardDefinition: ProcessDefinition = {
@@ -77,13 +79,27 @@ export const standardDefinition: ProcessDefinition = {
           partId: data.partId,
           pickerId: data.pickerId,
           short: event.eventType === 'fulfil-go:pick:pick:short-picked',
-          requiresVehicle: data.requiresVehicle ?? false,
+          requiresCarOrLarger: data.requiresCarOrLarger ?? false,
           lineResults: data.lineResults.map((r) => ({
             externalLineRef: r.externalLineRef,
             pickedQuantity: r.pickedQuantity,
             ...(r.substitutions ? { substitutions: r.substitutions } : {}),
           })),
           packages: data.packages ?? [],
+        });
+      }
+
+      case 'fulfil-go:pick:pick:car-flag-updated': {
+        // Supervisor flag on a COMPLETED pick → re-stamp the part while
+        // transport hasn't been requested (pre-completion flags simply ride
+        // the completion actuals — the decider ACKs those).
+        const data = event.payload as PickCarFlagUpdatedData;
+        return commands.registerPartCarFlag.execute({
+          clientId: event.clientId,
+          fulfilmentId: event.fulfilmentId,
+          partId: data.partId,
+          requiresCarOrLarger: data.requiresCarOrLarger,
+          pickStatus: data.pickStatus,
         });
       }
 

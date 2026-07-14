@@ -38,10 +38,10 @@
   {
     "sku": "PRD-00004",
     "gtin": "6003291306351",
-    "description": "Jozi Frozen Pastry 1kg",
-    "temperatureClass": "frozen",
+    "description": "Jozi Cappuccino 1kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1229,
+      "weightGrams": 620,
       "lengthMm": 152,
       "widthMm": 218,
       "heightMm": 194
@@ -170,10 +170,10 @@
   {
     "sku": "PRD-00015",
     "gtin": "6003892737412",
-    "description": "Winelands Fresh Cream 2kg",
-    "temperatureClass": "chilled",
+    "description": "Winelands Frozen Berries 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 792,
+      "weightGrams": 749,
       "lengthMm": 290,
       "widthMm": 103,
       "heightMm": 347
@@ -194,10 +194,11 @@
   {
     "sku": "PRD-00017",
     "gtin": "6000442771173",
-    "description": "Karoo Hot Chips 2kg",
-    "temperatureClass": "hot",
+    "description": "Karoo Whisky 2kg",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 315,
+      "weightGrams": 749,
       "lengthMm": 198,
       "widthMm": 168,
       "heightMm": 235
@@ -422,10 +423,10 @@
   {
     "sku": "PRD-00036",
     "gtin": "6000077308716",
-    "description": "Jozi Dark Chocolate 2L",
-    "temperatureClass": "ambient",
+    "description": "Jozi Feta 2L",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3523,
+      "weightGrams": 2134,
       "lengthMm": 90,
       "widthMm": 99,
       "heightMm": 108
@@ -494,10 +495,11 @@
   {
     "sku": "PRD-00042",
     "gtin": "6000765422782",
-    "description": "Table Mountain Toasted Chicken Mayo Sandwich 250g",
-    "temperatureClass": "hot",
+    "description": "Table Mountain Cider 4-pack 250g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1139,
+      "weightGrams": 2846,
       "lengthMm": 328,
       "widthMm": 271,
       "heightMm": 69
@@ -518,10 +520,11 @@
   {
     "sku": "PRD-00044",
     "gtin": "6003884361607",
-    "description": "Karoo Butter Chicken Curry Bowl 6-pack",
-    "temperatureClass": "hot",
+    "description": "Karoo Brandy 6-pack",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 314,
+      "weightGrams": 748,
       "lengthMm": 155,
       "widthMm": 225,
       "heightMm": 328
@@ -602,10 +605,10 @@
   {
     "sku": "PRD-00051",
     "gtin": "6002363775086",
-    "description": "Golden Hour Frozen Pizza 1kg",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Pepper Steak Pie 1kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2287,
+      "weightGrams": 1103,
       "lengthMm": 386,
       "widthMm": 99,
       "heightMm": 198
@@ -674,10 +677,10 @@
   {
     "sku": "PRD-00057",
     "gtin": "6002639565842",
-    "description": "Golden Hour Frozen Pizza 500g",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Pepper Steak Pie 500g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1868,
+      "weightGrams": 912,
       "lengthMm": 146,
       "widthMm": 283,
       "heightMm": 116
@@ -686,10 +689,11 @@
   {
     "sku": "PRD-00058",
     "gtin": "6006266324098",
-    "description": "Table Mountain Hot Chips 330ml",
-    "temperatureClass": "hot",
+    "description": "Table Mountain Whisky 330ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 353,
+      "weightGrams": 847,
       "lengthMm": 218,
       "widthMm": 267,
       "heightMm": 182
@@ -770,10 +774,10 @@
   {
     "sku": "PRD-00065",
     "gtin": "6004347244298",
-    "description": "Table Mountain Cheddar Cheese 250g",
-    "temperatureClass": "chilled",
+    "description": "Table Mountain Frozen Peas 250g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 113,
+      "weightGrams": 210,
       "lengthMm": 309,
       "widthMm": 102,
       "heightMm": 108
@@ -782,10 +786,10 @@
   {
     "sku": "PRD-00066",
     "gtin": "6004020374973",
-    "description": "Winelands Butter 1L",
-    "temperatureClass": "chilled",
+    "description": "Winelands Frozen Pizza 1L",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 127,
+      "weightGrams": 221,
       "lengthMm": 284,
       "widthMm": 250,
       "heightMm": 153
@@ -1046,10 +1050,11 @@
   {
     "sku": "PRD-00088",
     "gtin": "6009557824372",
-    "description": "Table Mountain Hot Chips 500ml",
-    "temperatureClass": "hot",
+    "description": "Table Mountain Whisky 500ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 337,
+      "weightGrams": 805,
       "lengthMm": 81,
       "widthMm": 180,
       "heightMm": 336
@@ -1118,10 +1123,10 @@
   {
     "sku": "PRD-00094",
     "gtin": "6002177063068",
-    "description": "Two Oceans Sunflower Oil 500ml",
-    "temperatureClass": "ambient",
+    "description": "Two Oceans Butter 500ml",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1513,
+      "weightGrams": 957,
       "lengthMm": 399,
       "widthMm": 82,
       "heightMm": 252
@@ -1142,10 +1147,10 @@
   {
     "sku": "PRD-00096",
     "gtin": "6001457079730",
-    "description": "Two Oceans Salted Peanuts 250g",
-    "temperatureClass": "ambient",
+    "description": "Two Oceans Feta 250g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1754,
+      "weightGrams": 1098,
       "lengthMm": 205,
       "widthMm": 275,
       "heightMm": 209
@@ -1262,10 +1267,10 @@
   {
     "sku": "PRD-00106",
     "gtin": "6005180905850",
-    "description": "Msanzi Tomato Sauce 1kg",
-    "temperatureClass": "ambient",
+    "description": "Msanzi Cheddar Cheese 1kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3806,
+      "weightGrams": 2300,
       "lengthMm": 302,
       "widthMm": 263,
       "heightMm": 291
@@ -1346,10 +1351,11 @@
   {
     "sku": "PRD-00113",
     "gtin": "6006690462266",
-    "description": "Msanzi Rotisserie Chicken 750g",
-    "temperatureClass": "hot",
+    "description": "Msanzi Castle Lager 6-pack 750g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 745,
+      "weightGrams": 1844,
       "lengthMm": 54,
       "widthMm": 296,
       "heightMm": 131
@@ -1646,10 +1652,10 @@
   {
     "sku": "PRD-00138",
     "gtin": "6000220569511",
-    "description": "Karoo Peanut Butter 500g",
-    "temperatureClass": "ambient",
+    "description": "Karoo Greek Yoghurt 500g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 2002,
+      "weightGrams": 1244,
       "lengthMm": 71,
       "widthMm": 195,
       "heightMm": 301
@@ -1754,10 +1760,11 @@
   {
     "sku": "PRD-00147",
     "gtin": "6003785196002",
-    "description": "Golden Hour Butter Chicken Curry Bowl 500ml",
-    "temperatureClass": "hot",
+    "description": "Golden Hour Brandy 500ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 636,
+      "weightGrams": 1567,
       "lengthMm": 171,
       "widthMm": 166,
       "heightMm": 321
@@ -1802,10 +1809,10 @@
   {
     "sku": "PRD-00151",
     "gtin": "6005972722007",
-    "description": "Jozi Frozen Pastry 2kg",
-    "temperatureClass": "frozen",
+    "description": "Jozi Cappuccino 2kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1393,
+      "weightGrams": 695,
       "lengthMm": 75,
       "widthMm": 56,
       "heightMm": 229
@@ -1874,10 +1881,11 @@
   {
     "sku": "PRD-00157",
     "gtin": "6001237487283",
-    "description": "Karoo Rotisserie Chicken 2kg",
-    "temperatureClass": "hot",
+    "description": "Karoo Castle Lager 6-pack 2kg",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 538,
+      "weightGrams": 1316,
       "lengthMm": 304,
       "widthMm": 294,
       "heightMm": 97
@@ -2138,10 +2146,10 @@
   {
     "sku": "PRD-00179",
     "gtin": "6004392918033",
-    "description": "Table Mountain Ground Coffee 330ml",
-    "temperatureClass": "ambient",
+    "description": "Table Mountain Butter 330ml",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 2387,
+      "weightGrams": 1469,
       "lengthMm": 106,
       "widthMm": 288,
       "heightMm": 123
@@ -2234,10 +2242,10 @@
   {
     "sku": "PRD-00187",
     "gtin": "6003716885189",
-    "description": "Highveld Frozen Chips 750g",
-    "temperatureClass": "frozen",
+    "description": "Highveld Butter Chicken Curry Bowl 750g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 845,
+      "weightGrams": 444,
       "lengthMm": 140,
       "widthMm": 233,
       "heightMm": 314
@@ -2246,10 +2254,10 @@
   {
     "sku": "PRD-00188",
     "gtin": "6003207403058",
-    "description": "Golden Hour Toilet Paper 1L",
-    "temperatureClass": "ambient",
+    "description": "Golden Hour Fresh Cream 1L",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1247,
+      "weightGrams": 801,
       "lengthMm": 269,
       "widthMm": 255,
       "heightMm": 266
@@ -2282,10 +2290,10 @@
   {
     "sku": "PRD-00191",
     "gtin": "6002744870691",
-    "description": "Table Mountain Boerewors 400g",
-    "temperatureClass": "chilled",
+    "description": "Table Mountain Frozen Chips 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 891,
+      "weightGrams": 827,
       "lengthMm": 148,
       "widthMm": 104,
       "heightMm": 300
@@ -2414,10 +2422,10 @@
   {
     "sku": "PRD-00202",
     "gtin": "6002378148944",
-    "description": "Table Mountain Fish Fingers 750g",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Boerie Roll 750g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2132,
+      "weightGrams": 1032,
       "lengthMm": 347,
       "widthMm": 209,
       "heightMm": 122
@@ -2426,10 +2434,10 @@
   {
     "sku": "PRD-00203",
     "gtin": "6005619445086",
-    "description": "Table Mountain Frozen Pastry 330ml",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Cappuccino 330ml",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2424,
+      "weightGrams": 1165,
       "lengthMm": 70,
       "widthMm": 280,
       "heightMm": 179
@@ -2498,10 +2506,10 @@
   {
     "sku": "PRD-00209",
     "gtin": "6008622043372",
-    "description": "Winelands Ham Slices 250g",
-    "temperatureClass": "chilled",
+    "description": "Winelands Frozen Berries 250g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1225,
+      "weightGrams": 1093,
       "lengthMm": 171,
       "widthMm": 184,
       "heightMm": 189
@@ -2606,10 +2614,10 @@
   {
     "sku": "PRD-00218",
     "gtin": "6006226448249",
-    "description": "Msanzi Basmati Rice 2L",
-    "temperatureClass": "ambient",
+    "description": "Msanzi Full Cream Milk 2L",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3629,
+      "weightGrams": 2197,
       "lengthMm": 255,
       "widthMm": 132,
       "heightMm": 297
@@ -2642,10 +2650,10 @@
   {
     "sku": "PRD-00221",
     "gtin": "6007408481501",
-    "description": "Karoo Tomato Sauce 500g",
-    "temperatureClass": "ambient",
+    "description": "Karoo Cheddar Cheese 500g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3505,
+      "weightGrams": 2124,
       "lengthMm": 95,
       "widthMm": 177,
       "heightMm": 271
@@ -2666,10 +2674,11 @@
   {
     "sku": "PRD-00223",
     "gtin": "6006135925359",
-    "description": "Jozi Hot Chips 250g",
-    "temperatureClass": "hot",
+    "description": "Jozi Whisky 250g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 282,
+      "weightGrams": 665,
       "lengthMm": 329,
       "widthMm": 101,
       "heightMm": 64
@@ -2702,10 +2711,10 @@
   {
     "sku": "PRD-00226",
     "gtin": "6000269854988",
-    "description": "Two Oceans Frozen Chips 6-pack",
-    "temperatureClass": "frozen",
+    "description": "Two Oceans Butter Chicken Curry Bowl 6-pack",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1352,
+      "weightGrams": 676,
       "lengthMm": 291,
       "widthMm": 67,
       "heightMm": 49
@@ -2870,10 +2879,10 @@
   {
     "sku": "PRD-00240",
     "gtin": "6001145973149",
-    "description": "Winelands Butter 400g",
-    "temperatureClass": "chilled",
+    "description": "Winelands Frozen Pizza 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1445,
+      "weightGrams": 1267,
       "lengthMm": 120,
       "widthMm": 210,
       "heightMm": 91
@@ -3050,10 +3059,10 @@
   {
     "sku": "PRD-00255",
     "gtin": "6004857426867",
-    "description": "Two Oceans Chicken Breasts 1L",
-    "temperatureClass": "chilled",
+    "description": "Two Oceans Fish Fingers 1L",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1614,
+      "weightGrams": 1401,
       "lengthMm": 191,
       "widthMm": 106,
       "heightMm": 336
@@ -3158,10 +3167,10 @@
   {
     "sku": "PRD-00264",
     "gtin": "6002463517913",
-    "description": "Highveld Frozen Pastry 500ml",
-    "temperatureClass": "frozen",
+    "description": "Highveld Cappuccino 500ml",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 301,
+      "weightGrams": 196,
       "lengthMm": 105,
       "widthMm": 208,
       "heightMm": 109
@@ -3278,10 +3287,10 @@
   {
     "sku": "PRD-00274",
     "gtin": "6002711785037",
-    "description": "Msanzi Sparkling Water 1kg",
-    "temperatureClass": "ambient",
+    "description": "Msanzi Boerewors 1kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3396,
+      "weightGrams": 2060,
       "lengthMm": 246,
       "widthMm": 284,
       "heightMm": 241
@@ -3302,10 +3311,10 @@
   {
     "sku": "PRD-00276",
     "gtin": "6000333658950",
-    "description": "Jozi Salmon Portions 2kg",
-    "temperatureClass": "chilled",
+    "description": "Jozi Ice Lollies 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 961,
+      "weightGrams": 883,
       "lengthMm": 226,
       "widthMm": 117,
       "heightMm": 54
@@ -3350,10 +3359,10 @@
   {
     "sku": "PRD-00280",
     "gtin": "6001807006218",
-    "description": "Karoo Fish Fingers 500ml",
-    "temperatureClass": "frozen",
+    "description": "Karoo Boerie Roll 500ml",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 487,
+      "weightGrams": 281,
       "lengthMm": 345,
       "widthMm": 260,
       "heightMm": 290
@@ -3362,10 +3371,10 @@
   {
     "sku": "PRD-00281",
     "gtin": "6006007041744",
-    "description": "Two Oceans Peanut Butter 2kg",
-    "temperatureClass": "ambient",
+    "description": "Two Oceans Greek Yoghurt 2kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 2919,
+      "weightGrams": 1781,
       "lengthMm": 135,
       "widthMm": 221,
       "heightMm": 181
@@ -3470,10 +3479,10 @@
   {
     "sku": "PRD-00290",
     "gtin": "6006998001092",
-    "description": "Table Mountain Butter 2kg",
-    "temperatureClass": "chilled",
+    "description": "Table Mountain Frozen Pizza 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1880,
+      "weightGrams": 1611,
       "lengthMm": 138,
       "widthMm": 235,
       "heightMm": 93
@@ -3530,10 +3539,11 @@
   {
     "sku": "PRD-00295",
     "gtin": "6006599267381",
-    "description": "Karoo Rotisserie Chicken 1kg",
-    "temperatureClass": "hot",
+    "description": "Karoo Castle Lager 6-pack 1kg",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 587,
+      "weightGrams": 1440,
       "lengthMm": 306,
       "widthMm": 169,
       "heightMm": 221
@@ -3770,10 +3780,10 @@
   {
     "sku": "PRD-00315",
     "gtin": "6007256834656",
-    "description": "Karoo Spaghetti 330ml",
-    "temperatureClass": "ambient",
+    "description": "Karoo Full Cream Milk 330ml",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 846,
+      "weightGrams": 566,
       "lengthMm": 351,
       "widthMm": 64,
       "heightMm": 318
@@ -3914,10 +3924,11 @@
   {
     "sku": "PRD-00327",
     "gtin": "6000641124516",
-    "description": "Highveld Toasted Chicken Mayo Sandwich 250g",
-    "temperatureClass": "hot",
+    "description": "Highveld Cider 4-pack 250g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1041,
+      "weightGrams": 2595,
       "lengthMm": 91,
       "widthMm": 227,
       "heightMm": 157
@@ -3986,10 +3997,10 @@
   {
     "sku": "PRD-00333",
     "gtin": "6008943961577",
-    "description": "Highveld Chutney 2kg",
-    "temperatureClass": "ambient",
+    "description": "Highveld Custard 2kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1042,
+      "weightGrams": 681,
       "lengthMm": 387,
       "widthMm": 104,
       "heightMm": 335
@@ -4034,10 +4045,10 @@
   {
     "sku": "PRD-00337",
     "gtin": "6000052575850",
-    "description": "Table Mountain Ice Lollies 500ml",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Toasted Chicken Mayo Sandwich 500ml",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2289,
+      "weightGrams": 1103,
       "lengthMm": 396,
       "widthMm": 134,
       "heightMm": 297
@@ -4094,10 +4105,11 @@
   {
     "sku": "PRD-00342",
     "gtin": "6003217748203",
-    "description": "Karoo Boerie Roll 500g",
-    "temperatureClass": "hot",
+    "description": "Karoo Craft Gin 500g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1170,
+      "weightGrams": 2924,
       "lengthMm": 375,
       "widthMm": 172,
       "heightMm": 185
@@ -4154,10 +4166,10 @@
   {
     "sku": "PRD-00347",
     "gtin": "6009617664897",
-    "description": "Golden Hour Greek Yoghurt 400g",
-    "temperatureClass": "chilled",
+    "description": "Golden Hour Frozen Peas 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1225,
+      "weightGrams": 1092,
       "lengthMm": 78,
       "widthMm": 270,
       "heightMm": 166
@@ -4166,10 +4178,10 @@
   {
     "sku": "PRD-00348",
     "gtin": "6003221230304",
-    "description": "Golden Hour Frozen Pastry 2L",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Cappuccino 2L",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2165,
+      "weightGrams": 1047,
       "lengthMm": 217,
       "widthMm": 116,
       "heightMm": 123
@@ -4334,10 +4346,11 @@
   {
     "sku": "PRD-00362",
     "gtin": "6006416139134",
-    "description": "Highveld Boerie Roll 1kg",
-    "temperatureClass": "hot",
+    "description": "Highveld Craft Gin 1kg",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 946,
+      "weightGrams": 2353,
       "lengthMm": 267,
       "widthMm": 57,
       "heightMm": 342
@@ -4358,10 +4371,10 @@
   {
     "sku": "PRD-00364",
     "gtin": "6003566898079",
-    "description": "Karoo Beef Mince 500ml",
-    "temperatureClass": "chilled",
+    "description": "Karoo Fish Fingers 500ml",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1198,
+      "weightGrams": 1071,
       "lengthMm": 98,
       "widthMm": 238,
       "heightMm": 42
@@ -4382,10 +4395,10 @@
   {
     "sku": "PRD-00366",
     "gtin": "6008343179025",
-    "description": "Two Oceans Dark Chocolate 2kg",
-    "temperatureClass": "ambient",
+    "description": "Two Oceans Feta 2kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3115,
+      "weightGrams": 1896,
       "lengthMm": 63,
       "widthMm": 192,
       "heightMm": 153
@@ -4526,10 +4539,11 @@
   {
     "sku": "PRD-00378",
     "gtin": "6008105749513",
-    "description": "Golden Hour Toasted Chicken Mayo Sandwich 330ml",
-    "temperatureClass": "hot",
+    "description": "Golden Hour Cider 4-pack 330ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 879,
+      "weightGrams": 2183,
       "lengthMm": 218,
       "widthMm": 254,
       "heightMm": 214
@@ -4562,10 +4576,11 @@
   {
     "sku": "PRD-00381",
     "gtin": "6007603049809",
-    "description": "Two Oceans Rotisserie Chicken 330ml",
-    "temperatureClass": "hot",
+    "description": "Two Oceans Castle Lager 6-pack 330ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 786,
+      "weightGrams": 1947,
       "lengthMm": 62,
       "widthMm": 238,
       "heightMm": 209
@@ -4646,10 +4661,10 @@
   {
     "sku": "PRD-00388",
     "gtin": "6003371851085",
-    "description": "Two Oceans Sunflower Oil 6-pack",
-    "temperatureClass": "ambient",
+    "description": "Two Oceans Butter 6-pack",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1209,
+      "weightGrams": 779,
       "lengthMm": 392,
       "widthMm": 276,
       "heightMm": 333
@@ -4682,10 +4697,10 @@
   {
     "sku": "PRD-00391",
     "gtin": "6006191994938",
-    "description": "Golden Hour Fish Fingers 330ml",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Boerie Roll 330ml",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1725,
+      "weightGrams": 846,
       "lengthMm": 64,
       "widthMm": 121,
       "heightMm": 22
@@ -4730,10 +4745,10 @@
   {
     "sku": "PRD-00395",
     "gtin": "6004315167765",
-    "description": "Jozi Braai Spice 400g",
-    "temperatureClass": "ambient",
+    "description": "Jozi Custard 400g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 2988,
+      "weightGrams": 1821,
       "lengthMm": 70,
       "widthMm": 78,
       "heightMm": 147
@@ -4754,10 +4769,10 @@
   {
     "sku": "PRD-00397",
     "gtin": "6007155183900",
-    "description": "Winelands Spaghetti 250g",
-    "temperatureClass": "ambient",
+    "description": "Winelands Cheddar Cheese 250g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 4937,
+      "weightGrams": 2963,
       "lengthMm": 145,
       "widthMm": 174,
       "heightMm": 286
@@ -4838,10 +4853,10 @@
   {
     "sku": "PRD-00404",
     "gtin": "6009518572094",
-    "description": "Golden Hour Beef Mince 330ml",
-    "temperatureClass": "chilled",
+    "description": "Golden Hour Fish Fingers 330ml",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2060,
+      "weightGrams": 1755,
       "lengthMm": 134,
       "widthMm": 279,
       "heightMm": 52
@@ -4946,10 +4961,10 @@
   {
     "sku": "PRD-00413",
     "gtin": "6001310539131",
-    "description": "Highveld Fresh Cream 1L",
-    "temperatureClass": "chilled",
+    "description": "Highveld Frozen Chips 1L",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2071,
+      "weightGrams": 1763,
       "lengthMm": 244,
       "widthMm": 191,
       "heightMm": 280
@@ -5078,10 +5093,11 @@
   {
     "sku": "PRD-00424",
     "gtin": "6009727048440",
-    "description": "Highveld Toasted Chicken Mayo Sandwich 400g",
-    "temperatureClass": "hot",
+    "description": "Highveld Cider 4-pack 400g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 873,
+      "weightGrams": 2168,
       "lengthMm": 105,
       "widthMm": 71,
       "heightMm": 287
@@ -5090,10 +5106,10 @@
   {
     "sku": "PRD-00425",
     "gtin": "6000487329033",
-    "description": "Table Mountain Ice Lollies 500g",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Toasted Chicken Mayo Sandwich 500g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1628,
+      "weightGrams": 802,
       "lengthMm": 353,
       "widthMm": 242,
       "heightMm": 236
@@ -5150,10 +5166,10 @@
   {
     "sku": "PRD-00430",
     "gtin": "6004215704193",
-    "description": "Karoo Frozen Peas 250g",
-    "temperatureClass": "frozen",
+    "description": "Karoo Flat White 250g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1770,
+      "weightGrams": 867,
       "lengthMm": 295,
       "widthMm": 197,
       "heightMm": 153
@@ -5198,10 +5214,11 @@
   {
     "sku": "PRD-00434",
     "gtin": "6000618284484",
-    "description": "Jozi Pepper Steak Pie 6-pack",
-    "temperatureClass": "hot",
+    "description": "Jozi Sauvignon Blanc 6-pack",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 976,
+      "weightGrams": 2429,
       "lengthMm": 297,
       "widthMm": 186,
       "heightMm": 111
@@ -5258,10 +5275,11 @@
   {
     "sku": "PRD-00439",
     "gtin": "6003725235310",
-    "description": "Two Oceans Butter Chicken Curry Bowl 750g",
-    "temperatureClass": "hot",
+    "description": "Two Oceans Brandy 750g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 799,
+      "weightGrams": 1980,
       "lengthMm": 190,
       "widthMm": 141,
       "heightMm": 115
@@ -5354,10 +5372,10 @@
   {
     "sku": "PRD-00447",
     "gtin": "6006921991719",
-    "description": "Karoo Full Cream Milk 1L",
-    "temperatureClass": "chilled",
+    "description": "Karoo Ice Cream 1L",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1493,
+      "weightGrams": 1305,
       "lengthMm": 298,
       "widthMm": 254,
       "heightMm": 348
@@ -5510,10 +5528,11 @@
   {
     "sku": "PRD-00460",
     "gtin": "6004602934401",
-    "description": "Golden Hour Toasted Chicken Mayo Sandwich 500g",
-    "temperatureClass": "hot",
+    "description": "Golden Hour Cider 4-pack 500g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1037,
+      "weightGrams": 2586,
       "lengthMm": 387,
       "widthMm": 187,
       "heightMm": 249
@@ -5558,10 +5577,10 @@
   {
     "sku": "PRD-00464",
     "gtin": "6003098639298",
-    "description": "Golden Hour Cheddar Cheese 330ml",
-    "temperatureClass": "chilled",
+    "description": "Golden Hour Frozen Peas 330ml",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2154,
+      "weightGrams": 1829,
       "lengthMm": 190,
       "widthMm": 269,
       "heightMm": 37
@@ -5582,10 +5601,10 @@
   {
     "sku": "PRD-00466",
     "gtin": "6004922281464",
-    "description": "Winelands Frozen Pizza 2L",
-    "temperatureClass": "frozen",
+    "description": "Winelands Pepper Steak Pie 2L",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 932,
+      "weightGrams": 484,
       "lengthMm": 205,
       "widthMm": 229,
       "heightMm": 345
@@ -5618,10 +5637,11 @@
   {
     "sku": "PRD-00469",
     "gtin": "6006391681360",
-    "description": "Two Oceans Butter Chicken Curry Bowl 750g",
-    "temperatureClass": "hot",
+    "description": "Two Oceans Brandy 750g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 442,
+      "weightGrams": 1071,
       "lengthMm": 211,
       "widthMm": 80,
       "heightMm": 327
@@ -5630,10 +5650,10 @@
   {
     "sku": "PRD-00470",
     "gtin": "6002808267462",
-    "description": "Highveld Feta 500g",
-    "temperatureClass": "chilled",
+    "description": "Highveld Ice Lollies 500g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2083,
+      "weightGrams": 1772,
       "lengthMm": 274,
       "widthMm": 149,
       "heightMm": 75
@@ -5762,10 +5782,10 @@
   {
     "sku": "PRD-00481",
     "gtin": "6009724381037",
-    "description": "Table Mountain Sparkling Water 1L",
-    "temperatureClass": "ambient",
+    "description": "Table Mountain Boerewors 1L",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1363,
+      "weightGrams": 869,
       "lengthMm": 138,
       "widthMm": 230,
       "heightMm": 250
@@ -5870,10 +5890,10 @@
   {
     "sku": "PRD-00490",
     "gtin": "6002267983676",
-    "description": "Jozi Ice Lollies 2L",
-    "temperatureClass": "frozen",
+    "description": "Jozi Toasted Chicken Mayo Sandwich 2L",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 329,
+      "weightGrams": 209,
       "lengthMm": 107,
       "widthMm": 199,
       "heightMm": 117
@@ -5882,10 +5902,10 @@
   {
     "sku": "PRD-00491",
     "gtin": "6005826776027",
-    "description": "Highveld Frozen Berries 2L",
-    "temperatureClass": "frozen",
+    "description": "Highveld Hot Chips 2L",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2499,
+      "weightGrams": 1200,
       "lengthMm": 368,
       "widthMm": 97,
       "heightMm": 198
@@ -6050,10 +6070,11 @@
   {
     "sku": "PRD-00505",
     "gtin": "6003875449378",
-    "description": "Jozi Hot Chips 500g",
-    "temperatureClass": "hot",
+    "description": "Jozi Whisky 500g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1143,
+      "weightGrams": 2855,
       "lengthMm": 226,
       "widthMm": 292,
       "heightMm": 47
@@ -6086,10 +6107,10 @@
   {
     "sku": "PRD-00508",
     "gtin": "6005069920024",
-    "description": "Jozi Ice Lollies 1kg",
-    "temperatureClass": "frozen",
+    "description": "Jozi Toasted Chicken Mayo Sandwich 1kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1993,
+      "weightGrams": 968,
       "lengthMm": 279,
       "widthMm": 129,
       "heightMm": 138
@@ -6374,10 +6395,10 @@
   {
     "sku": "PRD-00532",
     "gtin": "6004818334463",
-    "description": "Table Mountain Cake Flour 6-pack",
-    "temperatureClass": "ambient",
+    "description": "Table Mountain Chicken Breasts 6-pack",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 2621,
+      "weightGrams": 1606,
       "lengthMm": 203,
       "widthMm": 230,
       "heightMm": 83
@@ -6470,10 +6491,10 @@
   {
     "sku": "PRD-00540",
     "gtin": "6008222702341",
-    "description": "Highveld White Sugar 500g",
-    "temperatureClass": "ambient",
+    "description": "Highveld Beef Mince 500g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3992,
+      "weightGrams": 2409,
       "lengthMm": 172,
       "widthMm": 284,
       "heightMm": 336
@@ -6518,10 +6539,11 @@
   {
     "sku": "PRD-00544",
     "gtin": "6000903911853",
-    "description": "Golden Hour Flat White 6-pack",
-    "temperatureClass": "hot",
+    "description": "Golden Hour Merlot Red Wine 6-pack",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1007,
+      "weightGrams": 2509,
       "lengthMm": 180,
       "widthMm": 240,
       "heightMm": 242
@@ -6590,10 +6612,10 @@
   {
     "sku": "PRD-00550",
     "gtin": "6002377487320",
-    "description": "Highveld Custard 400g",
-    "temperatureClass": "chilled",
+    "description": "Highveld Frozen Pastry 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1470,
+      "weightGrams": 1286,
       "lengthMm": 351,
       "widthMm": 109,
       "heightMm": 211
@@ -6746,10 +6768,10 @@
   {
     "sku": "PRD-00563",
     "gtin": "6002791996621",
-    "description": "Golden Hour Cheddar Cheese 2kg",
-    "temperatureClass": "chilled",
+    "description": "Golden Hour Ice Cream 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2394,
+      "weightGrams": 2019,
       "lengthMm": 248,
       "widthMm": 152,
       "heightMm": 117
@@ -6974,10 +6996,10 @@
   {
     "sku": "PRD-00582",
     "gtin": "6003525911227",
-    "description": "Winelands Ground Coffee 330ml",
-    "temperatureClass": "ambient",
+    "description": "Winelands Butter 330ml",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1950,
+      "weightGrams": 1213,
       "lengthMm": 112,
       "widthMm": 190,
       "heightMm": 289
@@ -7130,10 +7152,10 @@
   {
     "sku": "PRD-00595",
     "gtin": "6009253256258",
-    "description": "Winelands Frozen Pastry 500g",
-    "temperatureClass": "frozen",
+    "description": "Winelands Cappuccino 500g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1495,
+      "weightGrams": 741,
       "lengthMm": 387,
       "widthMm": 127,
       "heightMm": 81
@@ -7202,10 +7224,10 @@
   {
     "sku": "PRD-00601",
     "gtin": "6004082347911",
-    "description": "Table Mountain Ice Lollies 500ml",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Toasted Chicken Mayo Sandwich 500ml",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 274,
+      "weightGrams": 184,
       "lengthMm": 249,
       "widthMm": 154,
       "heightMm": 54
@@ -7238,10 +7260,10 @@
   {
     "sku": "PRD-00604",
     "gtin": "6005220332709",
-    "description": "Highveld Custard 2kg",
-    "temperatureClass": "chilled",
+    "description": "Highveld Frozen Pastry 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2213,
+      "weightGrams": 1875,
       "lengthMm": 311,
       "widthMm": 102,
       "heightMm": 107
@@ -7322,10 +7344,11 @@
   {
     "sku": "PRD-00611",
     "gtin": "6008646328123",
-    "description": "Table Mountain Pepper Steak Pie 330ml",
-    "temperatureClass": "hot",
+    "description": "Table Mountain Sauvignon Blanc 330ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 435,
+      "weightGrams": 1054,
       "lengthMm": 393,
       "widthMm": 129,
       "heightMm": 157
@@ -7406,10 +7429,10 @@
   {
     "sku": "PRD-00618",
     "gtin": "6006158036708",
-    "description": "Msanzi Fresh Cream 330ml",
-    "temperatureClass": "chilled",
+    "description": "Msanzi Frozen Berries 330ml",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2480,
+      "weightGrams": 2087,
       "lengthMm": 284,
       "widthMm": 105,
       "heightMm": 79
@@ -7430,10 +7453,10 @@
   {
     "sku": "PRD-00620",
     "gtin": "6006689316798",
-    "description": "Table Mountain Frozen Peas 1kg",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Flat White 1kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2441,
+      "weightGrams": 1173,
       "lengthMm": 277,
       "widthMm": 234,
       "heightMm": 252
@@ -7466,10 +7489,10 @@
   {
     "sku": "PRD-00623",
     "gtin": "6004572526291",
-    "description": "Jozi Ham Slices 400g",
-    "temperatureClass": "chilled",
+    "description": "Jozi Frozen Berries 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2919,
+      "weightGrams": 2436,
       "lengthMm": 199,
       "widthMm": 126,
       "heightMm": 75
@@ -7574,10 +7597,10 @@
   {
     "sku": "PRD-00632",
     "gtin": "6002140363899",
-    "description": "Table Mountain Ice Lollies 400g",
-    "temperatureClass": "frozen",
+    "description": "Table Mountain Toasted Chicken Mayo Sandwich 400g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1930,
+      "weightGrams": 940,
       "lengthMm": 325,
       "widthMm": 215,
       "heightMm": 105
@@ -7598,10 +7621,10 @@
   {
     "sku": "PRD-00634",
     "gtin": "6007071582055",
-    "description": "Golden Hour Rooibos Tea 6-pack",
-    "temperatureClass": "ambient",
+    "description": "Golden Hour Greek Yoghurt 6-pack",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3074,
+      "weightGrams": 1872,
       "lengthMm": 368,
       "widthMm": 169,
       "heightMm": 47
@@ -7754,10 +7777,11 @@
   {
     "sku": "PRD-00647",
     "gtin": "6000686632073",
-    "description": "Highveld Toasted Chicken Mayo Sandwich 2L",
-    "temperatureClass": "hot",
+    "description": "Highveld Cider 4-pack 2L",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 747,
+      "weightGrams": 1849,
       "lengthMm": 68,
       "widthMm": 176,
       "heightMm": 319
@@ -7766,10 +7790,10 @@
   {
     "sku": "PRD-00648",
     "gtin": "6002080085217",
-    "description": "Highveld Beef Mince 250g",
-    "temperatureClass": "chilled",
+    "description": "Highveld Fish Fingers 250g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1904,
+      "weightGrams": 1631,
       "lengthMm": 370,
       "widthMm": 132,
       "heightMm": 255
@@ -7922,10 +7946,10 @@
   {
     "sku": "PRD-00661",
     "gtin": "6004879430809",
-    "description": "Table Mountain Ham Slices 1L",
-    "temperatureClass": "chilled",
+    "description": "Table Mountain Frozen Berries 1L",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1877,
+      "weightGrams": 1610,
       "lengthMm": 208,
       "widthMm": 155,
       "heightMm": 78
@@ -8306,10 +8330,10 @@
   {
     "sku": "PRD-00693",
     "gtin": "6006472895795",
-    "description": "Jozi Ground Coffee 2L",
-    "temperatureClass": "ambient",
+    "description": "Jozi Butter 2L",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1995,
+      "weightGrams": 1239,
       "lengthMm": 349,
       "widthMm": 111,
       "heightMm": 102
@@ -8318,10 +8342,10 @@
   {
     "sku": "PRD-00694",
     "gtin": "6008840534412",
-    "description": "Golden Hour Peanut Butter 6-pack",
-    "temperatureClass": "ambient",
+    "description": "Golden Hour Greek Yoghurt 6-pack",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3024,
+      "weightGrams": 1842,
       "lengthMm": 259,
       "widthMm": 62,
       "heightMm": 308
@@ -8330,10 +8354,10 @@
   {
     "sku": "PRD-00695",
     "gtin": "6001568224541",
-    "description": "Golden Hour Fish Fingers 2kg",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Boerie Roll 2kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 471,
+      "weightGrams": 274,
       "lengthMm": 124,
       "widthMm": 287,
       "heightMm": 69
@@ -8342,10 +8366,10 @@
   {
     "sku": "PRD-00696",
     "gtin": "6007314993189",
-    "description": "Msanzi Ice Lollies 750g",
-    "temperatureClass": "frozen",
+    "description": "Msanzi Toasted Chicken Mayo Sandwich 750g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1746,
+      "weightGrams": 856,
       "lengthMm": 217,
       "widthMm": 127,
       "heightMm": 298
@@ -8426,10 +8450,10 @@
   {
     "sku": "PRD-00703",
     "gtin": "6000675105233",
-    "description": "Karoo Chicken Breasts 400g",
-    "temperatureClass": "chilled",
+    "description": "Karoo Frozen Pizza 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1441,
+      "weightGrams": 1263,
       "lengthMm": 379,
       "widthMm": 195,
       "heightMm": 163
@@ -8438,10 +8462,10 @@
   {
     "sku": "PRD-00704",
     "gtin": "6000772851121",
-    "description": "Winelands Butter 400g",
-    "temperatureClass": "chilled",
+    "description": "Winelands Frozen Pizza 400g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1472,
+      "weightGrams": 1288,
       "lengthMm": 271,
       "widthMm": 254,
       "heightMm": 231
@@ -8486,10 +8510,10 @@
   {
     "sku": "PRD-00708",
     "gtin": "6008181570402",
-    "description": "Jozi Frozen Pizza 500g",
-    "temperatureClass": "frozen",
+    "description": "Jozi Pepper Steak Pie 500g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1646,
+      "weightGrams": 810,
       "lengthMm": 178,
       "widthMm": 220,
       "heightMm": 309
@@ -8546,10 +8570,10 @@
   {
     "sku": "PRD-00713",
     "gtin": "6001763820003",
-    "description": "Table Mountain Basmati Rice 750g",
-    "temperatureClass": "ambient",
+    "description": "Table Mountain Full Cream Milk 750g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3380,
+      "weightGrams": 2051,
       "lengthMm": 374,
       "widthMm": 278,
       "heightMm": 325
@@ -8654,10 +8678,10 @@
   {
     "sku": "PRD-00722",
     "gtin": "6008617767652",
-    "description": "Golden Hour Frozen Chips 500g",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Butter Chicken Curry Bowl 500g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2234,
+      "weightGrams": 1079,
       "lengthMm": 385,
       "widthMm": 216,
       "heightMm": 45
@@ -8678,10 +8702,11 @@
   {
     "sku": "PRD-00724",
     "gtin": "6002656328885",
-    "description": "Table Mountain Boerie Roll 500ml",
-    "temperatureClass": "hot",
+    "description": "Table Mountain Craft Gin 500ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 624,
+      "weightGrams": 1535,
       "lengthMm": 277,
       "widthMm": 296,
       "heightMm": 189
@@ -8738,10 +8763,10 @@
   {
     "sku": "PRD-00729",
     "gtin": "6007190382701",
-    "description": "Highveld Dishwashing Liquid 2kg",
-    "temperatureClass": "ambient",
+    "description": "Highveld Ham Slices 2kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 4676,
+      "weightGrams": 2810,
       "lengthMm": 100,
       "widthMm": 296,
       "heightMm": 113
@@ -8786,10 +8811,10 @@
   {
     "sku": "PRD-00733",
     "gtin": "6003817545010",
-    "description": "Golden Hour Ground Coffee 1kg",
-    "temperatureClass": "ambient",
+    "description": "Golden Hour Butter 1kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3474,
+      "weightGrams": 2106,
       "lengthMm": 74,
       "widthMm": 68,
       "heightMm": 271
@@ -8810,10 +8835,11 @@
   {
     "sku": "PRD-00735",
     "gtin": "6000422190991",
-    "description": "Highveld Flat White 2L",
-    "temperatureClass": "hot",
+    "description": "Highveld Merlot Red Wine 2L",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 755,
+      "weightGrams": 1867,
       "lengthMm": 54,
       "widthMm": 180,
       "heightMm": 62
@@ -8846,10 +8872,10 @@
   {
     "sku": "PRD-00738",
     "gtin": "6009887544016",
-    "description": "Karoo Basmati Rice 1kg",
-    "temperatureClass": "ambient",
+    "description": "Karoo Full Cream Milk 1kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1009,
+      "weightGrams": 662,
       "lengthMm": 211,
       "widthMm": 193,
       "heightMm": 285
@@ -8954,10 +8980,11 @@
   {
     "sku": "PRD-00747",
     "gtin": "6000138107815",
-    "description": "Two Oceans Boerie Roll 6-pack",
-    "temperatureClass": "hot",
+    "description": "Two Oceans Craft Gin 6-pack",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1023,
+      "weightGrams": 2549,
       "lengthMm": 216,
       "widthMm": 277,
       "heightMm": 306
@@ -9014,10 +9041,10 @@
   {
     "sku": "PRD-00752",
     "gtin": "6001731692440",
-    "description": "Winelands Butter 500g",
-    "temperatureClass": "chilled",
+    "description": "Winelands Frozen Pizza 500g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2546,
+      "weightGrams": 2140,
       "lengthMm": 378,
       "widthMm": 166,
       "heightMm": 109
@@ -9134,10 +9161,10 @@
   {
     "sku": "PRD-00762",
     "gtin": "6003464053452",
-    "description": "Highveld Baked Beans 6-pack",
-    "temperatureClass": "ambient",
+    "description": "Highveld Beef Mince 6-pack",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 2479,
+      "weightGrams": 1523,
       "lengthMm": 205,
       "widthMm": 249,
       "heightMm": 69
@@ -9314,10 +9341,10 @@
   {
     "sku": "PRD-00777",
     "gtin": "6005015164122",
-    "description": "Winelands Corn Flakes 500ml",
-    "temperatureClass": "ambient",
+    "description": "Winelands Ham Slices 500ml",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1635,
+      "weightGrams": 1029,
       "lengthMm": 274,
       "widthMm": 249,
       "heightMm": 155
@@ -9386,10 +9413,10 @@
   {
     "sku": "PRD-00783",
     "gtin": "6002096768049",
-    "description": "Jozi Spaghetti 6-pack",
-    "temperatureClass": "ambient",
+    "description": "Jozi Full Cream Milk 6-pack",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 772,
+      "weightGrams": 523,
       "lengthMm": 299,
       "widthMm": 112,
       "heightMm": 117
@@ -9422,10 +9449,10 @@
   {
     "sku": "PRD-00786",
     "gtin": "6001357163153",
-    "description": "Golden Hour Beef Mince 2kg",
-    "temperatureClass": "chilled",
+    "description": "Golden Hour Fish Fingers 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2551,
+      "weightGrams": 2144,
       "lengthMm": 114,
       "widthMm": 238,
       "heightMm": 331
@@ -9566,10 +9593,11 @@
   {
     "sku": "PRD-00798",
     "gtin": "6007680208922",
-    "description": "Highveld Cappuccino 6-pack",
-    "temperatureClass": "hot",
+    "description": "Highveld Sparkling Wine 6-pack",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1093,
+      "weightGrams": 2727,
       "lengthMm": 118,
       "widthMm": 228,
       "heightMm": 338
@@ -9626,10 +9654,10 @@
   {
     "sku": "PRD-00803",
     "gtin": "6000725785256",
-    "description": "Msanzi Ice Cream 1kg",
-    "temperatureClass": "frozen",
+    "description": "Msanzi Rotisserie Chicken 1kg",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 368,
+      "weightGrams": 227,
       "lengthMm": 63,
       "widthMm": 77,
       "heightMm": 241
@@ -9674,10 +9702,11 @@
   {
     "sku": "PRD-00807",
     "gtin": "6006799903977",
-    "description": "Highveld Pepper Steak Pie 2kg",
-    "temperatureClass": "hot",
+    "description": "Highveld Sauvignon Blanc 2kg",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 219,
+      "weightGrams": 506,
       "lengthMm": 204,
       "widthMm": 60,
       "heightMm": 63
@@ -9854,10 +9883,10 @@
   {
     "sku": "PRD-00822",
     "gtin": "6003281703449",
-    "description": "Msanzi Corn Flakes 250g",
-    "temperatureClass": "ambient",
+    "description": "Msanzi Ham Slices 250g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3576,
+      "weightGrams": 2166,
       "lengthMm": 201,
       "widthMm": 188,
       "heightMm": 194
@@ -9890,10 +9919,10 @@
   {
     "sku": "PRD-00825",
     "gtin": "6007713080372",
-    "description": "Highveld Frozen Peas 250g",
-    "temperatureClass": "frozen",
+    "description": "Highveld Flat White 250g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2486,
+      "weightGrams": 1194,
       "lengthMm": 219,
       "widthMm": 185,
       "heightMm": 141
@@ -9938,10 +9967,10 @@
   {
     "sku": "PRD-00829",
     "gtin": "6006241159825",
-    "description": "Msanzi Full Cream Milk 500g",
-    "temperatureClass": "chilled",
+    "description": "Msanzi Ice Cream 500g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 493,
+      "weightGrams": 512,
       "lengthMm": 113,
       "widthMm": 101,
       "heightMm": 171
@@ -10130,10 +10159,10 @@
   {
     "sku": "PRD-00845",
     "gtin": "6003472105220",
-    "description": "Highveld Feta 1L",
-    "temperatureClass": "chilled",
+    "description": "Highveld Ice Lollies 1L",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2101,
+      "weightGrams": 1787,
       "lengthMm": 165,
       "widthMm": 223,
       "heightMm": 87
@@ -10274,10 +10303,10 @@
   {
     "sku": "PRD-00857",
     "gtin": "6000639237372",
-    "description": "Msanzi Greek Yoghurt 500ml",
-    "temperatureClass": "chilled",
+    "description": "Msanzi Frozen Peas 500ml",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1542,
+      "weightGrams": 1344,
       "lengthMm": 394,
       "widthMm": 196,
       "heightMm": 34
@@ -10286,10 +10315,11 @@
   {
     "sku": "PRD-00858",
     "gtin": "6005327034862",
-    "description": "Msanzi Rotisserie Chicken 1kg",
-    "temperatureClass": "hot",
+    "description": "Msanzi Castle Lager 6-pack 1kg",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1020,
+      "weightGrams": 2542,
       "lengthMm": 61,
       "widthMm": 120,
       "heightMm": 151
@@ -10370,10 +10400,10 @@
   {
     "sku": "PRD-00865",
     "gtin": "6006503838899",
-    "description": "Table Mountain Feta 750g",
-    "temperatureClass": "chilled",
+    "description": "Table Mountain Ice Lollies 750g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1116,
+      "weightGrams": 1006,
       "lengthMm": 395,
       "widthMm": 124,
       "heightMm": 203
@@ -10406,10 +10436,10 @@
   {
     "sku": "PRD-00868",
     "gtin": "6007305332603",
-    "description": "Table Mountain Chicken Breasts 2kg",
-    "temperatureClass": "chilled",
+    "description": "Table Mountain Fish Fingers 2kg",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 274,
+      "weightGrams": 338,
       "lengthMm": 105,
       "widthMm": 263,
       "heightMm": 313
@@ -10430,10 +10460,11 @@
   {
     "sku": "PRD-00870",
     "gtin": "6005566288849",
-    "description": "Jozi Hot Chips 750g",
-    "temperatureClass": "hot",
+    "description": "Jozi Whisky 750g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 430,
+      "weightGrams": 1042,
       "lengthMm": 149,
       "widthMm": 200,
       "heightMm": 27
@@ -10466,10 +10497,10 @@
   {
     "sku": "PRD-00873",
     "gtin": "6008676334649",
-    "description": "Jozi Peanut Butter 500g",
-    "temperatureClass": "ambient",
+    "description": "Jozi Cheddar Cheese 500g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3394,
+      "weightGrams": 2059,
       "lengthMm": 159,
       "widthMm": 183,
       "heightMm": 80
@@ -10490,10 +10521,10 @@
   {
     "sku": "PRD-00875",
     "gtin": "6006197729459",
-    "description": "Golden Hour Cake Flour 500ml",
-    "temperatureClass": "ambient",
+    "description": "Golden Hour Chicken Breasts 500ml",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 4339,
+      "weightGrams": 2613,
       "lengthMm": 208,
       "widthMm": 233,
       "heightMm": 30
@@ -10562,10 +10593,11 @@
   {
     "sku": "PRD-00881",
     "gtin": "6001393730822",
-    "description": "Winelands Toasted Chicken Mayo Sandwich 400g",
-    "temperatureClass": "hot",
+    "description": "Winelands Cider 4-pack 400g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 1111,
+      "weightGrams": 2773,
       "lengthMm": 203,
       "widthMm": 198,
       "heightMm": 243
@@ -10610,10 +10642,10 @@
   {
     "sku": "PRD-00885",
     "gtin": "6005986391764",
-    "description": "Winelands Rooibos Tea 400g",
-    "temperatureClass": "ambient",
+    "description": "Winelands Greek Yoghurt 400g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3191,
+      "weightGrams": 1940,
       "lengthMm": 215,
       "widthMm": 295,
       "heightMm": 325
@@ -10634,10 +10666,10 @@
   {
     "sku": "PRD-00887",
     "gtin": "6000883399758",
-    "description": "Highveld Beef Mince 6-pack",
-    "temperatureClass": "chilled",
+    "description": "Highveld Fish Fingers 6-pack",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 1404,
+      "weightGrams": 1234,
       "lengthMm": 359,
       "widthMm": 238,
       "heightMm": 200
@@ -10742,10 +10774,10 @@
   {
     "sku": "PRD-00896",
     "gtin": "6004207739010",
-    "description": "Winelands Sunflower Oil 500g",
-    "temperatureClass": "ambient",
+    "description": "Winelands Chicken Breasts 500g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1359,
+      "weightGrams": 867,
       "lengthMm": 61,
       "widthMm": 227,
       "heightMm": 190
@@ -10838,10 +10870,10 @@
   {
     "sku": "PRD-00904",
     "gtin": "6004099252431",
-    "description": "Msanzi Tomato Sauce 400g",
-    "temperatureClass": "ambient",
+    "description": "Msanzi Cheddar Cheese 400g",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 1009,
+      "weightGrams": 662,
       "lengthMm": 74,
       "widthMm": 206,
       "heightMm": 285
@@ -10886,10 +10918,10 @@
   {
     "sku": "PRD-00908",
     "gtin": "6007569164710",
-    "description": "Two Oceans Custard 330ml",
-    "temperatureClass": "chilled",
+    "description": "Two Oceans Frozen Pastry 330ml",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2418,
+      "weightGrams": 2038,
       "lengthMm": 97,
       "widthMm": 105,
       "heightMm": 165
@@ -10970,10 +11002,11 @@
   {
     "sku": "PRD-00915",
     "gtin": "6005854074172",
-    "description": "Winelands Boerie Roll 2L",
-    "temperatureClass": "hot",
+    "description": "Winelands Craft Gin 2L",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 169,
+      "weightGrams": 377,
       "lengthMm": 344,
       "widthMm": 130,
       "heightMm": 73
@@ -11006,10 +11039,10 @@
   {
     "sku": "PRD-00918",
     "gtin": "6001027209674",
-    "description": "Highveld Frozen Chips 500g",
-    "temperatureClass": "frozen",
+    "description": "Highveld Butter Chicken Curry Bowl 500g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 341,
+      "weightGrams": 214,
       "lengthMm": 110,
       "widthMm": 176,
       "heightMm": 284
@@ -11234,10 +11267,10 @@
   {
     "sku": "PRD-00937",
     "gtin": "6000052815584",
-    "description": "Golden Hour Fish Fingers 2L",
-    "temperatureClass": "frozen",
+    "description": "Golden Hour Boerie Roll 2L",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 359,
+      "weightGrams": 223,
       "lengthMm": 389,
       "widthMm": 83,
       "heightMm": 102
@@ -11318,10 +11351,10 @@
   {
     "sku": "PRD-00944",
     "gtin": "6004624171871",
-    "description": "Winelands Ice Lollies 750g",
-    "temperatureClass": "frozen",
+    "description": "Winelands Toasted Chicken Mayo Sandwich 750g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 2498,
+      "weightGrams": 1199,
       "lengthMm": 316,
       "widthMm": 260,
       "heightMm": 292
@@ -11366,10 +11399,11 @@
   {
     "sku": "PRD-00948",
     "gtin": "6005460765259",
-    "description": "Table Mountain Toasted Chicken Mayo Sandwich 500g",
-    "temperatureClass": "hot",
+    "description": "Table Mountain Cider 4-pack 500g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 389,
+      "weightGrams": 937,
       "lengthMm": 192,
       "widthMm": 284,
       "heightMm": 31
@@ -11390,10 +11424,10 @@
   {
     "sku": "PRD-00950",
     "gtin": "6001467052898",
-    "description": "Winelands Frozen Peas 400g",
-    "temperatureClass": "frozen",
+    "description": "Winelands Flat White 400g",
+    "temperatureClass": "hot",
     "volumetric": {
-      "weightGrams": 1096,
+      "weightGrams": 559,
       "lengthMm": 146,
       "widthMm": 134,
       "heightMm": 314
@@ -11486,10 +11520,10 @@
   {
     "sku": "PRD-00958",
     "gtin": "6000420868310",
-    "description": "Msanzi Ham Slices 250g",
-    "temperatureClass": "chilled",
+    "description": "Msanzi Frozen Berries 250g",
+    "temperatureClass": "frozen",
     "volumetric": {
-      "weightGrams": 2368,
+      "weightGrams": 1999,
       "lengthMm": 229,
       "widthMm": 253,
       "heightMm": 303
@@ -11498,10 +11532,10 @@
   {
     "sku": "PRD-00959",
     "gtin": "6008704793853",
-    "description": "Winelands White Sugar 2kg",
-    "temperatureClass": "ambient",
+    "description": "Winelands Chicken Breasts 2kg",
+    "temperatureClass": "chilled",
     "volumetric": {
-      "weightGrams": 3376,
+      "weightGrams": 2049,
       "lengthMm": 142,
       "widthMm": 85,
       "heightMm": 97
@@ -11678,10 +11712,11 @@
   {
     "sku": "PRD-00974",
     "gtin": "6009495985070",
-    "description": "Karoo Boerie Roll 400g",
-    "temperatureClass": "hot",
+    "description": "Karoo Craft Gin 400g",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 545,
+      "weightGrams": 1333,
       "lengthMm": 297,
       "widthMm": 175,
       "heightMm": 170
@@ -11846,10 +11881,11 @@
   {
     "sku": "PRD-00988",
     "gtin": "6008343361972",
-    "description": "Golden Hour Butter Chicken Curry Bowl 330ml",
-    "temperatureClass": "hot",
+    "description": "Golden Hour Brandy 330ml",
+    "temperatureClass": "ambient",
+    "restrictedMinAge": 18,
     "volumetric": {
-      "weightGrams": 954,
+      "weightGrams": 2374,
       "lengthMm": 362,
       "widthMm": 298,
       "heightMm": 100

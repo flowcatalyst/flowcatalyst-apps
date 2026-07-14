@@ -5,6 +5,12 @@ export const PICKER_USER_TYPE = 'PickerUser' as const;
 /** How the picker signs in on the station (see docs/pick-context-auth.md). */
 export type PrimaryAuthMethod = 'pin' | 'qr';
 export type PickerStatus = 'active' | 'suspended';
+/**
+ * 'supervisor' unlocks supervisor mode on the station (extra session
+ * permission at login) — first capability: flagging a pick as needing a
+ * car or bigger (Andrew, 2026-07-14). Same login flow, same store binding.
+ */
+export type PickerRole = 'picker' | 'supervisor';
 
 /**
  * A picker — a person who signs in on a store-bound station. Local to the pick
@@ -25,6 +31,7 @@ export interface PickerUser {
   /** Unique per (clientId, storeRef) — the identifier a picker types before their PIN. */
   readonly staffCode: string;
   readonly primaryAuthMethod: PrimaryAuthMethod;
+  readonly role: PickerRole;
   readonly status: PickerStatus;
   /** scrypt hash of the PIN (pin-primary). Null once QR-primary is supported. */
   readonly pinHash: string | null;
@@ -42,6 +49,7 @@ export interface CreatePickerUserInput {
   readonly displayName: string;
   readonly staffCode: string;
   readonly primaryAuthMethod: PrimaryAuthMethod;
+  readonly role?: PickerRole;
   readonly pinHash: string | null;
   readonly now: Date;
 }
@@ -55,6 +63,7 @@ export const PickerUser = {
       displayName: input.displayName,
       staffCode: input.staffCode,
       primaryAuthMethod: input.primaryAuthMethod,
+      role: input.role ?? 'picker',
       status: 'active',
       pinHash: input.pinHash,
       failedPinAttempts: 0,

@@ -175,6 +175,9 @@ const EXCEPTION_META: Record<string, { label: string; classes: string }> = {
   release_overdue: { label: 'Release overdue', classes: 'bg-red-50 text-red-700' },
   pick_late_unclaimed: { label: 'Pick unclaimed', classes: 'bg-amber-50 text-amber-700' },
   pick_late_incomplete: { label: 'Picking late', classes: 'bg-orange-50 text-orange-700' },
+  // Handover evidence failed/missing (docs/handover-verification.md) —
+  // deferred verification recorded a mismatch; ops follows up.
+  delivery_verification_mismatch: { label: 'Verify handover', classes: 'bg-red-50 text-red-700' },
 };
 const exceptionMeta = (kind: string) =>
   EXCEPTION_META[kind] ?? { label: kind, classes: 'bg-neutral-100 text-neutral-600' };

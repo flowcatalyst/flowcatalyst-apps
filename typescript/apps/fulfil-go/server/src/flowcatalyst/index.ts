@@ -49,6 +49,9 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
           { eventTypeCode: 'fulfil-go:pick:pick:picked' },
           { eventTypeCode: 'fulfil-go:pick:pick:short-picked' },
           { eventTypeCode: 'fulfil-go:pick:pick:failed' },
+          // Supervisor car-flag on an already-completed pick → re-stamp the
+          // part while transport hasn't been requested yet.
+          { eventTypeCode: 'fulfil-go:pick:pick:car-flag-updated' },
         ],
         dispatchPoolCode: config.dispatchPoolCode,
         mode: 'BLOCK_ON_ERROR',

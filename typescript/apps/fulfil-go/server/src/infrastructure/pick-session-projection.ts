@@ -59,7 +59,7 @@ export function createPickSessionProjection(db: PostgresJsDatabase): PickSession
         unitsSubstituted,
         packagesCount: pick.packages?.length ?? null,
         bagSizes: pick.packages?.map((p) => p.size).filter(Boolean) ?? null,
-        requiresVehicle: pick.requiresVehicle,
+        requiresCarOrLarger: pick.requiresCarOrLarger,
         onTime: completedAt ? completedAt.getTime() <= pick.slotStart.getTime() : null,
         inFull: terminal ? pick.status === 'picked' : null,
         updatedAt: now,

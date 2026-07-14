@@ -1,17 +1,116 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-13 (index-pass + loose-barcode session; working tree,
-not yet committed). Read `CLAUDE.md` first (stack, conventions, gotchas,
-dev loop); this file is "where we are + what's next".
-**NEXT: delete the demo jobs vertical, offline-queue driver report calls,
-or the fulfilment completion leg** (driver status-report API is DONE, see
-below; the INDEX PASS is DONE, this session).
+Last updated: 2026-07-14 (handover-verification build; 2026-07-13 index
+pass + loose-barcode work is in the SAME uncommitted working tree). Read
+`CLAUDE.md` first (stack, conventions, gotchas, dev loop); this file is
+"where we are + what's next".
+**NEXT: delete the demo jobs vertical, the fulfilment completion leg
+(delivered/failed events now flow WITH verification evidence), or the EPOD
+status flow back** (driver report calls are now offline-queued — that
+backlog item is DONE with handover verification).
 Product decision 2026-07-13: fulfil-go has NO iOS APP — picking stations
 are Android or browser; don't build/maintain ios/ projects. SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
+
+## What landed 2026-07-14 (supervisor car-flag + day-scoped picks, same session)
+
+**RENAME (Andrew: clear language — a scooter IS a vehicle):**
+`requiresVehicle` → **`requiresCarOrLarger`** across the ENTIRE chain — 35
+files, 4 column renames (migration `20260714083647_car_or_larger_rename`,
+generated via the expect rename-prompt pattern), event payloads (schemas
+re-pushed), docs. Pick app question copy: "Does this need a car or bigger?
+Too big/heavy for a bike or scooter."
+
+**PICK SUPERVISOR ROLE + CAR FLAG** (Andrew, 2026-07-14):
+
+- `picker_users.role` ('picker'|'supervisor'; migration
+  `20260714084859_picker_role`); supervisor PIN login (same flow) mints the
+  extra `supervisePicks` session permission (re-resolved on refresh —
+  promotion/demotion bites ≤1 TTL). Seeder makes P01 the store supervisor
+  (dev db: existing P01s promoted via SQL); Pickers page shows the badge.
+- `POST /picks/:id/car-flag {requiresCarOrLarger}` (SupervisePicks +
+  store binding, 404 anti-enumeration): sets the flag ANYTIME the pick
+  isn't failed; activity `vehicle-flag` entry + `pick.updated` store-channel
+  SSE + `pick:car-flag-updated` domain event (registered + synced).
+- MERGE RULE (unit-tested): a supervisor 'true' SURVIVES the picker's
+  completion answer (Pick.complete ORs it); the station's completion
+  question renders LOCKED ("🚗 Car or bigger — flagged") when pre-flagged.
+- POST-COMPLETION propagation: standard definition handles
+  car-flag-updated → RegisterPartCarFlagUseCase re-stamps the PART while
+  no transport order exists (`fulfilment:part:car-flagged` event); once
+  transport is requested it's TOO LATE — ACKed + activity-logged for ops.
+  SMOKE-VERIFIED through the LIVE platform loop: flag on :3299 → outbox →
+  poller → platform → :3200 decider re-stamped the part.
+- Picking app: supervisor sessions (ctx.supervisor from /me permissions)
+  get a 🚗 toggle on Available/Handover cards; 🚗 CAR+ badge shows for
+  everyone (SSE pick.updated reconciles instantly).
+
+**PICK APP DAY-SCOPING + RETENTION** (Andrew, 2026-07-14): stations show
+ONLY the local day's picks (available/mine by slotStart; handover by
+completedAt) — never history. `/sync/picks` snapshot is bounded server-side
+to slotStart ±36h (listByStore gained an optional window); the device
+prunes >30-day picks + orphaned `fulfilgo.pick.wip.*` entries on every
+hydrate. Smoke: 9 checks (supervisor grant, flag + refusal for P02 +
+replay 409, snapshot window).
+
+## What landed 2026-07-14 (handover-verification build session)
+
+**HANDOVER VERIFICATION BUILT** (docs/handover-verification.md — status
+header has the smoke summary; next-steps item 2 below is DONE):
+
+- Shared: `client_settings.fulfilment` section (pickup/delivery pin
+  enablement, deliveryPinSource random|phone-last4, ageVisualOverrideAllowed;
+  section-merged in resolveClientSettings), `FulfilmentLine.restrictedMinAge`
+  (first-class process input), `HandoverPolicySchema`, `viewHandoverPins`
+  permission (Dispatcher role; roles re-synced to the platform).
+- Fulfilment: policy STAMP + `deliveryPin` (root) + `pickupPin` (per part) +
+  `maxRestrictedAge` generated at creation (migration
+  `20260714063438_handover_pins`); pins ride the CREATE RESPONSE
+  (`handover` block) + the audited GET
+  `/fulfilments/:id/handover-pins` (audit-BEFORE-disclose via new
+  `activityLog.appendAudited`; management grant = full pins, picker session
+  grant = own store's pickup pins only) — never DTOs, never events.
+- Transport: `transport_orders.verification` jsonb (migration
+  `20260714064601_transport_verification`) — REQUIREMENTS captured at
+  request (booleans/minAge only), EVIDENCE recorded by driver reports,
+  `TransportOrder.verificationIssue()` = one truth for flagging; channel
+  capabilities gained `ageCheck`/`deliveryPin` (own: both; uber: ageCheck
+  via Uber `dropoff_verification.identification.min_age`; epod: neither) —
+  resolver EXCLUDES non-ageCheck channels for restricted orders (unit
+  tested); pins never gate.
+- Driver API: per-stop `POST my-trips/:tripId/stops/:orderId/collected`
+  ({method scan|pin, scannedRefs, pinEntered}) — trip-wide `/collected`
+  stays as the bulk escape; `delivered` body carries {pinEntered, ageCheck};
+  DEFERRED VERIFICATION: reports always accepted, server stamps
+  verified|mismatch|not-checked, mismatch → activity `verification` entry +
+  flightboard `delivery_verification_mismatch` exception;
+  `POST …/verify-pin` = interactive online pre-check (in-memory limiter
+  5/10min → 429, failed attempts logged detached). my-trips stops now carry
+  `parcels` + `verification.requirements` (offline-first payload).
+- Execution app: Work tab rebuilt — collection scan flow (wedge + camera
+  via new @capacitor-mlkit dep, per-stop parcel chips n/m, auto per-stop
+  collected on full scan, scan WIP persisted per order), store-PIN override
+  drawer (online verify first, offline defers), delivery drawer (PIN check
+  BEFORE handover, "no PIN" flag path, age attestation doc-type squares +
+  visual-override only when policy allows, mismatch → "Deliver anyway
+  (flagged)"), reports fall back to the mobile-kit outbox on network
+  failure with local 'syncing…' overlays reconciled against server truth.
+- Picking app: Picks page gained a HANDOVER section (completed picks) with
+  the audited pickup-PIN reveal. Management: fulfilment side panel
+  "Handover PINs — Reveal (audited)" + 🔞 badge (+ maxRestrictedAge/
+  handoverPolicy on the DTO), flightboard exception meta; row click lands
+  on the reveal panel.
+- Generator: liquor category (~4%) with restrictedMinAge 18 → fixtures
+  regenerated (36 restricted products); lines pass it through.
+- Server tests 117 green; all three apps build; smoke 27/27 (see doc).
+- REMAINING: real-Android camera-scan verification; picking-app handover
+  section shows only picks still in the station's working set (a pruned
+  set after restart won't list old completions — acceptable, flightboard
+  covers those); EPOD capability flags to revisit if their side grows
+  verification.
 
 ## What landed 2026-07-13 (index-pass + loose-barcode session)
 
@@ -291,11 +390,11 @@ design doc; read it before touching the replace flow):
      BUFFERS)` each query-module SQL + repo read, check pg_stat_user_
      indexes for dead weight afterwards. Embedded PG has no
      pg_stat_statements by default — drive the known query list instead.
-2. **HANDOVER VERIFICATION (designed 2026-07-13, decisions LOCKED with
-   Andrew — docs/handover-verification.md)**: collection scanning in the
+2. ~~**HANDOVER VERIFICATION**~~ **BUILT 2026-07-14** (see "What landed"
+   above + docs/handover-verification.md). Original scope: collection scanning in the
    execution app (scan bags per order → order collected → trip
    auto-collects), per-part pickup PIN override (store gives it;
-   server-verified, online-only), per-fulfilment delivery PIN (random
+   server-verified, deferred when offline), per-fulfilment delivery PIN (random
    default / phone-last4 opt-in; upstream pulls via API — never in platform
    events, never shipped to the driver app), audited pin reveal on
    flightboard/management (activity-log `pin-viewed`), age checks stamped
@@ -303,7 +402,16 @@ design doc; read it before touching the replace flow):
    override only when client config permits), provider capability gating in
    the resolver. Config = new `fulfilment` section in client_settings,
    stamped at creation. Read the doc before building.
-3. **Execution-app migration onto the claim marketplace**: consume
+3. **BAG SIZING (designed 2026-07-14, decisions LOCKED —
+   docs/bag-sizing.md)**: client `bagSpecs` catalog (dims+units per size,
+   absorbs packageUnitSizes) + pick-profile override; construction tiers
+   standard|insulated|insulated-gel derived from the bag's temperature;
+   dims/construction STAMPED on packages at completion; adapter fit-test
+   size mapping + per-client sizeMap override (uber also gets real dims);
+   loose auto-size from line volumetrics (fixes the size:null = 1 unit
+   composition undercount); bags-only completion sanity check (big item
+   vs small bags soft warning). Read the doc before building.
+4. **Execution-app migration onto the claim marketplace**: consume
    `/clients/:id/transport/offers` + `/offers/:groupId/claim` natively
    (offer card with the stop sequence, claim → drive → per-stop
    delivered/failed reporting — which needs the status-report API below),
@@ -377,17 +485,17 @@ design doc; read it before touching the replace flow):
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.
-4. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
+5. EPOD status flow BACK: their workflow/stop webhooks → epod adapter
    normalizes (string references only) → TransportOrder machine — plus
    real-EPOD-tenant verification of the claim proxy + sync plan intake
    (their branch is still unpushed).
-5. Fulfilment completion leg: subscription gains transport:order:delivered/
+6. Fulfilment completion leg: subscription gains transport:order:delivered/
    failed/cancelled → PM: ready → completing → completed/partially_completed
    (+ commerce hook seam per docs/process-definitions.md layer 2).
-6. Management Transport orders page (list API already live) + flightboard
+7. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
-7. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
-8. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
+8. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).
+9. ~~Printer management + bag-label printing~~ BUILT 2026-07-13 (see
    above + docs/bag-label-printing.md). Remaining: device verification of
    TcpPrint (Android) against a real Zebra on a store LAN.
 

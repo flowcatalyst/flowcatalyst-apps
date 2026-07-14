@@ -41,6 +41,9 @@ importers:
       '@capacitor-community/sqlite':
         specifier: ^8.1.0
         version: 8.1.0(@capacitor/core@8.4.1)
+      '@capacitor-mlkit/barcode-scanning':
+        specifier: ^8.1.0
+        version: 8.1.0(@capacitor/core@8.4.1)
       '@capacitor/app':
         specifier: ^8.0.0
         version: 8.1.0(@capacitor/core@8.4.1)

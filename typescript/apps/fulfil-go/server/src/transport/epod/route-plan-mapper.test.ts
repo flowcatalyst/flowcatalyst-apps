@@ -52,7 +52,7 @@ function makeOrder(
       slotEnd: new Date('2026-07-13T10:00:00Z'),
     },
     parcels: [{ ref: 'pkg_1', kind: 'bag', size: 'M', temperature: 'ambient', description: 'Bag' }],
-    requiresVehicle: false,
+    requiresCarOrLarger: false,
     provider: 'epod',
     candidateProviders: ['epod'],
     providerRef: null,

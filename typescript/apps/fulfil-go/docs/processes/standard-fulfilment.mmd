@@ -10,7 +10,7 @@ flowchart TD
   B -->|platform cron\nfulfil-go-release-picks, 1 min| C[Part pick_requested\ncreate-pick dispatch job → platform]
   C -->|platform dispatcher POSTs\n/clients/:id/picks| D[Pick requested at store\nSSE store channel → stations live]
   D -->|picker claims\nonline-only| E[PM: part → picking]
-  E -->|pick:picked /\npick:short-picked| F[PM: part picked\nACTUALS captured\nline results, packages, requiresVehicle]
+  E -->|pick:picked /\npick:short-picked| F[PM: part picked\nACTUALS captured\nline results, packages, requiresCarOrLarger]
   E -->|pick:failed| G{allowPartialFulfilment?}
   F --> H{all viable\nparts picked?}
   H -->|no| D2[remaining parts\ncontinue picking]

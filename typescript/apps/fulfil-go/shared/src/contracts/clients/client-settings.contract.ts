@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  BagSpecsSchema,
+  resolveBagSpecs,
+  type BagSpecs,
+  type ResolvedBagSpecs,
+} from '../stores/bag-specs.contract.js';
 
 /**
  * CLIENT-level operational settings (docs/process-definitions.md) — the
@@ -39,6 +45,32 @@ export const PackageUnitSizesSchema = z.record(
 );
 export type PackageUnitSizes = z.infer<typeof PackageUnitSizesSchema>;
 
+/**
+ * FULFILMENT-domain client config (docs/handover-verification.md): handover
+ * pins + age-check policy. Resolved and STAMPED onto each fulfilment at
+ * creation (the processDefinition pattern) — reconfiguring migrates NEW
+ * fulfilments only. Sparse: absent fields fall through to the defaults.
+ */
+export const FulfilmentClientSettingsSchema = z
+  .object({
+    /** Generate a per-part pickup PIN (driver↔store handover override). */
+    pickupPinEnabled: z.boolean().optional(),
+    /** Generate a per-fulfilment delivery PIN (customer handover). */
+    deliveryPinEnabled: z.boolean().optional(),
+    /**
+     * 'phone-last4' uses destination.contact.phone's last 4 digits and
+     * FALLS BACK to random when no phone is captured (phone is optional).
+     */
+    deliveryPinSource: z.enum(['random', 'phone-last4']).optional(),
+    /**
+     * Permit the driver's "visibly older" attestation instead of an ID
+     * check on age-restricted deliveries. OFF unless the client opts in.
+     */
+    ageVisualOverrideAllowed: z.boolean().optional(),
+  })
+  .strict();
+export type FulfilmentClientSettings = z.infer<typeof FulfilmentClientSettingsSchema>;
+
 export const ClientSettingsSchema = z
   .object({
     /** Core process definition code (registry key, kebab-case). */
@@ -46,6 +78,8 @@ export const ClientSettingsSchema = z
       .string()
       .regex(/^[a-z0-9][a-z0-9-]{0,63}$/)
       .optional(),
+    /** Handover pins + age-check policy (stamped at fulfilment creation). */
+    fulfilment: FulfilmentClientSettingsSchema.optional(),
     /** Transport capacity vocabulary — codes unique. */
     vehicleClasses: z
       .array(VehicleClassSchema)
@@ -54,16 +88,29 @@ export const ClientSettingsSchema = z
         message: 'vehicle class codes must be unique',
       })
       .optional(),
-    /** Bag size → capacity units (XS=1, S=2, … — client-tuned). */
+    /**
+     * LEGACY size→units map — ABSORBED by bagSpecs (docs/bag-sizing.md).
+     * Still accepted as input: it overlays the resolved bagSpecs' units.
+     * New config should set bagSpecs instead.
+     */
     packageUnitSizes: PackageUnitSizesSchema.optional(),
+    /**
+     * The client's BAG PROGRAM (docs/bag-sizing.md): per size code, real
+     * dimensions + capacity units. Pick store profiles overlay per size.
+     */
+    bagSpecs: BagSpecsSchema.optional(),
   })
   .strict();
 
 export type ClientSettings = z.infer<typeof ClientSettingsSchema>;
 
-export type ResolvedClientSettings = {
-  [K in keyof ClientSettings]-?: NonNullable<ClientSettings[K]>;
+export type ResolvedFulfilmentClientSettings = {
+  [K in keyof FulfilmentClientSettings]-?: NonNullable<FulfilmentClientSettings[K]>;
 };
+
+export type ResolvedClientSettings = {
+  [K in keyof Omit<ClientSettings, 'fulfilment' | 'bagSpecs'>]-?: NonNullable<ClientSettings[K]>;
+} & { fulfilment: ResolvedFulfilmentClientSettings; bagSpecs: ResolvedBagSpecs };
 
 /** The registry code every client coordinates with unless configured otherwise. */
 export const STANDARD_PROCESS_DEFINITION = 'standard';
@@ -76,10 +123,19 @@ export const DEFAULT_PACKAGE_UNIT_SIZES: Record<string, number> = {
   XL: 6,
 };
 
+export const FULFILMENT_CLIENT_SETTINGS_DEFAULTS: ResolvedFulfilmentClientSettings = {
+  pickupPinEnabled: true,
+  deliveryPinEnabled: true,
+  deliveryPinSource: 'random',
+  ageVisualOverrideAllowed: false,
+};
+
 export const CLIENT_SETTINGS_DEFAULTS: ResolvedClientSettings = {
   processDefinition: STANDARD_PROCESS_DEFINITION,
   vehicleClasses: [],
   packageUnitSizes: DEFAULT_PACKAGE_UNIT_SIZES,
+  fulfilment: FULFILMENT_CLIENT_SETTINGS_DEFAULTS,
+  bagSpecs: resolveBagSpecs(),
 };
 
 /** Collapse the client's row (if any) onto the code defaults. */
@@ -89,10 +145,34 @@ export function resolveClientSettings(
   const resolved: ResolvedClientSettings = { ...CLIENT_SETTINGS_DEFAULTS };
   if (settings) {
     for (const [key, value] of Object.entries(settings)) {
-      if (value !== undefined) {
-        (resolved as Record<string, unknown>)[key] = value;
+      if (value === undefined || key === 'fulfilment' || key === 'bagSpecs') continue;
+      (resolved as Record<string, unknown>)[key] = value;
+    }
+    // Section merge: a sparse fulfilment object keeps unset fields on defaults.
+    if (settings.fulfilment) {
+      resolved.fulfilment = { ...FULFILMENT_CLIENT_SETTINGS_DEFAULTS };
+      for (const [key, value] of Object.entries(settings.fulfilment)) {
+        if (value !== undefined) {
+          (resolved.fulfilment as Record<string, unknown>)[key] = value;
+        }
       }
     }
   }
+  // Bag program: defaults ⇐ LEGACY packageUnitSizes (units-only overlay,
+  // still accepted) ⇐ bagSpecs. resolved.packageUnitSizes is then DERIVED
+  // from the bag specs so units can never drift between the two views.
+  const legacyUnitsOverlay: BagSpecs = {};
+  if (settings?.packageUnitSizes) {
+    for (const [size, units] of Object.entries(settings.packageUnitSizes)) {
+      const base = resolveBagSpecs()[size as keyof ResolvedBagSpecs];
+      if (base && typeof units === 'number') {
+        (legacyUnitsOverlay as Record<string, unknown>)[size] = { ...base, units };
+      }
+    }
+  }
+  resolved.bagSpecs = resolveBagSpecs(legacyUnitsOverlay, settings?.bagSpecs);
+  resolved.packageUnitSizes = Object.fromEntries(
+    Object.entries(resolved.bagSpecs).map(([size, spec]) => [size, spec.units]),
+  );
   return resolved;
 }

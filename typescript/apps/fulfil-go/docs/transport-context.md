@@ -63,7 +63,7 @@ fulfilment READY ──(when due)──▶ request-transport ──▶ Transport
 
 - **TransportOrder** (aggregate, `tro_` id): clientId, fulfilmentId,
   partIds, origin (store), destination, window, parcels (from the parts'
-  captured packages), requiresVehicle, provider, providerRef (their id),
+  captured packages), requiresCarOrLarger, provider, providerRef (their id),
   status: `requested → booked → assigned → collected → delivered |
 failed | cancelled` (normalized across providers).
 - **Provider port**: `create(order) → providerRef`, `cancel(order)`,
@@ -76,7 +76,7 @@ failed | cancelled` (normalized across providers).
 - **Trigger**: the process manager reacts to its own `fulfilment:picked`
   (fulfilment READY): ASAP → request immediately; STANDARD → at
   `slotStart − transportLeadTime` (reaction bookkeeping + deadline sweep,
-  the LastMileFulfilment pattern). `requiresVehicle=false` on all parts may
+  the LastMileFulfilment pattern). `requiresCarOrLarger=false` on all parts may
   route to a no-vehicle flow (walker/collection) — picker-supplied signal.
 - **Events**: `fulfil-go:transport:order:*` (requested, booked, assigned,
   collected, delivered, failed) — the fulfilment PM consumes these to run
@@ -85,7 +85,7 @@ failed | cancelled` (normalized across providers).
 ## Inputs already captured (done 2026-07-10/11)
 
 - Part ACTUALS on the fulfilment (`fulfilment_parts.line_results/packages/
-requires_vehicle`), stored by the PM from `part:picked` — parcels +
+requires_car_or_larger`), stored by the PM from `part:picked` — parcels +
   vehicle flag are what transport quotes/books with.
 - Destination/window/policies were captured at fulfilment creation.
 
@@ -107,7 +107,7 @@ requires_vehicle`), stored by the PM from `part:picked` — parcels +
 - **Two questions, two times**: serviceability ("can we deliver here at
   all?") is an optional cheap check at fulfilment creation; provider
   SELECTION happens at transport-order creation (fulfilment READY), because
-  it needs the pick actuals (requiresVehicle, packages, temperatures).
+  it needs the pick actuals (requiresCarOrLarger, packages, temperatures).
 - **Config model**: providers are code — an adapter registry ('own',
   'uber', 'inmotion'), each implementing the port. Stores carry config
   referencing provider codes: `defaultProvider` + ordered `allowed[]`, each
@@ -117,7 +117,7 @@ requires_vehicle`), stored by the PM from `part:picked` — parcels +
 - **Store gains `geo` (lat/lng)** — fixtures already carry it; the registry
   schema/sync must persist it. Store as `geography(Point,4326)`.
 - **Resolution**: candidates = store.allowed ∩ client-enabled → filter by
-  coverage (dropoff in provider service area) + capability (requiresVehicle,
+  coverage (dropoff in provider service area) + capability (requiresCarOrLarger,
   frozen, ASAP) → rank, store default first → book. On provider rejection /
   terminal failure, RE-RESOLVE with the next candidate (fallback chain).
 - **Coverage oracle v1 = PostGIS in our own DB**: `isCovered(provider,
@@ -168,7 +168,7 @@ Adapter rules (locked):
 - **Manifest sizes = captured bag sizes** (XS,S→small, M→medium, L→large,
   XL→xlarge). `obfuscateManifest` (per-client policy — theft concern from
   the first client): item names become package refs/barcodes, never goods.
-- **`requiresVehicle`**: Uber has NO vehicle guarantee (courier
+- **`requiresCarOrLarger`**: Uber has NO vehicle guarantee (courier
   vehicle_type is informational) → `capabilities.vehicleGuarantee=false`
   for the resolver + a best-effort nudge (largest item forced xlarge).
 - Status map: pending→booked, pickup→assigned, pickup_complete/dropoff→
@@ -313,7 +313,7 @@ proxy → our endpoint):
   READY transport orders at the driver's store/depot:
   compatibility filters first — same origin store, slot windows overlapping
   within a tolerance, combined capacity within the vehicle's practical
-  limit (bag counts/sizes from the pick actuals; requiresVehicle honoured),
+  limit (bag counts/sizes from the pick actuals; requiresCarOrLarger honoured),
   temperature mix acceptable — then SEQUENCE the dropoffs via the router
   service (VROOM); cap stops (config: maxStopsPerTrip, store-settings
   layered) and cap total detour vs the single-order baseline.

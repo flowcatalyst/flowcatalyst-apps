@@ -17,6 +17,8 @@ interface PickerSummary {
   displayName: string;
   staffCode: string;
   primaryAuthMethod: string;
+  /** 'picker' | 'supervisor' — supervisor unlocks station supervisor mode. */
+  role: string;
   status: string;
 }
 
@@ -241,7 +243,16 @@ watch(selectedStore, () => void loadPickers());
           <tbody>
             <tr v-for="p in pickers" :key="p.id" class="border-t border-neutral-100">
               <td class="px-3 py-2 font-mono">{{ p.staffCode }}</td>
-              <td class="px-3 py-2">{{ p.displayName }}</td>
+              <td class="px-3 py-2">
+                {{ p.displayName }}
+                <span
+                  v-if="p.role === 'supervisor'"
+                  class="ml-1 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700"
+                  title="Supervisor — station supervisor mode (car-or-larger flagging)"
+                >
+                  SUPERVISOR
+                </span>
+              </td>
               <td class="px-3 py-2">
                 <span
                   class="rounded-full px-2 py-0.5 text-xs font-medium"

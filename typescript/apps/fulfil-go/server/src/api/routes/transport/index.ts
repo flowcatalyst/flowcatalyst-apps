@@ -67,7 +67,7 @@ const TransportOrderDtoSchema = Type.Object({
   slotStart: Type.String(),
   slotEnd: Type.String(),
   parcels: Type.Array(Type.Any()),
-  requiresVehicle: Type.Boolean(),
+  requiresCarOrLarger: Type.Boolean(),
   provider: Type.String(),
   providerRef: Type.Union([Type.String(), Type.Null()]),
   trackingUrl: Type.Union([Type.String(), Type.Null()]),
@@ -142,7 +142,7 @@ export function registerTransportRoutes(
           slotStart: o.window.slotStart.toISOString(),
           slotEnd: o.window.slotEnd.toISOString(),
           parcels: [...o.parcels],
-          requiresVehicle: o.requiresVehicle,
+          requiresCarOrLarger: o.requiresCarOrLarger,
           provider: o.provider,
           providerRef: o.providerRef,
           trackingUrl: o.trackingUrl,
@@ -698,7 +698,7 @@ export function registerTransportRoutes(
         clientId,
         orderIds,
       );
-      const statusById = new Map<string, string>(orders.map((o) => [o.id, o.status]));
+      const orderById = new Map<string, (typeof orders)[number]>(orders.map((o) => [o.id, o]));
       return reply.send({
         trips: trips.map((t) => ({
           tripId: t.id,
@@ -706,14 +706,33 @@ export function registerTransportRoutes(
           claimedAt: t.updatedAt.toISOString(),
           routeKm: t.routeKm,
           routeMinutes: t.routeMinutes,
-          stops: t.stops.map((s) => ({
-            orderId: s.orderId,
-            shortId: s.shortId,
-            destination: s.destination,
-            legKm: s.legKm,
-            legMinutes: s.legMinutes,
-            status: statusById.get(s.orderId) ?? 'assigned',
-          })),
+          stops: t.stops.map((s) => {
+            const order = orderById.get(s.orderId);
+            return {
+              orderId: s.orderId,
+              shortId: s.shortId,
+              destination: s.destination,
+              legKm: s.legKm,
+              legMinutes: s.legMinutes,
+              status: order?.status ?? 'assigned',
+              // Everything the app needs to run collection + delivery
+              // verification OFFLINE: parcel refs to scan-match and the
+              // REQUIREMENTS (never pin values — server verifies).
+              parcels: (order?.parcels ?? []).map((p) => ({
+                ref: p.ref,
+                kind: p.kind,
+                size: p.size,
+                temperature: p.temperature,
+              })),
+              verification: order?.verification
+                ? {
+                    requirements: order.verification.requirements,
+                    collectionMethod: order.verification.collection?.method ?? null,
+                    deliveryPinOutcome: order.verification.delivery?.pinOutcome ?? null,
+                  }
+                : null,
+            };
+          }),
         })),
       });
     },
@@ -721,19 +740,38 @@ export function registerTransportRoutes(
 
   // Driver status reporting (own-channel trips have no webhook source —
   // the driver IS the signal). Idempotent: replays/double-taps ACK 200.
+  // Bodies carry HANDOVER EVIDENCE (docs/handover-verification.md) — the
+  // app captures it offline-first; verification is deferred server-side.
+  const evidenceBody = {
+    reason: Type.Optional(Type.String({ maxLength: 300 })),
+    /** Collection confirm method: 'scan' | 'pin' (absent = bulk). */
+    method: Type.Optional(Type.Union([Type.Literal('scan'), Type.Literal('pin')])),
+    scannedRefs: Type.Optional(Type.Array(Type.String({ maxLength: 64 }), { maxItems: 100 })),
+    /** Entered pin (pickup override at collection; delivery pin at the door). */
+    pinEntered: Type.Optional(Type.String({ maxLength: 8 })),
+    /** Age-restricted delivery: how the age was checked. */
+    ageCheck: Type.Optional(
+      Type.Object(
+        {
+          method: Type.Union([Type.Literal('id-attestation'), Type.Literal('visual-override')]),
+          docType: Type.Optional(Type.String({ maxLength: 40 })),
+        },
+        { additionalProperties: false },
+      ),
+    ),
+  };
   const reportSchema = (withOrder: boolean) => ({
     tags: ['Transport'],
     params: withOrder
       ? Type.Object({ clientId: Type.String(), tripId: Type.String(), orderId: Type.String() })
       : Type.Object({ clientId: Type.String(), tripId: Type.String() }),
-    body: Type.Object(
-      { reason: Type.Optional(Type.String({ maxLength: 300 })) },
-      { additionalProperties: false },
-    ),
+    body: Type.Object(evidenceBody, { additionalProperties: false }),
     response: {
       200: Type.Object({
         updatedOrders: Type.Array(Type.String()),
+        allCollected: Type.Boolean(),
         tripCompleted: Type.Boolean(),
+        pinOutcome: Type.Optional(Type.String()),
         note: Type.Optional(Type.String()),
       }),
       401: UnauthorizedSchema,
@@ -759,7 +797,13 @@ export function registerTransportRoutes(
         .send({ error: 'forbidden', message: 'This endpoint requires a driver session.' });
     }
     const params = request.params as { clientId: string; tripId: string; orderId?: string };
-    const body = (request.body ?? {}) as { reason?: string };
+    const body = (request.body ?? {}) as {
+      reason?: string;
+      method?: 'scan' | 'pin';
+      scannedRefs?: string[];
+      pinEntered?: string;
+      ageCheck?: { method: 'id-attestation' | 'visual-override'; docType?: string };
+    };
     const result = await appContext.runWrite(() =>
       appContext.useCases.reportTripProgress.execute({
         clientId: params.clientId,
@@ -768,14 +812,23 @@ export function registerTransportRoutes(
         action,
         orderId: params.orderId ?? null,
         reason: body.reason ?? null,
+        evidence: {
+          method: body.method ?? null,
+          scannedRefs: body.scannedRefs ?? null,
+          pinEntered: body.pinEntered ?? null,
+          ageCheck: body.ageCheck ?? null,
+        },
       }),
     );
     if (isFailure(result)) {
       if (result.error.code === 'ALREADY_REPORTED') {
         // Double-tap/replay — the state is already what the driver said.
-        return reply
-          .code(200)
-          .send({ updatedOrders: [], tripCompleted: false, note: result.error.code });
+        return reply.code(200).send({
+          updatedOrders: [],
+          allCollected: false,
+          tripCompleted: false,
+          note: result.error.code,
+        });
       }
       if (result.error.type === 'not_found') {
         return reply.code(404).send({ error: result.error.code, message: result.error.message });
@@ -793,6 +846,12 @@ export function registerTransportRoutes(
     { schema: reportSchema(false) },
     (request, reply) => handleReport(request, reply, 'collected'),
   );
+  // Per-stop collection confirm — the scan flow's primary endpoint.
+  fastify.post(
+    '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/collected',
+    { schema: reportSchema(true) },
+    (request, reply) => handleReport(request, reply, 'collected'),
+  );
   fastify.post(
     '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/delivered',
     { schema: reportSchema(true) },
@@ -802,6 +861,83 @@ export function registerTransportRoutes(
     '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/failed',
     { schema: reportSchema(true) },
     (request, reply) => handleReport(request, reply, 'failed'),
+  );
+
+  // ONLINE interactive pin check — the app pre-verifies BEFORE handover
+  // when it has signal; offline it skips this and deferred verification
+  // takes over on the queued report. In-memory attempt limiter: 5 tries
+  // per (order, kind) per 10 minutes, then 429.
+  const pinAttempts = new Map<string, { count: number; resetAt: number }>();
+  fastify.post(
+    '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/verify-pin',
+    {
+      schema: {
+        tags: ['Transport'],
+        params: Type.Object({
+          clientId: Type.String(),
+          tripId: Type.String(),
+          orderId: Type.String(),
+        }),
+        body: Type.Object(
+          {
+            kind: Type.Union([Type.Literal('pickup'), Type.Literal('delivery')]),
+            pin: Type.String({ minLength: 1, maxLength: 8 }),
+          },
+          { additionalProperties: false },
+        ),
+        response: {
+          200: Type.Object({ verified: Type.Boolean() }),
+          401: UnauthorizedSchema,
+          403: Type.Object({ error: Type.String(), message: Type.String() }),
+          404: Type.Object({ error: Type.String(), message: Type.String() }),
+          422: Type.Object({ error: Type.String(), message: Type.String() }),
+          429: Type.Object({ error: Type.String(), message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const driverRef = scope.attributes['driverRef'];
+      if (!driverRef) {
+        return reply
+          .code(403)
+          .send({ error: 'forbidden', message: 'This endpoint requires a driver session.' });
+      }
+      const params = request.params as { clientId: string; tripId: string; orderId: string };
+      const body = request.body as { kind: 'pickup' | 'delivery'; pin: string };
+
+      const key = `${params.orderId}:${body.kind}`;
+      const nowMs = Date.now();
+      const window = pinAttempts.get(key);
+      const attempts = window && window.resetAt > nowMs ? window : { count: 0, resetAt: nowMs + 600_000 };
+      if (attempts.count >= 5) {
+        return reply
+          .code(429)
+          .send({ error: 'TOO_MANY_ATTEMPTS', message: 'Try again later or use the report flow.' });
+      }
+
+      const result = await appContext.useCases.verifyHandoverPin.execute({
+        clientId: params.clientId,
+        tripId: params.tripId,
+        driverRef,
+        orderId: params.orderId,
+        kind: body.kind,
+        pin: body.pin,
+      });
+      if (!result.ok) {
+        return reply.code(result.status).send({ error: result.code, message: result.message });
+      }
+      if (!result.verified) {
+        attempts.count += 1;
+        pinAttempts.set(key, attempts);
+      } else {
+        pinAttempts.delete(key);
+      }
+      return reply.code(200).send({ verified: result.verified });
+    },
   );
 
   fastify.post(

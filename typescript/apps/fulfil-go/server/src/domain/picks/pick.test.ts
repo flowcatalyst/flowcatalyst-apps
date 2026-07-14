@@ -132,10 +132,44 @@ describe('Pick', () => {
       NOW,
     );
     expect(done.status).toBe('picked');
-    expect(done.requiresVehicle).toBe(true);
+    expect(done.requiresCarOrLarger).toBe(true);
     expect(done.packages).toHaveLength(2);
     expect(done.packages?.[0]?.size).toBe('M');
     expect(done.packages?.[1]?.kind).toBe('loose');
+  });
+
+  it("supervisor car flag survives the picker's completion answer", () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const flagged = Pick.flagCarOrLarger(claimed, true, NOW);
+    expect(flagged.requiresCarOrLarger).toBe(true);
+    expect(flagged.version).toBe(claimed.version + 1);
+    // Picker answers "No" at completion — the supervisor's flag WINS.
+    const done = Pick.complete(
+      flagged,
+      [
+        { externalLineRef: 'L1', pickedQuantity: 2 },
+        { externalLineRef: 'L2', pickedQuantity: 3 },
+      ],
+      null,
+      false,
+      NOW,
+    );
+    expect(done.requiresCarOrLarger).toBe(true);
+  });
+
+  it('unflagged picks take the completion answer as-is', () => {
+    const claimed = Pick.claim(make(), 'pkr_abc', NOW);
+    const done = Pick.complete(
+      claimed,
+      [
+        { externalLineRef: 'L1', pickedQuantity: 2 },
+        { externalLineRef: 'L2', pickedQuantity: 3 },
+      ],
+      null,
+      false,
+      NOW,
+    );
+    expect(done.requiresCarOrLarger).toBe(false);
   });
 
   it('a missing line result reads as not-full', () => {

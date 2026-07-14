@@ -1,5 +1,15 @@
 import { z } from 'zod';
 import { PickSortAlgorithm } from '../../domain/picks/pick-sort.js';
+import {
+  BagSpecsSchema,
+  ConstructionByTemperatureSchema,
+  resolveBagSpecs,
+  resolveConstructionByTemperature,
+  type BagSpecs,
+  type ConstructionByTemperature,
+  type ResolvedBagSpecs,
+  type ResolvedConstructionByTemperature,
+} from './bag-specs.contract.js';
 
 /**
  * Operational store settings, split by OWNING CONTEXT (Andrew, 2026-07-13):
@@ -46,13 +56,26 @@ export const PickStoreSettingsSchema = z
      * walk order within each band.
      */
     pickSortAlgorithm: PickSortAlgorithm.optional(),
+    /**
+     * PER-SIZE overlay on the client's bag program (docs/bag-sizing.md) —
+     * a store stocking different bags redefines whole sizes here.
+     */
+    bagSpecs: BagSpecsSchema.optional(),
+    /** Default bag construction per temperature square (picker can override). */
+    constructionByTemperature: ConstructionByTemperatureSchema.optional(),
   })
   .strict();
 
 export type PickStoreSettings = z.infer<typeof PickStoreSettingsSchema>;
 
 export type ResolvedPickStoreSettings = {
-  [K in keyof PickStoreSettings]-?: NonNullable<PickStoreSettings[K]>;
+  [K in keyof Omit<
+    PickStoreSettings,
+    'bagSpecs' | 'constructionByTemperature'
+  >]-?: NonNullable<PickStoreSettings[K]>;
+} & {
+  bagSpecs: ResolvedBagSpecs;
+  constructionByTemperature: ResolvedConstructionByTemperature;
 };
 
 export const PICK_SETTINGS_DEFAULTS: ResolvedPickStoreSettings = {
@@ -63,6 +86,8 @@ export const PICK_SETTINGS_DEFAULTS: ResolvedPickStoreSettings = {
   pickingDeadlineBeforeSlotMinutes: 15,
   releaseOverdueMinutes: 2,
   pickSortAlgorithm: 'walk-sequence',
+  bagSpecs: resolveBagSpecs(),
+  constructionByTemperature: resolveConstructionByTemperature(),
 };
 
 // ── TRANSPORT domain ───────────────────────────────────────────────────────
@@ -168,7 +193,16 @@ function resolveLayers<R extends object>(
 export function resolvePickStoreSettings(
   ...layers: ReadonlyArray<PickStoreSettings | null | undefined>
 ): ResolvedPickStoreSettings {
-  return resolveLayers(PICK_SETTINGS_DEFAULTS, layers);
+  const resolved = resolveLayers(PICK_SETTINGS_DEFAULTS, layers);
+  // Bag specs + construction maps merge PER KEY across layers (wholesale
+  // field replacement would drop the sizes a sparse overlay didn't name).
+  resolved.bagSpecs = resolveBagSpecs(
+    ...layers.map((l) => l?.bagSpecs as BagSpecs | undefined),
+  );
+  resolved.constructionByTemperature = resolveConstructionByTemperature(
+    ...layers.map((l) => l?.constructionByTemperature as ConstructionByTemperature | undefined),
+  );
+  return resolved;
 }
 
 export function resolveTransportStoreSettings(

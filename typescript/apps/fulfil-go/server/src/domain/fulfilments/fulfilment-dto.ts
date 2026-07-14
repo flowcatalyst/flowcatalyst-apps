@@ -17,6 +17,10 @@ export function toFulfilmentDto(fulfilment: Fulfilment): FulfilmentDto {
     timezone: fulfilment.timezone,
     destination: fulfilment.destination,
     policies: fulfilment.policies,
+    // Policy stamp is non-secret; PIN VALUES deliberately never map here —
+    // the audited handover-pins endpoint is the only reveal.
+    handoverPolicy: fulfilment.handoverPolicy,
+    maxRestrictedAge: fulfilment.maxRestrictedAge,
     provenance: fulfilment.provenance,
     additionalData: fulfilment.additionalData,
     parts: fulfilment.parts.map((part) => ({
@@ -27,7 +31,7 @@ export function toFulfilmentDto(fulfilment: Fulfilment): FulfilmentDto {
       lines: [...part.lines],
       lineResults: part.lineResults ? [...part.lineResults] : null,
       packages: part.packages ? [...part.packages] : null,
-      requiresVehicle: part.requiresVehicle,
+      requiresCarOrLarger: part.requiresCarOrLarger,
     })),
     createdAt: fulfilment.createdAt.toISOString(),
     updatedAt: fulfilment.updatedAt.toISOString(),

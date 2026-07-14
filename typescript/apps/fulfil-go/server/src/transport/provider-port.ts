@@ -83,7 +83,18 @@ export interface TransportBookingRequest extends TransportQuoteRequest {
   readonly providerQuoteRef?: string | undefined;
   readonly parcels: readonly TransportParcel[];
   /** Picker-supplied signal (pick completion question). */
-  readonly requiresVehicle: boolean;
+  readonly requiresCarOrLarger: boolean;
+  /**
+   * Handover verification the provider should perform at the door
+   * (docs/handover-verification.md) — only fields the adapter's declared
+   * capabilities support are honoured.
+   */
+  readonly verification?:
+    | {
+        /** Age-restricted order: minimum customer age to verify. */
+        readonly minAge?: number | undefined;
+      }
+    | undefined;
   /** Our references — idempotency + provider-visible correlation. */
   readonly externalRef: string;
   readonly idempotencyKey: string;
@@ -111,9 +122,13 @@ export interface TransportProviderAdapter {
   readonly code: string;
   readonly capabilities: {
     /** Can the provider GUARANTEE a car/van-capable courier? If false, the
-     *  resolver must not pick this provider for requiresVehicle orders
+     *  resolver must not pick this provider for requiresCarOrLarger orders
      *  unless policy accepts best-effort sizing nudges. */
     readonly vehicleGuarantee: boolean;
+    /** Verifies customer age at the door — HARD gate for restricted orders. */
+    readonly ageCheck: boolean;
+    /** Verifies OUR delivery pin at handover — opportunistic, never gates. */
+    readonly deliveryPin: boolean;
   };
   quote(request: TransportQuoteRequest): Promise<TransportQuoteOutcome>;
   createDelivery(request: TransportBookingRequest): Promise<ProviderDelivery>;

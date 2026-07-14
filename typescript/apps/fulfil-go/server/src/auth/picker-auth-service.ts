@@ -7,7 +7,7 @@
  * `repo.updateLockout` (a direct write, no outbox event). See
  * docs/pick-context-auth.md.
  */
-import { PICKER_SESSION_PERMISSIONS } from '@fulfil-go/shared';
+import { FulfilGoPermission, PICKER_SESSION_PERMISSIONS } from '@fulfil-go/shared';
 import type { PickerAuthConfig } from './auth-config.js';
 import { verifySecret } from './pick-credentials.js';
 import type { IssuedSession, PickerTokenService } from './picker-token.js';
@@ -85,7 +85,12 @@ export function createPickerAuthService(
         pickerId: picker.id,
         clientId: picker.clientId,
         storeRef: picker.storeRef,
-        permissions: [...PICKER_SESSION_PERMISSIONS],
+        // Supervisors carry the extra grant for the station's supervisor
+        // mode (car-or-larger flagging — Andrew, 2026-07-14).
+        permissions:
+          picker.role === 'supervisor'
+            ? [...PICKER_SESSION_PERMISSIONS, FulfilGoPermission.SupervisePicks]
+            : [...PICKER_SESSION_PERMISSIONS],
       });
       return { ok: true, session };
     },

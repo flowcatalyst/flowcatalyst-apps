@@ -39,7 +39,7 @@ export function toPickDto(pick: Pick): PickDto {
           voidedRefs: [...pick.labels.voidedRefs],
         }
       : null,
-    requiresVehicle: pick.requiresVehicle,
+    requiresCarOrLarger: pick.requiresCarOrLarger,
     completedAt: pick.completedAt?.toISOString() ?? null,
     failReason: pick.failReason,
     createdAt: pick.createdAt.toISOString(),

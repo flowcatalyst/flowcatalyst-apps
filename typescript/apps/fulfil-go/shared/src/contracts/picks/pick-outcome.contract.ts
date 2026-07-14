@@ -81,7 +81,7 @@ export const CompletePickCommandSchema = z
      * Picker-supplied at completion: does moving this pick need a vehicle?
      * Feeds the transport decision. Default false ("No" is the norm).
      */
-    requiresVehicle: z.boolean().default(false),
+    requiresCarOrLarger: z.boolean().default(false),
   })
   .strict();
 export type CompletePickCommand = z.infer<typeof CompletePickCommandSchema>;

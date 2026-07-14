@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -49,7 +49,7 @@ function toDomain(row: PickRow): Pick {
     lineResults: (row.lineResults as PickLineResult[] | null) ?? null,
     packages: (row.packages as PickPackage[] | null) ?? null,
     labels: (row.labels as Pick['labels']) ?? null,
-    requiresVehicle: row.requiresVehicle,
+    requiresCarOrLarger: row.requiresCarOrLarger,
     completedAt: row.completedAt,
     failReason: row.failReason,
     version: row.version,
@@ -95,7 +95,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             lineResults: aggregate.lineResults,
             packages: aggregate.packages,
             labels: aggregate.labels,
-            requiresVehicle: aggregate.requiresVehicle,
+            requiresCarOrLarger: aggregate.requiresCarOrLarger,
             completedAt: aggregate.completedAt,
             failReason: aggregate.failReason,
             version: aggregate.version,
@@ -115,7 +115,7 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
             lineResults: aggregate.lineResults,
             packages: aggregate.packages,
             labels: aggregate.labels,
-            requiresVehicle: aggregate.requiresVehicle,
+            requiresCarOrLarger: aggregate.requiresCarOrLarger,
             completedAt: aggregate.completedAt,
             failReason: aggregate.failReason,
             version: aggregate.version,
@@ -159,9 +159,13 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
       clientId: string,
       storeRef: string,
       status?: PickStatus,
+      window?: { from: Date; to: Date },
     ): Promise<readonly Pick[]> {
       const conditions = [eq(picks.clientId, clientId), eq(picks.storeRef, storeRef)];
       if (status) conditions.push(eq(picks.status, status));
+      if (window) {
+        conditions.push(gte(picks.slotStart, window.from), lte(picks.slotStart, window.to));
+      }
       const rows = await current()
         .select()
         .from(picks)

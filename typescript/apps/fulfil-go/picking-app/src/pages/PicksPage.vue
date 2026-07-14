@@ -11,6 +11,39 @@ const claiming = ref<string | null>(null);
 
 const available = computed(() => ctx.picks.available.value);
 const mine = computed(() => ctx.picks.mine.value);
+const awaitingHandover = computed(() => ctx.picks.awaitingHandover.value);
+
+// Pickup-PIN reveal (docs/handover-verification.md): store staff read the
+// pin out to a driver whose scan failed. EVERY reveal is AUDITED server-side
+// (pin-viewed activity entry) — shown on demand, never in the list payload.
+const pinFor = ref<Record<string, string>>({});
+const pinBusy = ref<string | null>(null);
+const pinError = ref<string | null>(null);
+
+async function revealPin(pick: PickDto): Promise<void> {
+  if (pinFor.value[pick.id]) {
+    const { [pick.id]: _hide, ...rest } = pinFor.value;
+    pinFor.value = rest;
+    return;
+  }
+  pinBusy.value = pick.id;
+  pinError.value = null;
+  try {
+    const res = await ctx.api.json<{
+      pickupPins: { partId: string; pin: string }[];
+    }>(`/clients/${ctx.station.clientId.value}/fulfilments/${pick.fulfilmentId}/handover-pins`);
+    const pin = res.pickupPins.find((p) => p.partId === pick.partId)?.pin;
+    if (!pin) {
+      pinError.value = `No pickup PIN on record for #${pick.shortId} (created before PINs or policy off).`;
+      return;
+    }
+    pinFor.value = { ...pinFor.value, [pick.id]: pin };
+  } catch (err) {
+    pinError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    pinBusy.value = null;
+  }
+}
 
 function toggle(id: string): void {
   expanded.value = expanded.value === id ? null : id;
@@ -33,6 +66,30 @@ function slot(pick: PickDto): string {
 
 function units(pick: PickDto): number {
   return pick.lines.reduce((sum, line) => sum + ((line as { quantity?: number }).quantity ?? 0), 0);
+}
+
+// SUPERVISOR MODE (Andrew, 2026-07-14): flag a pick as needing a CAR OR
+// BIGGER — no bike/scooter. Toggle visible only on supervisor sessions;
+// the 🚗 badge shows for everyone. A supervisor 'yes' survives the picker's
+// completion answer, and post-completion flags re-stamp the part while
+// transport hasn't been requested.
+const flagBusy = ref<string | null>(null);
+
+async function toggleCarFlag(pick: PickDto): Promise<void> {
+  flagBusy.value = pick.id;
+  pinError.value = null;
+  try {
+    await ctx.api.json(`/clients/${ctx.station.clientId.value}/picks/${pick.id}/car-flag`, {
+      method: 'POST',
+      body: { requiresCarOrLarger: pick.requiresCarOrLarger !== true },
+    });
+    // The pick.updated SSE event reconciles; hydrate covers a missed push.
+    await ctx.picks.hydrate();
+  } catch (err) {
+    pinError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    flagBusy.value = null;
+  }
 }
 </script>
 
@@ -74,6 +131,28 @@ function units(pick: PickDto): number {
           >
             ASAP
           </span>
+          <span
+            v-if="pick.requiresCarOrLarger === true"
+            class="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700"
+            title="Needs a car or bigger — no bike/scooter"
+          >
+            🚗 CAR+
+          </span>
+          <UButton
+            v-if="ctx.supervisor.value"
+            size="xs"
+            :color="pick.requiresCarOrLarger === true ? 'warning' : 'neutral'"
+            variant="soft"
+            :loading="flagBusy === pick.id"
+            :title="
+              pick.requiresCarOrLarger === true
+                ? 'Clear the car-or-bigger flag'
+                : 'Flag: needs a car or bigger (no bike/scooter)'
+            "
+            @click.stop="toggleCarFlag(pick)"
+          >
+            🚗
+          </UButton>
           <UButton size="lg" :loading="claiming === pick.id" @click.stop="claim(pick)">
             Claim
           </UButton>
@@ -98,6 +177,57 @@ function units(pick: PickDto): number {
       </ul>
     </UCard>
 
+    <!-- Awaiting driver handover: the store side of collection. The PIN is
+         the override for a failed scan — each reveal is audited. -->
+    <template v-if="awaitingHandover.length > 0">
+      <h2 class="mt-2 font-semibold">Handover ({{ awaitingHandover.length }})</h2>
+      <UAlert v-if="pinError" :description="pinError" color="warning" variant="soft" />
+      <UCard v-for="pick in awaitingHandover" :key="`ho-${pick.id}`" :ui="{ body: 'p-3' }">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="font-mono text-lg font-semibold">#{{ pick.shortId }}</p>
+            <p class="text-xs text-neutral-500">
+              {{ pick.packages?.length ?? 0 }} package(s) ·
+              {{ pick.status === 'short_picked' ? 'short picked' : 'picked' }}
+            </p>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <span
+              v-if="pick.requiresCarOrLarger === true"
+              class="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700"
+              title="Needs a car or bigger — no bike/scooter"
+            >
+              🚗 CAR+
+            </span>
+            <UButton
+              v-if="ctx.supervisor.value"
+              size="xs"
+              :color="pick.requiresCarOrLarger === true ? 'warning' : 'neutral'"
+              variant="soft"
+              :loading="flagBusy === pick.id"
+              @click="toggleCarFlag(pick)"
+            >
+              🚗
+            </UButton>
+            <span
+              v-if="pinFor[pick.id]"
+              class="rounded-lg bg-brand-50 px-3 py-1 font-mono text-xl font-bold tracking-widest text-brand-700"
+            >
+              {{ pinFor[pick.id] }}
+            </span>
+            <UButton
+              size="sm"
+              variant="soft"
+              :loading="pinBusy === pick.id"
+              @click="revealPin(pick)"
+            >
+              {{ pinFor[pick.id] ? 'Hide' : 'Pickup PIN' }}
+            </UButton>
+          </div>
+        </div>
+      </UCard>
+    </template>
+
     <h2 class="mt-2 font-semibold">Mine ({{ mine.length }})</h2>
     <p v-if="mine.length === 0" class="text-sm text-neutral-500">Nothing claimed yet.</p>
     <!-- Tap opens the picking workflow (count/scan → complete or fail). -->
@@ -120,6 +250,13 @@ function units(pick: PickDto): number {
             class="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700"
           >
             FULL
+          </span>
+          <span
+            v-if="pick.requiresCarOrLarger === true"
+            class="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700"
+            title="Needs a car or bigger — no bike/scooter"
+          >
+            🚗 CAR+
           </span>
           <UButton size="lg" variant="soft">Pick →</UButton>
         </div>

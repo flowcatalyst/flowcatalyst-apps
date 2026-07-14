@@ -23,6 +23,8 @@ const PickerSummarySchema = Type.Object({
   displayName: Type.String(),
   staffCode: Type.String(),
   primaryAuthMethod: Type.String(),
+  /** 'picker' | 'supervisor' — supervisor unlocks station supervisor mode. */
+  role: Type.String(),
   status: Type.String(),
 });
 
@@ -109,6 +111,7 @@ export function registerPickerAdminRoutes(fastify: FastifyInstance, appContext: 
           displayName: p.displayName,
           staffCode: p.staffCode,
           primaryAuthMethod: p.primaryAuthMethod,
+          role: p.role,
           status: p.status,
         })),
       });

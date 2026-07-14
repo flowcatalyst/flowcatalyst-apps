@@ -35,7 +35,7 @@ import type {
  *   has already started, clamp to now (Uber rejects past ready times).
  * - Manifest sizing comes from the CAPTURED BAG SIZES (pick actuals), not
  *   recomputed volumetrics — Uber falls back to package size anyway.
- * - `requiresVehicle` (picker-supplied): Uber has NO vehicle-guarantee
+ * - `requiresCarOrLarger` (picker-supplied): Uber has NO vehicle-guarantee
  *   field (courier vehicle_type is informational), so the adapter declares
  *   `capabilities.vehicleGuarantee: false` — the resolver decides whether
  *   best-effort is acceptable — and nudges matching by forcing at least one
@@ -115,7 +115,7 @@ const UBER_SIZE_RANK: Record<UberManifestSize, number> = {
 
 export function toManifestItems(
   parcels: TransportBookingRequest['parcels'],
-  requiresVehicle: boolean,
+  requiresCarOrLarger: boolean,
   obfuscate = false,
 ): UberManifestItem[] {
   const items: UberManifestItem[] = parcels.map((parcel) => ({
@@ -125,7 +125,7 @@ export function toManifestItems(
     quantity: 1,
     size: parcel.size ? BAG_SIZE_TO_UBER[parcel.size] : 'small',
   }));
-  if (requiresVehicle && items.length > 0) {
+  if (requiresCarOrLarger && items.length > 0) {
     // Best-effort vehicle nudge: promote the largest item to xlarge.
     const largest = items.reduce((max, item) =>
       UBER_SIZE_RANK[item.size ?? 'small'] > UBER_SIZE_RANK[max.size ?? 'small'] ? item : max,
@@ -229,7 +229,10 @@ export function createUberAdapter(
 
   return {
     code: 'uber',
-    capabilities: { vehicleGuarantee: false },
+    // ageCheck rides Uber Direct's dropoff_verification.identification;
+    // deliveryPin is false — Uber's pincode feature generates THEIR code,
+    // not ours (docs/handover-verification.md).
+    capabilities: { vehicleGuarantee: false, ageCheck: true, deliveryPin: false },
 
     async quote(request): Promise<TransportQuoteOutcome> {
       try {
@@ -266,13 +269,16 @@ export function createUberAdapter(
           : {}),
         manifest_items: toManifestItems(
           request.parcels,
-          request.requiresVehicle,
+          request.requiresCarOrLarger,
           config.obfuscateManifest ?? false,
         ),
         manifest_reference: request.externalRef,
         external_id: request.externalRef,
         idempotency_key: request.idempotencyKey,
         undeliverable_action: 'return',
+        ...(request.verification?.minAge !== undefined
+          ? { dropoff_verification: { identification: { min_age: request.verification.minAge } } }
+          : {}),
         ...(config.testSpecifications
           ? { test_specifications: { robo_courier_specification: config.testSpecifications } }
           : {}),

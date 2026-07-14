@@ -43,7 +43,7 @@ export const pickSessions = pgTable(
     unitsSubstituted: integer('units_substituted'),
     packagesCount: integer('packages_count'),
     bagSizes: jsonb('bag_sizes'),
-    requiresVehicle: boolean('requires_vehicle'),
+    requiresCarOrLarger: boolean('requires_car_or_larger'),
     /** Completed at or before slot start. */
     onTime: boolean('on_time'),
     /** Outcome 'picked' (no shorts). */

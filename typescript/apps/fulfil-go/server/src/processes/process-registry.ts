@@ -16,6 +16,7 @@
 import type { Result } from '@fulfil-go/framework';
 import type { RequestEpodProvisioningUseCase } from '../operations/epod-provisioning/epod-provisioning.use-cases.js';
 import type {
+  RegisterPartCarFlagUseCase,
   RegisterPartFailedUseCase,
   RegisterPartPickedUseCase,
   RegisterPartPickingUseCase,
@@ -42,6 +43,7 @@ export interface ProcessEvent {
 export interface ProcessCommands {
   readonly registerPartPicking: RegisterPartPickingUseCase;
   readonly registerPartPicked: RegisterPartPickedUseCase;
+  readonly registerPartCarFlag: RegisterPartCarFlagUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
   readonly requestEpodProvisioning: RequestEpodProvisioningUseCase;
   readonly requestTransport: RequestTransportUseCase;

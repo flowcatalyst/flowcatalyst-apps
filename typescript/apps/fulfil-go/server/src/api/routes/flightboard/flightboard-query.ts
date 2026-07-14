@@ -1,8 +1,13 @@
 import { and, between, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import {
+  TransportOrder,
+  type OrderVerification,
+} from '../../../domain/transport-orders/transport-order.js';
 import { fulfilments } from '../../../infrastructure/schema/fulfilments.js';
 import { fulfilmentParts } from '../../../infrastructure/schema/fulfilment-parts.js';
 import { picks } from '../../../infrastructure/schema/picks.js';
+import { transportOrders } from '../../../infrastructure/schema/transport-orders.js';
 import { loadPickSettingsResolver } from '../../../infrastructure/store-settings-resolver.js';
 
 /**
@@ -38,6 +43,7 @@ export type FlightboardExceptionKind =
   | 'release_overdue'
   | 'pick_late_unclaimed'
   | 'pick_late_incomplete'
+  | 'delivery_verification_mismatch' // handover evidence failed/missing
   | 'transport_late_unclaimed' // reserved — transport context
   | 'transport_late_unstarted' // reserved
   | 'transport_late_incomplete'; // reserved
@@ -142,8 +148,19 @@ export async function queryFlightboard(
         .from(picks)
         .where(and(eq(picks.clientId, clientId), inArray(picks.partId, partIds)))
     : [];
+  // Transport orders for the window — handover-verification flags
+  // (docs/handover-verification.md) surface as exceptions here.
+  const orderRows = ids.length
+    ? await db
+        .select()
+        .from(transportOrders)
+        .where(
+          and(eq(transportOrders.clientId, clientId), inArray(transportOrders.fulfilmentId, ids)),
+        )
+    : [];
 
   const picksByPart = new Map(pickRows.map((p) => [p.partId, p]));
+  const ordersByPart = new Map(orderRows.map((o) => [o.partId, o]));
   const partsByFulfilment = new Map<string, typeof partRows>();
   for (const part of partRows) {
     const list = partsByFulfilment.get(part.fulfilmentId) ?? [];
@@ -247,6 +264,22 @@ export async function queryFlightboard(
           pick.claimedAt ?? pick.createdAt,
           'Claimed but not completed with the slot imminent.',
         );
+      }
+
+      // Handover verification flags (deferred verification: recorded, not
+      // rejected — this exception is the ops follow-up surface).
+      const order = ordersByPart.get(part.id);
+      if (order) {
+        const verification = (order.verification as OrderVerification | null) ?? null;
+        const issue = TransportOrder.verificationIssue({ verification });
+        if (issue) {
+          const evidenceAt = verification?.delivery?.at ?? verification?.collection?.at;
+          push(
+            'delivery_verification_mismatch',
+            evidenceAt ? new Date(evidenceAt) : order.updatedAt,
+            `Handover verification: ${issue}.`,
+          );
+        }
       }
 
       partViews.push({

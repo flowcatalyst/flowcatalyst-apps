@@ -268,7 +268,8 @@ export class RequestTransportUseCase {
       const resolved = resolveProviders({
         settings,
         registry: this.providers,
-        requiresVehicle: part.requiresVehicle ?? false,
+        requiresCarOrLarger: part.requiresCarOrLarger ?? false,
+        minAgeRequired: fulfilment.maxRestrictedAge,
         storeGeo: store?.geo ?? part.origin.geo ?? null,
         dropoffGeo,
       });
@@ -276,6 +277,14 @@ export class RequestTransportUseCase {
       const orderId = newTransportOrderId();
       const provider = resolved.candidates[0];
       let order = TransportOrder.create({
+        // Requirements only (booleans/ages) — pin VALUES stay on the
+        // fulfilment aggregate; verifiers read them there server-side.
+        verificationRequirements: {
+          pickupPin: part.pickupPin !== null,
+          deliveryPin: fulfilment.deliveryPin !== null,
+          minAge: fulfilment.maxRestrictedAge,
+          ageVisualOverrideAllowed: fulfilment.handoverPolicy?.ageVisualOverrideAllowed ?? false,
+        },
         id: orderId,
         clientId: fulfilment.clientId,
         fulfilmentId: fulfilment.id,
@@ -287,7 +296,7 @@ export class RequestTransportUseCase {
         destination: destinationStop,
         window: { slotStart: fulfilment.slotStart, slotEnd: fulfilment.slotEnd },
         parcels: toParcels(part),
-        requiresVehicle: part.requiresVehicle ?? false,
+        requiresCarOrLarger: part.requiresCarOrLarger ?? false,
         provider: provider ?? 'none',
         candidateProviders: resolved.candidates,
         now,
@@ -351,7 +360,7 @@ export class RequestTransportUseCase {
         data: {
           candidates: resolved.candidates,
           rejected: resolved.rejected,
-          requiresVehicle: order.requiresVehicle,
+          requiresCarOrLarger: order.requiresCarOrLarger,
           parcels: order.parcels.length,
         },
       });

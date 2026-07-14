@@ -32,12 +32,14 @@ import { Fulfilment, type FulfilmentPart } from '../../domain/fulfilments/fulfil
 import { asFulfilmentId, asFulfilmentPartId } from '../../domain/fulfilments/ids.js';
 import {
   FulfilmentFailed,
+  FulfilmentPartCarFlagged,
   FulfilmentPartFailed,
   FulfilmentPartPicked,
   FulfilmentPartPicking,
   FulfilmentPicked,
 } from '../../domain/fulfilments/events/fulfilment-pick-progress.events.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
+import type { TransportOrderRepository } from '../../domain/transport-orders/transport-order.repository.js';
 import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
 
 export interface PickEventRef {
@@ -49,7 +51,7 @@ export interface PickEventRef {
 
 export interface PartPickedCommand extends PickEventRef {
   readonly short: boolean;
-  readonly requiresVehicle: boolean;
+  readonly requiresCarOrLarger: boolean;
   readonly lineResults: readonly {
     externalLineRef: string;
     pickedQuantity: number;
@@ -70,6 +72,15 @@ export interface PartPickedCommand extends PickEventRef {
 
 export interface PartFailedCommand extends PickEventRef {
   readonly reason: string;
+}
+
+export interface PartCarFlagCommand {
+  readonly clientId: string;
+  readonly fulfilmentId: string;
+  readonly partId: string;
+  readonly requiresCarOrLarger: boolean;
+  /** Pick status at flag time — pre-completion flags ride the actuals. */
+  readonly pickStatus: string;
 }
 
 type LoadOutcome =
@@ -182,7 +193,7 @@ export class RegisterPartPickedUseCase {
       {
         lineResults: command.lineResults,
         packages: command.packages,
-        requiresVehicle: command.requiresVehicle,
+        requiresCarOrLarger: command.requiresCarOrLarger,
       },
       now,
     );
@@ -239,7 +250,7 @@ export class RegisterPartPickedUseCase {
       shortId: part.shortId,
       pickerId: command.pickerId,
       short: command.short,
-      requiresVehicle: command.requiresVehicle,
+      requiresCarOrLarger: command.requiresCarOrLarger,
       lineResults: command.lineResults.map((r) => ({
         externalLineRef: r.externalLineRef,
         pickedQuantity: r.pickedQuantity,
@@ -247,6 +258,101 @@ export class RegisterPartPickedUseCase {
       })),
     });
     return commitAggregate(this.uow, this.registry, fulfilment, event, command);
+  }
+}
+
+/**
+ * Supervisor car-flag on an ALREADY-COMPLETED pick (pre-completion flags
+ * simply ride the completion actuals — this decider ACKs those). Re-stamps
+ * the part while no transport order exists; once transport is requested the
+ * update is TOO LATE — ACKed and logged for ops (amending a live transport
+ * order is its own feature).
+ */
+export class RegisterPartCarFlagUseCase {
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly registry: AggregateRegistryImpl,
+    private readonly fulfilments: FulfilmentRepository,
+    private readonly transportOrders: TransportOrderRepository,
+    private readonly activityLog: ActivityLogRepository,
+  ) {}
+
+  async execute(command: PartCarFlagCommand): Promise<Result<FulfilmentPartCarFlagged>> {
+    if (command.pickStatus !== 'picked' && command.pickStatus !== 'short_picked') {
+      return Result.failure(
+        UseCaseError.businessRule(
+          'FLAG_RIDES_COMPLETION',
+          'Pick not completed yet — the flag will arrive with the pick actuals.',
+        ),
+      );
+    }
+    const loaded = await load(this.fulfilments, { ...command, pickerId: 'supervisor' });
+    if (!loaded.ok) return loaded.failure;
+    const { fulfilment: prior, part, scope } = loaded;
+    if (part.status !== 'picked' && part.status !== 'short_picked') {
+      return alreadyProcessed(part);
+    }
+    if (part.requiresCarOrLarger === command.requiresCarOrLarger) {
+      return Result.failure(
+        UseCaseError.businessRule('FLAG_UNCHANGED', 'Part already carries this flag.'),
+      );
+    }
+
+    const now = new Date();
+    const existingOrder = (
+      await this.transportOrders.listByFulfilment(command.clientId, command.fulfilmentId)
+    ).find((o) => o.partId === command.partId);
+    if (existingOrder) {
+      // Too late — transport is already requested with the captured value.
+      await this.activityLog.appendDetached({
+        clientId: prior.clientId,
+        fulfilmentId: prior.id,
+        subjectType: 'part',
+        subjectId: part.id,
+        source: 'domain',
+        actor: scope.principalId,
+        category: 'vehicle-flag',
+        message: `Supervisor car-flag for part #${part.shortId} arrived AFTER transport was requested (order ${existingOrder.id}) — not applied; review the transport order.`,
+        data: { transportOrderId: existingOrder.id, requested: command.requiresCarOrLarger },
+      });
+      return Result.failure(
+        UseCaseError.businessRule(
+          'TRANSPORT_ALREADY_REQUESTED',
+          `Part '${part.id}' already has transport order '${existingOrder.id}' — flag not applied.`,
+        ),
+      );
+    }
+
+    const fulfilment = Fulfilment.partCarFlag(
+      prior,
+      asFulfilmentPartId(command.partId),
+      command.requiresCarOrLarger,
+      now,
+    );
+    await this.activityLog.append({
+      clientId: fulfilment.clientId,
+      fulfilmentId: fulfilment.id,
+      subjectType: 'part',
+      subjectId: part.id,
+      source: 'domain',
+      actor: scope.principalId,
+      category: 'vehicle-flag',
+      message: `Part #${part.shortId} re-stamped by supervisor: requiresCarOrLarger=${command.requiresCarOrLarger}.`,
+      data: { partId: part.id },
+    });
+    return commitAggregate(
+      this.uow,
+      this.registry,
+      fulfilment,
+      new FulfilmentPartCarFlagged(scope, {
+        fulfilmentId: fulfilment.id,
+        clientId: fulfilment.clientId,
+        partId: part.id,
+        shortId: part.shortId,
+        requiresCarOrLarger: command.requiresCarOrLarger,
+      }),
+      command,
+    );
   }
 }
 

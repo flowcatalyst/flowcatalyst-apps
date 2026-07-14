@@ -106,7 +106,7 @@ export interface Pick {
   /** Bag-label allocation, when the station printed labels. */
   readonly labels: PickLabelAllocation | null;
   /** Picker-supplied at completion: moving this needs a vehicle. Null = unasked. */
-  readonly requiresVehicle: boolean | null;
+  readonly requiresCarOrLarger: boolean | null;
   readonly completedAt: Date | null;
   /** Why the pick failed (picker-supplied), when status = failed. */
   readonly failReason: string | null;
@@ -161,7 +161,7 @@ export const Pick = {
       lineResults: null,
       packages: null,
       labels: null,
-      requiresVehicle: null,
+      requiresCarOrLarger: null,
       completedAt: null,
       failReason: null,
       version: 1,
@@ -200,7 +200,7 @@ export const Pick = {
     prior: Pick,
     results: readonly PickLineResult[],
     packages: readonly PickPackage[] | null,
-    requiresVehicle: boolean,
+    requiresCarOrLarger: boolean,
     now: Date,
   ): Pick {
     return {
@@ -208,8 +208,27 @@ export const Pick = {
       status: Pick.isFullPick(prior, results) ? 'picked' : 'short_picked',
       lineResults: results,
       packages,
-      requiresVehicle,
+      // A supervisor's pre-completion flag WINS: the picker's answer can
+      // never silently downgrade it (Andrew, 2026-07-14).
+      requiresCarOrLarger: prior.requiresCarOrLarger === true ? true : requiresCarOrLarger,
       completedAt: now,
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /**
+   * SUPERVISOR flag (docs/handover-verification.md follow-up, Andrew
+   * 2026-07-14): "this needs a car or bigger — no bike/scooter". Settable
+   * ANYTIME while the pick is live or completed; completion merges it (a
+   * flag can only be sharpened by pickers, never dropped) and, for already-
+   * completed picks, the pick:car-flag-updated event lets the fulfilment PM
+   * re-stamp the part while transport hasn't been requested yet.
+   */
+  flagCarOrLarger(prior: Pick, requiresCarOrLarger: boolean, now: Date): Pick {
+    return {
+      ...prior,
+      requiresCarOrLarger,
       version: prior.version + 1,
       updatedAt: now,
     };

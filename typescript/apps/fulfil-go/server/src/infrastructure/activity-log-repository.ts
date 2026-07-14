@@ -48,6 +48,12 @@ export interface ActivityLogRepository {
    * The ONLY sanctioned decision-making read of this log.
    */
   hasEntry(fulfilmentId: string, category: string): Promise<boolean>;
+  /**
+   * Audit-BEFORE-disclose append (docs/handover-verification.md): a plain
+   * pool write that THROWS on failure — callers revealing secrets must not
+   * return them when the audit record could not be written.
+   */
+  appendAudited(entry: ActivityLogEntry): Promise<void>;
 }
 
 interface ActivityLogLogger {
@@ -83,6 +89,10 @@ export function createDrizzleActivityLogRepository(
       } catch (err) {
         logger.error({ err, entry }, 'activity-log detached append failed (entry lost)');
       }
+    },
+
+    async appendAudited(entry): Promise<void> {
+      await db.insert(activityLog).values(toRow(entry));
     },
 
     async listByFulfilment(fulfilmentId): Promise<readonly ActivityLogRow[]> {

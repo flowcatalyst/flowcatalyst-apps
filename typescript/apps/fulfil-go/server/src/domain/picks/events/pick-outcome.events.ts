@@ -33,7 +33,7 @@ export const PickOutcomeDataSchema = Type.Object({
     }),
   ),
   /** Picker-supplied: does moving this pick need a vehicle? */
-  requiresVehicle: Type.Boolean(),
+  requiresCarOrLarger: Type.Boolean(),
   /** Packing output — what the handover/transport legs physically receive. */
   packages: Type.Array(
     Type.Object({

@@ -118,6 +118,10 @@ function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
         quantity: Math.floor(between(1, 5)),
         volumetric: product.volumetric,
         temperatureClass: product.temperatureClass as 'ambient' | 'chilled' | 'frozen',
+        // Liquor fixtures carry 18 — drives the delivery age-check flow.
+        ...((product as { restrictedMinAge?: number }).restrictedMinAge
+          ? { restrictedMinAge: (product as { restrictedMinAge?: number }).restrictedMinAge }
+          : {}),
         location: locationFor(store.ref, product.sku),
         // Legacy aisle attribute kept for back-compat display fallbacks.
         attributes: { aisle: locationFor(store.ref, product.sku).locationDisplay },

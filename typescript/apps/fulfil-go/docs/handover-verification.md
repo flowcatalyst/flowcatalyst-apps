@@ -1,8 +1,16 @@
 # Handover verification — collection scanning, pickup/delivery PINs, age checks
 
-Status: DESIGNED with Andrew 2026-07-13 (decisions locked below) — NOT built.
+Status: BUILT 2026-07-14 (designed with Andrew 2026-07-13; decisions locked
+below). Smoke-verified end-to-end on :3299 — 27 checks: pins on create,
+audited reveal + pin-viewed entry, requirements captured on the transport
+order (no pin values), driver offer/claim, my-trips carrying parcels +
+requirements, interactive verify-pin (wrong→right), per-stop scan
+collection + replay ACK, delivered with wrong pin + missing age check
+ACCEPTED and stamped mismatch, trip auto-complete, flightboard
+`delivery_verification_mismatch`, verification activity entries.
 Owner contexts: fulfilment (secrets + policy stamps), transport (requirements
 + evidence), execution app (driver flows), management (audited reveal).
+NOT yet device-verified: camera scanning on real Android hardware.
 
 ## Locked decisions (Andrew, 2026-07-13 — don't relitigate)
 
@@ -24,7 +32,15 @@ Owner contexts: fulfilment (secrets + policy stamps), transport (requirements
   possible later add, needs blob storage + retention first).
 - **Provider gating: the resolver EXCLUDES providers that can't perform a
   required verification** (capability flags join the resolver exactly like
-  requiresVehicle; restricted orders fall through the candidate chain).
+  requiresCarOrLarger; restricted orders fall through the candidate chain).
+- **OFFLINE-FIRST DELIVERY (Andrew, 2026-07-14): a claimed trip must be
+  completable with no connectivity; reports queue and push on reconnect.**
+  Therefore delivery-PIN verification is DEFERRED, not blocking: the server
+  verifies whenever the report reaches it and stamps the outcome — it never
+  rejects the report (the physical handover already happened). The secret
+  STILL never ships to the driver device: a hash-on-device variant was
+  considered and rejected — any digest of a 4-digit code is brute-forced
+  instantly on a rooted phone, which would gut the pin entirely.
 
 ## Ownership map
 
@@ -45,23 +61,50 @@ receive pins only in SYNCHRONOUS pushes (EPOD route plan, Uber booking).
 
 ## Flows
 
-**Collection (execution app)**: claimed trip → Start collection → driver
-scans bag/parcel barcodes; app matches locally against parcel refs already
-in the offer/my-trips payload; a fully-scanned order confirms COLLECTED
+**Collection (execution app, offline-first)**: claimed trip → Start
+collection → driver scans bag/parcel barcodes; the app matches LOCALLY
+against parcel refs already in the offer/my-trips payload — the claimed
+trip carries everything needed, so scanning-based collection completes
+fully offline (the picking-app model: claimed work is self-contained,
+events push on reconnect). A fully-scanned order confirms COLLECTED
 (evidence: scanned refs); last confirmed order auto-flips the TRIP to
-collected (mirror of trip auto-complete). **PIN override per order**: driver
-taps "Can't scan" → store staff reads the pickup PIN (picking-app handover
-view / flightboard audited reveal) → driver enters → server verifies —
-deliberately ONLINE-ONLY; rate-limit attempts + activity-log failures.
-Covers unbarcoded `loose-N` packages too. An order whose goods can't be
-found fails at collection with a reason; the trip proceeds with the rest.
+collected (mirror of trip auto-complete). **PIN override per order**:
+driver taps "Can't scan" → store staff reads the pickup PIN (picking-app
+handover view / flightboard audited reveal) → driver enters → same
+deferred-verification model as delivery: online = interactive verify
+(rate-limited), offline = capture + complete locally + verify on sync,
+mismatch → flightboard exception. Covers unbarcoded `loose-N` packages
+too. An order whose goods can't be found fails at collection with a
+reason; the trip proceeds with the rest. Edge: the pin REVEAL happens on
+the store's surface — if the store device is also offline the override has
+no pin to give; acceptable (scan is the primary path), noted not solved.
 
-**Delivery**: customer tells the driver the delivery PIN → server verifies
-on the delivered report. Restricted orders additionally require
-`verification: {method: 'id-attestation', docType}` or
-`{method: 'visual-override'}` — the override renders and is accepted ONLY
-when the stamped policy allows it. Wrong-PIN/failed-check → order fails
-with reason (return-to-store physical leg is a separate backlog item).
+**Delivery (offline-first)**: the delivered report CARRIES the evidence —
+`{pinEntered?, method: 'id-attestation'|'visual-override', docType?}` — and
+the server stamps a verification OUTCOME when it processes the report:
+`verified` | `mismatch` | `not-checked`. The report is always ACCEPTED
+(goods already changed hands; rejecting a deferred report can't undo
+reality) — a `mismatch`/`not-checked` outcome raises a flightboard
+exception (`delivery_verification_mismatch`) + activity-log entry for ops
+follow-up instead.
+
+- ONLINE (common case): the app pre-verifies the pin interactively BEFORE
+  handover (rate-limited endpoint) — wrong pin at the door → driver
+  withholds the goods and fails the stop with reason.
+- OFFLINE: the app captures the entered pin, completes the stop locally,
+  and queues the report (mobile-kit outbox, Idempotency-Key — the same
+  machinery as pick outcomes; the execution app's report calls moving onto
+  that queue is the already-planned prerequisite). UI shows "verification
+  pending sync". The driver gets no at-door mismatch feedback offline —
+  inherent trade-off, surfaced as the exception on sync.
+- Queued reports drain FIFO per trip (collected → stop outcomes), server
+  replays stored responses on retry; verification outcomes never 4xx the
+  drain (a mismatch is recorded, not rejected).
+
+Age attestation works offline trivially (driver-entered evidence, no
+secret). Restricted orders require the evidence on the report; the
+visual-override option renders and is accepted ONLY when the stamped
+policy allows it.
 
 **Audited reveal (management)**: pins never appear in list/detail DTOs.
 `GET /clients/:id/fulfilments/:fid/handover-pins` behind a new permission

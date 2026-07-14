@@ -6,7 +6,7 @@ import type { ProviderRegistry } from './adapter-registry.js';
  * candidates = store's allowed providers (ordered) → filter by registry
  * membership, COVERAGE (dropoff within the entry's radius from the store —
  * the v1 coverage oracle; the seam swaps to polygon truth when pinpoint
- * layers land) and CAPABILITY (requiresVehicle vs vehicleGuarantee) → rank
+ * layers land) and CAPABILITY (requiresCarOrLarger vs vehicleGuarantee) → rank
  * with the store default first. Selection happens at transport-order
  * creation; the ranked remainder is the fallback chain.
  *
@@ -17,7 +17,13 @@ import type { ProviderRegistry } from './adapter-registry.js';
 export interface ResolveProvidersInput {
   readonly settings: ResolvedTransportStoreSettings;
   readonly registry: ProviderRegistry;
-  readonly requiresVehicle: boolean;
+  readonly requiresCarOrLarger: boolean;
+  /**
+   * Age-restricted order: minimum age the courier must verify at the door.
+   * HARD capability gate (docs/handover-verification.md) — channels without
+   * ageCheck are excluded. Delivery pins deliberately do NOT gate.
+   */
+  readonly minAgeRequired: number | null;
   /** Store coordinates (registry columns) — null when never synced. */
   readonly storeGeo: { lat: number; lng: number } | null;
   /** Dropoff coordinates — null for destinations without geo. */
@@ -79,8 +85,15 @@ export function resolveProviders(input: ResolveProvidersInput): ResolvedProvider
       rejected.push({ code: entry.code, reason: 'not a registered provider' });
       continue;
     }
-    if (input.requiresVehicle && !channel.capabilities.vehicleGuarantee) {
+    if (input.requiresCarOrLarger && !channel.capabilities.vehicleGuarantee) {
       rejected.push({ code: entry.code, reason: 'cannot guarantee a vehicle' });
+      continue;
+    }
+    if (input.minAgeRequired !== null && !channel.capabilities.ageCheck) {
+      rejected.push({
+        code: entry.code,
+        reason: `cannot verify customer age (order requires ${input.minAgeRequired}+)`,
+      });
       continue;
     }
     const coverage = isCovered(entry, input.storeGeo, input.dropoffGeo);

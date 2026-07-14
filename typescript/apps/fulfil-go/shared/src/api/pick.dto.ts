@@ -49,7 +49,7 @@ export const PickDtoSchema = Type.Object({
   /** Bag-label allocation — see PickLabelAllocationSchema (Zod); null until printed. */
   labels: Type.Union([Type.Any(), Type.Null()]),
   /** Picker-supplied at completion; null until then. */
-  requiresVehicle: Type.Union([Type.Boolean(), Type.Null()]),
+  requiresCarOrLarger: Type.Union([Type.Boolean(), Type.Null()]),
   completedAt: Type.Union([Type.String(), Type.Null()]),
   failReason: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String(),

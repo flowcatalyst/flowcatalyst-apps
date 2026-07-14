@@ -7,6 +7,6 @@ stateDiagram-v2
   claimed --> picked: complete — all lines picked\n(scan-confirm, substitutes when allowed,\npack into sized bags, vehicle question)
   claimed --> short_picked: complete — short lines allowed\n(requireFullPick=false)
   claimed --> failed: fail with reason\n(or requireFullPick blocks short completion)
-  picked --> [*]: actuals to fulfilment part\n(line results, packages, requiresVehicle)
+  picked --> [*]: actuals to fulfilment part\n(line results, packages, requiresCarOrLarger)
   short_picked --> [*]: actuals to fulfilment part
   failed --> [*]: PM policy fan-out\n(all-or-nothing cancels siblings)

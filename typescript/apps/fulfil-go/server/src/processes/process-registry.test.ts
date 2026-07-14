@@ -63,7 +63,7 @@ describe('standard definition', () => {
       commands,
     );
     expect(commands.registerPartPicked.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ short: true, packages: [], requiresVehicle: false }),
+      expect.objectContaining({ short: true, packages: [], requiresCarOrLarger: false }),
     );
   });
 

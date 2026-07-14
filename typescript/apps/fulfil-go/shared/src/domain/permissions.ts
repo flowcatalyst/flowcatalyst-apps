@@ -12,11 +12,17 @@ export const FulfilGoPermission = {
   ManagePickers: 'managePickers',
   // Store registry administration (sync/list reference stores).
   ManageStores: 'manageStores',
+  // Reveal handover PINs (management + flightboard action) — EVERY grant of
+  // this read is audited to the activity log (docs/handover-verification.md).
+  ViewHandoverPins: 'viewHandoverPins',
   // Store-scoped picker permissions — NOT granted via platform claims; the
   // picker session token issues them after QR/PIN login (see pick-context-auth).
   ViewStorePicks: 'viewStorePicks',
   ClaimPick: 'claimPick',
   ReportPickOutcome: 'reportPickOutcome',
+  // Supervisor-role pickers only (role='supervisor' at login): station
+  // supervisor mode — flag picks as needing a car or bigger.
+  SupervisePicks: 'supervisePicks',
   // Transport-context identity administration (platform-OIDC admins).
   ManageDrivers: 'manageDrivers',
   // Depot-scoped driver permissions — issued by the DRIVER session token
@@ -49,6 +55,7 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
       FulfilGoPermission.ManagePickers,
       FulfilGoPermission.ManageDrivers,
       FulfilGoPermission.ManageStores,
+      FulfilGoPermission.ViewHandoverPins,
     ],
     [FulfilGoRole.FieldWorker]: [
       FulfilGoPermission.AcceptJob,

@@ -35,7 +35,7 @@ export const PartPickedDataSchema = Type.Object({
   shortId: Type.String(),
   pickerId: Type.String(),
   short: Type.Boolean(),
-  requiresVehicle: Type.Boolean(),
+  requiresCarOrLarger: Type.Boolean(),
   lineResults: Type.Array(
     Type.Object({
       externalLineRef: Type.String(),
@@ -98,6 +98,29 @@ export class FulfilmentPartPicked extends BaseDomainEvent<PartPickedData> {
     super(envelope(data.fulfilmentId, 'part', 'picked'), scope as never, data);
   }
 }
+
+/** Supervisor re-stamped a picked part's car-or-larger requirement. */
+export const PartCarFlaggedDataSchema = Type.Object({
+  fulfilmentId: Type.String(),
+  clientId: Type.String(),
+  partId: Type.String(),
+  shortId: Type.String(),
+  requiresCarOrLarger: Type.Boolean(),
+});
+export type PartCarFlaggedData = Static<typeof PartCarFlaggedDataSchema>;
+
+export class FulfilmentPartCarFlagged extends BaseDomainEvent<PartCarFlaggedData> {
+  constructor(scope: Scope, data: PartCarFlaggedData) {
+    super(envelope(data.fulfilmentId, 'part', 'car-flagged'), scope as never, data);
+  }
+}
+
+export const FulfilmentPartCarFlaggedEventType = {
+  code: 'fulfil-go:fulfilment:part:car-flagged',
+  name: 'Fulfilment Part Car Flagged',
+  description: "A supervisor re-stamped a picked part's car-or-larger requirement.",
+  payloadSchema: PartCarFlaggedDataSchema,
+} as const;
 
 export class FulfilmentPartFailed extends BaseDomainEvent<PartFailedData> {
   constructor(scope: Scope, data: PartFailedData) {

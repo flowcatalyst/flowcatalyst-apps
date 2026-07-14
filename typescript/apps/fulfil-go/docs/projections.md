@@ -24,7 +24,7 @@ pick_sessions        one row per pick (the store-side work session)
   picking_seconds*, packing_seconds*,            -- * see timing signal
   outcome (picked|short_picked|failed), fail_reason,
   lines_total, units_total, units_picked, units_short, substitutions,
-  packages_count, bag_sizes jsonb, requires_vehicle,
+  packages_count, bag_sizes jsonb, requires_car_or_larger,
   slot_start, released_late, on_time boolean (completed ≤ slot_start),
   in_full boolean, source DEFAULT 'fulfil-go', updated_at
 

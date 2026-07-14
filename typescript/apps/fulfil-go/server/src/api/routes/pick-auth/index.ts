@@ -13,7 +13,11 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@fulfil-go/framework';
-import { PICKER_SESSION_PERMISSIONS, PickerTokenResponseSchema } from '@fulfil-go/shared';
+import {
+  FulfilGoPermission,
+  PICKER_SESSION_PERMISSIONS,
+  PickerTokenResponseSchema,
+} from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
 import { isPickerUserId, asPickerUserId } from '../../../domain/pick-identity/ids.js';
 import { PickerTokenError } from '../../../auth/picker-token.js';
@@ -130,7 +134,11 @@ export function registerPickAuthRoutes(fastify: FastifyInstance, appContext: App
         pickerId: picker.id,
         clientId: picker.clientId,
         storeRef: picker.storeRef,
-        permissions: [...PICKER_SESSION_PERMISSIONS],
+        // Role re-resolved on refresh — a promotion/demotion bites ≤1 TTL.
+        permissions:
+          picker.role === 'supervisor'
+            ? [...PICKER_SESSION_PERMISSIONS, FulfilGoPermission.SupervisePicks]
+            : [...PICKER_SESSION_PERMISSIONS],
         deviceId: claims.deviceId ?? undefined,
       });
       return reply.code(200).send({

@@ -18,6 +18,8 @@ export const fulfilmentParts = pgTable(
     origin: jsonb('origin').notNull(),
     lines: jsonb('lines').notNull(),
     status: varchar('status', { length: 24 }).notNull().default('pending'),
+    /** Store→driver handover code (docs/handover-verification.md); null = off. */
+    pickupPin: varchar('pickup_pin', { length: 8 }),
     /**
      * PICK ACTUALS, captured from the pick context's part:picked event (the
      * fulfilment can never read back into the pick context): what was really
@@ -26,7 +28,7 @@ export const fulfilmentParts = pgTable(
      */
     lineResults: jsonb('line_results'),
     packages: jsonb('packages'),
-    requiresVehicle: boolean('requires_vehicle'),
+    requiresCarOrLarger: boolean('requires_car_or_larger'),
     /**
      * Precomputed at creation (immutability: slots never change): the moment
      * this part becomes eligible for pick release. ASAP = createdAt;

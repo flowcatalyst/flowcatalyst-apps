@@ -13,6 +13,8 @@ const LAST_EVENT_KEY = 'fulfilgo.pick.lastEventId';
 export interface PicksStore {
   readonly available: ComputedRef<readonly PickDto[]>;
   readonly mine: ComputedRef<readonly PickDto[]>;
+  /** Completed picks awaiting driver handover (pickup-PIN surface). */
+  readonly awaitingHandover: ComputedRef<readonly PickDto[]>;
   readonly loading: Ref<boolean>;
   readonly error: Ref<string | null>;
   readonly sseState: Ref<SseState>;
@@ -54,20 +56,56 @@ export function createPicksStore(
     else picks.value[index] = pick;
   }
 
+  // THE DAY'S PICKS ONLY (Andrew, 2026-07-14): stations show today, never
+  // history. Station clocks live in the store's timezone, so the device's
+  // local day is the right frame.
+  const isToday = (iso: string | null): boolean => {
+    if (!iso) return false;
+    return new Date(iso).toDateString() === new Date().toDateString();
+  };
+  const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+  /** Drop >30d-old picks from the device + their orphaned WIP entries. */
+  function pruneDevice(): void {
+    const cutoff = Date.now() - MONTH_MS;
+    picks.value = picks.value.filter((p) => new Date(p.slotStart).getTime() >= cutoff);
+    if (typeof localStorage === 'undefined') return;
+    const live = new Set(picks.value.map((p) => p.id));
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('fulfilgo.pick.wip.')) continue;
+      if (!live.has(key.slice('fulfilgo.pick.wip.'.length))) localStorage.removeItem(key);
+    }
+  }
+
   const available = computed(() =>
     [...picks.value]
-      .filter((p) => p.status === 'requested')
+      .filter((p) => p.status === 'requested' && isToday(p.slotStart))
       .sort((a, b) => a.slotStart.localeCompare(b.slotStart)),
   );
   const mine = computed(() =>
     picks.value.filter(
-      (p) => p.status === 'claimed' && pickerId.value !== null && p.claimedBy === pickerId.value,
+      (p) =>
+        p.status === 'claimed' &&
+        pickerId.value !== null &&
+        p.claimedBy === pickerId.value &&
+        isToday(p.slotStart),
     ),
+  );
+  // Awaiting driver handover — the store-side surface for the pickup PIN
+  // (docs/handover-verification.md); TODAY's completions, newest first.
+  const awaitingHandover = computed(() =>
+    [...picks.value]
+      .filter(
+        (p) => (p.status === 'picked' || p.status === 'short_picked') && isToday(p.completedAt),
+      )
+      .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')),
   );
 
   return {
     available,
     mine,
+    awaitingHandover,
     loading,
     error,
     sseState,
@@ -79,6 +117,7 @@ export function createPicksStore(
       try {
         const res = await api.json<PickDeltaSyncResponse>(`/clients/${clientId.value}/sync/picks`);
         picks.value = [...res.picks];
+        pruneDevice();
         if (res.latestEventId !== '0') setLastEventId(res.latestEventId);
       } catch (err) {
         error.value = err instanceof Error ? err.message : String(err);

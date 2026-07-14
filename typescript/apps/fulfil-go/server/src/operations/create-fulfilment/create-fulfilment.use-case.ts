@@ -7,9 +7,14 @@ import {
   type Scope,
   type UnitOfWork,
 } from '@fulfil-go/framework';
-import { FulfilGoPermission } from '@fulfil-go/shared';
+import { FulfilGoPermission, type ResolvedClientSettings } from '@fulfil-go/shared';
 import { Fulfilment, type CreateFulfilmentPartInput } from '../../domain/fulfilments/fulfilment.js';
 import { newFulfilmentId, newFulfilmentPartId } from '../../domain/fulfilments/ids.js';
+import {
+  computeMaxRestrictedAge,
+  generateHandoverPin,
+  resolveDeliveryPin,
+} from '../../domain/fulfilments/handover-pins.js';
 import { FulfilmentCreated } from '../../domain/fulfilments/events/fulfilment-created.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
 import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
@@ -29,12 +34,29 @@ export type PickLeadTimeResolver = (
 ) => Promise<number>;
 
 /**
- * Resolves the client's core process-definition code (client settings,
- * default 'standard') — STAMPED onto the fulfilment at creation so every
- * later reaction dispatches on what was configured when it entered, not
- * what is configured now (docs/process-definitions.md).
+ * Resolves the client's settings (registry-validated row collapsed onto code
+ * defaults). The process-definition code AND the handover policy are STAMPED
+ * onto the fulfilment at creation so every later reaction dispatches on what
+ * was configured when it entered, not what is configured now
+ * (docs/process-definitions.md, docs/handover-verification.md).
  */
-export type ProcessDefinitionResolver = (clientId: string) => Promise<string>;
+export type ClientSettingsResolver = (clientId: string) => Promise<ResolvedClientSettings>;
+
+/** Pins for the CREATE RESPONSE only (upstream pulls; never on events). */
+export interface CreatedFulfilmentHandover {
+  readonly deliveryPin: string | null;
+  readonly pickupPins: readonly {
+    partId: string;
+    shortId: string;
+    originRef: string;
+    pin: string;
+  }[];
+}
+
+export interface CreateFulfilmentOutcome {
+  readonly event: FulfilmentCreated;
+  readonly handover: CreatedFulfilmentHandover;
+}
 
 export class CreateFulfilmentUseCase {
   static readonly requiredPermission = FulfilGoPermission.CreateFulfilment;
@@ -46,10 +68,10 @@ export class CreateFulfilmentUseCase {
     private readonly shortIds: ShortIdAllocator,
     private readonly activityLog: ActivityLogRepository,
     private readonly pickLeadTime: PickLeadTimeResolver,
-    private readonly processDefinition: ProcessDefinitionResolver,
+    private readonly clientSettings: ClientSettingsResolver,
   ) {}
 
-  async execute(command: CreateFulfilmentCommand): Promise<Result<FulfilmentCreated>> {
+  async execute(command: CreateFulfilmentCommand): Promise<Result<CreateFulfilmentOutcome>> {
     const scope = ScopeStore.require();
 
     if (!this.authorize(scope)) {
@@ -105,6 +127,18 @@ export class CreateFulfilmentUseCase {
     const now = new Date();
     const id = newFulfilmentId();
     const serviceDay = serviceDayOf(slotStart, command.timezone);
+    const settings = await this.clientSettings(command.clientId);
+
+    // Handover policy stamp + pin generation (docs/handover-verification.md):
+    // pins live ONLY on this aggregate — the create response and the audited
+    // reveal are the exits; events and the driver app never carry them.
+    const handoverPolicy = {
+      pickupPinEnabled: settings.fulfilment.pickupPinEnabled,
+      deliveryPinEnabled: settings.fulfilment.deliveryPinEnabled,
+      deliveryPinSource: settings.fulfilment.deliveryPinSource,
+      ageVisualOverrideAllowed: settings.fulfilment.ageVisualOverrideAllowed,
+    };
+    const deliveryPin = resolveDeliveryPin(handoverPolicy, command.destination);
 
     // Pick release time (precomputed once — slots are immutable, per PART):
     // ASAP releases immediately; STANDARD releases leadTime before the slot.
@@ -127,6 +161,7 @@ export class CreateFulfilmentUseCase {
         shortId: await this.shortIds.allocate(command.clientId, partInput.origin.ref, serviceDay),
         origin: partInput.origin,
         lines: partInput.lines,
+        pickupPin: handoverPolicy.pickupPinEnabled ? generateHandoverPin() : null,
       });
     }
 
@@ -137,12 +172,15 @@ export class CreateFulfilmentUseCase {
       externalRef: command.externalRef,
       type: command.type,
       serviceLevel: command.serviceLevel,
-      processDefinition: await this.processDefinition(command.clientId),
+      processDefinition: settings.processDefinition,
       slotStart,
       slotEnd,
       timezone: command.timezone,
       destination: command.destination,
       policies: command.policies,
+      handoverPolicy,
+      deliveryPin,
+      maxRestrictedAge: computeMaxRestrictedAge(command.parts),
       provenance: command.provenance ?? null,
       additionalData: command.additionalData ?? null,
       parts,
@@ -190,7 +228,25 @@ export class CreateFulfilmentUseCase {
       },
     });
 
-    return commitAggregate(this.uow, this.registry, fulfilment, event, command);
+    const committed = await commitAggregate(this.uow, this.registry, fulfilment, event, command);
+    return Result.map(committed, (evt) => ({
+      event: evt,
+      handover: {
+        deliveryPin,
+        pickupPins: fulfilment.parts.flatMap((p) =>
+          p.pickupPin
+            ? [
+                {
+                  partId: p.id as string,
+                  shortId: p.shortId,
+                  originRef: p.origin.ref,
+                  pin: p.pickupPin,
+                },
+              ]
+            : [],
+        ),
+      },
+    }));
   }
 
   private authorize(scope: Scope): boolean {

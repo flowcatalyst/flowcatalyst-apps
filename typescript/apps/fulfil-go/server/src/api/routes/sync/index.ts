@@ -88,7 +88,12 @@ export function registerSyncRoutes(fastify: FastifyInstance, appContext: AppCont
       }
 
       const [picks, latestEventId] = await Promise.all([
-        appContext.repositories.picks.listByStore(clientId, storeRef),
+        // Bounded to ~the day (±36h superset — the station filters to its
+        // exact local day): stations never carry historical picks.
+        appContext.repositories.picks.listByStore(clientId, storeRef, undefined, {
+          from: new Date(Date.now() - 36 * 60 * 60 * 1000),
+          to: new Date(Date.now() + 36 * 60 * 60 * 1000),
+        }),
         appContext.repositories.syncEvents.latestId(storeChannel(clientId, storeRef)),
       ]);
       return reply.code(200).send({
