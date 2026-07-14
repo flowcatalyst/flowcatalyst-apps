@@ -96,6 +96,14 @@ export class ComposeTransportOfferUseCase {
     const empty = (reason: string): Result<ComposeOfferResult> =>
       Result.failure(UseCaseError.businessRule(reason, `No offer: ${reason}.`));
 
+    // ONE ACTIVE TRIP per driver (Andrew, 2026-07-14): refuse to even
+    // COMPOSE for an own-channel driver with an open trip — fail at Find
+    // work, not at claim. EPOD's door manages its own driver workload.
+    if (command.channel === 'own') {
+      const open = await this.trips.listByDriver(command.clientId, command.driverRef, ['claimed'], 1);
+      if (open.length > 0) return empty('OPEN_TRIP_EXISTS');
+    }
+
     // ── 1. Resolve CANDIDATE STORES (depot serves many; store pin wins) ────
     const resolver = await loadTransportSettingsResolver(this.db, command.clientId);
     let candidateStores: readonly string[];

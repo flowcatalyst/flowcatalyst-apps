@@ -113,17 +113,30 @@ const UBER_SIZE_RANK: Record<UberManifestSize, number> = {
   xlarge: 3,
 };
 
+const UBER_SIZES: readonly UberManifestSize[] = ['small', 'medium', 'large', 'xlarge'];
+
 export function toManifestItems(
   parcels: TransportBookingRequest['parcels'],
   requiresCarOrLarger: boolean,
   obfuscate = false,
+  // Per-client bucket overrides (docs/bag-sizing.md): our size code →
+  // uber bucket, from the store's provider entry config. NOTE: uber also
+  // accepts real `dimensions`, but requires `weight` alongside — parcels
+  // don't carry mass yet, so dims stay off until weight capture lands.
+  sizeMap?: Readonly<Record<string, string>>,
 ): UberManifestItem[] {
+  const bucketFor = (size: NonNullable<TransportBookingRequest['parcels'][number]['size']>) => {
+    const mapped = sizeMap?.[size];
+    return mapped && UBER_SIZES.includes(mapped as UberManifestSize)
+      ? (mapped as UberManifestSize)
+      : BAG_SIZE_TO_UBER[size];
+  };
   const items: UberManifestItem[] = parcels.map((parcel) => ({
     // Obfuscated: the courier sees only the package ref/barcode, never what
     // is inside (per-client policy — theft-risk concern).
     name: obfuscate ? parcel.ref : parcel.description,
     quantity: 1,
-    size: parcel.size ? BAG_SIZE_TO_UBER[parcel.size] : 'small',
+    size: parcel.size ? bucketFor(parcel.size) : 'small',
   }));
   if (requiresCarOrLarger && items.length > 0) {
     // Best-effort vehicle nudge: promote the largest item to xlarge.
@@ -271,6 +284,7 @@ export function createUberAdapter(
           request.parcels,
           request.requiresCarOrLarger,
           config.obfuscateManifest ?? false,
+          request.sizeMap,
         ),
         manifest_reference: request.externalRef,
         external_id: request.externalRef,

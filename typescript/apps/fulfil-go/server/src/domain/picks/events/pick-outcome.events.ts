@@ -41,6 +41,16 @@ export const PickOutcomeDataSchema = Type.Object({
       kind: Type.String(),
       size: Type.Union([Type.String(), Type.Null()]),
       temperature: Type.String(),
+      /** Stamped at completion (docs/bag-sizing.md). */
+      construction: Type.String(),
+      dims: Type.Union([
+        Type.Object({
+          lengthMm: Type.Integer(),
+          widthMm: Type.Integer(),
+          heightMm: Type.Integer(),
+        }),
+        Type.Null(),
+      ]),
       items: Type.Union([
         Type.Array(Type.Object({ externalLineRef: Type.String(), quantity: Type.Integer() })),
         Type.Null(),

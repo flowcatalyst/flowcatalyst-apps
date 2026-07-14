@@ -477,6 +477,10 @@ export function registerTransportRoutes(
       if (result.error.code === OFFER_GONE || result.error.type === 'not_found') {
         return reply.code(410).send({ error: 'gone', message: result.error.message });
       }
+      if (result.error.code === 'OPEN_TRIP_EXISTS') {
+        // One active trip per driver — finish it first (Andrew, 2026-07-14).
+        return reply.code(409).send({ error: result.error.code, message: result.error.message });
+      }
       return reply.code(500).send({ error: result.error.code, message: result.error.message });
     }
     return reply.code(200).send(result.value);
@@ -554,6 +558,8 @@ export function registerTransportRoutes(
             orderReferences: Type.Array(Type.String()),
           }),
           401: UnauthorizedSchema,
+          /** One active trip per driver (own channel) — finish it first. */
+          409: Type.Object({ error: Type.String(), message: Type.String() }),
           410: Type.Object({ error: Type.String(), message: Type.String() }),
           500: Type.Object({ error: Type.String(), message: Type.String() }),
         },
@@ -953,6 +959,8 @@ export function registerTransportRoutes(
             orderReferences: Type.Array(Type.String()),
           }),
           401: UnauthorizedSchema,
+          /** One active trip per driver (own channel) — finish it first. */
+          409: Type.Object({ error: Type.String(), message: Type.String() }),
           410: Type.Object({ error: Type.String(), message: Type.String() }),
           500: Type.Object({ error: Type.String(), message: Type.String() }),
         },

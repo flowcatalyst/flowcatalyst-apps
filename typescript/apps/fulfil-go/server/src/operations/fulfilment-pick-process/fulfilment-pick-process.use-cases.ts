@@ -66,6 +66,8 @@ export interface PartPickedCommand extends PickEventRef {
     kind: string;
     size: string | null;
     temperature: string;
+    construction?: string;
+    dims?: { lengthMm: number; widthMm: number; heightMm: number } | null;
     items: readonly { externalLineRef: string; quantity: number }[] | null;
   }[];
 }

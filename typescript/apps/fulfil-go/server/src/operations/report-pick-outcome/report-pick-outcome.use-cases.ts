@@ -23,6 +23,7 @@ import {
   SyncEventType,
   type CompletePickCommand,
   type FailPickCommand,
+  type ResolvedPickStoreSettings,
 } from '@fulfil-go/shared';
 import {
   Pick,
@@ -125,6 +126,12 @@ export async function authorizeAndLoad(
   return { ok: true, pick, scope };
 }
 
+/** Store pick-settings hydration (bag catalog + construction mapping). */
+export type PickSettingsLoader = (
+  clientId: string,
+  storeRef: string,
+) => Promise<ResolvedPickStoreSettings>;
+
 export class CompletePickUseCase {
   static readonly requiredPermission = FulfilGoPermission.ReportPickOutcome;
 
@@ -135,6 +142,7 @@ export class CompletePickUseCase {
     private readonly activityLog: ActivityLogRepository,
     private readonly syncEvents: SyncEventRepository,
     private readonly pickSessions: PickSessionProjection,
+    private readonly pickSettings: PickSettingsLoader,
   ) {}
 
   async execute(command: CompletePickCommand): Promise<Result<PickPicked | PickShortPicked>> {
@@ -260,13 +268,37 @@ export class CompletePickUseCase {
           }
         }
       }
-      packages = command.packages.map((p) => ({
-        ref: p.ref,
-        kind: p.kind,
-        size: p.size ?? null,
-        temperature: p.temperature,
-        items: p.items && p.items.length > 0 ? p.items : null,
-      }));
+      // STAMP dims + construction (docs/bag-sizing.md): resolved from the
+      // store's LIVE settings here, then CAPTURED on the package forever —
+      // a later profile retune never rewrites what physically shipped.
+      const settings = await this.pickSettings(prior.clientId, prior.storeRef);
+      packages = command.packages.map((p) => {
+        const construction =
+          p.construction ?? settings.constructionByTemperature[p.temperature];
+        let dims: PickPackage['dims'] = null;
+        if (p.kind === 'bag' && p.size) {
+          dims = settings.bagSpecs[p.size].dims;
+        } else if (p.kind === 'loose') {
+          // Loose refs are the item's own barcode — match the line and take
+          // its volumetrics; fall back to the size-equivalent's bag dims.
+          const line = prior.lines.find((l) => l.gtin === p.ref || l.sku === p.ref);
+          const v = line?.volumetric;
+          if (v?.lengthMm && v.widthMm && v.heightMm) {
+            dims = { lengthMm: v.lengthMm, widthMm: v.widthMm, heightMm: v.heightMm };
+          } else if (p.size) {
+            dims = settings.bagSpecs[p.size].dims;
+          }
+        }
+        return {
+          ref: p.ref,
+          kind: p.kind,
+          size: p.size ?? null,
+          temperature: p.temperature,
+          construction,
+          dims,
+          items: p.items && p.items.length > 0 ? p.items : null,
+        };
+      });
     }
     const full = Pick.isFullPick(prior, results);
     // THE policy gate: short completion needs the fulfilment to have allowed
@@ -292,7 +324,9 @@ export class CompletePickUseCase {
       partId: pick.partId,
       shortId: pick.shortId,
       pickerId: scope.principalId,
-      requiresCarOrLarger: command.requiresCarOrLarger,
+      // The pick's EFFECTIVE value — a supervisor's pre-completion flag
+      // survives the picker's answer (Pick.complete ORs them).
+      requiresCarOrLarger: pick.requiresCarOrLarger ?? command.requiresCarOrLarger,
       lineResults: results.map((r) => ({
         externalLineRef: r.externalLineRef,
         pickedQuantity: r.pickedQuantity,

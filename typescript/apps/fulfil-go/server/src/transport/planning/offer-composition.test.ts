@@ -36,7 +36,7 @@ function order(overrides: Partial<TransportOrder> & { id?: string } = {}): Trans
       slotEnd: new Date('2026-07-13T10:00:00Z'),
     },
     parcels: [
-      { ref: `pkg_${seq}A`, kind: 'bag', size: 'M', temperature: 'ambient', description: 'Bag' },
+      { ref: `pkg_${seq}A`, kind: 'bag', size: 'M', temperature: 'ambient', construction: 'standard', dims: null, description: 'Bag' },
     ],
     requiresCarOrLarger: false,
     provider: 'own',
@@ -135,7 +135,7 @@ describe('selectOfferOrders', () => {
   it('a HOT order never consolidates, in either direction', () => {
     const hot = order({
       serviceLevel: 'ASAP',
-      parcels: [{ ref: 'p', kind: 'bag', size: 'M', temperature: 'hot', description: 'Hot bag' }],
+      parcels: [{ ref: 'p', kind: 'bag', size: 'M', temperature: 'hot', construction: 'standard', dims: null, description: 'Hot bag' }],
     });
     const cold = order();
     // hot seed stays solo
@@ -153,6 +153,8 @@ describe('selectOfferOrders', () => {
         kind: 'bag' as const,
         size: 'M' as const,
         temperature: 'ambient',
+        construction: 'standard',
+        dims: null,
         description: 'Bag',
       })),
     });

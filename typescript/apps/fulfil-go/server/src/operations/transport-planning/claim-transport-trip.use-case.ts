@@ -132,6 +132,28 @@ export class ClaimTransportTripUseCase {
       return gone(`Offer '${trip.id}' is bound to another driver.`);
     }
 
+    // ONE ACTIVE TRIP per driver (Andrew, 2026-07-14 — industry norm:
+    // concurrent work is PLANNER-composed into one route, never driver-
+    // stacked): our channel refuses a second claim while one is open.
+    // EPOD's door is exempt — their system manages driver workload.
+    if (command.channel === 'own' && command.driverRef) {
+      const open = await this.trips.listByDriver(
+        command.clientId,
+        command.driverRef,
+        ['claimed'],
+        1,
+      );
+      if (open.length > 0) {
+        return Result.failure(
+          UseCaseError.businessRule(
+            'OPEN_TRIP_EXISTS',
+            `Finish trip '${open[0]!.id}' before claiming another.`,
+            { openTripId: open[0]!.id },
+          ),
+        );
+      }
+    }
+
     const now = new Date();
     if (Trip.isExpired(trip, now)) {
       await this.releaseGroup(scope, trip, 'offer expired before claim', 'expired');

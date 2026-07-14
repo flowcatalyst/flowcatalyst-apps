@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { PackageSizeSchema, type PackageSize } from '../picks/pick-outcome.contract.js';
+import {
+  PackageConstructionSchema,
+  type PackageConstruction,
+  type PackageSize,
+} from '../picks/pick-outcome.contract.js';
+export { PackageConstructionSchema };
+export type { PackageConstruction };
 
 /**
  * BAG SPECS — the client's internal bag program (docs/bag-sizing.md,
@@ -69,14 +75,6 @@ export function resolveBagSpecs(
   return resolved;
 }
 
-/**
- * BAG CONSTRUCTION (docs/bag-sizing.md): how the bag delivers the
- * temperature the contents need. Industry-aligned naming — the frozen tier
- * is an INSULATED bag plus gel packs, never "a frozen bag".
- */
-export const PackageConstructionSchema = z.enum(['standard', 'insulated', 'insulated-gel']);
-export type PackageConstruction = z.infer<typeof PackageConstructionSchema>;
-
 /** Default construction per the bag's picker-set TEMPERATURE square. */
 export const ConstructionByTemperatureSchema = z
   .object({
@@ -87,7 +85,10 @@ export const ConstructionByTemperatureSchema = z
   })
   .strict();
 export type ConstructionByTemperature = z.infer<typeof ConstructionByTemperatureSchema>;
-export type ResolvedConstructionByTemperature = Required<ConstructionByTemperature>;
+export type ResolvedConstructionByTemperature = Record<
+  'ambient' | 'chilled' | 'frozen' | 'hot',
+  PackageConstruction
+>;
 
 export const CONSTRUCTION_BY_TEMPERATURE_DEFAULTS: ResolvedConstructionByTemperature = {
   ambient: 'standard',
@@ -120,10 +121,10 @@ export function fitBagSize(
   dims: { lengthMm: number; widthMm: number; heightMm: number },
   specs: ResolvedBagSpecs,
 ): PackageSize | null {
-  const item = [dims.lengthMm, dims.widthMm, dims.heightMm].sort((a, b) => b - a);
+  const item = [dims.lengthMm, dims.widthMm, dims.heightMm].toSorted((a, b) => b - a);
   for (const size of SIZE_ORDER) {
     const bag = specs[size].dims;
-    const box = [bag.lengthMm, bag.widthMm, bag.heightMm].sort((a, b) => b - a);
+    const box = [bag.lengthMm, bag.widthMm, bag.heightMm].toSorted((a, b) => b - a);
     if (item.every((d, i) => d <= (box[i] as number))) return size;
   }
   return null;

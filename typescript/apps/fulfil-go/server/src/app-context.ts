@@ -1,6 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { FlowCatalystClient } from '@flowcatalyst/sdk';
-import { resolveClientSettings } from '@fulfil-go/shared';
+import { resolveClientSettings, type ResolvedPickStoreSettings } from '@fulfil-go/shared';
 import {
   buildOutboxManager,
   createAggregateRegistry,
@@ -17,7 +17,10 @@ import type { TelemetryRepository } from './infrastructure/telemetry-repository.
 import { createDrizzleIdempotencyRepository } from './infrastructure/idempotency-repository.js';
 import type { IdempotencyRepository } from './infrastructure/idempotency-repository.js';
 import { createDrizzleSyncEventRepository } from './infrastructure/sync-event-repository.js';
-import { loadPickSettingsResolver } from './infrastructure/store-settings-resolver.js';
+import {
+  loadPickSettingsResolver,
+  loadTransportSettingsResolver,
+} from './infrastructure/store-settings-resolver.js';
 import { createPickSessionProjection } from './infrastructure/pick-session-projection.js';
 import type { SyncEventRepository } from './infrastructure/sync-event-repository.js';
 import { registerJob } from './infrastructure/register-job.js';
@@ -256,6 +259,15 @@ export interface AppContext {
   /** Started by server.ts on boot; routes nudge it after successful writes. */
   readonly sseBroker: SseBroker;
   /**
+   * Resolved PICK settings for one store — client bagSpecs as the base
+   * layer under the pick profiles (docs/bag-sizing.md). Used by completion
+   * stamping and the station-settings endpoint.
+   */
+  readonly pickSettingsForStore: (
+    clientId: string,
+    storeRef: string,
+  ) => Promise<ResolvedPickStoreSettings>;
+  /**
    * Plain async/await boundary for use cases. Opens a Drizzle tx, binds it
    * on ALS via `TransactionStore`, and invokes the thunk inside the tx.
    * Identity comes from the surrounding `ScopeStore.run(scope, ...)` (set
@@ -393,6 +405,16 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   // pick_sessions projection (docs/projections.md) — rides the pick txs.
   const pickSessionProjection = createPickSessionProjection(db);
 
+  // Bag catalog + construction map, resolved per store: client bagSpecs as
+  // the base layer under the pick profiles (docs/bag-sizing.md).
+  const pickSettingsForStore = async (cId: string, storeRef: string) => {
+    const client = resolveClientSettings(await clientSettingsRepo.get(cId));
+    const resolver = await loadPickSettingsResolver(db, cId, [storeRef], {
+      bagSpecs: client.bagSpecs,
+    });
+    return resolver.resolve(storeRef);
+  };
+
   return {
     db,
     transactionManager,
@@ -493,6 +515,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         activityLogRepo,
         syncEventRepo,
         pickSessionProjection,
+        pickSettingsForStore,
       ),
       failPick: new FailPickUseCase(
         uow,
@@ -578,6 +601,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         activityLogRepo,
         providerRegistry,
         runWrite,
+        // Provider entry configs (sizeMap overrides) for the origin store.
+        async (cId, storeRef) =>
+          (await loadTransportSettingsResolver(db, cId, [storeRef])).resolve(storeRef),
       ),
       applyTransportStatus: new ApplyTransportStatusUseCase(
         uow,
@@ -647,6 +673,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     router: routerClient,
     platform: platformClient,
     sseBroker,
+    pickSettingsForStore,
     runWrite,
   };
 }

@@ -47,6 +47,10 @@ export interface TransportParcel {
   readonly kind: 'bag' | 'loose';
   readonly size: PackageSize | null;
   readonly temperature: string;
+  /** Bag construction stamped at pick completion (docs/bag-sizing.md). */
+  readonly construction: string;
+  /** Real dimensions stamped at pick completion; null when unknown. */
+  readonly dims: { lengthMm: number; widthMm: number; heightMm: number } | null;
   readonly description: string;
 }
 
@@ -95,6 +99,12 @@ export interface TransportBookingRequest extends TransportQuoteRequest {
         readonly minAge?: number | undefined;
       }
     | undefined;
+  /**
+   * Per-client provider size-bucket overrides (docs/bag-sizing.md): our
+   * size code → the provider's bucket name, from the store's provider
+   * entry config. Settles fit-test judgment calls.
+   */
+  readonly sizeMap?: Readonly<Record<string, string>> | undefined;
   /** Our references — idempotency + provider-visible correlation. */
   readonly externalRef: string;
   readonly idempotencyKey: string;

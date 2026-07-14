@@ -220,6 +220,53 @@ export function registerPickRoutes(
     },
   );
 
+  // Station-facing resolved PICK settings for the session's store: the bag
+  // catalog + construction mapping drive the packing drawer (loose
+  // auto-size, construction chip, oversize sanity check) — resolved LIVE,
+  // while COMPLETION stamps the values that actually shipped.
+  fastify.get(
+    '/clients/:clientId/pick-station-settings',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String() }),
+        response: {
+          200: Type.Object({
+            storeRef: Type.String(),
+            bagSpecs: Type.Any(),
+            constructionByTemperature: Type.Any(),
+            pickSortAlgorithm: Type.String(),
+          }),
+          401: UnauthorizedSchema,
+          403: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const storeRef = scope.attributes['storeRef'];
+      const { clientId } = request.params as { clientId: string };
+      if (!storeRef || scope.attributes['clientId'] !== clientId) {
+        return reply.code(403).send({
+          error: 'forbidden',
+          code: 'NOT_A_PICKER_SESSION',
+          message: 'Station settings require a store-bound picker session.',
+          details: null,
+        });
+      }
+      const settings = await appContext.pickSettingsForStore(clientId, storeRef);
+      return reply.code(200).send({
+        storeRef,
+        bagSpecs: settings.bagSpecs,
+        constructionByTemperature: settings.constructionByTemperature,
+        pickSortAlgorithm: settings.pickSortAlgorithm,
+      });
+    },
+  );
+
   fastify.post(
     '/clients/:clientId/picks/:pickId/claim',
     {

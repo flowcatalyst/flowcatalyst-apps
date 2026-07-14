@@ -41,6 +41,9 @@ export interface PartPackageActual {
   readonly kind: string;
   readonly size: string | null;
   readonly temperature: string;
+  /** Stamped at pick completion (docs/bag-sizing.md); absent pre-feature. */
+  readonly construction?: string;
+  readonly dims?: { lengthMm: number; widthMm: number; heightMm: number } | null;
   readonly items: readonly { externalLineRef: string; quantity: number }[] | null;
 }
 

@@ -83,9 +83,11 @@ async function loadLayers(
 function buildResolver<R>(
   layers: Awaited<ReturnType<typeof loadLayers>>,
   collapse: (...settingsLayers: ReadonlyArray<object | null | undefined>) => R,
+  /** Client-level base layer, UNDER the default profile (e.g. bagSpecs). */
+  clientLayer?: object,
 ): StoreSettingsResolver<R> {
   const { profileSettings, defaultProfile, storeByRef } = layers;
-  const defaults = collapse(defaultProfile);
+  const defaults = collapse(clientLayer, defaultProfile);
   const cache = new Map<string, R>();
   return {
     defaults,
@@ -95,6 +97,7 @@ function buildResolver<R>(
       const store = storeByRef.get(storeRef);
       const resolved = store
         ? collapse(
+            clientLayer,
             defaultProfile,
             store.profileCode === DEFAULT_STORE_PROFILE_CODE
               ? null
@@ -112,10 +115,13 @@ export async function loadPickSettingsResolver(
   db: PostgresJsDatabase,
   clientId: string,
   storeRefs?: readonly string[],
+  clientLayer?: PickStoreSettings,
 ): Promise<StoreSettingsResolver<ResolvedPickStoreSettings>> {
   const layers = await loadLayers(db, clientId, 'pick', storeRefs);
-  return buildResolver(layers, (...l) =>
-    resolvePickStoreSettings(...(l as ReadonlyArray<PickStoreSettings | null | undefined>)),
+  return buildResolver(
+    layers,
+    (...l) => resolvePickStoreSettings(...(l as ReadonlyArray<PickStoreSettings | null | undefined>)),
+    clientLayer,
   );
 }
 

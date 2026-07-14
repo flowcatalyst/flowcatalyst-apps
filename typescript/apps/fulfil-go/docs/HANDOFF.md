@@ -15,6 +15,55 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
 
+## What landed 2026-07-14 (one-active-trip rule, same session)
+
+**ONE ACTIVE TRIP per driver (Andrew, 2026-07-14 — industry norm: stacking
+is PLANNER-composed into one route, never driver-initiated):** own-channel
+compose refuses (`reason: OPEN_TRIP_EXISTS`) and claim 409s while the
+driver holds a claimed trip; EPOD's door is EXEMPT (their system manages
+driver workload). Execution app hides Find work with an open trip
+("Finish your current trip to claim more work."). Smoke 5/5 live (claim →
+compose refused → crafted second offer claim 409 → finish → unblocked).
+CONSOLIDATION of two un-started trips is UNREACHABLE under this rule —
+the follow-up shape is a TOP-UP instead (extend a claimed, un-collected
+trip with more offerable orders at the same store within caps — the
+DoorDash "Add to Route" pattern); queued in next steps, not built.
+
+## What landed 2026-07-14 (bag-sizing build, same session)
+
+**BAG SIZING BUILT** (docs/bag-sizing.md — status header has the 15/15
+LIVE-loop smoke; next-steps item 3 below is DONE):
+
+- Shared: `BagSpecsSchema` (per size code: dims mm + maxMassKg? + units) —
+  `client_settings.bagSpecs` ABSORBS packageUnitSizes (legacy input still
+  honoured as a units overlay; resolved packageUnitSizes DERIVES from
+  bagSpecs so composition math can't drift); pick store profiles overlay
+  per size + `constructionByTemperature`; `PackageConstructionSchema`
+  standard|insulated|insulated-gel; `fitBagSize` (rotation-allowed
+  smallest-fit). Tote-anchored defaults (M 400×300×250).
+- Pick: completion STAMPS construction (picker choice, else derived from
+  the bag's temperature square) + dims (bag → store catalog; loose → the
+  matched line's volumetrics, since loose refs are the item's barcode)
+  onto packages — captured, retunes never rewrite. New picker-session
+  `GET /pick-station-settings` feeds the station. events pick:picked/
+  short-picked packages now carry construction+dims (schemas re-pushed at
+  next sync — RUN `pnpm flowcatalyst:sync`).
+- Picking app: "Bag type" squares pre-derived from the temperature square
+  (tap to stick); loose AUTO-SIZE chip from product dims (asks only when
+  no dims/no line match; oversize → XL); soft OVERSIZE SANITY CHECK in
+  the completion drawer (item bigger than the largest declared bag with
+  no loose, or total volume overflow >20% slack) — advisory, never
+  blocking (bags-only mode can't verify contents; Andrew).
+- Transport: parcels carry construction+dims (part actuals pass through);
+  uber bookings apply a per-client `sizeMap` override from the store's
+  provider entry config (`{code:'uber', config:{sizeMap:{M:'large'}}}`),
+  junk values fall back to the static map; REAL dims to uber DEFERRED
+  (their manifest requires weight alongside — parcel mass not captured).
+  Loose size-equivalents now count REAL units in offer composition
+  (fixes the size:null=1-unit undercount).
+- Tests 126 green (bag-specs resolution/fit + uber sizeMap added); all
+  apps build; smoke 15/15 through the live release-cron→dispatch→PM loop.
+
 ## What landed 2026-07-14 (supervisor car-flag + day-scoped picks, same session)
 
 **RENAME (Andrew: clear language — a scooter IS a vehicle):**
@@ -402,7 +451,7 @@ design doc; read it before touching the replace flow):
    override only when client config permits), provider capability gating in
    the resolver. Config = new `fulfilment` section in client_settings,
    stamped at creation. Read the doc before building.
-3. **BAG SIZING (designed 2026-07-14, decisions LOCKED —
+3. ~~**BAG SIZING**~~ **BUILT 2026-07-14** (see "What landed" above +
    docs/bag-sizing.md)**: client `bagSpecs` catalog (dims+units per size,
    absorbs packageUnitSizes) + pick-profile override; construction tiers
    standard|insulated|insulated-gel derived from the bag's temperature;

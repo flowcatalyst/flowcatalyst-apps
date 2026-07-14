@@ -32,6 +32,7 @@ import {
 } from '../../domain/transport-orders/events/transport-order.events.js';
 import type { TransportOrderRepository } from '../../domain/transport-orders/transport-order.repository.js';
 import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
+import type { ResolvedTransportStoreSettings } from '@fulfil-go/shared';
 import type { ProviderRegistry } from '../../transport/adapter-registry.js';
 import type { ProviderDelivery } from '../../transport/provider-port.js';
 import { UberApiError } from '../../transport/uber/client.js';
@@ -43,6 +44,12 @@ export interface BookTransportOrderCommand {
 
 type RunWrite = <A>(thunk: () => Promise<Result<A>>) => Promise<Result<A>>;
 
+/** Store transport settings — the provider entry configs (sizeMap, …). */
+type TransportSettingsLoader = (
+  clientId: string,
+  storeRef: string,
+) => Promise<ResolvedTransportStoreSettings>;
+
 export class BookTransportOrderUseCase {
   constructor(
     private readonly uow: UnitOfWork,
@@ -51,6 +58,7 @@ export class BookTransportOrderUseCase {
     private readonly activityLog: ActivityLogRepository,
     private readonly providers: ProviderRegistry,
     private readonly runWrite: RunWrite,
+    private readonly transportSettings: TransportSettingsLoader,
   ) {}
 
   async execute(command: BookTransportOrderCommand): Promise<Result<unknown>> {
@@ -76,6 +84,17 @@ export class BookTransportOrderUseCase {
       );
     }
 
+    // Provider entry configs for the origin store — per-client size-bucket
+    // overrides (docs/bag-sizing.md) ride each entry's config blob.
+    const settings = await this.transportSettings(order.clientId, order.originRef).catch(
+      () => null,
+    );
+    const sizeMapFor = (code: string): Record<string, string> | undefined => {
+      const entry = settings?.transportProviders.find((e) => e.code === code);
+      const map = entry?.config?.['sizeMap'];
+      return map && typeof map === 'object' ? (map as Record<string, string>) : undefined;
+    };
+
     // Walk provider-planned candidates OUTSIDE any tx.
     let booked: { provider: string; delivery: ProviderDelivery } | null = null;
     const rejections: { provider: string; reason: string }[] = [];
@@ -99,6 +118,7 @@ export class BookTransportOrderUseCase {
           ...(order.verification?.requirements.minAge != null
             ? { verification: { minAge: order.verification.requirements.minAge } }
             : {}),
+          ...(sizeMapFor(code) ? { sizeMap: sizeMapFor(code) } : {}),
           externalRef: order.id,
           idempotencyKey: order.id,
         });

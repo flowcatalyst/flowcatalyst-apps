@@ -88,7 +88,11 @@ const EMPTY_MESSAGES: Record<string, string> = {
   ANCHOR_UNAVAILABLE: 'That delivery was just taken by another driver.',
   DEPOT_SERVES_NO_STORES: 'Your depot has no stores linked — ask a manager.',
   NO_STORE_ON_CLAIM_STRATEGY: 'No stores at your depot offer claimable work.',
+  OPEN_TRIP_EXISTS: 'Finish your current trip before claiming another.',
 };
+
+/** ONE ACTIVE TRIP (Andrew, 2026-07-14): Find work hides while one is open. */
+const hasOpenTrip = computed(() => myTrips.value.length > 0);
 const emptyMessage = computed(() =>
   emptyReason.value ? (EMPTY_MESSAGES[emptyReason.value] ?? 'No work available right now.') : null,
 );
@@ -563,8 +567,10 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <!-- Find work (optionally anchored on a typed part number) -->
-      <div v-if="!offer" class="flex flex-col gap-2">
+      <!-- Find work (optionally anchored on a typed part number). Hidden
+           while a trip is OPEN — one active trip per driver; the planner
+           composes multi-stop routes, drivers never self-stack. -->
+      <div v-if="!offer && !hasOpenTrip" class="flex flex-col gap-2">
         <UInput
           v-model="anchorRef"
           placeholder="Part number (optional — e.g. 1024)"
@@ -574,6 +580,12 @@ onUnmounted(() => {
         <UButton block size="lg" :loading="busy" @click="findWork">Find work</UButton>
         <UAlert v-if="emptyMessage" :description="emptyMessage" color="neutral" variant="soft" />
       </div>
+      <UAlert
+        v-if="hasOpenTrip && !offer"
+        description="Finish your current trip to claim more work."
+        color="info"
+        variant="soft"
+      />
 
       <!-- The reserved offer, on a countdown -->
       <div v-if="offer" class="rounded-xl border-2 border-brand-400 bg-white p-4">

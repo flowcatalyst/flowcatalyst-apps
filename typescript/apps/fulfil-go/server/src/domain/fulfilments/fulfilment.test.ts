@@ -72,11 +72,13 @@ describe('Fulfilment.partCarFlag', () => {
     const f = make();
     const picked = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, NOW);
     const flagged = Fulfilment.partCarFlag(picked, 'fpt_a' as FulfilmentPartId, true, LATER);
-    expect(flagged.parts.find((p) => p.id === 'fpt_a')?.requiresCarOrLarger).toBe(true);
+    const partById = (f: ReturnType<typeof make>, id: string) =>
+      f.parts.find((p) => (p.id as string) === id);
+    expect(partById(flagged, 'fpt_a')?.requiresCarOrLarger).toBe(true);
     expect(flagged.version).toBe(picked.version + 1);
     // A part still pick_requested is not re-stamped (flag rides completion).
     const notFlagged = Fulfilment.partCarFlag(picked, 'fpt_b' as FulfilmentPartId, true, LATER);
-    expect(notFlagged.parts.find((p) => p.id === 'fpt_b')?.requiresCarOrLarger).toBeNull();
+    expect(partById(notFlagged, 'fpt_b')?.requiresCarOrLarger).toBeNull();
   });
 });
 

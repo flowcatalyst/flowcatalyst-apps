@@ -42,8 +42,8 @@ export function fulfilledQuantity(result: PickLineResult): number {
 
 // Re-exported from the shared contract - a locally re-declared union drifted
 // when 'hot' landed chain-wide (2026-07-13); single source of truth now.
-export type { PackageSize, PackageTemperature } from '@fulfil-go/shared';
-import type { PackageSize, PackageTemperature } from '@fulfil-go/shared';
+export type { PackageConstruction, PackageSize, PackageTemperature } from '@fulfil-go/shared';
+import type { PackageConstruction, PackageSize, PackageTemperature } from '@fulfil-go/shared';
 
 // Shared contract is the source of truth (docs/bag-label-printing.md):
 // printing X bag labels pre-allocates X package refs; refs are STABLE per
@@ -64,6 +64,14 @@ export interface PickPackage {
   readonly kind: 'bag' | 'loose';
   readonly size: PackageSize | null;
   readonly temperature: PackageTemperature;
+  /**
+   * STAMPED AT COMPLETION (docs/bag-sizing.md): construction derives from
+   * the temperature via the store's mapping when the picker didn't choose;
+   * dims come from the store's bag catalog (bags) or the matched line's
+   * volumetrics (loose). Captured — profile retunes never rewrite them.
+   */
+  readonly construction: PackageConstruction;
+  readonly dims: { lengthMm: number; widthMm: number; heightMm: number } | null;
   readonly items: readonly { externalLineRef: string; quantity: number }[] | null;
 }
 

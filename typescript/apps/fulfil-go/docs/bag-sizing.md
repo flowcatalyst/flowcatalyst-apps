@@ -1,8 +1,16 @@
 # Bag sizing, construction & provider size mapping
 
-Status: DESIGNED with Andrew 2026-07-14 (decisions locked below) — NOT
-built. Owner contexts: client settings + pick store profile (catalog),
-pick (capture), transport adapters (mapping).
+Status: BUILT 2026-07-14 (designed same day; decisions locked below).
+Smoke-verified 15/15 through the LIVE platform loop: station settings
+endpoint (catalog + construction map), create → release cron → dispatched
+pick → claim/complete with construction DERIVED from temperature + bag
+dims stamped from the catalog + loose dims stamped from line volumetrics
+→ PM → transport order parcels carrying construction/dims/size-equivalent
++ requiresCarOrLarger. Owner contexts: client settings + pick store
+profile (catalog), pick (capture), transport adapters (mapping).
+NOTE: real `dimensions` to Uber are DEFERRED — their manifest requires
+`weight` alongside dims and parcel mass isn't captured yet (the sizeMap
+override covers bucket judgment calls meanwhile).
 
 ## Industry grounding (2026-07 research)
 

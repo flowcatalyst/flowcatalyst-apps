@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import { useRoute, useRouter } from 'vue-router';
 import {
+  fitBagSize,
+  resolveBagSpecs,
+  resolveConstructionByTemperature,
   sortPickLines,
   type FulfilmentLineLocation,
+  type PackageConstruction,
   type PickDto,
   type PickSortAlgorithm,
+  type ResolvedBagSpecs,
+  type ResolvedConstructionByTemperature,
 } from '@fulfil-go/shared';
 import { useAppCtx } from '../context.js';
 import { printZpl, type PrinterEndpoint } from '../print/print.js';
@@ -68,12 +74,20 @@ const TEMPS = [
   { value: 'frozen', label: 'Frozen' },
   { value: 'hot', label: 'Hot' },
 ] as const;
+// Bag CONSTRUCTION (docs/bag-sizing.md): industry naming — the frozen tier
+// is an insulated bag + gel packs, never "a frozen bag".
+const CONSTRUCTIONS = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'insulated', label: 'Insulated' },
+  { value: 'insulated-gel', label: 'Insulated + gel' },
+] as const;
 
 interface PackagedUnit {
   ref: string;
   kind: 'bag' | 'loose';
   size: (typeof SIZES)[number] | null;
   temperature: (typeof TEMPS)[number]['value'];
+  construction: PackageConstruction;
   items: Record<string, number>;
 }
 
@@ -117,8 +131,61 @@ const pkgForm = reactive({
   ref: '',
   size: null as (typeof SIZES)[number] | null,
   temperature: 'ambient' as (typeof TEMPS)[number]['value'],
+  construction: 'standard' as PackageConstruction,
+  /** Picker tapped a construction square — stop auto-deriving. */
+  constructionTouched: false,
 });
 let looseSeq = 0;
+
+// ── Station bag catalog (docs/bag-sizing.md): drives loose auto-size, the
+// derived construction chip and the oversize sanity check. Fetched per
+// visit; code defaults keep everything working offline. ──────────────────
+const stationBagSpecs = ref<ResolvedBagSpecs>(resolveBagSpecs());
+const stationConstructionMap = ref<ResolvedConstructionByTemperature>(
+  resolveConstructionByTemperature(),
+);
+onMounted(async () => {
+  try {
+    const res = await ctx.api.json<{
+      bagSpecs: ResolvedBagSpecs;
+      constructionByTemperature: ResolvedConstructionByTemperature;
+    }>(`/clients/${ctx.station.clientId.value}/pick-station-settings`);
+    stationBagSpecs.value = res.bagSpecs;
+    stationConstructionMap.value = res.constructionByTemperature;
+  } catch {
+    // Offline / pre-feature server — the shared code defaults stand in.
+  }
+});
+
+// Construction derives from the picker-set temperature square until the
+// picker explicitly taps a construction (then their choice sticks).
+watch(
+  () => pkgForm.temperature,
+  (t) => {
+    if (!pkgForm.constructionTouched) pkgForm.construction = stationConstructionMap.value[t];
+  },
+);
+
+/** Loose ref → the pick line it names (the item's own barcode). */
+const looseLineMatch = computed(() => {
+  if (pkgForm.kind !== 'loose') return undefined;
+  const value = pkgForm.ref.trim();
+  if (!value) return undefined;
+  return lines.value.find((l) => l.gtin === value || l.sku === value);
+});
+
+/** Auto-fitted size-equivalent from the matched line's volumetrics. */
+const looseAutoSize = computed(() => {
+  const v = looseLineMatch.value?.volumetric;
+  if (!v?.lengthMm || !v.widthMm || !v.heightMm) return undefined;
+  return fitBagSize(
+    { lengthMm: v.lengthMm, widthMm: v.widthMm, heightMm: v.heightMm },
+    stationBagSpecs.value,
+  );
+});
+watch(looseAutoSize, (s) => {
+  if (pkgForm.kind === 'loose') pkgForm.size = s === undefined ? pkgForm.size : (s ?? 'XL');
+});
 
 // ── In-progress trolley persistence: a reload/crash mid-pick must not lose
 // the work. Keyed per pick; cleared on any terminal outcome. ──────────────
@@ -198,6 +265,7 @@ type Line = {
   description: string;
   imageUrl?: string;
   quantity: number;
+  volumetric?: { weightGrams: number; lengthMm?: number; widthMm?: number; heightMm?: number };
   temperatureClass?: string;
   allowSubstitutes?: boolean;
   location?: FulfilmentLineLocation;
@@ -473,8 +541,11 @@ function pushPackage(pkgRef: string): void {
   packages.value.push({
     ref: pkgRef,
     kind: pkgForm.kind,
-    size: pkgForm.kind === 'bag' ? pkgForm.size : null,
+    // Loose keeps its size-equivalent (auto-fit or picker-chosen) — it is
+    // the trip-capacity currency (docs/bag-sizing.md).
+    size: pkgForm.size,
     temperature: pkgForm.temperature,
+    construction: pkgForm.construction,
     items: {},
   });
   activeRef.value = pkgRef;
@@ -482,6 +553,8 @@ function pushPackage(pkgRef: string): void {
   pkgForm.ref = '';
   pkgForm.size = null;
   pkgForm.temperature = 'ambient';
+  pkgForm.construction = stationConstructionMap.value.ambient;
+  pkgForm.constructionTouched = false;
   pkgDrawerOpen.value = false;
 }
 
@@ -516,6 +589,54 @@ const canComplete = computed(() => {
   if (packages.value.length === 0) return false;
   if (packMode.value === 'items') return unassignedTotal.value === 0;
   return true;
+});
+
+// ── Oversize sanity check (docs/bag-sizing.md, Andrew's addition):
+// bags-only mode can't verify contents fit, so completion compares picked
+// volumetrics against the DECLARED packages. Soft warning, never a block.
+const sortedDims = (d: { lengthMm: number; widthMm: number; heightMm: number }) =>
+  [d.lengthMm, d.widthMm, d.heightMm].toSorted((a, b) => b - a);
+const containsDims = (
+  item: { lengthMm: number; widthMm: number; heightMm: number },
+  box: { lengthMm: number; widthMm: number; heightMm: number },
+) => sortedDims(item).every((v, i) => v <= (sortedDims(box)[i] as number));
+const volumeMm3 = (d: { lengthMm: number; widthMm: number; heightMm: number }) =>
+  d.lengthMm * d.widthMm * d.heightMm;
+
+const packagingWarnings = computed<string[]>(() => {
+  if (packages.value.length === 0) return [];
+  const specs = stationBagSpecs.value;
+  const warnings: string[] = [];
+  const bags = packages.value.filter((p) => p.kind === 'bag' && p.size);
+  const largestBag = bags
+    .map((p) => specs[p.size as keyof typeof specs].dims)
+    .toSorted((a, b) => volumeMm3(b) - volumeMm3(a))[0];
+  const hasLoose = packages.value.some((p) => p.kind === 'loose');
+
+  let itemsVolume = 0;
+  for (const line of lines.value) {
+    const units = fulfilled(line.externalLineRef);
+    const v = line.volumetric;
+    if (units === 0 || !v?.lengthMm || !v.widthMm || !v.heightMm) continue;
+    const dims = { lengthMm: v.lengthMm, widthMm: v.widthMm, heightMm: v.heightMm };
+    itemsVolume += volumeMm3(dims) * units;
+    if (!hasLoose && (!largestBag || !containsDims(dims, largestBag))) {
+      warnings.push(
+        `"${line.description}" looks bigger than your largest bag — add a bigger bag or a loose item.`,
+      );
+    }
+  }
+  const declaredVolume = packages.value.reduce((sum, p) => {
+    if (p.size) return sum + volumeMm3(specs[p.size as keyof typeof specs].dims);
+    return sum;
+  }, 0);
+  // 20% slack: items never pack perfectly; only flag a real overflow.
+  if (declaredVolume > 0 && itemsVolume > declaredVolume * 1.2) {
+    warnings.push(
+      'Everything picked may not fit the declared bags — check the sizes or add a bag.',
+    );
+  }
+  return warnings;
 });
 
 /** Remaining units of a line still to pack (items sub-mode). */
@@ -601,6 +722,7 @@ async function complete(requiresCarOrLarger: boolean): Promise<void> {
         kind: p.kind,
         ...(p.size ? { size: p.size } : {}),
         temperature: p.temperature,
+        construction: p.construction,
         ...(packMode.value === 'items'
           ? {
               items: Object.entries(p.items).map(([externalLineRef, quantity]) => ({
@@ -1014,9 +1136,19 @@ async function fail(): Promise<void> {
               🏷 Label {{ labelForRef(pkgForm.ref.trim())!.seq }} / {{ labelAlloc!.count }}
             </p>
 
-            <div v-if="pkgForm.kind === 'bag'">
+            <!-- Loose with matched product dims: size auto-fits from the
+                 store's bag catalog — only ask when nothing is known. -->
+            <p
+              v-if="pkgForm.kind === 'loose' && looseAutoSize !== undefined"
+              class="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+            >
+              📏 Size ≈ {{ pkgForm.size }} (auto from product dimensions{{
+                looseAutoSize === null ? ' — larger than any bag' : ''
+              }})
+            </p>
+            <div v-if="pkgForm.kind === 'bag' || looseAutoSize === undefined">
               <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-                Size
+                Size {{ pkgForm.kind === 'loose' ? '(equivalent — for trip capacity)' : '' }}
               </p>
               <div class="flex gap-2">
                 <button
@@ -1056,6 +1188,35 @@ async function fail(): Promise<void> {
                   @click="pkgForm.temperature = t.value"
                 >
                   {{ t.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Construction pre-derives from the temperature square
+                 (docs/bag-sizing.md) — tapping one makes it stick. -->
+            <div>
+              <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Bag type
+                <span v-if="!pkgForm.constructionTouched" class="normal-case text-neutral-300">
+                  · auto
+                </span>
+              </p>
+              <div class="flex gap-2">
+                <button
+                  v-for="c in CONSTRUCTIONS"
+                  :key="c.value"
+                  class="h-12 flex-1 rounded-lg border-2 text-xs font-semibold transition-colors"
+                  :class="
+                    pkgForm.construction === c.value
+                      ? 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-neutral-200 bg-white text-neutral-600'
+                  "
+                  @click="
+                    pkgForm.construction = c.value;
+                    pkgForm.constructionTouched = true;
+                  "
+                >
+                  {{ c.label }}
                 </button>
               </div>
             </div>
@@ -1201,6 +1362,15 @@ async function fail(): Promise<void> {
             <!-- Supervisor pre-flagged: the question is DECIDED — the
                  picker's answer can never downgrade it. -->
             <div v-if="pick.requiresCarOrLarger === true" class="flex flex-col gap-4 p-1">
+              <!-- Soft packaging sanity check (docs/bag-sizing.md) — advise,
+                   never block: the picker holds the physical truth. -->
+              <UAlert
+                v-for="(w, i) in packagingWarnings"
+                :key="`pw-${i}`"
+                :description="w"
+                color="warning"
+                variant="soft"
+              />
               <p class="text-center text-lg font-semibold">🚗 Car or bigger — flagged</p>
               <p class="-mt-2 text-center text-xs text-neutral-500">
                 A supervisor flagged this pick: it can't go on a bike or scooter.
@@ -1213,6 +1383,13 @@ async function fail(): Promise<void> {
               </UButton>
             </div>
             <div v-else class="flex flex-col gap-4 p-1">
+              <UAlert
+                v-for="(w, i) in packagingWarnings"
+                :key="`pw-${i}`"
+                :description="w"
+                color="warning"
+                variant="soft"
+              />
               <!-- Clear language (Andrew, 2026-07-14): a scooter/bike does
                    NOT count — the flag means car or bigger. -->
               <p class="text-center text-lg font-semibold">

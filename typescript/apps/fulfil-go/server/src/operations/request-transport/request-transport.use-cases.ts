@@ -89,6 +89,10 @@ function toParcels(part: FulfilmentPart): TransportParcel[] {
     kind: pkg.kind === 'loose' ? 'loose' : 'bag',
     size: (pkg.size as TransportParcel['size']) ?? null,
     temperature: pkg.temperature,
+    // Stamped at pick completion (docs/bag-sizing.md); pre-feature packages
+    // fall back to 'standard' / unknown dims.
+    construction: pkg.construction ?? 'standard',
+    dims: pkg.dims ?? null,
     description: `${pkg.kind === 'loose' ? 'Loose item' : 'Bag'} ${pkg.ref} (part #${part.shortId})`,
   }));
 }

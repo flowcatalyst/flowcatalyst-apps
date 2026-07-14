@@ -61,6 +61,8 @@ function bookingRequest(overrides: Partial<TransportBookingRequest> = {}): Trans
         kind: 'bag',
         size: 'M',
         temperature: 'ambient',
+        construction: 'standard',
+        dims: null,
         description: 'Bag M · ambient',
       },
       {
@@ -68,6 +70,8 @@ function bookingRequest(overrides: Partial<TransportBookingRequest> = {}): Trans
         kind: 'bag',
         size: 'L',
         temperature: 'chilled',
+        construction: 'standard',
+        dims: null,
         description: 'Bag L · chilled',
       },
     ],
@@ -166,6 +170,15 @@ describe('mapping', () => {
   it('obfuscated manifests expose only package refs, never contents', () => {
     const items = toManifestItems(bookingRequest().parcels, false, true);
     expect(items.map((i) => i.name)).toEqual(['BAG-001', 'BAG-002']);
+  });
+
+  it('per-client sizeMap overrides the default bucket (docs/bag-sizing.md)', () => {
+    // Our M runs slightly over uber's medium at this client → force large.
+    const items = toManifestItems(bookingRequest().parcels, false, false, { M: 'large' });
+    expect(items.map((i) => i.size)).toEqual(['large', 'large']);
+    // Junk override values fall back to the default mapping.
+    const junk = toManifestItems(bookingRequest().parcels, false, false, { M: 'gigantic' });
+    expect(junk.map((i) => i.size)).toEqual(['medium', 'large']);
   });
 
   it('normalizes every Uber status onto the port status machine', () => {

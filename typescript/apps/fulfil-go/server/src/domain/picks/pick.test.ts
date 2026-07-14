@@ -118,6 +118,8 @@ describe('Pick', () => {
           kind: 'bag',
           size: 'M',
           temperature: 'chilled',
+          construction: 'insulated',
+          dims: { lengthMm: 400, widthMm: 300, heightMm: 250 },
           items: [{ externalLineRef: 'L1', quantity: 2 }],
         },
         {
@@ -125,6 +127,8 @@ describe('Pick', () => {
           kind: 'loose',
           size: null,
           temperature: 'ambient',
+          construction: 'standard',
+          dims: null,
           items: [{ externalLineRef: 'L2', quantity: 3 }],
         },
       ],

@@ -7,6 +7,15 @@ export const PackageTemperatureSchema = z.enum(['ambient', 'chilled', 'frozen', 
 export type PackageTemperature = z.infer<typeof PackageTemperatureSchema>;
 
 /**
+ * Bag CONSTRUCTION (docs/bag-sizing.md): how the bag delivers the
+ * temperature the contents need — industry naming (the frozen tier is an
+ * insulated bag + gel packs, never "a frozen bag"). Distinct from
+ * `temperature`, which describes the CONTENTS.
+ */
+export const PackageConstructionSchema = z.enum(['standard', 'insulated', 'insulated-gel']);
+export type PackageConstruction = z.infer<typeof PackageConstructionSchema>;
+
+/**
  * A packed unit: a bag (scanned barcode + size + temperature type) or a
  * loose-item marker. `items` present = scan-items-into-bags mode (contents
  * known); absent = bags-only mode. All-or-none across a completion.
@@ -21,6 +30,8 @@ export const PickPackageSchema = z
     kind: z.enum(['bag', 'loose']),
     size: PackageSizeSchema.nullish(),
     temperature: PackageTemperatureSchema.default('ambient'),
+    /** Absent = server derives from temperature via the store's mapping. */
+    construction: PackageConstructionSchema.optional(),
     items: z
       .array(
         z
