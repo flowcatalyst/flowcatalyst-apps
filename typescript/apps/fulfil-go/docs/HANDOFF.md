@@ -25,6 +25,31 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
 
+## What landed 2026-07-15 (bags-only default pack mode, same session)
+
+**DEFAULT PACK MODE IS CONFIG, GLOBAL DEFAULT 'bags' (Andrew, 2026-07-15):**
+
+- Pick-profile setting `defaultPackMode: 'bags' | 'items'`
+  (store-settings.contract.ts, PICK_SETTINGS_DEFAULTS 'bags') — the packing
+  sub-mode a station STARTS each pick in; the picker can still switch per
+  pick until the first package. Overridable per pick profile (management
+  Pick profiles page gained the select); resolved LIVE via
+  `GET /pick-station-settings` (response gained the field).
+- Picking app: packMode initializes from station settings ('bags' offline
+  code default); a restored WIP trolley or an explicit picker tap outranks
+  the fetched default. "Bags only" now listed first on the sub-mode toggle
+  (+ picking-workflow.md reordered to match).
+- Also this session: Fulfilments-page type filter crashed Nuxt UI 4.9+
+  (reka-ui forbids '' SelectItem values) — 'all' sentinel now, the
+  StoreProfilesPage 'inherit' pattern; server vitest now EXCLUDES dist/
+  (it was silently running stale compiled .test.js copies alongside src —
+  every historical "N tests" count in this file was roughly doubled; the
+  real suite is ~137).
+- Verified: builds green, 137 tests (1 new resolution test); live smoke on
+  :3299 — picker session station-settings returned 'bags', profile PUT
+  override to 'items' reflected immediately, override reverted (dev db
+  'default' pick profile left empty as found).
+
 ## What landed 2026-07-15 (FULFILMENT COMPLETION LEG, same session)
 
 **COMPLETION LEG BUILT** (agreed next-steps item 6; docs/fulfilment-context.md

@@ -76,6 +76,12 @@ const SORT_ALGORITHMS = [
   { label: 'As received (upstream order)', value: 'as-received' },
 ];
 
+/** Packing sub-mode the station starts each pick in (picker can switch). */
+const PACK_MODES = [
+  { label: 'Bags only (barcode + size)', value: 'bags' },
+  { label: 'Scan items into bags (contents tracked)', value: 'items' },
+];
+
 /** Known execution systems — free codes; the common ones get a select. */
 const EXECUTION_SYSTEMS = [
   { label: 'FulfilGo execution app', value: 'own' },
@@ -94,6 +100,7 @@ const form = reactive<Record<string, number | ''>>({});
 // the sentinel for "no override at this layer".
 const INHERIT = 'inherit';
 const formPickSort = ref<string>(INHERIT);
+const formPackMode = ref<string>(INHERIT);
 const formDefaultExec = ref<string>(INHERIT);
 const formExecAlternatives = ref<string>('');
 const formDefaultProvider = ref<string>('');
@@ -133,6 +140,8 @@ function loadForm(): void {
   }
   const sort = settings['pickSortAlgorithm'];
   formPickSort.value = typeof sort === 'string' ? sort : INHERIT;
+  const packMode = settings['defaultPackMode'];
+  formPackMode.value = typeof packMode === 'string' ? packMode : INHERIT;
   const exec = settings['defaultExecutionSystem'];
   formDefaultExec.value = typeof exec === 'string' ? exec : INHERIT;
   const alts = settings['executionSystems'];
@@ -173,6 +182,8 @@ async function save(): Promise<void> {
     if (props.domain === 'pick') {
       if (formPickSort.value !== INHERIT) settings['pickSortAlgorithm'] = formPickSort.value;
       else delete settings['pickSortAlgorithm'];
+      if (formPackMode.value !== INHERIT) settings['defaultPackMode'] = formPackMode.value;
+      else delete settings['defaultPackMode'];
     } else {
       if (formDefaultExec.value !== INHERIT) {
         settings['defaultExecutionSystem'] = formDefaultExec.value;
@@ -348,6 +359,25 @@ watch(
                   value: INHERIT,
                 },
                 ...SORT_ALGORITHMS,
+              ]"
+              class="w-64"
+            />
+          </UFormField>
+
+          <UFormField
+            v-if="domain === 'pick'"
+            label="Default pack mode"
+            help="The packing sub-mode the station starts each pick in. Pickers can still
+              switch per pick before the first package."
+          >
+            <USelect
+              v-model="formPackMode"
+              :items="[
+                {
+                  label: `Inherit (${inheritedString('defaultPackMode', 'bags')})`,
+                  value: INHERIT,
+                },
+                ...PACK_MODES,
               ]"
               class="w-64"
             />

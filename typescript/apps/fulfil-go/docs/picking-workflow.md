@@ -20,14 +20,20 @@ mode is a later phase.
 
 ## Packing sub-modes (chosen per pick; all-or-none, server-enforced)
 
-1. **Scan items into bags** (`items`): every picked unit is assigned to a
+1. **Bags only** (`bags`): scan bag barcodes + attributes, no contents
+   mapping. Mixing sub-modes in one completion is rejected
+   (PACKAGING_MODE_MIXED).
+2. **Scan items into bags** (`items`): every picked unit is assigned to a
    package — contents fully known downstream. Server rejects completion
    unless packaged quantities exactly cover picked quantities per line
    (PACKAGE_ITEMS_MISMATCH). The UI tracks an ACTIVE package; scans/taps
    assign into it.
-2. **Bags only** (`bags`): scan bag barcodes + attributes, no contents
-   mapping. Mixing sub-modes in one completion is rejected
-   (PACKAGING_MODE_MIXED).
+
+The sub-mode a station STARTS each pick in is CONFIG, not code: pick-profile
+`defaultPackMode` (global default `bags`, overridable per pick profile on
+the management app's Pick profiles page), resolved live via
+`GET /pick-station-settings`. The picker can still switch per pick until the
+first package is added; a restored WIP trolley keeps its own mode.
 
 ## Packages
 

@@ -91,7 +91,11 @@ interface PackagedUnit {
   items: Record<string, number>;
 }
 
-const packMode = ref<PackMode>('items');
+// Default sub-mode comes from station settings (defaultPackMode) once they
+// load; 'bags' is the shared code default so offline behaves the same. A
+// restored WIP or an explicit picker tap wins over the fetched default.
+const packMode = ref<PackMode>('bags');
+const packModeSettled = ref(false);
 const packages = ref<PackagedUnit[]>([]);
 
 // ── Bag labels (docs/bag-label-printing.md): printing X pre-allocates X
@@ -149,9 +153,19 @@ onMounted(async () => {
     const res = await ctx.api.json<{
       bagSpecs: ResolvedBagSpecs;
       constructionByTemperature: ResolvedConstructionByTemperature;
+      defaultPackMode?: PackMode;
     }>(`/clients/${ctx.station.clientId.value}/pick-station-settings`);
     stationBagSpecs.value = res.bagSpecs;
     stationConstructionMap.value = res.constructionByTemperature;
+    // Store-profile default sub-mode — only while nothing has decided yet
+    // (a restored trolley or a picker tap outranks configuration).
+    if (
+      !packModeSettled.value &&
+      packages.value.length === 0 &&
+      (res.defaultPackMode === 'bags' || res.defaultPackMode === 'items')
+    ) {
+      packMode.value = res.defaultPackMode;
+    }
   } catch {
     // Offline / pre-feature server — the shared code defaults stand in.
   }
@@ -224,6 +238,7 @@ function restoreWip(): void {
     Object.assign(subs, wip.subs);
     stage.value = wip.stage;
     packMode.value = wip.packMode;
+    packModeSettled.value = true;
     packages.value = wip.packages;
     looseSeq = wip.looseSeq;
     restoringWip = false;
@@ -410,6 +425,7 @@ const activePackage = computed(() => packages.value.find((p) => p.ref === active
 function switchMode(mode: PackMode): void {
   if (packages.value.length > 0) return;
   packMode.value = mode;
+  packModeSettled.value = true;
 }
 
 // ── Bag-label actions ─────────────────────────────────────────────────────
@@ -991,8 +1007,8 @@ async function fail(): Promise<void> {
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="m in [
-            { value: 'items', label: 'Scan items into bags', hint: 'contents tracked' },
             { value: 'bags', label: 'Bags only', hint: 'barcode + size' },
+            { value: 'items', label: 'Scan items into bags', hint: 'contents tracked' },
           ]"
           :key="m.value"
           class="rounded-lg border-2 p-3 text-left transition-colors"

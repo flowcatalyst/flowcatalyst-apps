@@ -74,4 +74,13 @@ describe('pick store settings', () => {
     expect(resolved.pickClaimSlaMinutes).toBe(30);
     expect(resolved.releaseOverdueMinutes).toBe(PICK_SETTINGS_DEFAULTS.releaseOverdueMinutes);
   });
+
+  it('defaultPackMode: bags globally, profile can override to items', () => {
+    expect(resolvePickStoreSettings().defaultPackMode).toBe('bags');
+    expect(resolvePickStoreSettings({ defaultPackMode: 'items' }).defaultPackMode).toBe('items');
+    // A silent store layer inherits the profile's override.
+    expect(resolvePickStoreSettings({ defaultPackMode: 'items' }, {}).defaultPackMode).toBe(
+      'items',
+    );
+  });
 });

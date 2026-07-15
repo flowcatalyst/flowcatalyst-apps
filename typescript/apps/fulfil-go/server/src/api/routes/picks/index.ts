@@ -236,6 +236,7 @@ export function registerPickRoutes(
             bagSpecs: Type.Any(),
             constructionByTemperature: Type.Any(),
             pickSortAlgorithm: Type.String(),
+            defaultPackMode: Type.String(),
           }),
           401: UnauthorizedSchema,
           403: ErrorResponseSchema,
@@ -263,6 +264,7 @@ export function registerPickRoutes(
         bagSpecs: settings.bagSpecs,
         constructionByTemperature: settings.constructionByTemperature,
         pickSortAlgorithm: settings.pickSortAlgorithm,
+        defaultPackMode: settings.defaultPackMode,
       });
     },
   );

@@ -48,13 +48,15 @@ const STATUS_OPTIONS = [
   'cancelling',
   'cancelled',
 ].map((s) => ({ label: s.replaceAll('_', ' '), value: s }));
+// Reka-ui (Nuxt UI 4.9+) forbids '' as a SelectItem value — 'all' is the
+// no-filter sentinel (the StoreProfilesPage 'inherit' pattern).
 const TYPE_OPTIONS = [
-  { label: 'All types', value: '' },
+  { label: 'All types', value: 'all' },
   { label: 'Delivery', value: 'delivery' },
   { label: 'Collect', value: 'collect' },
 ];
 const statusFilter = ref<string[]>([]);
-const typeFilter = ref('');
+const typeFilter = ref('all');
 /** datetime-local values (local time) — sent as ISO. */
 const slotFrom = ref('');
 const slotTo = ref('');
@@ -84,7 +86,7 @@ async function refresh(): Promise<void> {
     const params = new URLSearchParams({ limit: '100' });
     if (storeFilter.value.length > 0) params.set('stores', storeFilter.value.join(','));
     if (statusFilter.value.length > 0) params.set('status', statusFilter.value.join(','));
-    if (typeFilter.value) params.set('type', typeFilter.value);
+    if (typeFilter.value !== 'all') params.set('type', typeFilter.value);
     if (slotFrom.value) params.set('slotFrom', new Date(slotFrom.value).toISOString());
     if (slotTo.value) params.set('slotTo', new Date(slotTo.value).toISOString());
     const res = await api.json<{ fulfilments: FulfilmentDto[] }>(
@@ -295,7 +297,11 @@ function fmt(iso: string): string {
         </label>
         <UButton
           v-if="
-            storeFilter.length > 0 || statusFilter.length > 0 || typeFilter || slotFrom || slotTo
+            storeFilter.length > 0 ||
+            statusFilter.length > 0 ||
+            typeFilter !== 'all' ||
+            slotFrom ||
+            slotTo
           "
           size="xs"
           color="neutral"
@@ -303,7 +309,7 @@ function fmt(iso: string): string {
           @click="
             storeFilter = [];
             statusFilter = [];
-            typeFilter = '';
+            typeFilter = 'all';
             slotFrom = '';
             slotTo = '';
           "

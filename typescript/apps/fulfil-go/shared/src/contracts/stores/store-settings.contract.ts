@@ -35,6 +35,15 @@ export type StoreSettingsDomain = z.infer<typeof StoreSettingsDomainSchema>;
 
 // ── PICK domain ────────────────────────────────────────────────────────────
 
+/**
+ * Packing sub-mode the station STARTS each pick in (docs/picking-workflow.md
+ * "Packing sub-modes"): 'bags' = scan bag barcodes + attributes only;
+ * 'items' = every picked unit assigned into a package. The picker can still
+ * switch per pick — this only sets the default.
+ */
+export const PickPackMode = z.enum(['bags', 'items']);
+export type PickPackMode = z.infer<typeof PickPackMode>;
+
 export const PickStoreSettingsSchema = z
   .object({
     /** Minutes before slotStart that DELIVERY parts release to picking. */
@@ -56,6 +65,12 @@ export const PickStoreSettingsSchema = z
      * walk order within each band.
      */
     pickSortAlgorithm: PickSortAlgorithm.optional(),
+    /**
+     * PROCESS setting: the packing sub-mode the station defaults each pick
+     * to (the picker can still switch per pick). Resolved LIVE via
+     * /pick-station-settings — retunes reach the station on its next visit.
+     */
+    defaultPackMode: PickPackMode.optional(),
     /**
      * PER-SIZE overlay on the client's bag program (docs/bag-sizing.md) —
      * a store stocking different bags redefines whole sizes here.
@@ -86,6 +101,7 @@ export const PICK_SETTINGS_DEFAULTS: ResolvedPickStoreSettings = {
   pickingDeadlineBeforeSlotMinutes: 15,
   releaseOverdueMinutes: 2,
   pickSortAlgorithm: 'walk-sequence',
+  defaultPackMode: 'bags',
   bagSpecs: resolveBagSpecs(),
   constructionByTemperature: resolveConstructionByTemperature(),
 };

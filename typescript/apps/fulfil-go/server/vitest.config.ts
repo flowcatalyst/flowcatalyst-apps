@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    exclude: ['**/node_modules/**'],
+    // dist/ is compiled output — running its stale .test.js copies alongside
+    // src double-counts tests and fails after any src-only change.
+    exclude: ['**/node_modules/**', '**/dist/**'],
   },
 });
