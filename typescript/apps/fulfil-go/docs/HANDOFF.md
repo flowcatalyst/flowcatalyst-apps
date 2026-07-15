@@ -1,13 +1,21 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-14 (handover-verification build; 2026-07-13 index
-pass + loose-barcode work is in the SAME uncommitted working tree). Read
-`CLAUDE.md` first (stack, conventions, gotchas, dev loop); this file is
-"where we are + what's next".
+Last updated: 2026-07-14 (SEVEN features across 13–14 Jul, all COMMITTED
+on main — as WIP-titled commits c283031/45aeba2/b684a69/50a8e4; consider
+squash-labelling before pushing anywhere shared): index pass,
+loose-barcode + Add-package drawer, HANDOVER VERIFICATION (pins, age
+checks, deferred verification), requiresCarOrLarger rename + pick
+SUPERVISOR role + day-scoped stations, BAG SIZING (specs catalog,
+construction, loose auto-size), ONE ACTIVE TRIP per driver, and the
+GUIDED DELIVERY JOURNEY (navigate/arrived/proof none|pin|picture + the
+framework BlobStore port, db/S3 drivers). Read `CLAUDE.md` first; the
+"What landed" blocks below are newest-first.
 **NEXT: delete the demo jobs vertical, the fulfilment completion leg
-(delivered/failed events now flow WITH verification evidence), or the EPOD
-status flow back** (driver report calls are now offline-queued — that
-backlog item is DONE with handover verification).
+(delivered/failed events now flow WITH verification evidence + arrival
+timing), the EPOD status flow back, or the trip TOP-UP (Add-to-Route)**.
+Device/deploy-only verifications outstanding: native camera capture +
+barcode scanning on real Android, TcpPrint vs a real Zebra, the S3 blob
+driver against a real bucket.
 Product decision 2026-07-13: fulfil-go has NO iOS APP — picking stations
 are Android or browser; don't build/maintain ios/ projects. SISTER REPO:
 InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
