@@ -9,12 +9,12 @@ SUPERVISOR role + day-scoped stations, BAG SIZING (specs catalog,
 construction, loose auto-size), ONE ACTIVE TRIP per driver, and the
 GUIDED DELIVERY JOURNEY (navigate/arrived/proof none|pin|picture + the
 framework BlobStore port, db/S3 drivers), plus SIGNATURE proof +
-government-ID photo + management list filters (15 Jul). The DEMO JOBS
-VERTICAL is DELETED (2026-07-15, see below). Read `CLAUDE.md`
+government-ID photo + management list filters (15 Jul). 15 Jul also:
+DEMO JOBS VERTICAL DELETED + the FULFILMENT COMPLETION LEG BUILT (see
+below). Read `CLAUDE.md`
 first; the "What landed" blocks below are newest-first.
-**NEXT: the fulfilment completion leg (delivered/failed events now flow
-WITH verification evidence + arrival timing), the EPOD status flow back,
-or the trip TOP-UP (Add-to-Route)**.
+**NEXT: the EPOD status flow back, the trip TOP-UP (Add-to-Route), or
+offline-queue the driver report calls**.
 Device/deploy-only verifications outstanding: native camera capture +
 barcode scanning on real Android, TcpPrint vs a real Zebra, the S3 blob
 driver against a real bucket.
@@ -24,6 +24,36 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
+
+## What landed 2026-07-15 (FULFILMENT COMPLETION LEG, same session)
+
+**COMPLETION LEG BUILT** (agreed next-steps item 6; docs/fulfilment-context.md
+state sketch is now fully implemented for the delivery leg):
+
+- Subscription `fulfil-go-fulfilment-process` gained the transport-order
+  terminals (delivered/failed/cancelled) → standard definition →
+  `RegisterPartDeliveryUseCase` (operations/fulfilment-transport-process):
+  part picked|short_picked → completed|failed (one version bump), then the
+  derivation — outcomes outstanding → fulfilment COMPLETING, all in-play
+  parts terminal → COMPLETED (all delivered) / PARTIALLY_COMPLETED (mixed —
+  pick-failed siblings count) / FAILED (nothing delivered). markCompletion
+  composes with the part transition (no second bump — house rule).
+- New events (registered + schemas pushed, `flowcatalyst:sync` RUN):
+  `fulfil-go:fulfilment:part:delivered`, `part:delivery-failed`,
+  `fulfilment:completed`, `fulfilment:partially-completed`; the all-failed
+  terminal reuses `fulfilment:failed`. Activity log: part `delivery`
+  entries + fulfilment `lifecycle` terminal entry.
+- Replays/out-of-order ACK via the existing state guards
+  (FULFILMENT_NOT_AWAITING_DELIVERY / PART_TRANSITION_ALREADY_APPLIED).
+- Tests: 260 green (8 new — transition + full derivation matrix).
+- SMOKE-VERIFIED through the LIVE platform loop, twice: leftover claimed
+  trips from earlier sessions finished for real on :3299 — D01 delivered
+  tro_0QZWBMY2ZQ2WE → order:delivered → outbox → poller → platform →
+  :3200 decider → ful_0QZT1CNVNFS95 `ready → completed` (+
+  fulfilment:completed projected AND fanned on the platform); D01 failed
+  tro_0R0388TY2B6VT ('customer not home') → ful_0R03872K2M4Y1 `ready →
+  failed`. PARTIALLY_COMPLETED path is unit-tested only (no multi-part
+  live scenario staged) — worth a look when one arises naturally.
 
 ## What landed 2026-07-15 (demo jobs vertical DELETED)
 
@@ -470,7 +500,7 @@ design doc; read it before touching the replace flow):
 
 | Context         | State                                                                                                                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fulfilment      | create/cancel/release + PM reactions + READY/FAILED derivations + transport trigger (ASAP/STANDARD). Missing: completion leg (consume transport delivered/failed → completing → completed/partially_completed), cancel-while-picking. |
+| Fulfilment      | create/cancel/release + PM reactions + READY/FAILED derivations + transport trigger (ASAP/STANDARD) + COMPLETION LEG (transport terminals → completing → completed/partially_completed/failed). Missing: cancel-while-picking, commerce hook seam (process-definitions.md layer 2).                        |
 | Pick            | Full vertical incl. bag-label printing (n/X pre-allocated refs, reprint, replace). Missing: pick-into-bag-directly mode, approved-substitute lists.                                                                                   |
 | Picker identity | PIN-primary complete. Missing: QR badges, device enrollment, break-glass.                                                                                                                                                             |
 | Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                          |
@@ -611,9 +641,9 @@ design doc; read it before touching the replace flow):
    normalizes (string references only) → TransportOrder machine — plus
    real-EPOD-tenant verification of the claim proxy + sync plan intake
    (their branch is still unpushed).
-6. Fulfilment completion leg: subscription gains transport:order:delivered/
-   failed/cancelled → PM: ready → completing → completed/partially_completed
-   (+ commerce hook seam per docs/process-definitions.md layer 2).
+6. ~~Fulfilment completion leg~~ **BUILT 2026-07-15** (see "What landed"
+   above). Still open from this item: the commerce hook seam
+   (docs/process-definitions.md layer 2).
 7. Management Transport orders page (list API already live) + flightboard
    delivery KPIs (transport exception kinds reserved).
 8. Pick-into-bag-directly mode; picker auth phase 2 (QR/enrollment).

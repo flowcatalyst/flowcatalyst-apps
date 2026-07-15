@@ -21,6 +21,7 @@ import type {
   RegisterPartPickedUseCase,
   RegisterPartPickingUseCase,
 } from '../operations/fulfilment-pick-process/fulfilment-pick-process.use-cases.js';
+import type { RegisterPartDeliveryUseCase } from '../operations/fulfilment-transport-process/fulfilment-transport-process.use-case.js';
 import type {
   RequestTransportUseCase,
   ScheduleTransportRequestUseCase,
@@ -45,6 +46,7 @@ export interface ProcessCommands {
   readonly registerPartPicked: RegisterPartPickedUseCase;
   readonly registerPartCarFlag: RegisterPartCarFlagUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
+  readonly registerPartDelivery: RegisterPartDeliveryUseCase;
   readonly requestEpodProvisioning: RequestEpodProvisioningUseCase;
   readonly requestTransport: RequestTransportUseCase;
   readonly scheduleTransportRequest: ScheduleTransportRequestUseCase;

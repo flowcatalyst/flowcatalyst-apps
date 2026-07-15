@@ -136,3 +136,70 @@ describe('Fulfilment pick-progress transitions', () => {
     expect(next.version).toBe(v); // composes — no bump of its own
   });
 });
+
+describe('Fulfilment completion leg', () => {
+  /** Both parts picked, fulfilment READY — the delivery leg's start state. */
+  function ready() {
+    let f = make();
+    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, LATER);
+    f = Fulfilment.partPickOutcome(f, 'fpt_b' as FulfilmentPartId, false, ACTUALS, LATER);
+    return Fulfilment.markReady(f, LATER);
+  }
+
+  it('partDeliveryOutcome: picked → completed|failed, one version bump', () => {
+    const f = ready();
+    const v = f.version;
+    const delivered = Fulfilment.partDeliveryOutcome(f, 'fpt_a' as FulfilmentPartId, true, LATER);
+    expect(partStatus(delivered, 'fpt_a')).toBe('completed');
+    expect(delivered.version).toBe(v + 1);
+    const failed = Fulfilment.partDeliveryOutcome(f, 'fpt_a' as FulfilmentPartId, false, LATER);
+    expect(partStatus(failed, 'fpt_a')).toBe('failed');
+  });
+
+  it('partDeliveryOutcome ignores parts not awaiting delivery', () => {
+    const f = make(); // parts still pick_requested
+    const next = Fulfilment.partDeliveryOutcome(f, 'fpt_a' as FulfilmentPartId, true, LATER);
+    expect(partStatus(next, 'fpt_a')).toBe('pick_requested');
+  });
+
+  it('deriveCompletion: completing while an outcome is outstanding', () => {
+    const f = Fulfilment.partDeliveryOutcome(ready(), 'fpt_a' as FulfilmentPartId, true, LATER);
+    expect(Fulfilment.deriveCompletion(f)).toBe('completing');
+  });
+
+  it('deriveCompletion: all delivered → completed', () => {
+    let f = Fulfilment.partDeliveryOutcome(ready(), 'fpt_a' as FulfilmentPartId, true, LATER);
+    f = Fulfilment.partDeliveryOutcome(f, 'fpt_b' as FulfilmentPartId, true, LATER);
+    expect(Fulfilment.deriveCompletion(f)).toBe('completed');
+  });
+
+  it('deriveCompletion: mixed outcomes → partially_completed', () => {
+    let f = Fulfilment.partDeliveryOutcome(ready(), 'fpt_a' as FulfilmentPartId, true, LATER);
+    f = Fulfilment.partDeliveryOutcome(f, 'fpt_b' as FulfilmentPartId, false, LATER);
+    expect(Fulfilment.deriveCompletion(f)).toBe('partially_completed');
+  });
+
+  it('deriveCompletion: a pick-failed sibling makes an all-delivered rest partial', () => {
+    // allowPartialFulfilment: part B failed at PICK time; A carried on.
+    let f = make();
+    f = Fulfilment.partPickOutcome(f, 'fpt_a' as FulfilmentPartId, false, ACTUALS, LATER);
+    f = Fulfilment.partFailed(f, 'fpt_b' as FulfilmentPartId, LATER);
+    f = Fulfilment.markReady(f, LATER);
+    f = Fulfilment.partDeliveryOutcome(f, 'fpt_a' as FulfilmentPartId, true, LATER);
+    expect(Fulfilment.deriveCompletion(f)).toBe('partially_completed');
+  });
+
+  it('deriveCompletion: nothing delivered → failed', () => {
+    let f = Fulfilment.partDeliveryOutcome(ready(), 'fpt_a' as FulfilmentPartId, false, LATER);
+    f = Fulfilment.partDeliveryOutcome(f, 'fpt_b' as FulfilmentPartId, false, LATER);
+    expect(Fulfilment.deriveCompletion(f)).toBe('failed');
+  });
+
+  it('markCompletion composes WITHOUT a second version bump', () => {
+    const f = Fulfilment.partDeliveryOutcome(ready(), 'fpt_a' as FulfilmentPartId, true, LATER);
+    const v = f.version;
+    const next = Fulfilment.markCompletion(f, 'completing', LATER);
+    expect(next.status).toBe('completing');
+    expect(next.version).toBe(v);
+  });
+});

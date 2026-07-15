@@ -37,7 +37,9 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
         description:
           'The fulfilment process manager: subscribes to pick-context outcomes ' +
           'and advances part + fulfilment state (picking → picked/short_picked ' +
-          '→ ready, or the all-or-nothing failure fan-out). Also reacts to its ' +
+          '→ ready, or the all-or-nothing failure fan-out), and to transport-' +
+          'order terminals for the completion leg (completing → completed / ' +
+          'partially_completed / failed). Also reacts to its ' +
           'own fulfilment:created to dispatch EPOD master-data provisioning ' +
           'when an origin store runs the EPOD execution system.',
         target: `${config.publicBaseUrl}/processes/fulfilment`,
@@ -52,6 +54,10 @@ export function buildFulfilGoDefinitions(config: FulfilGoDefinitionsConfig): syn
           // Supervisor car-flag on an already-completed pick → re-stamp the
           // part while transport hasn't been requested yet.
           { eventTypeCode: 'fulfil-go:pick:pick:car-flag-updated' },
+          // THE COMPLETION LEG: transport-order terminal outcomes.
+          { eventTypeCode: 'fulfil-go:transport:order:delivered' },
+          { eventTypeCode: 'fulfil-go:transport:order:failed' },
+          { eventTypeCode: 'fulfil-go:transport:order:cancelled' },
         ],
         dispatchPoolCode: config.dispatchPoolCode,
         mode: 'BLOCK_ON_ERROR',

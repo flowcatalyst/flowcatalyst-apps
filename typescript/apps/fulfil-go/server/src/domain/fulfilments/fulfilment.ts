@@ -302,6 +302,69 @@ export const Fulfilment = {
     return fulfilment.parts.filter((p) => p.status !== 'failed' && p.status !== 'cancelled');
   },
 
+  /**
+   * COMPLETION LEG (docs/fulfilment-context.md): the transport order's
+   * terminal outcome lands on the part — `picked|short_picked|ready|
+   * handed_over → completed|failed`. (ready/handed_over accepted for when
+   * intermediate transport statuses start driving part state.)
+   */
+  partDeliveryOutcome(
+    prior: Fulfilment,
+    partId: FulfilmentPartId,
+    delivered: boolean,
+    now: Date,
+  ): Fulfilment {
+    return {
+      ...prior,
+      parts: prior.parts.map((part) =>
+        part.id === partId && Fulfilment.awaitingDelivery(part)
+          ? { ...part, status: delivered ? 'completed' : 'failed', updatedAt: now }
+          : part,
+      ),
+      version: prior.version + 1,
+      updatedAt: now,
+    };
+  },
+
+  /** True while the part is out with transport, awaiting a terminal outcome. */
+  awaitingDelivery(part: FulfilmentPart): boolean {
+    return (
+      part.status === 'picked' ||
+      part.status === 'short_picked' ||
+      part.status === 'ready' ||
+      part.status === 'handed_over'
+    );
+  },
+
+  /**
+   * The fulfilment status implied by the parts' delivery-leg states:
+   * `completing` while any part still awaits its outcome, then
+   * completed (all in-play parts delivered) | partially_completed (mixed —
+   * a failed part counts whether it failed at pick or delivery) | failed
+   * (nothing was delivered). Meaningful only from ready/completing.
+   */
+  deriveCompletion(
+    fulfilment: Fulfilment,
+  ): 'completing' | 'completed' | 'partially_completed' | 'failed' {
+    if (fulfilment.parts.some((p) => Fulfilment.awaitingDelivery(p))) return 'completing';
+    const anyDelivered = fulfilment.parts.some((p) => p.status === 'completed');
+    const anyFailed = fulfilment.parts.some((p) => p.status === 'failed');
+    if (!anyDelivered) return 'failed';
+    return anyFailed ? 'partially_completed' : 'completed';
+  },
+
+  /**
+   * Apply a completion-leg status. NO version bump — always COMPOSES with
+   * the partDeliveryOutcome transition in the same commit (see markReady).
+   */
+  markCompletion(
+    prior: Fulfilment,
+    status: 'completing' | 'completed' | 'partially_completed' | 'failed',
+    now: Date,
+  ): Fulfilment {
+    return { ...prior, status, updatedAt: now };
+  },
+
   /** True when every viable part has finished picking (and at least one exists). */
   allViablePicked(fulfilment: Fulfilment): boolean {
     const viable = Fulfilment.viableParts(fulfilment);

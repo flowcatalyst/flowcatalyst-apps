@@ -9,6 +9,7 @@
  */
 import { Result, UseCaseError } from '@fulfil-go/framework';
 import type { FulfilmentPickedData } from '../domain/fulfilments/events/fulfilment-pick-progress.events.js';
+import type { TransportOrderEventData } from '../domain/transport-orders/events/transport-order.events.js';
 import type { PickCarFlagUpdatedData } from '../domain/picks/events/pick-car-flag.event.js';
 import type { PickClaimedData } from '../domain/picks/events/pick-claimed.event.js';
 import type {
@@ -26,6 +27,9 @@ const HANDLES = [
   'fulfil-go:pick:pick:short-picked',
   'fulfil-go:pick:pick:failed',
   'fulfil-go:pick:pick:car-flag-updated',
+  'fulfil-go:transport:order:delivered',
+  'fulfil-go:transport:order:failed',
+  'fulfil-go:transport:order:cancelled',
 ] as const;
 
 export const standardDefinition: ProcessDefinition = {
@@ -100,6 +104,24 @@ export const standardDefinition: ProcessDefinition = {
           partId: data.partId,
           requiresCarOrLarger: data.requiresCarOrLarger,
           pickStatus: data.pickStatus,
+        });
+      }
+
+      case 'fulfil-go:transport:order:delivered':
+      case 'fulfil-go:transport:order:failed':
+      case 'fulfil-go:transport:order:cancelled': {
+        // THE COMPLETION LEG: the transport order's terminal outcome lands
+        // on the part; the command owns the completing → completed/
+        // partially_completed/failed derivation.
+        const data = event.payload as TransportOrderEventData;
+        return commands.registerPartDelivery.execute({
+          clientId: event.clientId,
+          fulfilmentId: event.fulfilmentId,
+          partId: data.partId,
+          transportOrderId: data.transportOrderId,
+          provider: data.provider,
+          delivered: event.eventType === 'fulfil-go:transport:order:delivered',
+          ...(data.reason ? { reason: data.reason } : {}),
         });
       }
 

@@ -77,6 +77,7 @@ import {
   RegisterPartPickedUseCase,
   RegisterPartPickingUseCase,
 } from './operations/fulfilment-pick-process/fulfilment-pick-process.use-cases.js';
+import { RegisterPartDeliveryUseCase } from './operations/fulfilment-transport-process/fulfilment-transport-process.use-case.js';
 import {
   ProvisionEpodUseCase,
   RequestEpodProvisioningUseCase,
@@ -191,6 +192,7 @@ export interface AppContextUseCases {
   readonly registerPartPicked: RegisterPartPickedUseCase;
   readonly registerPartCarFlag: RegisterPartCarFlagUseCase;
   readonly registerPartFailed: RegisterPartFailedUseCase;
+  readonly registerPartDelivery: RegisterPartDeliveryUseCase;
   readonly requestEpodProvisioning: RequestEpodProvisioningUseCase;
   readonly provisionEpod: ProvisionEpodUseCase;
   readonly requestTransport: RequestTransportUseCase;
@@ -551,6 +553,12 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         activityLogRepo,
       ),
       registerPartFailed: new RegisterPartFailedUseCase(
+        uow,
+        aggregateRegistry,
+        fulfilmentRepo,
+        activityLogRepo,
+      ),
+      registerPartDelivery: new RegisterPartDeliveryUseCase(
         uow,
         aggregateRegistry,
         fulfilmentRepo,

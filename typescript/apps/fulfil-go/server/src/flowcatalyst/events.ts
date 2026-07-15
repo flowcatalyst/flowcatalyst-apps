@@ -26,6 +26,12 @@ import {
   FulfilmentPartPickingEventType,
   FulfilmentPickedEventType,
 } from '../domain/fulfilments/events/fulfilment-pick-progress.events.js';
+import {
+  FulfilmentCompletedEventType,
+  FulfilmentPartDeliveredEventType,
+  FulfilmentPartDeliveryFailedEventType,
+  FulfilmentPartiallyCompletedEventType,
+} from '../domain/fulfilments/events/fulfilment-completion.events.js';
 import { FulfilmentTransportScheduledEventType } from '../domain/fulfilments/events/fulfilment-transport-scheduled.event.js';
 import {
   TransportOrderAssignedEventType,
@@ -67,6 +73,10 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   FulfilmentPartFailedEventType,
   FulfilmentPickedEventType,
   FulfilmentFailedEventType,
+  FulfilmentPartDeliveredEventType,
+  FulfilmentPartDeliveryFailedEventType,
+  FulfilmentCompletedEventType,
+  FulfilmentPartiallyCompletedEventType,
   FulfilmentEpodProvisionRequestedEventType,
   FulfilmentTransportScheduledEventType,
   // Pick context (the fulfilment process manager subscribes to these)
@@ -77,7 +87,7 @@ export const fulfilGoEventTypes: readonly FulfilGoEventType[] = [
   PickPickedEventType,
   PickShortPickedEventType,
   PickFailedEventType,
-  // Transport context (the completion leg will subscribe to these)
+  // Transport context (the completion leg subscribes to the terminals)
   TransportOrderRequestedEventType,
   TransportOrderBookedEventType,
   TransportOrderAssignedEventType,
