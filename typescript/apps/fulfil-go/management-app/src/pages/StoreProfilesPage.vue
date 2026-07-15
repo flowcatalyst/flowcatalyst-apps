@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
@@ -93,7 +94,7 @@ const numberFields = computed(() => (props.domain === 'pick' ? PICK_FIELDS : TRA
 
 const defaults = ref<Record<string, unknown>>({});
 const profiles = ref<Profile[]>([]);
-const selectedCode = ref('default');
+const selectedCode = persistedFilter(() => `store-profiles-${props.domain}`, 'profile', 'default');
 const form = reactive<Record<string, number | ''>>({});
 /** String-valued fields (selects / free text); '' = inherit. */
 // Reka-ui (Nuxt UI 4.9+) forbids '' as a SelectItem value — 'inherit' is

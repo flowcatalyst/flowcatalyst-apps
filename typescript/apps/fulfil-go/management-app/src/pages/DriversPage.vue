@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
@@ -29,7 +30,7 @@ interface DriverSummary {
 const depots = ref<DepotSummary[]>([]);
 const vehicleClasses = ref<{ code: string; name: string }[]>([]);
 const drivers = ref<DriverSummary[]>([]);
-const selectedDepot = ref<string>('');
+const selectedDepot = persistedFilter<string>('drivers', 'depot', '');
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const busy = reactive({ seed: false, create: false, load: false });
@@ -68,7 +69,9 @@ async function loadDepots(): Promise<void> {
   try {
     const res = await api.json<{ depots: DepotSummary[] }>(`/clients/${clientId.value}/depots`);
     depots.value = res.depots;
-    if (!selectedDepot.value && res.depots.length > 0) {
+    // Unset OR a remembered depot that no longer exists → first available.
+    const known = res.depots.some((d) => d.depotRef === selectedDepot.value);
+    if (!known && res.depots.length > 0) {
       selectedDepot.value = res.depots[0]!.depotRef;
     }
     const cfg = await api.json<{ settings: Record<string, unknown> }>(

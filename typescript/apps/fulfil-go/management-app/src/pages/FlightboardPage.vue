@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { createSseClient, type SseClient, type SseState } from '@fulfil-go/mobile-kit/sse';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 interface StoreSummary {
@@ -62,7 +63,7 @@ interface FlightboardData {
 const router = useRouter();
 const data = ref<FlightboardData | null>(null);
 const stores = ref<StoreSummary[]>([]);
-const storeFilter = ref<string[]>([]);
+const storeFilter = persistedFilter<string[]>('flightboard', 'stores', []);
 const error = ref<string | null>(null);
 const loading = ref(false);
 const updatedAt = ref<Date | null>(null);

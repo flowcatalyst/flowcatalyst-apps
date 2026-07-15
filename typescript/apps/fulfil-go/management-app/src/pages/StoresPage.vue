@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import storeFixtures from '../generator/data/stores.json';
 import PageHeader from '../components/PageHeader.vue';
 
@@ -60,7 +61,7 @@ async function assignProfile(
     profileBusy.value = null;
   }
 }
-const filter = ref('');
+const filter = persistedFilter('stores', 'search', '');
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const busy = ref(false);

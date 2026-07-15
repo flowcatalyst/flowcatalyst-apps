@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
@@ -57,8 +58,8 @@ const TRIP_STATUSES = ['offered', 'claimed', 'completed', 'expired', 'released']
 
 const orders = ref<TransportOrder[]>([]);
 const trips = ref<Trip[]>([]);
-const orderStatus = ref<string>(ALL);
-const tripStatus = ref<string>(ALL);
+const orderStatus = persistedFilter<string>('transport-orders', 'orderStatus', ALL);
+const tripStatus = persistedFilter<string>('transport-orders', 'tripStatus', ALL);
 const loading = ref(false);
 const error = ref<string | null>(null);
 

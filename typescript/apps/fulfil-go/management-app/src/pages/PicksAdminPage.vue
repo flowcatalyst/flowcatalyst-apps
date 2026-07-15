@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import type { PickDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
@@ -28,7 +29,7 @@ const ALL_STORES = '__all__';
 const picks = ref<PickDto[]>([]);
 const pickerNames = ref<Record<string, string>>({});
 const stores = ref<StoreSummary[]>([]);
-const storeFilter = ref<string>(ALL_STORES);
+const storeFilter = persistedFilter<string>('picks-admin', 'store', ALL_STORES);
 const loading = ref(false);
 const error = ref<string | null>(null);
 

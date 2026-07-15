@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 interface StoreSummary {
@@ -24,7 +25,7 @@ interface PickerSummary {
 
 const stores = ref<StoreSummary[]>([]);
 const pickers = ref<PickerSummary[]>([]);
-const selectedStore = ref<string>('');
+const selectedStore = persistedFilter<string>('pickers', 'store', '');
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const busy = reactive({ seed: false, create: false, load: false });
@@ -49,7 +50,9 @@ async function loadStores(): Promise<void> {
   try {
     const res = await api.json<{ stores: StoreSummary[] }>(`/clients/${clientId.value}/stores`);
     stores.value = res.stores;
-    if (!selectedStore.value && res.stores.length > 0) {
+    // Unset OR a remembered store that no longer exists → first available.
+    const known = res.stores.some((s) => s.storeRef === selectedStore.value);
+    if (!known && res.stores.length > 0) {
       selectedStore.value = res.stores[0]!.storeRef;
     }
   } catch (err) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 interface StoreSummary {
@@ -26,7 +27,7 @@ interface PrinterDto {
 
 const printers = ref<PrinterDto[]>([]);
 const stores = ref<StoreSummary[]>([]);
-const filter = ref('');
+const filter = persistedFilter('printers', 'search', '');
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const loading = ref(false);

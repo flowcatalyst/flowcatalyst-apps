@@ -84,3 +84,11 @@ side panel**, not dialogs, for detail view / edit / simple action forms:
   never auto-merge.
 - Grids poll or subscribe (SSE) and update in place; the open panel refreshes
   when its row's data changes.
+- **Filters survive reloads (STANDARD, Andrew 2026-07-15)**: every list
+  filter/selector in the management app is a `persistedFilter(...)` from
+  `src/lib/persisted-filter.ts` — a ref mirrored to localStorage, keyed per
+  page + filter + CLIENT (switching tenants swaps to that client's
+  remembered filters). Use it for filter state only, never form drafts or
+  server data; pages that auto-select a first entity (Pickers, Drivers)
+  validate the remembered ref still exists and fall back to the first.
+  Reused-across-routes pages pass a page-key GETTER (see StoreProfilesPage).

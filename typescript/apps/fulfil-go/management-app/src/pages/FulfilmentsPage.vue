@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { FulfilmentDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 interface LogEntry {
@@ -35,7 +36,7 @@ const cancelReason = ref('');
 const cancelBusy = ref(false);
 const stores = ref<StoreSummary[]>([]);
 /** Multi-select store filter — a fulfilment matches when ANY part is at a selected store. */
-const storeFilter = ref<string[]>([]);
+const storeFilter = persistedFilter<string[]>('fulfilments', 'stores', []);
 // Server-side filters (Andrew, 2026-07-15): status, type, slot range.
 const STATUS_OPTIONS = [
   'created',
@@ -55,11 +56,11 @@ const TYPE_OPTIONS = [
   { label: 'Delivery', value: 'delivery' },
   { label: 'Collect', value: 'collect' },
 ];
-const statusFilter = ref<string[]>([]);
-const typeFilter = ref('all');
+const statusFilter = persistedFilter<string[]>('fulfilments', 'statuses', []);
+const typeFilter = persistedFilter('fulfilments', 'type', 'all');
 /** datetime-local values (local time) — sent as ISO. */
-const slotFrom = ref('');
-const slotTo = ref('');
+const slotFrom = persistedFilter('fulfilments', 'slotFrom', '');
+const slotTo = persistedFilter('fulfilments', 'slotTo', '');
 
 const storeOptions = computed(() =>
   stores.value.map((s) => ({ label: `${s.storeRef} · ${s.name}`, value: s.storeRef })),

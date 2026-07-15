@@ -25,6 +25,23 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
 
+## What landed 2026-07-15 (management filters survive reloads, same session)
+
+**PERSISTED FILTERS — management-app STANDARD (Andrew, 2026-07-15):**
+`persistedFilter(page, name, initial)` in management-app
+`src/lib/persisted-filter.ts` (documented in docs/ui-guidelines.md
+"Interaction conventions") — a ref mirrored to localStorage
+(`fulfilgo.mgmt.filter.<page>.<name>.<clientId>`), CLIENT-SCOPED so the
+tenant switcher swaps to that client's remembered filters. Applied to every
+filter surface: Fulfilments (stores/statuses/type/slot range), Flightboard
+(stores), Picks admin (store), Transport orders (order+trip status),
+Pickers (store) + Drivers (depot) — both now validate the remembered ref
+still exists, falling back to the first — Printers + Stores (search text),
+Store profiles (selected profile, per domain via a page-key getter since
+the component is route-reused). 7 unit tests (node env, stubbed
+localStorage — happy-dom isn't a dep). Apply the standard to every NEW
+filter/selector.
+
 ## What landed 2026-07-15 (bags-only default pack mode, same session)
 
 **DEFAULT PACK MODE IS CONFIG, GLOBAL DEFAULT 'bags' (Andrew, 2026-07-15):**
