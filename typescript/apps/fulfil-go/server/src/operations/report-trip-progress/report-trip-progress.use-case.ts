@@ -60,9 +60,12 @@ export interface ReportEvidenceInput {
   readonly ageCheck?: {
     readonly method: 'id-attestation' | 'visual-override';
     readonly docType?: string | undefined;
+    readonly idPhotoRef?: string | null;
   } | null;
   /** Proof-of-delivery photo (client-generated blob ref, pod_…). */
   readonly photoRef?: string | null;
+  /** Customer signature image (client-generated blob ref, sig_…). */
+  readonly signatureRef?: string | null;
   /** The driver's "I've arrived" tap (ISO). */
   readonly arrivedAt?: string | null;
 }
@@ -209,6 +212,7 @@ export class ReportTripProgressUseCase {
           pinOutcome,
           ageCheck: evidence?.ageCheck ?? null,
           photoRef: evidence?.photoRef ?? null,
+          signatureRef: evidence?.signatureRef ?? null,
           arrivedAt: evidence?.arrivedAt ?? null,
           at: now.toISOString(),
         };

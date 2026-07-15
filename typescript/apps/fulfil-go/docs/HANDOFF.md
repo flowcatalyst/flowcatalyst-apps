@@ -1,6 +1,6 @@
 # fulfil-go — handoff / pickup state
 
-Last updated: 2026-07-14 (SEVEN features across 13–14 Jul, all COMMITTED
+Last updated: 2026-07-15 (EIGHT features across 13–15 Jul, all COMMITTED
 on main — as WIP-titled commits c283031/45aeba2/b684a69/50a8e4; consider
 squash-labelling before pushing anywhere shared): index pass,
 loose-barcode + Add-package drawer, HANDOVER VERIFICATION (pins, age
@@ -8,8 +8,9 @@ checks, deferred verification), requiresCarOrLarger rename + pick
 SUPERVISOR role + day-scoped stations, BAG SIZING (specs catalog,
 construction, loose auto-size), ONE ACTIVE TRIP per driver, and the
 GUIDED DELIVERY JOURNEY (navigate/arrived/proof none|pin|picture + the
-framework BlobStore port, db/S3 drivers). Read `CLAUDE.md` first; the
-"What landed" blocks below are newest-first.
+framework BlobStore port, db/S3 drivers), plus SIGNATURE proof +
+government-ID photo + management list filters (15 Jul). Read `CLAUDE.md`
+first; the "What landed" blocks below are newest-first.
 **NEXT: delete the demo jobs vertical, the fulfilment completion leg
 (delivered/failed events now flow WITH verification evidence + arrival
 timing), the EPOD status flow back, or the trip TOP-UP (Add-to-Route)**.
@@ -22,6 +23,23 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
+
+## What landed 2026-07-15 (signature + ID-photo + filters session)
+
+**SIGNATURE PROOF + GOVERNMENT-ID PHOTO + LIST FILTERS** (smoke 9/9;
+docs/handover-verification.md "Signature proof + government-ID photo"):
+
+- `deliveryProof` gained `'signature'` end-to-end: canvas signature pad in
+  the delivery drawer → PNG → blob store (`sig_…`), `signatureRef` on the
+  evidence; missing signature = accepted + flagged. Stops badge ✍️.
+- `ageIdPhotoRequired` (client fulfilment settings, DEFAULT OFF — POPIA):
+  restricted deliveries on the id-attestation path must photograph the
+  government ID (`id_…` blob, `ageCheck.idPhotoRef`); missing = flagged
+  'government-ID photo missing'. Camera reused via a capture-target seam.
+- Blob refs now `(pod|sig|id)_…` on the same pod-photos endpoints.
+- Management Fulfilments page: server-side FILTERS — status (multi),
+  type, slotStart range (rides idx_fulfilments_client_slot) — filter bar
+  + `status`/`type`/`slotFrom`/`slotTo` query params on the list API.
 
 ## What landed 2026-07-14 (guided delivery journey, same session)
 

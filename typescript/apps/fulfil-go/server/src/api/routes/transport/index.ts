@@ -761,12 +761,16 @@ export function registerTransportRoutes(
         {
           method: Type.Union([Type.Literal('id-attestation'), Type.Literal('visual-override')]),
           docType: Type.Optional(Type.String({ maxLength: 40 })),
+          /** Government-ID photo (blob ref) when the policy requires it. */
+          idPhotoRef: Type.Optional(Type.String({ maxLength: 64 })),
         },
         { additionalProperties: false },
       ),
     ),
     /** Proof-of-delivery photo (blob ref, client-generated pod_…). */
     photoRef: Type.Optional(Type.String({ maxLength: 64 })),
+    /** Customer signature image (blob ref, client-generated sig_…). */
+    signatureRef: Type.Optional(Type.String({ maxLength: 64 })),
     /** The driver's "I've arrived" tap (ISO) — arrival-to-handover timing. */
     arrivedAt: Type.Optional(Type.String({ maxLength: 40 })),
   };
@@ -812,8 +816,13 @@ export function registerTransportRoutes(
       method?: 'scan' | 'pin';
       scannedRefs?: string[];
       pinEntered?: string;
-      ageCheck?: { method: 'id-attestation' | 'visual-override'; docType?: string };
+      ageCheck?: {
+        method: 'id-attestation' | 'visual-override';
+        docType?: string;
+        idPhotoRef?: string;
+      };
       photoRef?: string;
+      signatureRef?: string;
       arrivedAt?: string;
     };
     const result = await appContext.runWrite(() =>
@@ -830,6 +839,7 @@ export function registerTransportRoutes(
           pinEntered: body.pinEntered ?? null,
           ageCheck: body.ageCheck ?? null,
           photoRef: body.photoRef ?? null,
+          signatureRef: body.signatureRef ?? null,
           arrivedAt: body.arrivedAt ?? null,
         },
       }),
@@ -915,10 +925,10 @@ export function registerTransportRoutes(
           .send({ error: 'forbidden', message: 'This endpoint requires a driver session.' });
       }
       const { clientId, ref } = request.params as { clientId: string; ref: string };
-      if (!/^pod_[A-Za-z0-9_-]{6,48}$/.test(ref)) {
+      if (!/^(pod|sig|id)_[A-Za-z0-9_-]{6,48}$/.test(ref)) {
         return reply
           .code(400)
-          .send({ error: 'INVALID_REF', message: 'photoRef must match pod_<id>.' });
+          .send({ error: 'INVALID_REF', message: 'blob ref must match (pod|sig|id)_<id>.' });
       }
       const { imageBase64, contentType } = request.body as {
         imageBase64: string;

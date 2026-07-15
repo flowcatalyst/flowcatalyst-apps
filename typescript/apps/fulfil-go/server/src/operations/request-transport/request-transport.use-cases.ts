@@ -290,6 +290,7 @@ export class RequestTransportUseCase {
           deliveryProof: handoverDeliveryProof(fulfilment.handoverPolicy),
           minAge: fulfilment.maxRestrictedAge,
           ageVisualOverrideAllowed: fulfilment.handoverPolicy?.ageVisualOverrideAllowed ?? false,
+          ageIdPhotoRequired: fulfilment.handoverPolicy?.ageIdPhotoRequired ?? false,
         },
         id: orderId,
         clientId: fulfilment.clientId,

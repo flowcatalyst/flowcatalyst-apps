@@ -138,6 +138,7 @@ export class CreateFulfilmentUseCase {
       deliveryProof: settings.fulfilment.deliveryProof,
       deliveryPinSource: settings.fulfilment.deliveryPinSource,
       ageVisualOverrideAllowed: settings.fulfilment.ageVisualOverrideAllowed,
+      ageIdPhotoRequired: settings.fulfilment.ageIdPhotoRequired,
     };
     const deliveryPin = resolveDeliveryPin(handoverPolicy, command.destination);
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -240,8 +240,21 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
       limit: number,
       offset: number,
       storeRefs?: readonly string[],
+      filters?: {
+        readonly statuses?: readonly string[];
+        readonly type?: string;
+        readonly slotFrom?: Date;
+        readonly slotTo?: Date;
+      },
     ) {
       const conditions = [eq(fulfilments.clientId, clientId)];
+      if (filters?.statuses && filters.statuses.length > 0) {
+        conditions.push(inArray(fulfilments.status, [...filters.statuses]));
+      }
+      if (filters?.type) conditions.push(eq(fulfilments.type, filters.type));
+      // slotStart range rides idx_fulfilments_client_slot (2026-07 index pass).
+      if (filters?.slotFrom) conditions.push(gte(fulfilments.slotStart, filters.slotFrom));
+      if (filters?.slotTo) conditions.push(lte(fulfilments.slotStart, filters.slotTo));
       if (storeRefs && storeRefs.length > 0) {
         // "Any part at any of these stores" — semi-join on the indexed
         // origin_ref column rather than digging into the jsonb origin.

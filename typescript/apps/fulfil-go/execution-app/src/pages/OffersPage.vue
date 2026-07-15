@@ -50,8 +50,10 @@ interface StopVerification {
   requirements: {
     pickupPin: boolean;
     deliveryPin: boolean;
+    deliveryProof?: 'none' | 'pin' | 'picture' | 'signature';
     minAge: number | null;
     ageVisualOverrideAllowed: boolean;
+    ageIdPhotoRequired?: boolean;
   };
   collectionMethod: string | null;
   deliveryPinOutcome: string | null;
@@ -187,8 +189,13 @@ interface ReportBody {
   method?: 'scan' | 'pin';
   scannedRefs?: string[];
   pinEntered?: string;
-  ageCheck?: { method: 'id-attestation' | 'visual-override'; docType?: string };
+  ageCheck?: {
+    method: 'id-attestation' | 'visual-override';
+    docType?: string;
+    idPhotoRef?: string;
+  };
   photoRef?: string;
+  signatureRef?: string;
   arrivedAt?: string;
 }
 
@@ -351,10 +358,8 @@ async function confirmPinOverride(): Promise<void> {
 
 // ── Guided stop sequence (Andrew, 2026-07-14): stops run in VROOM order —
 // navigate → arrived → proof → delivered, then the next stop unlocks. ────
-const effectiveProof = (stop: MyTripStop): 'none' | 'pin' | 'picture' => {
-  const reqs = stop.verification?.requirements as
-    | (StopVerification['requirements'] & { deliveryProof?: 'none' | 'pin' | 'picture' })
-    | undefined;
+const effectiveProof = (stop: MyTripStop): 'none' | 'pin' | 'picture' | 'signature' => {
+  const reqs = stop.verification?.requirements;
   if (!reqs) return 'none';
   return reqs.deliveryProof ?? (reqs.deliveryPin ? 'pin' : 'none');
 };
@@ -404,12 +409,24 @@ const deliverDrawer = reactive({
   docType: 'id-card' as string,
   /** Proof-of-delivery photo (base64, no prefix) when proof = 'picture'. */
   photoBase64: null as string | null,
+  /** Government-ID photo when the policy requires it (restricted orders). */
+  idPhotoBase64: null as string | null,
+  /** Signature pad has strokes (proof = 'signature'). */
+  signatureDrawn: false,
   photoBusy: false,
   note: null as string | null,
 });
 const photoInput = ref<HTMLInputElement | null>(null);
+/** Which capture the camera/file input feeds: proof photo or ID photo. */
+const captureTarget = ref<'pod' | 'id'>('pod');
 
-async function capturePodPhoto(): Promise<void> {
+function setCaptured(base64: string | null): void {
+  if (captureTarget.value === 'pod') deliverDrawer.photoBase64 = base64;
+  else deliverDrawer.idPhotoBase64 = base64;
+}
+
+async function capturePhoto(target: 'pod' | 'id'): Promise<void> {
+  captureTarget.value = target;
   deliverDrawer.photoBusy = true;
   deliverDrawer.note = null;
   try {
@@ -421,7 +438,7 @@ async function capturePodPhoto(): Promise<void> {
         quality: 55,
         width: 1280,
       });
-      deliverDrawer.photoBase64 = shot.base64String ?? null;
+      setCaptured(shot.base64String ?? null);
     } else {
       photoInput.value?.click();
     }
@@ -443,10 +460,53 @@ function onPhotoPicked(event: Event): void {
     canvas.width = Math.round(img.width * scale);
     canvas.height = Math.round(img.height * scale);
     canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
-    deliverDrawer.photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1] ?? null;
+    setCaptured(canvas.toDataURL('image/jpeg', 0.6).split(',')[1] ?? null);
     URL.revokeObjectURL(img.src);
   };
   img.src = URL.createObjectURL(file);
+}
+
+// ── Signature pad (proof = 'signature'): plain canvas + pointer events. ──
+const sigCanvas = ref<HTMLCanvasElement | null>(null);
+let sigDrawing = false;
+
+function sigPos(e: PointerEvent): { x: number; y: number } {
+  const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
+  const canvas = e.target as HTMLCanvasElement;
+  return {
+    x: ((e.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((e.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+function sigStart(e: PointerEvent): void {
+  const canvasEl = sigCanvas.value;
+  const ctx2d = canvasEl?.getContext('2d');
+  if (!canvasEl || !ctx2d) return;
+  sigDrawing = true;
+  canvasEl.setPointerCapture(e.pointerId);
+  ctx2d.lineWidth = 3;
+  ctx2d.lineCap = 'round';
+  ctx2d.strokeStyle = '#102a43';
+  const { x, y } = sigPos(e);
+  ctx2d.beginPath();
+  ctx2d.moveTo(x, y);
+}
+function sigMove(e: PointerEvent): void {
+  if (!sigDrawing) return;
+  const ctx2d = sigCanvas.value?.getContext('2d');
+  if (!ctx2d) return;
+  const { x, y } = sigPos(e);
+  ctx2d.lineTo(x, y);
+  ctx2d.stroke();
+  deliverDrawer.signatureDrawn = true;
+}
+function sigEnd(): void {
+  sigDrawing = false;
+}
+function clearSignature(): void {
+  const canvasEl = sigCanvas.value;
+  canvasEl?.getContext('2d')?.clearRect(0, 0, canvasEl.width, canvasEl.height);
+  deliverDrawer.signatureDrawn = false;
 }
 
 const deliverRequirements = computed(
@@ -468,6 +528,8 @@ function openDeliver(trip: MyTrip, stop: MyTripStop): void {
   deliverDrawer.ageMethod = null;
   deliverDrawer.docType = 'id-card';
   deliverDrawer.photoBase64 = null;
+  deliverDrawer.idPhotoBase64 = null;
+  deliverDrawer.signatureDrawn = false;
   deliverDrawer.note = null;
   const reqs = stop.verification?.requirements;
   if (effectiveProof(stop) === 'none' && (!reqs || reqs.minAge === null)) {
@@ -511,15 +573,50 @@ async function checkDeliveryPin(): Promise<void> {
 const drawerProof = computed(() =>
   deliverDrawer.stop ? effectiveProof(deliverDrawer.stop) : 'none',
 );
+const drawerIdPhotoRequired = computed(
+  () => deliverDrawer.stop?.verification?.requirements.ageIdPhotoRequired === true,
+);
 
 const canDeliver = computed(() => {
   const reqs = deliverRequirements.value;
   if (reqs.minAge !== null && deliverDrawer.ageMethod === null) return false;
+  if (
+    reqs.minAge !== null &&
+    drawerIdPhotoRequired.value &&
+    deliverDrawer.ageMethod === 'id-attestation' &&
+    !deliverDrawer.idPhotoBase64
+  ) {
+    return false;
+  }
   if (drawerProof.value === 'pin' && !deliverDrawer.noPin && !deliverDrawer.pin.trim())
     return false;
   if (drawerProof.value === 'picture' && !deliverDrawer.photoBase64) return false;
+  if (drawerProof.value === 'signature' && !deliverDrawer.signatureDrawn) return false;
   return true;
 });
+
+/**
+ * Upload a captured image with a CLIENT-GENERATED ref so the evidence can
+ * reference it even when everything queues offline (FIFO: blob before the
+ * report). Returns the ref, or null when the server REFUSED (real error).
+ */
+async function uploadBlob(
+  prefix: 'pod' | 'sig' | 'id',
+  base64: string,
+  contentType: string,
+): Promise<string | null> {
+  const blobRef = `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
+  const path = `/clients/${ctx.station.clientId.value}/pod-photos/${blobRef}`;
+  const uploadBody = { imageBase64: base64, contentType };
+  try {
+    const res = await ctx.api.request(path, { method: 'PUT', body: uploadBody });
+    if (!res.ok) return null;
+  } catch {
+    // Offline — the blob drains from the outbox before the report does.
+    await ctx.queue.enqueue({ endpoint: path, method: 'PUT', body: uploadBody });
+  }
+  return blobRef;
+}
 
 async function confirmDeliver(): Promise<void> {
   const { trip, stop } = deliverDrawer;
@@ -530,30 +627,41 @@ async function confirmDeliver(): Promise<void> {
     body.pinEntered = deliverDrawer.pin.trim();
   }
   if (reqs.minAge !== null && deliverDrawer.ageMethod) {
+    let idPhotoRef: string | undefined;
+    if (deliverDrawer.ageMethod === 'id-attestation' && deliverDrawer.idPhotoBase64) {
+      const uploaded = await uploadBlob('id', deliverDrawer.idPhotoBase64, 'image/jpeg');
+      if (!uploaded) {
+        deliverDrawer.note = 'ID photo upload failed — try again.';
+        return;
+      }
+      idPhotoRef = uploaded;
+    }
     body.ageCheck = {
       method: deliverDrawer.ageMethod,
       ...(deliverDrawer.ageMethod === 'id-attestation' ? { docType: deliverDrawer.docType } : {}),
+      ...(idPhotoRef ? { idPhotoRef } : {}),
     };
   }
   const arrivedAt = arrivedByOrder[stop.orderId];
   if (arrivedAt) body.arrivedAt = arrivedAt;
-  // Picture proof: upload with a CLIENT-GENERATED ref so the evidence can
-  // reference it even when both calls queue offline (FIFO: photo first).
   if (drawerProof.value === 'picture' && deliverDrawer.photoBase64) {
-    const photoRef = `pod_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
-    const uploadPath = `/clients/${ctx.station.clientId.value}/pod-photos/${photoRef}`;
-    const uploadBody = { imageBase64: deliverDrawer.photoBase64, contentType: 'image/jpeg' };
-    try {
-      const res = await ctx.api.request(uploadPath, { method: 'PUT', body: uploadBody });
-      if (!res.ok) {
-        deliverDrawer.note = `Photo upload failed (${res.status}) — try again.`;
-        return;
-      }
-    } catch {
-      // Offline — the photo drains from the outbox before the report does.
-      await ctx.queue.enqueue({ endpoint: uploadPath, method: 'PUT', body: uploadBody });
+    const photoRef = await uploadBlob('pod', deliverDrawer.photoBase64, 'image/jpeg');
+    if (!photoRef) {
+      deliverDrawer.note = 'Photo upload failed — try again.';
+      return;
     }
     body.photoRef = photoRef;
+  }
+  if (drawerProof.value === 'signature' && deliverDrawer.signatureDrawn && sigCanvas.value) {
+    const sigBase64 = sigCanvas.value.toDataURL('image/png').split(',')[1];
+    if (sigBase64) {
+      const signatureRef = await uploadBlob('sig', sigBase64, 'image/png');
+      if (!signatureRef) {
+        deliverDrawer.note = 'Signature upload failed — try again.';
+        return;
+      }
+      body.signatureRef = signatureRef;
+    }
   }
   const ok = await submitReport(trip, stop.orderId, 'delivered', body);
   if (ok) deliverDrawer.open = false;
@@ -870,6 +978,7 @@ onUnmounted(() => {
                     </template>
                     <template v-if="effectiveProof(s) === 'pin'"> · 🔑 PIN</template>
                     <template v-if="effectiveProof(s) === 'picture'"> · 📷 photo</template>
+                    <template v-if="effectiveProof(s) === 'signature'"> · ✍️ signature</template>
                   </span>
                 </span>
                 <span class="flex shrink-0 items-center gap-1">
@@ -1018,7 +1127,7 @@ onUnmounted(() => {
                   block
                   variant="soft"
                   :loading="deliverDrawer.photoBusy"
-                  @click="capturePodPhoto"
+                  @click="capturePhoto('pod')"
                 >
                   {{ deliverDrawer.photoBase64 ? '📷 Retake photo' : '📷 Take proof photo' }}
                 </UButton>
@@ -1030,6 +1139,30 @@ onUnmounted(() => {
                   class="hidden"
                   @change="onPhotoPicked"
                 />
+              </div>
+            </template>
+
+            <template v-if="drawerProof === 'signature'">
+              <div>
+                <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  Customer signature
+                </p>
+                <canvas
+                  ref="sigCanvas"
+                  width="600"
+                  height="220"
+                  class="w-full touch-none rounded-lg border-2 border-dashed border-neutral-300 bg-white"
+                  @pointerdown="sigStart"
+                  @pointermove="sigMove"
+                  @pointerup="sigEnd"
+                  @pointercancel="sigEnd"
+                />
+                <div class="mt-1 flex items-center justify-between">
+                  <p class="text-[11px] text-neutral-400">Sign in the box above.</p>
+                  <UButton size="xs" color="neutral" variant="ghost" @click="clearSignature">
+                    Clear
+                  </UButton>
+                </div>
               </div>
             </template>
 
@@ -1108,6 +1241,32 @@ onUnmounted(() => {
                 >
                   Visibly well over {{ deliverRequirements.minAge }} — no ID checked
                 </UButton>
+
+                <!-- Client policy: PHOTOGRAPH the government ID (Andrew,
+                     2026-07-15). Only for the id-attestation path. -->
+                <template
+                  v-if="drawerIdPhotoRequired && deliverDrawer.ageMethod === 'id-attestation'"
+                >
+                  <img
+                    v-if="deliverDrawer.idPhotoBase64"
+                    :src="`data:image/jpeg;base64,${deliverDrawer.idPhotoBase64}`"
+                    class="mt-2 max-h-40 w-full rounded-lg object-cover"
+                    alt="Government ID"
+                  />
+                  <UButton
+                    class="mt-2"
+                    block
+                    variant="soft"
+                    :loading="deliverDrawer.photoBusy"
+                    @click="capturePhoto('id')"
+                  >
+                    {{
+                      deliverDrawer.idPhotoBase64
+                        ? '🪪 Retake ID photo'
+                        : '🪪 Photograph the ID (required)'
+                    }}
+                  </UButton>
+                </template>
               </div>
             </template>
 

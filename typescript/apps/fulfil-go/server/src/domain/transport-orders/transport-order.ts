@@ -69,17 +69,19 @@ export interface OrderVerificationRequirements {
   readonly pickupPin: boolean;
   /** LEGACY boolean view — derives from deliveryProof === 'pin'. */
   readonly deliveryPin: boolean;
-  /** Customer-handover proof: none | pin | picture. Absent pre-feature. */
-  readonly deliveryProof?: 'none' | 'pin' | 'picture';
+  /** Customer-handover proof. Absent pre-feature. */
+  readonly deliveryProof?: 'none' | 'pin' | 'picture' | 'signature';
   /** Age-restricted order: minimum customer age; null = unrestricted. */
   readonly minAge: number | null;
   readonly ageVisualOverrideAllowed: boolean;
+  /** Restricted deliveries must photograph the government ID. */
+  readonly ageIdPhotoRequired?: boolean;
 }
 
 /** Old rows carry only the boolean — normalize on read, never rewrite. */
 export function requiredDeliveryProof(
   requirements: OrderVerificationRequirements | undefined,
-): 'none' | 'pin' | 'picture' {
+): 'none' | 'pin' | 'picture' | 'signature' {
   if (!requirements) return 'none';
   return requirements.deliveryProof ?? (requirements.deliveryPin ? 'pin' : 'none');
 }
@@ -99,9 +101,13 @@ export interface DeliveryEvidence {
   readonly ageCheck?: {
     readonly method: 'id-attestation' | 'visual-override';
     readonly docType?: string | undefined;
+    /** Government-ID photo (blob ref) when the policy requires it. */
+    readonly idPhotoRef?: string | null;
   } | null;
   /** Proof-of-delivery photo (blob-store ref) when proof = 'picture'. */
   readonly photoRef?: string | null;
+  /** Customer signature image (blob ref) when proof = 'signature'. */
+  readonly signatureRef?: string | null;
   /** Driver's "I've arrived" tap — arrival-to-handover ops timing. */
   readonly arrivedAt?: string | null;
   readonly at: string;
@@ -265,6 +271,9 @@ export const TransportOrder = {
     if (proof === 'picture' && !v.delivery.photoRef) {
       return 'delivery photo missing';
     }
+    if (proof === 'signature' && !v.delivery.signatureRef) {
+      return 'delivery signature missing';
+    }
     if (v.requirements.minAge != null) {
       if (!v.delivery.ageCheck) return `age check missing (requires ${v.requirements.minAge}+)`;
       if (
@@ -272,6 +281,13 @@ export const TransportOrder = {
         !v.requirements.ageVisualOverrideAllowed
       ) {
         return 'visual age override used but not permitted';
+      }
+      if (
+        v.requirements.ageIdPhotoRequired === true &&
+        v.delivery.ageCheck.method === 'id-attestation' &&
+        !v.delivery.ageCheck.idPhotoRef
+      ) {
+        return 'government-ID photo missing';
       }
     }
     return null;

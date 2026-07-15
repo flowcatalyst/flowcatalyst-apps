@@ -190,10 +190,12 @@ export const HandoverPolicySchema = z
     /** LEGACY boolean view (pre-deliveryProof stamps) — derives from the enum. */
     deliveryPinEnabled: z.boolean(),
     /** Customer-handover proof: none | pin | picture. Absent on old stamps. */
-    deliveryProof: z.enum(['none', 'pin', 'picture']).optional(),
+    deliveryProof: z.enum(['none', 'pin', 'picture', 'signature']).optional(),
     deliveryPinSource: z.enum(['random', 'phone-last4']),
     /** Driver may attest "visibly older" instead of an ID check. */
     ageVisualOverrideAllowed: z.boolean(),
+    /** Restricted deliveries must photograph the government ID. */
+    ageIdPhotoRequired: z.boolean().optional(),
   })
   .strict();
 export type HandoverPolicy = z.infer<typeof HandoverPolicySchema>;
@@ -201,7 +203,7 @@ export type HandoverPolicy = z.infer<typeof HandoverPolicySchema>;
 /** Old stamps carry only the boolean — normalize on read, never rewrite. */
 export function handoverDeliveryProof(
   policy: HandoverPolicy | null,
-): 'none' | 'pin' | 'picture' {
+): 'none' | 'pin' | 'picture' | 'signature' {
   if (!policy) return 'none';
   return policy.deliveryProof ?? (policy.deliveryPinEnabled ? 'pin' : 'none');
 }

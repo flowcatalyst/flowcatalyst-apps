@@ -36,6 +36,28 @@ const cancelBusy = ref(false);
 const stores = ref<StoreSummary[]>([]);
 /** Multi-select store filter — a fulfilment matches when ANY part is at a selected store. */
 const storeFilter = ref<string[]>([]);
+// Server-side filters (Andrew, 2026-07-15): status, type, slot range.
+const STATUS_OPTIONS = [
+  'created',
+  'in_progress',
+  'ready',
+  'completing',
+  'completed',
+  'partially_completed',
+  'failed',
+  'cancelling',
+  'cancelled',
+].map((s) => ({ label: s.replaceAll('_', ' '), value: s }));
+const TYPE_OPTIONS = [
+  { label: 'All types', value: '' },
+  { label: 'Delivery', value: 'delivery' },
+  { label: 'Collect', value: 'collect' },
+];
+const statusFilter = ref<string[]>([]);
+const typeFilter = ref('');
+/** datetime-local values (local time) — sent as ISO. */
+const slotFrom = ref('');
+const slotTo = ref('');
 
 const storeOptions = computed(() =>
   stores.value.map((s) => ({ label: `${s.storeRef} · ${s.name}`, value: s.storeRef })),
@@ -59,12 +81,14 @@ async function refresh(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const storesParam =
-      storeFilter.value.length > 0
-        ? `&stores=${encodeURIComponent(storeFilter.value.join(','))}`
-        : '';
+    const params = new URLSearchParams({ limit: '100' });
+    if (storeFilter.value.length > 0) params.set('stores', storeFilter.value.join(','));
+    if (statusFilter.value.length > 0) params.set('status', statusFilter.value.join(','));
+    if (typeFilter.value) params.set('type', typeFilter.value);
+    if (slotFrom.value) params.set('slotFrom', new Date(slotFrom.value).toISOString());
+    if (slotTo.value) params.set('slotTo', new Date(slotTo.value).toISOString());
     const res = await api.json<{ fulfilments: FulfilmentDto[] }>(
-      `/clients/${clientId.value}/fulfilments?limit=100${storesParam}`,
+      `/clients/${clientId.value}/fulfilments?${params.toString()}`,
     );
     rows.value = res.fulfilments;
   } catch (err) {
@@ -153,7 +177,7 @@ watch(clientId, () => {
   void loadStores();
   void refresh();
 });
-watch(storeFilter, () => void refresh());
+watch([storeFilter, statusFilter, typeFilter, slotFrom, slotTo], () => void refresh());
 watch(selectedId, (id) => {
   pins.value = null; // never carry a reveal across rows
   if (id) void loadLog(id);
@@ -235,23 +259,56 @@ function fmt(iso: string): string {
           </UButton>
         </template>
       </PageHeader>
-      <div class="mb-3 flex items-center gap-2">
+      <div class="mb-3 flex flex-wrap items-center gap-2">
         <USelect
           v-model="storeFilter"
           multiple
           :items="storeOptions"
           value-key="value"
           placeholder="Filter by store(s)…"
-          class="w-96"
+          class="w-72"
         />
+        <USelect
+          v-model="statusFilter"
+          multiple
+          :items="STATUS_OPTIONS"
+          value-key="value"
+          placeholder="Status…"
+          class="w-52"
+        />
+        <USelect v-model="typeFilter" :items="TYPE_OPTIONS" value-key="value" class="w-36" />
+        <label class="flex items-center gap-1 text-xs text-neutral-500">
+          Slot from
+          <input
+            v-model="slotFrom"
+            type="datetime-local"
+            class="rounded border border-neutral-200 px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label class="flex items-center gap-1 text-xs text-neutral-500">
+          to
+          <input
+            v-model="slotTo"
+            type="datetime-local"
+            class="rounded border border-neutral-200 px-2 py-1.5 text-sm"
+          />
+        </label>
         <UButton
-          v-if="storeFilter.length > 0"
+          v-if="
+            storeFilter.length > 0 || statusFilter.length > 0 || typeFilter || slotFrom || slotTo
+          "
           size="xs"
           color="neutral"
           variant="ghost"
-          @click="storeFilter = []"
+          @click="
+            storeFilter = [];
+            statusFilter = [];
+            typeFilter = '';
+            slotFrom = '';
+            slotTo = '';
+          "
         >
-          Clear ({{ storeFilter.length }})
+          Clear filters
         </UButton>
       </div>
       <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />

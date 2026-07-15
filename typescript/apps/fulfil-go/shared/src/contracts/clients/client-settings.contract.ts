@@ -52,7 +52,7 @@ export type PackageUnitSizes = z.infer<typeof PackageUnitSizesSchema>;
  * fulfilments only. Sparse: absent fields fall through to the defaults.
  */
 /** Customer-handover proof mode (docs/handover-verification.md). */
-export const DeliveryProofSchema = z.enum(['none', 'pin', 'picture']);
+export const DeliveryProofSchema = z.enum(['none', 'pin', 'picture', 'signature']);
 export type DeliveryProof = z.infer<typeof DeliveryProofSchema>;
 
 export const FulfilmentClientSettingsSchema = z
@@ -77,6 +77,12 @@ export const FulfilmentClientSettingsSchema = z
      * check on age-restricted deliveries. OFF unless the client opts in.
      */
     ageVisualOverrideAllowed: z.boolean().optional(),
+    /**
+     * Restricted deliveries must PHOTOGRAPH the government-issued ID
+     * (Andrew, 2026-07-15) — stored via the blob store. OFF by default
+     * (POPIA: ID photos are sensitive; retention is the client's call).
+     */
+    ageIdPhotoRequired: z.boolean().optional(),
   })
   .strict();
 export type FulfilmentClientSettings = z.infer<typeof FulfilmentClientSettingsSchema>;
@@ -139,6 +145,7 @@ export const FULFILMENT_CLIENT_SETTINGS_DEFAULTS: ResolvedFulfilmentClientSettin
   deliveryProof: 'pin',
   deliveryPinSource: 'random',
   ageVisualOverrideAllowed: false,
+  ageIdPhotoRequired: false,
 };
 
 export const CLIENT_SETTINGS_DEFAULTS: ResolvedClientSettings = {

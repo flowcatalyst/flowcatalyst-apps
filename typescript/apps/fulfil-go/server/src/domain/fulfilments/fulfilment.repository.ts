@@ -37,6 +37,14 @@ export interface FulfilmentRepository {
     limit: number,
     offset: number,
     storeRefs?: readonly string[],
+    filters?: {
+      /** Status filter (any-of). */
+      readonly statuses?: readonly string[];
+      readonly type?: string;
+      /** slotStart range (rides idx_fulfilments_client_slot). */
+      readonly slotFrom?: Date;
+      readonly slotTo?: Date;
+    },
   ): Promise<readonly Fulfilment[]>;
 
   /** The create-idempotency lookup: (clientId, externalSource, externalRef). */

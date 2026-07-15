@@ -15,6 +15,21 @@ import { toFulfilmentDto } from '../../../domain/fulfilments/fulfilment-dto.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { ErrorResponseSchema, UnauthorizedSchema, WRITE_RESPONSES } from '../../schemas/common.js';
 
+/** Comma-separated query param → trimmed non-empty values. */
+function csv(value?: string): string[] | undefined {
+  return value
+    ?.split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/** ISO query param → Date, undefined when absent/unparseable. */
+function parseDate(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 /**
  * Tenant-scoped fulfilment routes (pinpoint convention: clientId in the
  * path, injected into the command; per-client claim enforcement is a scope
@@ -128,6 +143,13 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
           offset: Type.Optional(Type.Integer({ minimum: 0 })),
           /** Comma-separated storeRefs — fulfilments with any part at any of them. */
           stores: Type.Optional(Type.String()),
+          /** Comma-separated statuses (any-of). */
+          status: Type.Optional(Type.String()),
+          /** 'delivery' | 'collect'. */
+          type: Type.Optional(Type.String()),
+          /** slotStart range (ISO datetimes). */
+          slotFrom: Type.Optional(Type.String()),
+          slotTo: Type.Optional(Type.String()),
         }),
         response: {
           200: Type.Object({ fulfilments: Type.Array(FulfilmentDtoSchema) }),
@@ -140,20 +162,30 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { clientId } = request.params as { clientId: string };
-      const { limit, offset, stores } = request.query as {
+      const { limit, offset, stores, status, type, slotFrom, slotTo } = request.query as {
         limit?: number;
         offset?: number;
         stores?: string;
+        status?: string;
+        type?: string;
+        slotFrom?: string;
+        slotTo?: string;
       };
-      const storeRefs = stores
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      const storeRefs = csv(stores);
+      const statuses = csv(status);
+      const from = parseDate(slotFrom);
+      const to = parseDate(slotTo);
       const rows = await appContext.repositories.fulfilments.listByClient(
         clientId,
         limit ?? 50,
         offset ?? 0,
         storeRefs,
+        {
+          ...(statuses && statuses.length > 0 ? { statuses } : {}),
+          ...(type ? { type } : {}),
+          ...(from ? { slotFrom: from } : {}),
+          ...(to ? { slotTo: to } : {}),
+        },
       );
       return reply.code(200).send({ fulfilments: rows.map(toFulfilmentDto) });
     },

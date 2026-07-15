@@ -144,6 +144,23 @@ Smoke 10/10: requirements carry the mode, blob round trip, evidence
 photoRef+arrivedAt, missing-photo flag, proof-none straight-through.
 NOT verified: S3 driver against a real bucket; native camera capture.
 
+## Signature proof + government-ID photo (Andrew, 2026-07-15 — BUILT)
+
+- **`deliveryProof` gained `'signature'`**: the customer signs the driver's
+  screen (canvas pad, pointer events, Clear/retake) — exported as PNG to
+  the blob store (`sig_…` refs, same idempotent client-generated-ref
+  upload + offline FIFO as POD photos); evidence carries `signatureRef`.
+  Missing signature on a signature-proof delivery = accepted + flagged
+  (`delivery signature missing`).
+- **`ageIdPhotoRequired`** (fulfilment client settings, DEFAULT OFF —
+  POPIA: ID photos are sensitive, retention is the client's call): when
+  on, the id-attestation path on a restricted delivery must PHOTOGRAPH the
+  government ID (`id_…` blob ref on `ageCheck.idPhotoRef`); attestation
+  without the photo = accepted + flagged (`government-ID photo missing`).
+  The visual-override path (when permitted) skips the photo.
+- Blob ref namespace is now `(pod|sig|id)_…` on the same endpoints.
+  Smoke 9/9 (incl. the management list filters shipped alongside).
+
 ## One active trip per driver (Andrew, 2026-07-14 — BUILT same day)
 
 Industry norm: concurrent orders are PLANNER-composed into one route
