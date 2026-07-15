@@ -187,13 +187,24 @@ export type FulfilmentPolicies = z.infer<typeof FulfilmentPoliciesSchema>;
 export const HandoverPolicySchema = z
   .object({
     pickupPinEnabled: z.boolean(),
+    /** LEGACY boolean view (pre-deliveryProof stamps) — derives from the enum. */
     deliveryPinEnabled: z.boolean(),
+    /** Customer-handover proof: none | pin | picture. Absent on old stamps. */
+    deliveryProof: z.enum(['none', 'pin', 'picture']).optional(),
     deliveryPinSource: z.enum(['random', 'phone-last4']),
     /** Driver may attest "visibly older" instead of an ID check. */
     ageVisualOverrideAllowed: z.boolean(),
   })
   .strict();
 export type HandoverPolicy = z.infer<typeof HandoverPolicySchema>;
+
+/** Old stamps carry only the boolean — normalize on read, never rewrite. */
+export function handoverDeliveryProof(
+  policy: HandoverPolicy | null,
+): 'none' | 'pin' | 'picture' {
+  if (!policy) return 'none';
+  return policy.deliveryProof ?? (policy.deliveryPinEnabled ? 'pin' : 'none');
+}
 
 /** Pinpoint provenance — creation-time reference only, not process input. */
 export const ProvenanceSchema = z

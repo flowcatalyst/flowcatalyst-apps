@@ -15,6 +15,31 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
 
+## What landed 2026-07-14 (guided delivery journey, same session)
+
+**GUIDED DELIVERY JOURNEY BUILT** (docs/handover-verification.md
+"Guided delivery journey" — smoke 10/10):
+
+- `deliveryProof: none|pin|picture` on client fulfilment settings
+  (default 'pin'; legacy deliveryPinEnabled maps) → stamped policy →
+  order requirements (`requiredDeliveryProof` normalizes old rows) →
+  my-trips → the app's delivery drawer ADAPTS (pin block / camera block /
+  straight-through). Pins generate only for mode 'pin'.
+- **BlobStore port in @fulfil-go/framework** + config-selected drivers
+  (`FULFILGO_BLOB_STORE=db` default → new `blobs` table, migration
+  `20260714211926_blobs`; `s3://bucket/prefix` → lazy @aws-sdk/client-s3,
+  now a runtime dep). Client-scoped. POD photos: client-generated
+  `pod_…` refs, idempotent PUT (queued before the report offline — FIFO),
+  GET serves the image.
+- Evidence gained `photoRef` + `arrivedAt`; missing photo on picture-proof
+  = accepted + flagged (verification entry + flightboard exception).
+- Execution app: stops now run as a GUIDED SEQUENCE (active stop only):
+  🧭 Navigate (geo: intent native / Google Maps browser) → 📍 I've arrived
+  (persisted local overlay → evidence) → proof drawer → next stop unlocks;
+  trip:completed unchanged. @capacitor/camera added (native capture;
+  browser uses file input + canvas compression).
+- NOT verified: S3 driver against a real bucket; native camera on device.
+
 ## What landed 2026-07-14 (one-active-trip rule, same session)
 
 **ONE ACTIVE TRIP per driver (Andrew, 2026-07-14 — industry norm: stacking

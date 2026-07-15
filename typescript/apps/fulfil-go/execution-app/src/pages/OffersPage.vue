@@ -103,16 +103,24 @@ const emptyMessage = computed(() =>
 // offline (server state wins once it catches up).
 const SCANNED_KEY = 'fulfilgo.exec.collect.v1';
 const PENDING_KEY = 'fulfilgo.exec.pending.v1';
+const ARRIVED_KEY = 'fulfilgo.exec.arrived.v1';
 const scannedByOrder = reactive<Record<string, string[]>>(
   JSON.parse(localStorage.getItem(SCANNED_KEY) ?? '{}') as Record<string, string[]>,
 );
 const pendingByOrder = reactive<Record<string, string>>(
   JSON.parse(localStorage.getItem(PENDING_KEY) ?? '{}') as Record<string, string>,
 );
+/** "I've arrived" taps (orderId → ISO) — evidence timestamp, offline-safe. */
+const arrivedByOrder = reactive<Record<string, string>>(
+  JSON.parse(localStorage.getItem(ARRIVED_KEY) ?? '{}') as Record<string, string>,
+);
 watch(scannedByOrder, () => localStorage.setItem(SCANNED_KEY, JSON.stringify(scannedByOrder)), {
   deep: true,
 });
 watch(pendingByOrder, () => localStorage.setItem(PENDING_KEY, JSON.stringify(pendingByOrder)), {
+  deep: true,
+});
+watch(arrivedByOrder, () => localStorage.setItem(ARRIVED_KEY, JSON.stringify(arrivedByOrder)), {
   deep: true,
 });
 
@@ -160,6 +168,12 @@ async function loadMyTrips(): Promise<void> {
         delete scannedByOrder[orderId];
       }
     }
+    for (const orderId of Object.keys(arrivedByOrder)) {
+      const stop = liveOrders.get(orderId);
+      if (!stop || (STATUS_RANK[stop.status] ?? 0) >= STATUS_RANK['delivered']!) {
+        delete arrivedByOrder[orderId];
+      }
+    }
   } catch {
     // Offline / stale session — keep whatever we had; next load recovers.
   }
@@ -174,6 +188,8 @@ interface ReportBody {
   scannedRefs?: string[];
   pinEntered?: string;
   ageCheck?: { method: 'id-attestation' | 'visual-override'; docType?: string };
+  photoRef?: string;
+  arrivedAt?: string;
 }
 
 /** true = landed or queued; false = server refused (message in `error`). */
@@ -333,6 +349,41 @@ async function confirmPinOverride(): Promise<void> {
   }
 }
 
+// ── Guided stop sequence (Andrew, 2026-07-14): stops run in VROOM order —
+// navigate → arrived → proof → delivered, then the next stop unlocks. ────
+const effectiveProof = (stop: MyTripStop): 'none' | 'pin' | 'picture' => {
+  const reqs = stop.verification?.requirements as
+    | (StopVerification['requirements'] & { deliveryProof?: 'none' | 'pin' | 'picture' })
+    | undefined;
+  if (!reqs) return 'none';
+  return reqs.deliveryProof ?? (reqs.deliveryPin ? 'pin' : 'none');
+};
+
+/** The stop the driver works NOW: first non-terminal, in route order. */
+const activeStopId = (trip: MyTrip): string | null =>
+  trip.stops.find((s) => effectiveStatus(s) === 'collected')?.orderId ?? null;
+
+/** Default maps app: geo intent on device, Google Maps directions in browser. */
+const mapsHref = (stop: MyTripStop): string => {
+  const geo = (stop.destination as { geo?: { lat: number; lng: number } }).geo;
+  const label = encodeURIComponent(stop.destination.name ?? `Stop #${stop.shortId}`);
+  if (geo) {
+    return ctx.isNative
+      ? `geo:${geo.lat},${geo.lng}?q=${geo.lat},${geo.lng}(${label})`
+      : `https://www.google.com/maps/dir/?api=1&destination=${geo.lat},${geo.lng}`;
+  }
+  const q = encodeURIComponent(
+    [stop.destination.name, stop.destination.address?.line1, stop.destination.address?.city]
+      .filter(Boolean)
+      .join(', '),
+  );
+  return ctx.isNative ? `geo:0,0?q=${q}` : `https://www.google.com/maps/dir/?api=1&destination=${q}`;
+};
+
+function markArrived(stop: MyTripStop): void {
+  arrivedByOrder[stop.orderId] = new Date().toISOString();
+}
+
 // ── Delivery: pin + age verification at the door ──────────────────────────
 const DOC_TYPES = [
   { value: 'id-card', label: 'ID' },
@@ -351,8 +402,52 @@ const deliverDrawer = reactive({
   checking: false,
   ageMethod: null as null | 'id-attestation' | 'visual-override',
   docType: 'id-card' as string,
+  /** Proof-of-delivery photo (base64, no prefix) when proof = 'picture'. */
+  photoBase64: null as string | null,
+  photoBusy: false,
   note: null as string | null,
 });
+const photoInput = ref<HTMLInputElement | null>(null);
+
+async function capturePodPhoto(): Promise<void> {
+  deliverDrawer.photoBusy = true;
+  deliverDrawer.note = null;
+  try {
+    if (ctx.isNative) {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const shot = await Camera.getPhoto({
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera,
+        quality: 55,
+        width: 1280,
+      });
+      deliverDrawer.photoBase64 = shot.base64String ?? null;
+    } else {
+      photoInput.value?.click();
+    }
+  } catch (err) {
+    deliverDrawer.note = err instanceof Error ? err.message : String(err);
+  } finally {
+    deliverDrawer.photoBusy = false;
+  }
+}
+
+/** Browser fallback: file input → canvas-compressed JPEG base64. */
+function onPhotoPicked(event: Event): void {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+    deliverDrawer.photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1] ?? null;
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+}
 
 const deliverRequirements = computed(
   () =>
@@ -372,11 +467,14 @@ function openDeliver(trip: MyTrip, stop: MyTripStop): void {
   deliverDrawer.pinChecked = null;
   deliverDrawer.ageMethod = null;
   deliverDrawer.docType = 'id-card';
+  deliverDrawer.photoBase64 = null;
   deliverDrawer.note = null;
   const reqs = stop.verification?.requirements;
-  if (!reqs || (!reqs.deliveryPin && reqs.minAge === null)) {
+  if (effectiveProof(stop) === 'none' && (!reqs || reqs.minAge === null)) {
     // Nothing to verify — deliver straight away, no drawer ceremony.
-    void submitReport(trip, stop.orderId, 'delivered', {});
+    void submitReport(trip, stop.orderId, 'delivered', {
+      ...(arrivedByOrder[stop.orderId] ? { arrivedAt: arrivedByOrder[stop.orderId] } : {}),
+    });
     return;
   }
   deliverDrawer.open = true;
@@ -410,10 +508,16 @@ async function checkDeliveryPin(): Promise<void> {
   }
 }
 
+const drawerProof = computed(() =>
+  deliverDrawer.stop ? effectiveProof(deliverDrawer.stop) : 'none',
+);
+
 const canDeliver = computed(() => {
   const reqs = deliverRequirements.value;
   if (reqs.minAge !== null && deliverDrawer.ageMethod === null) return false;
-  if (reqs.deliveryPin && !deliverDrawer.noPin && !deliverDrawer.pin.trim()) return false;
+  if (drawerProof.value === 'pin' && !deliverDrawer.noPin && !deliverDrawer.pin.trim())
+    return false;
+  if (drawerProof.value === 'picture' && !deliverDrawer.photoBase64) return false;
   return true;
 });
 
@@ -422,7 +526,7 @@ async function confirmDeliver(): Promise<void> {
   if (!trip || !stop || !canDeliver.value) return;
   const reqs = deliverRequirements.value;
   const body: ReportBody = {};
-  if (reqs.deliveryPin && !deliverDrawer.noPin && deliverDrawer.pin.trim()) {
+  if (drawerProof.value === 'pin' && !deliverDrawer.noPin && deliverDrawer.pin.trim()) {
     body.pinEntered = deliverDrawer.pin.trim();
   }
   if (reqs.minAge !== null && deliverDrawer.ageMethod) {
@@ -431,6 +535,26 @@ async function confirmDeliver(): Promise<void> {
       ...(deliverDrawer.ageMethod === 'id-attestation' ? { docType: deliverDrawer.docType } : {}),
     };
   }
+  const arrivedAt = arrivedByOrder[stop.orderId];
+  if (arrivedAt) body.arrivedAt = arrivedAt;
+  // Picture proof: upload with a CLIENT-GENERATED ref so the evidence can
+  // reference it even when both calls queue offline (FIFO: photo first).
+  if (drawerProof.value === 'picture' && deliverDrawer.photoBase64) {
+    const photoRef = `pod_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
+    const uploadPath = `/clients/${ctx.station.clientId.value}/pod-photos/${photoRef}`;
+    const uploadBody = { imageBase64: deliverDrawer.photoBase64, contentType: 'image/jpeg' };
+    try {
+      const res = await ctx.api.request(uploadPath, { method: 'PUT', body: uploadBody });
+      if (!res.ok) {
+        deliverDrawer.note = `Photo upload failed (${res.status}) — try again.`;
+        return;
+      }
+    } catch {
+      // Offline — the photo drains from the outbox before the report does.
+      await ctx.queue.enqueue({ endpoint: uploadPath, method: 'PUT', body: uploadBody });
+    }
+    body.photoRef = photoRef;
+  }
   const ok = await submitReport(trip, stop.orderId, 'delivered', body);
   if (ok) deliverDrawer.open = false;
 }
@@ -438,7 +562,10 @@ async function confirmDeliver(): Promise<void> {
 async function failStop(trip: MyTrip, stop: MyTripStop): Promise<void> {
   const reason = window.prompt('Why did this delivery fail?');
   if (reason === null) return; // cancelled the prompt
-  await submitReport(trip, stop.orderId, 'failed', { reason });
+  await submitReport(trip, stop.orderId, 'failed', {
+    reason,
+    ...(arrivedByOrder[stop.orderId] ? { arrivedAt: arrivedByOrder[stop.orderId] } : {}),
+  });
 }
 
 /** Legacy escape: orders without parcel refs can't scan — one bulk button. */
@@ -719,73 +846,106 @@ onUnmounted(() => {
             </UButton>
           </div>
 
+          <!-- ══ GUIDED STOPS (Andrew, 2026-07-14): route order — navigate →
+               arrived → proof → delivered; the next stop then unlocks. ══ -->
           <ol class="mt-2 flex flex-col gap-2">
             <li
               v-for="(s, i) in t.stops"
               :key="s.orderId"
-              class="flex items-center justify-between gap-2"
+              class="rounded-lg border p-2.5"
+              :class="
+                activeStopId(t) === s.orderId && !needsCollection(t)
+                  ? 'border-brand-400 bg-brand-50/40'
+                  : 'border-neutral-100'
+              "
             >
-              <span class="min-w-0 text-sm">
-                <span class="font-semibold">{{ i + 1 }}. #{{ s.shortId }}</span>
-                {{ s.destination.name }}
-                <span class="block truncate text-xs text-neutral-500">
-                  {{ s.destination.address?.line1 }}
-                  <template v-if="s.verification?.requirements.minAge != null">
-                    · 🔞 {{ s.verification.requirements.minAge }}+
-                  </template>
-                  <template v-if="s.verification?.requirements.deliveryPin"> · 🔑 PIN</template>
+              <div class="flex items-center justify-between gap-2">
+                <span class="min-w-0 text-sm">
+                  <span class="font-semibold">{{ i + 1 }}. #{{ s.shortId }}</span>
+                  {{ s.destination.name }}
+                  <span class="block truncate text-xs text-neutral-500">
+                    {{ s.destination.address?.line1 }}
+                    <template v-if="s.verification?.requirements.minAge != null">
+                      · 🔞 {{ s.verification.requirements.minAge }}+
+                    </template>
+                    <template v-if="effectiveProof(s) === 'pin'"> · 🔑 PIN</template>
+                    <template v-if="effectiveProof(s) === 'picture'"> · 📷 photo</template>
+                  </span>
                 </span>
-              </span>
-              <!-- Per-stop outcomes once collected -->
-              <span v-if="effectiveStatus(s) === 'collected'" class="flex shrink-0 items-center gap-1">
-                <span
-                  v-if="isPendingSync(s)"
-                  class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                >
-                  syncing…
+                <span class="flex shrink-0 items-center gap-1">
+                  <span
+                    v-if="isPendingSync(s)"
+                    class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                  >
+                    syncing…
+                  </span>
+                  <span
+                    v-if="effectiveStatus(s) !== 'collected'"
+                    class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    :class="
+                      effectiveStatus(s) === 'delivered'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : effectiveStatus(s) === 'failed'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-neutral-100 text-neutral-500'
+                    "
+                  >
+                    {{ effectiveStatus(s) === 'assigned' ? 'to collect' : effectiveStatus(s) }}
+                  </span>
+                  <span
+                    v-else-if="activeStopId(t) !== s.orderId"
+                    class="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-400"
+                  >
+                    waiting
+                  </span>
                 </span>
-                <UButton
-                  size="xs"
-                  color="success"
-                  variant="soft"
-                  :loading="reportBusy === s.orderId"
-                  @click="openDeliver(t, s)"
-                >
-                  Delivered
-                </UButton>
-                <UButton
-                  size="xs"
-                  color="error"
-                  variant="soft"
-                  :disabled="reportBusy === s.orderId"
-                  @click="failStop(t, s)"
-                >
-                  Failed
-                </UButton>
-              </span>
-              <span
-                v-else
-                class="flex shrink-0 items-center gap-1"
+              </div>
+
+              <!-- The ACTIVE stop's journey: navigate → arrived → proof. -->
+              <div
+                v-if="
+                  activeStopId(t) === s.orderId &&
+                  effectiveStatus(s) === 'collected' &&
+                  !needsCollection(t)
+                "
+                class="mt-2 flex flex-wrap items-center gap-2"
               >
-                <span
-                  v-if="isPendingSync(s)"
-                  class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                <UButton
+                  size="sm"
+                  variant="soft"
+                  :href="mapsHref(s)"
+                  target="_blank"
+                  rel="noopener"
                 >
-                  syncing…
-                </span>
-                <span
-                  class="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  :class="
-                    effectiveStatus(s) === 'delivered'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : effectiveStatus(s) === 'failed'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-neutral-100 text-neutral-500'
-                  "
+                  🧭 Navigate
+                </UButton>
+                <UButton
+                  v-if="!arrivedByOrder[s.orderId]"
+                  size="sm"
+                  @click="markArrived(s)"
                 >
-                  {{ effectiveStatus(s) === 'assigned' ? 'to collect' : effectiveStatus(s) }}
-                </span>
-              </span>
+                  📍 I've arrived
+                </UButton>
+                <template v-else>
+                  <UButton
+                    size="sm"
+                    color="success"
+                    :loading="reportBusy === s.orderId"
+                    @click="openDeliver(t, s)"
+                  >
+                    Delivered
+                  </UButton>
+                  <UButton
+                    size="sm"
+                    color="error"
+                    variant="soft"
+                    :disabled="reportBusy === s.orderId"
+                    @click="failStop(t, s)"
+                  >
+                    Failed
+                  </UButton>
+                </template>
+              </div>
             </li>
           </ol>
         </div>
@@ -842,7 +1002,38 @@ onUnmounted(() => {
               {{ deliverDrawer.stop?.destination.name }}
             </p>
 
-            <template v-if="deliverRequirements.deliveryPin">
+            <template v-if="drawerProof === 'picture'">
+              <div>
+                <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  Proof photo
+                </p>
+                <img
+                  v-if="deliverDrawer.photoBase64"
+                  :src="`data:image/jpeg;base64,${deliverDrawer.photoBase64}`"
+                  class="mb-2 max-h-48 w-full rounded-lg object-cover"
+                  alt="Proof of delivery"
+                />
+                <UButton
+                  size="xl"
+                  block
+                  variant="soft"
+                  :loading="deliverDrawer.photoBusy"
+                  @click="capturePodPhoto"
+                >
+                  {{ deliverDrawer.photoBase64 ? '📷 Retake photo' : '📷 Take proof photo' }}
+                </UButton>
+                <input
+                  ref="photoInput"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  class="hidden"
+                  @change="onPhotoPicked"
+                />
+              </div>
+            </template>
+
+            <template v-if="drawerProof === 'pin'">
               <div>
                 <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
                   Customer PIN

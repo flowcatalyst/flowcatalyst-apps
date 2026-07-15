@@ -303,6 +303,8 @@ async function buildServer() {
     uber: loadUberConfig(),
     router: loadRouterConfig(),
     platformApi: loadPlatformApiConfig(),
+    // Blob driver from config: 'db' locally, 's3://bucket/prefix' deployed.
+    blobStoreUrl: process.env['FULFILGO_BLOB_STORE'],
   });
 
   // onRequest: bind a Scope on ALS for authenticated requests. The hook is

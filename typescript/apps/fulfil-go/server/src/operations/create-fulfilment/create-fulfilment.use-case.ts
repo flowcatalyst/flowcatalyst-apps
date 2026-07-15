@@ -135,6 +135,7 @@ export class CreateFulfilmentUseCase {
     const handoverPolicy = {
       pickupPinEnabled: settings.fulfilment.pickupPinEnabled,
       deliveryPinEnabled: settings.fulfilment.deliveryPinEnabled,
+      deliveryProof: settings.fulfilment.deliveryProof,
       deliveryPinSource: settings.fulfilment.deliveryPinSource,
       ageVisualOverrideAllowed: settings.fulfilment.ageVisualOverrideAllowed,
     };

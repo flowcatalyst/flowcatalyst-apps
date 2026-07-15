@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
-import type { Destination, HandoverPolicy } from '@fulfil-go/shared';
-import type { FulfilmentLine } from '@fulfil-go/shared';
+import { handoverDeliveryProof } from '@fulfil-go/shared';
+import type { Destination, FulfilmentLine, HandoverPolicy } from '@fulfil-go/shared';
 
 /**
  * Handover PIN generation (docs/handover-verification.md). Pins are one-shot
@@ -23,7 +23,8 @@ export function generateHandoverPin(): string {
  * collection-point handover code).
  */
 export function resolveDeliveryPin(policy: HandoverPolicy, destination: Destination): string | null {
-  if (!policy.deliveryPinEnabled) return null;
+  // A pin exists only when the proof MODE is 'pin' (picture/none skip it).
+  if (handoverDeliveryProof(policy) !== 'pin') return null;
   if (policy.deliveryPinSource === 'phone-last4') {
     const digits = (destination.location.contact?.phone ?? '').replace(/\D/g, '');
     if (digits.length >= HANDOVER_PIN_LENGTH) return digits.slice(-HANDOVER_PIN_LENGTH);

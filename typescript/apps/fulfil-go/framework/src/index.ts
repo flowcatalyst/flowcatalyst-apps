@@ -105,3 +105,5 @@ export { brandedTsid, isTsid, asTsid } from './tsid.js';
 export type { Tsid } from './tsid.js';
 export { eventGroup } from './events.js';
 export { ConcurrencyConflictError } from './errors.js';
+export { parseBlobStoreConfig } from './blob-store.js';
+export type { BlobStore, BlobStoreConfig, BlobStoreKind } from './blob-store.js';

@@ -34,6 +34,7 @@ import { asFulfilmentId } from '../../domain/fulfilments/ids.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
 import {
   TransportOrder,
+  requiredDeliveryProof,
   type CollectionEvidence,
   type DeliveryEvidence,
   type PinVerificationOutcome,
@@ -60,6 +61,10 @@ export interface ReportEvidenceInput {
     readonly method: 'id-attestation' | 'visual-override';
     readonly docType?: string | undefined;
   } | null;
+  /** Proof-of-delivery photo (client-generated blob ref, pod_…). */
+  readonly photoRef?: string | null;
+  /** The driver's "I've arrived" tap (ISO). */
+  readonly arrivedAt?: string | null;
 }
 
 export interface ReportTripProgressCommand {
@@ -186,8 +191,9 @@ export class ReportTripProgressUseCase {
         }
       } else if (status === 'delivered') {
         const requirements = order.verification?.requirements;
+        // Pin verification only applies when the proof MODE is 'pin'.
         let pinOutcome: DeliveryEvidence['pinOutcome'] = 'not-required';
-        if (requirements?.deliveryPin) {
+        if (requiredDeliveryProof(requirements) === 'pin') {
           if (evidence?.pinEntered == null || evidence.pinEntered === '') {
             pinOutcome = 'not-checked';
           } else {
@@ -202,6 +208,8 @@ export class ReportTripProgressUseCase {
         deliveryEvidence = {
           pinOutcome,
           ageCheck: evidence?.ageCheck ?? null,
+          photoRef: evidence?.photoRef ?? null,
+          arrivedAt: evidence?.arrivedAt ?? null,
           at: now.toISOString(),
         };
       }

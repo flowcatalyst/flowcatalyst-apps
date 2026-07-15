@@ -21,6 +21,7 @@ import {
   loadPickSettingsResolver,
   loadTransportSettingsResolver,
 } from './infrastructure/store-settings-resolver.js';
+import { createBlobStore, type ScopedBlobStore } from './infrastructure/blob-store.js';
 import { createPickSessionProjection } from './infrastructure/pick-session-projection.js';
 import type { SyncEventRepository } from './infrastructure/sync-event-repository.js';
 import { registerJob } from './infrastructure/register-job.js';
@@ -267,6 +268,8 @@ export interface AppContext {
     clientId: string,
     storeRef: string,
   ) => Promise<ResolvedPickStoreSettings>;
+  /** Client-scoped blob store (POD photos) — driver selected by config. */
+  readonly blobStore: ScopedBlobStore;
   /**
    * Plain async/await boundary for use cases. Opens a Drizzle tx, binds it
    * on ALS via `TransactionStore`, and invokes the thunk inside the tx.
@@ -307,6 +310,8 @@ export interface AppContextConfig {
     readonly clientId: string;
     readonly clientSecret: string;
   } | null;
+  /** Blob driver config: 'db' (default) or 's3://bucket/prefix'. */
+  readonly blobStoreUrl?: string | undefined;
 }
 
 export async function createAppContext(config: AppContextConfig): Promise<AppContext> {
@@ -404,6 +409,9 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const sseBroker = createSseBroker(syncEventRepo, console);
   // pick_sessions projection (docs/projections.md) — rides the pick txs.
   const pickSessionProjection = createPickSessionProjection(db);
+
+  // Blob store (POD photos) — driver from config: db locally, S3 deployed.
+  const blobStore = createBlobStore(db, config.blobStoreUrl);
 
   // Bag catalog + construction map, resolved per store: client bagSpecs as
   // the base layer under the pick profiles (docs/bag-sizing.md).
@@ -674,6 +682,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     platform: platformClient,
     sseBroker,
     pickSettingsForStore,
+    blobStore,
     runWrite,
   };
 }

@@ -112,6 +112,49 @@ policy allows it.
 category `pin-viewed`, actor) as part of the read; surfaced as a
 flightboard row action + fulfilment side-panel button.
 
+## Guided delivery journey (Andrew, 2026-07-14 — BUILT same day)
+
+The execution app walks stops IN ROUTE ORDER: only the active stop is
+actionable — 🧭 Navigate (default maps app: `geo:` intent on device,
+Google Maps directions in browser) → 📍 I've arrived (local timestamp,
+rides the report as `evidence.arrivedAt` — offline-safe, gives ops
+arrival-to-handover timing) → proof → Delivered/Failed → next stop
+unlocks → last terminal stop fires `trip:completed` (unchanged).
+
+**Proof modes** — `client_settings.fulfilment.deliveryProof:
+none | pin | picture` (default 'pin'; legacy deliveryPinEnabled input
+maps true→pin/false→none). Stamped at creation like everything else;
+requirements carry it to the driver (`deliveryProof` alongside the legacy
+boolean; old rows normalize via `requiredDeliveryProof`). Pins generate
+ONLY for mode 'pin'. 'picture' = proof-of-delivery photo; 'none' = tap
+through (age check stays orthogonal to all three).
+
+**POD photos + the BLOB STORE port** (first binary asset): framework
+`BlobStore` port + `parseBlobStoreConfig`; DRIVER FROM CONFIG
+(`FULFILGO_BLOB_STORE=db` default | `s3://bucket/prefix` deployed —
+Andrew's call: db locally, S3 in real environments; the S3 driver
+lazy-imports @aws-sdk/client-s3). Client-scoped keys. Refs are
+CLIENT-GENERATED (`pod_…`) so offline evidence can reference a photo
+before its upload drains — `PUT /pod-photos/:ref` is an idempotent
+upsert (driver session), queued BEFORE the report (FIFO); `GET` serves
+the image (any authenticated scope). Missing photo on a
+picture-proof delivery = accepted + flagged (`delivery photo missing` →
+verification entry + flightboard exception), same deferred philosophy.
+Smoke 10/10: requirements carry the mode, blob round trip, evidence
+photoRef+arrivedAt, missing-photo flag, proof-none straight-through.
+NOT verified: S3 driver against a real bucket; native camera capture.
+
+## One active trip per driver (Andrew, 2026-07-14 — BUILT same day)
+
+Industry norm: concurrent orders are PLANNER-composed into one route
+(DoorDash batched offers / Add to Route; Postmates forces add-ons) —
+drivers never self-stack. Own channel: compose refuses
+(`OPEN_TRIP_EXISTS`) and claim 409s while a claimed trip exists; app
+hides Find work. EPOD door exempt (their workload management).
+Consolidating two un-started trips is unreachable under the rule; the
+surviving need is a TOP-UP (extend a claimed un-collected trip at the
+same store within caps) — queued, not built.
+
 ## Open edges (flagged, not blocking)
 
 - Substitutions can escalate restriction: block subs carrying

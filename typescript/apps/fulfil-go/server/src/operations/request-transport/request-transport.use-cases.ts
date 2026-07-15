@@ -30,6 +30,7 @@ import {
   type AggregateRegistryImpl,
   type UnitOfWork,
 } from '@fulfil-go/framework';
+import { handoverDeliveryProof } from '@fulfil-go/shared';
 import type { Contact, Location } from '@fulfil-go/shared';
 import { Fulfilment, type FulfilmentPart } from '../../domain/fulfilments/fulfilment.js';
 import { asFulfilmentId } from '../../domain/fulfilments/ids.js';
@@ -286,6 +287,7 @@ export class RequestTransportUseCase {
         verificationRequirements: {
           pickupPin: part.pickupPin !== null,
           deliveryPin: fulfilment.deliveryPin !== null,
+          deliveryProof: handoverDeliveryProof(fulfilment.handoverPolicy),
           minAge: fulfilment.maxRestrictedAge,
           ageVisualOverrideAllowed: fulfilment.handoverPolicy?.ageVisualOverrideAllowed ?? false,
         },

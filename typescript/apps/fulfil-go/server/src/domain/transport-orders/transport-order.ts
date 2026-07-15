@@ -67,11 +67,21 @@ export interface TransportReservation {
 export interface OrderVerificationRequirements {
   /** A pickup pin exists on the part (store can override a failed scan). */
   readonly pickupPin: boolean;
-  /** A delivery pin exists on the fulfilment (customer handover). */
+  /** LEGACY boolean view — derives from deliveryProof === 'pin'. */
   readonly deliveryPin: boolean;
+  /** Customer-handover proof: none | pin | picture. Absent pre-feature. */
+  readonly deliveryProof?: 'none' | 'pin' | 'picture';
   /** Age-restricted order: minimum customer age; null = unrestricted. */
   readonly minAge: number | null;
   readonly ageVisualOverrideAllowed: boolean;
+}
+
+/** Old rows carry only the boolean — normalize on read, never rewrite. */
+export function requiredDeliveryProof(
+  requirements: OrderVerificationRequirements | undefined,
+): 'none' | 'pin' | 'picture' {
+  if (!requirements) return 'none';
+  return requirements.deliveryProof ?? (requirements.deliveryPin ? 'pin' : 'none');
 }
 
 export type PinVerificationOutcome = 'verified' | 'mismatch' | 'not-checked';
@@ -90,6 +100,10 @@ export interface DeliveryEvidence {
     readonly method: 'id-attestation' | 'visual-override';
     readonly docType?: string | undefined;
   } | null;
+  /** Proof-of-delivery photo (blob-store ref) when proof = 'picture'. */
+  readonly photoRef?: string | null;
+  /** Driver's "I've arrived" tap — arrival-to-handover ops timing. */
+  readonly arrivedAt?: string | null;
   readonly at: string;
 }
 
@@ -244,8 +258,12 @@ export const TransportOrder = {
     if (v.collection?.pinOutcome === 'mismatch') return 'pickup pin mismatch at collection';
     if (!v.delivery) return null;
     if (v.delivery.pinOutcome === 'mismatch') return 'delivery pin mismatch';
-    if (v.requirements.deliveryPin && v.delivery.pinOutcome === 'not-checked') {
+    const proof = requiredDeliveryProof(v.requirements);
+    if (proof === 'pin' && v.delivery.pinOutcome === 'not-checked') {
       return 'delivery pin not checked';
+    }
+    if (proof === 'picture' && !v.delivery.photoRef) {
+      return 'delivery photo missing';
     }
     if (v.requirements.minAge != null) {
       if (!v.delivery.ageCheck) return `age check missing (requires ${v.requirements.minAge}+)`;

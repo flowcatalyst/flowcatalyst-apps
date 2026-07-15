@@ -51,12 +51,22 @@ export type PackageUnitSizes = z.infer<typeof PackageUnitSizesSchema>;
  * creation (the processDefinition pattern) — reconfiguring migrates NEW
  * fulfilments only. Sparse: absent fields fall through to the defaults.
  */
+/** Customer-handover proof mode (docs/handover-verification.md). */
+export const DeliveryProofSchema = z.enum(['none', 'pin', 'picture']);
+export type DeliveryProof = z.infer<typeof DeliveryProofSchema>;
+
 export const FulfilmentClientSettingsSchema = z
   .object({
     /** Generate a per-part pickup PIN (driver↔store handover override). */
     pickupPinEnabled: z.boolean().optional(),
-    /** Generate a per-fulfilment delivery PIN (customer handover). */
+    /**
+     * LEGACY boolean — superseded by `deliveryProof` (true→'pin',
+     * false→'none'); still accepted as input, ignored when deliveryProof
+     * is set.
+     */
     deliveryPinEnabled: z.boolean().optional(),
+    /** What the driver must capture at the door: none | pin | picture. */
+    deliveryProof: DeliveryProofSchema.optional(),
     /**
      * 'phone-last4' uses destination.contact.phone's last 4 digits and
      * FALLS BACK to random when no phone is captured (phone is optional).
@@ -126,6 +136,7 @@ export const DEFAULT_PACKAGE_UNIT_SIZES: Record<string, number> = {
 export const FULFILMENT_CLIENT_SETTINGS_DEFAULTS: ResolvedFulfilmentClientSettings = {
   pickupPinEnabled: true,
   deliveryPinEnabled: true,
+  deliveryProof: 'pin',
   deliveryPinSource: 'random',
   ageVisualOverrideAllowed: false,
 };
@@ -156,6 +167,16 @@ export function resolveClientSettings(
           (resolved.fulfilment as Record<string, unknown>)[key] = value;
         }
       }
+      // Legacy deliveryPinEnabled honoured only when deliveryProof is unset.
+      if (settings.fulfilment.deliveryProof === undefined) {
+        if (settings.fulfilment.deliveryPinEnabled !== undefined) {
+          resolved.fulfilment.deliveryProof = settings.fulfilment.deliveryPinEnabled
+            ? 'pin'
+            : 'none';
+        }
+      }
+      // The boolean view derives from the enum — no drift.
+      resolved.fulfilment.deliveryPinEnabled = resolved.fulfilment.deliveryProof === 'pin';
     }
   }
   // Bag program: defaults ⇐ LEGACY packageUnitSizes (units-only overlay,

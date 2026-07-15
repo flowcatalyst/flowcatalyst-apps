@@ -73,6 +73,9 @@ export type { TransportPositionRow } from './schema/transport-positions.js';
 export { trips } from './schema/trips.js';
 export type { TripRow } from './schema/trips.js';
 
+export { blobs } from './schema/blobs.js';
+export type { BlobRow } from './schema/blobs.js';
+
 export { driverUsers } from './schema/driver-users.js';
 export type { NewDriverUser, DriverUserRow } from './schema/driver-users.js';
 

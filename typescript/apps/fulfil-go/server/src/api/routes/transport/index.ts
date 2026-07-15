@@ -765,6 +765,10 @@ export function registerTransportRoutes(
         { additionalProperties: false },
       ),
     ),
+    /** Proof-of-delivery photo (blob ref, client-generated pod_…). */
+    photoRef: Type.Optional(Type.String({ maxLength: 64 })),
+    /** The driver's "I've arrived" tap (ISO) — arrival-to-handover timing. */
+    arrivedAt: Type.Optional(Type.String({ maxLength: 40 })),
   };
   const reportSchema = (withOrder: boolean) => ({
     tags: ['Transport'],
@@ -809,6 +813,8 @@ export function registerTransportRoutes(
       scannedRefs?: string[];
       pinEntered?: string;
       ageCheck?: { method: 'id-attestation' | 'visual-override'; docType?: string };
+      photoRef?: string;
+      arrivedAt?: string;
     };
     const result = await appContext.runWrite(() =>
       appContext.useCases.reportTripProgress.execute({
@@ -823,6 +829,8 @@ export function registerTransportRoutes(
           scannedRefs: body.scannedRefs ?? null,
           pinEntered: body.pinEntered ?? null,
           ageCheck: body.ageCheck ?? null,
+          photoRef: body.photoRef ?? null,
+          arrivedAt: body.arrivedAt ?? null,
         },
       }),
     );
@@ -867,6 +875,84 @@ export function registerTransportRoutes(
     '/clients/:clientId/transport/my-trips/:tripId/stops/:orderId/failed',
     { schema: reportSchema(true) },
     (request, reply) => handleReport(request, reply, 'failed'),
+  );
+
+  // ── Proof-of-delivery photos (docs/handover-verification.md): refs are
+  // CLIENT-GENERATED (pod_…) so the offline queue can reference a photo
+  // before its upload drains — PUT is an idempotent upsert; the queued
+  // photo drains BEFORE the delivered report (FIFO). Driver escorts the
+  // upload; management views via the GET.
+  fastify.put(
+    '/clients/:clientId/pod-photos/:ref',
+    {
+      schema: {
+        tags: ['Transport'],
+        params: Type.Object({ clientId: Type.String(), ref: Type.String() }),
+        body: Type.Object(
+          {
+            /** JPEG/PNG, base64 (no data: prefix). App compresses ≤~350KB. */
+            imageBase64: Type.String({ maxLength: 700_000 }),
+            contentType: Type.Union([Type.Literal('image/jpeg'), Type.Literal('image/png')]),
+          },
+          { additionalProperties: false },
+        ),
+        response: {
+          200: Type.Object({ photoRef: Type.String() }),
+          400: Type.Object({ error: Type.String(), message: Type.String() }),
+          401: UnauthorizedSchema,
+          403: Type.Object({ error: Type.String(), message: Type.String() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.attributes['driverRef']) {
+        return reply
+          .code(403)
+          .send({ error: 'forbidden', message: 'This endpoint requires a driver session.' });
+      }
+      const { clientId, ref } = request.params as { clientId: string; ref: string };
+      if (!/^pod_[A-Za-z0-9_-]{6,48}$/.test(ref)) {
+        return reply
+          .code(400)
+          .send({ error: 'INVALID_REF', message: 'photoRef must match pod_<id>.' });
+      }
+      const { imageBase64, contentType } = request.body as {
+        imageBase64: string;
+        contentType: string;
+      };
+      const bytes = Buffer.from(imageBase64, 'base64');
+      if (bytes.length === 0) {
+        return reply.code(400).send({ error: 'EMPTY_IMAGE', message: 'No image bytes.' });
+      }
+      await appContext.blobStore(clientId).put(ref, bytes, contentType);
+      return reply.code(200).send({ photoRef: ref });
+    },
+  );
+
+  fastify.get(
+    '/clients/:clientId/pod-photos/:ref',
+    {
+      schema: {
+        tags: ['Transport'],
+        params: Type.Object({ clientId: Type.String(), ref: Type.String() }),
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, ref } = request.params as { clientId: string; ref: string };
+      const blob = await appContext.blobStore(clientId).get(ref);
+      if (!blob) {
+        return reply.code(404).send({ error: 'not_found', message: 'No such photo.' });
+      }
+      return reply.header('content-type', blob.contentType).send(Buffer.from(blob.bytes));
+    },
   );
 
   // ONLINE interactive pin check — the app pre-verifies BEFORE handover
