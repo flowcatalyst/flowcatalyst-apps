@@ -11,7 +11,6 @@ import {
   type TransactionManager,
 } from '@fulfil-go/framework';
 import type { Result, UnitOfWork } from '@fulfil-go/framework';
-import { createDrizzleJobRepository } from './infrastructure/job-repository.js';
 import { createDrizzleTelemetryRepository } from './infrastructure/telemetry-repository.js';
 import type { TelemetryRepository } from './infrastructure/telemetry-repository.js';
 import { createDrizzleIdempotencyRepository } from './infrastructure/idempotency-repository.js';
@@ -24,7 +23,6 @@ import {
 import { createBlobStore, type ScopedBlobStore } from './infrastructure/blob-store.js';
 import { createPickSessionProjection } from './infrastructure/pick-session-projection.js';
 import type { SyncEventRepository } from './infrastructure/sync-event-repository.js';
-import { registerJob } from './infrastructure/register-job.js';
 import { createDrizzleFulfilmentRepository } from './infrastructure/fulfilment-repository.js';
 import { registerFulfilment } from './infrastructure/register-fulfilment.js';
 import { createShortIdAllocator } from './infrastructure/short-id-allocator.js';
@@ -138,19 +136,12 @@ import {
   ReportTripProgressUseCase,
   VerifyHandoverPinUseCase,
 } from './operations/report-trip-progress/report-trip-progress.use-case.js';
-import { JOB_ID_PREFIX } from './domain/jobs/ids.js';
-import { JOB_TYPE } from './domain/jobs/job.js';
-import type { JobRepository } from './domain/jobs/job.repository.js';
 import { createSseBroker, type SseBroker } from './sse/sse-broker.js';
 import { createTokenValidator, type TokenValidator } from './auth/token-validator.js';
 import { createMobileOidcBroker, type MobileOidcBroker } from './auth/oidc-client.js';
 import { createPickerTokenService, type PickerTokenService } from './auth/picker-token.js';
 import { createPickerAuthService, type PickerAuthService } from './auth/picker-auth-service.js';
 import type { AuthConfig } from './auth/auth-config.js';
-import { CreateJobUseCase } from './operations/create-job/create-job.use-case.js';
-import { AssignJobUseCase } from './operations/assign-job/assign-job.use-case.js';
-import { AcceptJobUseCase } from './operations/accept-job/accept-job.use-case.js';
-import { CompleteJobUseCase } from './operations/complete-job/complete-job.use-case.js';
 
 /**
  * Composition root for the fulfil-go server. Wires the repository graph, a
@@ -161,7 +152,6 @@ import { CompleteJobUseCase } from './operations/complete-job/complete-job.use-c
  * Keep this file dumb — wiring only, no business logic.
  */
 export interface AppContextRepositories {
-  readonly jobs: JobRepository;
   readonly fulfilments: FulfilmentRepository;
   readonly activityLog: ActivityLogRepository;
   readonly shortIds: ShortIdAllocator;
@@ -216,10 +206,6 @@ export interface AppContextUseCases {
   readonly reactivateDriver: ReactivateDriverUseCase;
   readonly reassignDriver: ReassignDriverUseCase;
   readonly deleteDriver: DeleteDriverUseCase;
-  readonly createJob: CreateJobUseCase;
-  readonly assignJob: AssignJobUseCase;
-  readonly acceptJob: AcceptJobUseCase;
-  readonly completeJob: CompleteJobUseCase;
 }
 
 /**
@@ -320,7 +306,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const transactionManager = createTransactionManager(db);
 
   const aggregateRegistry = createAggregateRegistry({
-    [JOB_ID_PREFIX]: JOB_TYPE,
     [FULFILMENT_ID_PREFIX]: FULFILMENT_TYPE,
     [PICKER_USER_ID_PREFIX]: PICKER_USER_TYPE,
     [PICK_ID_PREFIX]: PICK_TYPE,
@@ -329,7 +314,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     [DRIVER_USER_ID_PREFIX]: DRIVER_USER_TYPE,
   });
 
-  const jobRepo = createDrizzleJobRepository(db);
   const syncEventRepo = createDrizzleSyncEventRepository(db);
   const telemetryRepo = createDrizzleTelemetryRepository(db);
   const idempotencyRepo = createDrizzleIdempotencyRepository(db);
@@ -368,7 +352,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   }
   const providerRegistry: ProviderRegistry = createProviderRegistry(providerChannels);
 
-  registerJob(aggregateRegistry, jobRepo);
   registerFulfilment(aggregateRegistry, fulfilmentRepo);
   registerPickerUser(aggregateRegistry, pickerUserRepo);
   registerPick(aggregateRegistry, pickRepo);
@@ -428,7 +411,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     transactionManager,
     aggregateRegistry,
     repositories: {
-      jobs: jobRepo,
       fulfilments: fulfilmentRepo,
       activityLog: activityLogRepo,
       shortIds: shortIdAllocator,
@@ -663,10 +645,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       reactivateDriver: new ReactivateDriverUseCase(uow, aggregateRegistry, driverUserRepo),
       reassignDriver: new ReassignDriverUseCase(uow, aggregateRegistry, driverUserRepo, depotRepo),
       deleteDriver: new DeleteDriverUseCase(uow, aggregateRegistry, driverUserRepo),
-      createJob: new CreateJobUseCase(uow, aggregateRegistry),
-      assignJob: new AssignJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
-      acceptJob: new AcceptJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
-      completeJob: new CompleteJobUseCase(uow, aggregateRegistry, jobRepo, syncEventRepo),
     },
     auth: {
       config: config.auth,

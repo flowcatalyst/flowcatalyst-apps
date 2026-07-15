@@ -20,7 +20,7 @@ function daysAgo(days: number): Date {
 
 export async function pruneOnce(db: PostgresJsDatabase, log: PruneLogger): Promise<void> {
   // Clients further behind than the sync_events retention window recover via
-  // delta sync (GET /sync/jobs), so pruning replay history is safe.
+  // delta sync (GET /clients/:id/sync/picks), so pruning replay history is safe.
   const [syncPruned, idemPruned, telemetryPruned] = await Promise.all([
     db
       .delete(syncEvents)

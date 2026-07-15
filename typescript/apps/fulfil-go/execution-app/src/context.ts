@@ -17,9 +17,9 @@ import {
   type PickerSession,
   type Session,
   type SseClient,
+  type SseState,
   type TokenProvider,
 } from '@fulfil-go/mobile-kit';
-import { createJobsStore, type JobsStore } from './stores/jobs.js';
 
 export const REDIRECT_URI = 'fulfilgo-exec://auth/callback';
 
@@ -64,7 +64,7 @@ export interface AppCtx {
   readonly auth: AuthClient;
   readonly queue: OfflineQueue;
   readonly sse: SseClient;
-  readonly jobs: JobsStore;
+  readonly sseState: Ref<SseState>;
   /** Driver plane (staff code + PIN at the bound depot — the picker pattern). */
   readonly station: DriverStationConfig;
   readonly driverSession: PickerSession;
@@ -128,19 +128,17 @@ export async function createAppCtx(): Promise<AppCtx> {
       : createMemoryQueueStorage('fulfilgo.exec.queue'),
     api,
   });
-  const jobs = createJobsStore(api, queue);
-
+  // No sync events target drivers yet (picks stream on the STORE channel;
+  // trips report by request/response) — the connection stays wired for the
+  // header badge and as the seam where trip.* events will land.
+  const sseState = ref<SseState>('closed');
   const sse = createSseClient({
     url: `${baseUrl}/sse/channel`,
     getHeaders: () => api.authHeaders(),
-    onEvent: (event) => jobs.applySse(event),
+    onEvent: () => {},
     onStateChange: (state) => {
-      jobs.sseState.value = state;
-      // Replay covers short gaps; a fresh 'open' after a long gap still
-      // needs the snapshot — hydrate is cheap, do it on every open.
-      if (state === 'open') void jobs.hydrate();
+      sseState.value = state;
     },
-    initialLastEventId: jobs.lastEventId.value,
   });
 
   let started = false;
@@ -151,7 +149,7 @@ export async function createAppCtx(): Promise<AppCtx> {
     auth,
     queue,
     sse,
-    jobs,
+    sseState,
     station,
     driverSession,
     driverSignedIn,
@@ -167,9 +165,6 @@ export async function createAppCtx(): Promise<AppCtx> {
     async startSync(): Promise<void> {
       if (started) return;
       started = true;
-      await jobs.hydrate().catch(() => {
-        // Offline start — SSE reconnect + queue flush recover later.
-      });
       sse.connect();
       bindLifecycle(sse, { onWake: () => void queue.flush() });
     },

@@ -19,9 +19,6 @@ export type {
   AuditLogRow,
 } from '@flowcatalyst-apps/app-framework';
 
-export { jobs } from './schema/jobs.js';
-export type { NewJob, JobRow } from './schema/jobs.js';
-
 export { syncEvents } from './schema/sync-events.js';
 export type { NewSyncEvent, SyncEventRow } from './schema/sync-events.js';
 

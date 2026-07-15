@@ -33,7 +33,7 @@ export const fulfilGoRoles: readonly sync.RoleDefinition[] = [
   {
     name: 'field-worker',
     displayName: 'FulfilGo Field Worker',
-    description: 'Drivers and pickers: work jobs and stream telemetry from the mobile apps.',
+    description: 'Drivers and pickers: stream telemetry from the mobile apps.',
     permissions: [...DefaultRolePermissions[FulfilGoRole.FieldWorker]],
     clientManaged: true,
   },

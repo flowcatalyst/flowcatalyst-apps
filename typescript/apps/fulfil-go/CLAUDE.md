@@ -47,8 +47,9 @@ next steps, and known issues.** Design docs: `docs/fulfilment-context.md`,
 1. **SSE**: use cases append to `sync_events` on the same ALS tx before
    `commitAggregate` → in-process broker (`src/sse/sse-broker.ts`) tails the
    table (poll + post-write nudge + LISTEN fulfilgo_sync) → `GET /sse/channel`
-   streams per-principal (`user:<principalId>`), replays via `Last-Event-ID`,
-   heartbeats every 25s. `GET /sync/jobs` returns `{latestEventId, jobs}` for
+   streams per-principal (`user:<principalId>`) or per-store (picker
+   sessions), replays via `Last-Event-ID`, heartbeats every 25s.
+   `GET /clients/:id/sync/picks` returns `{latestEventId, picks}` for
    snapshot-then-stream. **Multi-instance safe** (ECS ≥2 nodes): an insert
    trigger NOTIFYs on commit so every node's broker wakes, and every
    sync_events read is guarded by the visibility horizon (`txid <
@@ -156,9 +157,12 @@ real OIDC instead of the dev fallback.)
 Alternative (no platform running): the throwaway docker Postgres —
 `pnpm --filter @fulfil-go/server db:up` and switch `.env` to Option B (port 5434).
 
-Smoke flow (dev fallback headers): POST /jobs as `prn_dispatcher` →
-POST /jobs/:id/assign {assigneeId: prn_driver1} → watch it arrive live in the
-execution app (or `curl -N -H "x-user-id: prn_driver1" :3200/sse/channel`).
+Driver flow (the claim marketplace): management app seeds depots + drivers
+(Transport → Depots/Drivers; seeded PIN 374837) → execution app Settings
+binds the station (clientId + depotRef) → `/driver-login` staff code + PIN →
+Work tab: Find work → claim the offer → per-stop collected/delivered/failed.
+API-only smoke: `POST /clients/:id/driver-auth/login/pin` → bodyless
+`POST /clients/:id/transport/offers` → `POST …/offers/:groupId/claim`.
 
 Picking flow: management app → Pickers page → "Sync stores from fixtures" →
 "Seed pickers" (staff codes P01…, shared PIN, default 385345 = FULFIL on a

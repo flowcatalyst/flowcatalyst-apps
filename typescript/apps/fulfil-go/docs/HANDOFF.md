@@ -9,11 +9,12 @@ SUPERVISOR role + day-scoped stations, BAG SIZING (specs catalog,
 construction, loose auto-size), ONE ACTIVE TRIP per driver, and the
 GUIDED DELIVERY JOURNEY (navigate/arrived/proof none|pin|picture + the
 framework BlobStore port, db/S3 drivers), plus SIGNATURE proof +
-government-ID photo + management list filters (15 Jul). Read `CLAUDE.md`
+government-ID photo + management list filters (15 Jul). The DEMO JOBS
+VERTICAL is DELETED (2026-07-15, see below). Read `CLAUDE.md`
 first; the "What landed" blocks below are newest-first.
-**NEXT: delete the demo jobs vertical, the fulfilment completion leg
-(delivered/failed events now flow WITH verification evidence + arrival
-timing), the EPOD status flow back, or the trip TOP-UP (Add-to-Route)**.
+**NEXT: the fulfilment completion leg (delivered/failed events now flow
+WITH verification evidence + arrival timing), the EPOD status flow back,
+or the trip TOP-UP (Add-to-Route)**.
 Device/deploy-only verifications outstanding: native camera capture +
 barcode scanning on real Android, TcpPrint vs a real Zebra, the S3 blob
 driver against a real bucket.
@@ -23,6 +24,29 @@ InhanceMono has branch `feature/fulfilgo-epod-integration` (worktree
 ~/Developer/inhance/InhanceMono-fulfilgo-epod, 4 commits, NOT pushed) —
 the EPOD-side endpoints + claim proxy; rebase onto fresh origin/develop
 before pushing.
+
+## What landed 2026-07-15 (demo jobs vertical DELETED)
+
+**DEMO JOBS VERTICAL DELETED** (agreed next-steps item 4's remaining piece):
+
+- Server: `/jobs` routes, Job aggregate + events + repository + the four
+  use cases, `jobs` schema/table (migration `20260715091943_drop_demo_jobs`,
+  applied to the dev db), `GET /sync/jobs` (the picks snapshot route stays),
+  app-context wiring, swagger tag. Shared: JobDto, job contracts, job domain
+  schema, `job.*` SyncEventTypes + DeltaSyncResponse, the four job
+  permissions (Dispatcher/FieldWorker role bundles slimmed — roles re-synced
+  to the platform via `pnpm flowcatalyst:sync`, 4 updated). Job events were
+  never platform-registered, so nothing to unregister.
+- Execution app: Jobs/JobDetail pages + jobs store + routes gone; post-login
+  lands on `/offers`. SSE stays wired (header badge + the seam where trip.*
+  events will land) — NOTE: nothing publishes to the driver's `user:` channel
+  right now; per-principal SSE consumers start from `ctx.sseState`.
+- CLAUDE.md dev-loop rewritten around the driver claim-marketplace flow;
+  transport-context.md open question resolved (Work tab IS the 'own' door).
+- Verified: all fulfil-go packages build; server 252 + mobile-kit 20 tests
+  green; live smoke on :3299 — `/jobs` + `/sync/jobs` 404, driver PIN login →
+  `/driver-auth/me` → offer composition → SSE channel all 200, picks sync
+  guard intact (403 for non-picker sessions).
 
 ## What landed 2026-07-15 (signature + ID-photo + filters session)
 
@@ -452,7 +476,6 @@ design doc; read it before touching the replace flow):
 | Stores          | Base registry + geo columns + per-domain profile assignment.                                                                                                                                                                          |
 | Transport       | DEMAND SIDE LIVE (orders, resolver, trigger, uber booking/webhook). Missing: management Transport orders page (API exists), EPOD status flow BACK (their workflow/stop webhooks → order machine).                                     |
 | Planning        | LIVE — Trip aggregate + group-atomic reservations + offer/claim marketplace (EPOD proxy door + native door), VROOM sequencing, sync route-plan push. Missing: execution-app consumption, real-EPOD-tenant verification.               |
-| Jobs (demo)     | Throwaway vertical; still powers execution-app. SUPERSEDED — the claim marketplace is live server-side; migrate execution-app onto /transport/offers and delete the vertical.                                                         |
 
 ## Agreed next steps (priority order)
 
@@ -511,13 +534,12 @@ design doc; read it before touching the replace flow):
    loose auto-size from line volumetrics (fixes the size:null = 1 unit
    composition undercount); bags-only completion sanity check (big item
    vs small bags soft warning). Read the doc before building.
-4. **Execution-app migration onto the claim marketplace**: consume
-   `/clients/:id/transport/offers` + `/offers/:groupId/claim` natively
-   (offer card with the stop sequence, claim → drive → per-stop
-   delivered/failed reporting — which needs the status-report API below),
-   then DELETE the demo jobs vertical (routes, aggregate, use cases,
-   execution-app pages). ~~Build the planning context~~ BUILT this
-   session — server-side marketplace is live and smoke-verified.
+4. ~~**Execution-app migration onto the claim marketplace**~~ **DONE** —
+   Work tab BUILT 2026-07-13; demo jobs vertical DELETED 2026-07-15 (see
+   "What landed" above). Still open from this item: offline-queue the
+   driver report calls (mobile-kit outbox, like pick outcomes — drivers
+   lose signal). ~~Build the planning context~~ BUILT — server-side
+   marketplace is live and smoke-verified.
    Companion pieces:
    - ~~Driver identity~~ **BUILT 2026-07-13 (same session)** — PICKER-STYLE
      per Andrew's decisions: staff code + PIN ONLY (no device pinning —
@@ -578,10 +600,10 @@ design doc; read it before touching the replace flow):
      still reachable). Smoke-verified live: collected → replay-ACK →
      delivered #1002 → failed #1003 ('customer not home') → trip
      completed and gone from my-trips.
-     REMAINING: delete the demo jobs vertical (server + app pages + the
-     CLAUDE.md dev-loop references); offline-queue the report calls
-     (mobile-kit outbox, like pick outcomes — drivers lose signal);
-     fulfilment completion leg now has its input events flowing.
+     ~~REMAINING: delete the demo jobs vertical~~ DELETED 2026-07-15;
+     still open: offline-queue the report calls (mobile-kit outbox, like
+     pick outcomes — drivers lose signal); fulfilment completion leg now
+     has its input events flowing.
    - A driver status-report surface for 'own' trips (collected/delivered/
      failed per stop → apply-transport-status), since own-channel
      execution has no webhook source.

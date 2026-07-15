@@ -15,7 +15,6 @@ import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
 import { ALL_PERMISSIONS_SET, resolvePermissions } from './auth/role-permissions.js';
-import { registerJobRoutes } from './api/routes/jobs/index.js';
 import { registerFulfilmentRoutes } from './api/routes/fulfilments/index.js';
 import { registerFlightboardRoutes } from './api/routes/flightboard/index.js';
 import { registerConfigRoutes } from './api/routes/config/index.js';
@@ -332,8 +331,8 @@ async function buildServer() {
         // version — bump when the surface meaningfully changes.
         version: '0.1.0',
         description:
-          'On-demand fulfilment: job dispatch (SSE), driver telemetry ingest, ' +
-          'offline-queued job transitions.',
+          'On-demand fulfilment: picking, transport planning + execution ' +
+          '(SSE push, offline-queued reports), driver telemetry ingest.',
       },
       tags: [
         { name: 'System', description: 'Health + ops endpoints' },
@@ -341,10 +340,6 @@ async function buildServer() {
         {
           name: 'Fulfilments',
           description: 'Fulfilment coordination: create → … (cancel-only, immutable)',
-        },
-        {
-          name: 'Jobs',
-          description: 'Job lifecycle: create → assign → accept → complete (demo vertical)',
         },
         { name: 'Sync', description: 'SSE push + delta-sync catch-up' },
         { name: 'Telemetry', description: 'Driver location ingest (Transistorsoft uploader)' },
@@ -374,7 +369,6 @@ async function buildServer() {
   registerFulfilmentRoutes(server, appContext);
   registerFlightboardRoutes(server, appContext);
   registerConfigRoutes(server, appContext);
-  registerJobRoutes(server, appContext);
   registerSseRoutes(server, appContext);
   registerSyncRoutes(server, appContext);
   registerTelemetryRoutes(server, appContext);

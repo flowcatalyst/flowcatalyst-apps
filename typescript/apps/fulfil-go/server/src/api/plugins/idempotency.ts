@@ -20,7 +20,7 @@ export interface HandlerOutcome {
  *
  * At-least-once caveat (documented in the plan): the store happens AFTER the
  * business tx commits, so a crash in between re-executes the command on
- * retry. The job use cases re-execute idempotently, which is why that window
+ * retry. The pick/trip use cases re-execute idempotently, which is why that window
  * is acceptable here. The stricter variant — inserting the key inside the
  * business tx — is a follow-up.
  */

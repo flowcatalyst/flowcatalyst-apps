@@ -20,8 +20,9 @@ allocationStrategy store setting ('claim' only, gate for future 'assign').
 Smoke-verified end-to-end 2026-07-13 against a mock EPOD intake + the LIVE
 router (solo, multi-stop VROOM, anchor, anchor-held, expiry release,
 rejection release, idempotent re-claim, wrong-driver 410, native claim).
-Remaining: execution-app UI migration off the demo jobs vertical, status
-flow back from EPOD (webhooks), fulfilment completion leg.
+Remaining: status flow back from EPOD (webhooks), fulfilment completion
+leg. (Execution app migrated to the offers door 2026-07-13; the demo jobs
+vertical was deleted 2026-07-15.)
 
 Earlier status: **DEMAND SIDE BUILT 2026-07-13** (commit `9775e96`): TransportOrder
 aggregate + events, provider registry ('own'/'epod' our-planned, 'uber'
@@ -94,9 +95,10 @@ requires_car_or_larger`), stored by the PM from `part:picked` — parcels +
 - Uber Direct specifics (quote validity, webhook auth, sandbox) — spike.
 - Multi-part fulfilments: one TransportOrder per part (per-store collection)
   vs consolidated multi-stop — start with one per part.
-- Driver execution: reuse fulfil-go's execution-app jobs vertical as the
-  'own' adapter's backend, or fulfil (the Effect app)'s last-mile? Decide
-  before build.
+- ~~Driver execution: reuse fulfil-go's execution-app jobs vertical as the
+  'own' adapter's backend, or fulfil (the Effect app)'s last-mile?~~
+  RESOLVED: the execution app's Work tab consumes the native offers door;
+  the demo jobs vertical is deleted (2026-07-15).
 
 ## Provider selection & coverage (locked with Andrew, 2026-07-11)
 

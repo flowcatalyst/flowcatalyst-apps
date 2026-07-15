@@ -19,7 +19,7 @@ const showBack = computed(() => route.path.split('/').length > 2);
         <MobileHeader :title="title" :back="showBack">
           <template #right>
             <ConnectionBadge
-              :state="ctx.jobs.sseState.value"
+              :state="ctx.sseState.value"
               :pending="queueState.pending.value"
               :dead="queueState.dead.value"
             />

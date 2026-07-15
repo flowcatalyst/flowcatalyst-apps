@@ -14,7 +14,7 @@ async function signIn(): Promise<void> {
   try {
     await ctx.auth.login();
     await ctx.startSync();
-    await router.push('/jobs');
+    await router.push('/offers');
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {

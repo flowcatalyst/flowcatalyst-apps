@@ -12,7 +12,7 @@ export interface SseClientOptions {
   readonly onStateChange?: (state: SseState) => void;
   readonly fetchImpl?: typeof fetch;
   /**
-   * Resume point restored from app state (e.g. the persisted job-store
+   * Resume point restored from app state (e.g. a persisted store's
    * high-water mark) so a cold start doesn't replay the whole channel.
    */
   readonly initialLastEventId?: string | null;

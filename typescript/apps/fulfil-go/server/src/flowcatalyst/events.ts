@@ -6,9 +6,6 @@
  * `pnpm flowcatalyst:sync` has one place to register event types AND push
  * their payload JSON schemas.
  *
- * The throwaway `jobs` demo vertical's events are deliberately NOT
- * registered — only real domain events go to the platform.
- *
  * Adding a new event:
  *   1. Define the schema + class + EventType in the .event.ts file.
  *   2. Add the EventType import to the list below.

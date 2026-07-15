@@ -3,10 +3,6 @@
 export const FulfilGoPermission = {
   CreateFulfilment: 'createFulfilment',
   CancelFulfilment: 'cancelFulfilment',
-  CreateJob: 'createJob',
-  AssignJob: 'assignJob',
-  AcceptJob: 'acceptJob',
-  CompleteJob: 'completeJob',
   WriteTelemetry: 'writeTelemetry',
   // Pick-context identity administration (platform-OIDC admins).
   ManagePickers: 'managePickers',
@@ -34,8 +30,8 @@ export const FulfilGoPermission = {
 export type FulfilGoPermission = (typeof FulfilGoPermission)[keyof typeof FulfilGoPermission];
 
 // Role names are conventional bundles, not a code-enforced hierarchy.
-// Dispatchers create/assign work from the back office; field workers
-// (drivers and pickers) accept/complete jobs and stream telemetry.
+// Dispatchers run the back office; field workers (drivers and pickers)
+// authenticate via their own session planes and stream telemetry.
 export const FulfilGoRole = {
   Dispatcher: 'fulfilgoDispatcher',
   FieldWorker: 'fulfilgoFieldWorker',
@@ -50,18 +46,12 @@ export const DefaultRolePermissions: Readonly<Record<FulfilGoRole, readonly Fulf
     [FulfilGoRole.Dispatcher]: [
       FulfilGoPermission.CreateFulfilment,
       FulfilGoPermission.CancelFulfilment,
-      FulfilGoPermission.CreateJob,
-      FulfilGoPermission.AssignJob,
       FulfilGoPermission.ManagePickers,
       FulfilGoPermission.ManageDrivers,
       FulfilGoPermission.ManageStores,
       FulfilGoPermission.ViewHandoverPins,
     ],
-    [FulfilGoRole.FieldWorker]: [
-      FulfilGoPermission.AcceptJob,
-      FulfilGoPermission.CompleteJob,
-      FulfilGoPermission.WriteTelemetry,
-    ],
+    [FulfilGoRole.FieldWorker]: [FulfilGoPermission.WriteTelemetry],
     [FulfilGoRole.ReadOnly]: [],
   };
 
