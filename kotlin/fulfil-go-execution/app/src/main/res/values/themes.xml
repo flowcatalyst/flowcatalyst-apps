@@ -1,0 +1,4 @@
+<resources>
+    <!-- Compose draws everything; this only styles the pre-Compose window. -->
+    <style name="Theme.FulfilGoDrive" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
