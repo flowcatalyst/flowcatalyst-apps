@@ -106,6 +106,13 @@ pg_snapshot_xmin(pg_current_snapshot())` — ids allocate before commit, so
 
 ## Gotchas
 
+- The EXECUTION APP IS NATIVE ANDROID (`kotlin/fulfil-go-execution/`, its
+  own CLAUDE.md). Its DTOs are GENERATED from the driver-app contract in
+  shared (`src/api/transport.dto.ts` + `kotlin-contract.ts`), which the
+  transport/driver-auth routes also enforce as request/response schemas.
+  Contract change ⇒ `pnpm --filter @fulfil-go/shared gen:kotlin` or the
+  native app drifts. NO $id on those schemas (they nest repeatedly in one
+  route — the ajv duplicate-id gotcha below).
 - `outbox_messages` is NOT in the Drizzle journal — `pnpm db:init` creates it
   (`applyOutboxTableMigration`). Without it every commitAggregate 500s.
 - Don't put `$id` on TypeBox schemas that appear twice in one route schema

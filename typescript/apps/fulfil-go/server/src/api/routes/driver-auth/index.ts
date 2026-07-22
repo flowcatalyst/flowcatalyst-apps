@@ -10,7 +10,11 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@fulfil-go/framework';
-import { DRIVER_SESSION_PERMISSIONS, PickerTokenResponseSchema } from '@fulfil-go/shared';
+import {
+  DRIVER_SESSION_PERMISSIONS,
+  DriverMeResponseSchema,
+  PickerTokenResponseSchema,
+} from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
 import { isDriverUserId, asDriverUserId } from '../../../domain/driver-identity/ids.js';
 import { PickerTokenError } from '../../../auth/picker-token.js';
@@ -26,15 +30,8 @@ const PinLoginBodySchema = Type.Object(
   { additionalProperties: false },
 );
 
-const MeResponseSchema = Type.Object({
-  driverId: Type.String(),
-  clientId: Type.String(),
-  depotRef: Type.String(),
-  displayName: Type.Union([Type.String(), Type.Null()]),
-  defaultVehicleReg: Type.Union([Type.String(), Type.Null()]),
-  defaultVehicleClass: Type.Union([Type.String(), Type.Null()]),
-  permissions: Type.Array(Type.String()),
-});
+// Moved to @fulfil-go/shared (kotlin-contract source for the native app).
+const MeResponseSchema = DriverMeResponseSchema;
 
 export function registerDriverAuthRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.post(

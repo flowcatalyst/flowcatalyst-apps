@@ -17,6 +17,15 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ScopeStore, isFailure, runJob, type Result } from '@fulfil-go/framework';
+import {
+  MyTripsResponseSchema,
+  OffersResponseSchema,
+  PodPhotoUploadSchema,
+  TripReportBodySchema,
+  TripReportResponseSchema,
+  VerifyPinRequestSchema,
+  VerifyPinResponseSchema,
+} from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
 import { isTransportOrderId } from '../../../domain/transport-orders/ids.js';
 import { asDriverUserId, isDriverUserId } from '../../../domain/driver-identity/ids.js';
@@ -500,10 +509,7 @@ export function registerTransportRoutes(
         params: Type.Object({ clientId: Type.String() }),
         body: ClaimableTripsRequestSchema,
         response: {
-          200: Type.Object({
-            offers: Type.Array(Type.Unknown()),
-            reason: Type.Optional(Type.String()),
-          }),
+          200: OffersResponseSchema,
           401: UnauthorizedSchema,
           500: Type.Object({ error: Type.String(), message: Type.String() }),
         },
@@ -604,10 +610,7 @@ export function registerTransportRoutes(
           orderReference: Type.Optional(Type.String()),
         }),
         response: {
-          200: Type.Object({
-            offers: Type.Array(Type.Unknown()),
-            reason: Type.Optional(Type.String()),
-          }),
+          200: OffersResponseSchema,
           400: Type.Object({ error: Type.String(), message: Type.String() }),
           401: UnauthorizedSchema,
           500: Type.Object({ error: Type.String(), message: Type.String() }),
@@ -674,7 +677,7 @@ export function registerTransportRoutes(
           limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
         }),
         response: {
-          200: Type.Object({ trips: Type.Array(Type.Unknown()) }),
+          200: MyTripsResponseSchema,
           401: UnauthorizedSchema,
           403: Type.Object({ error: Type.String(), message: Type.String() }),
         },
@@ -748,46 +751,16 @@ export function registerTransportRoutes(
   // the driver IS the signal). Idempotent: replays/double-taps ACK 200.
   // Bodies carry HANDOVER EVIDENCE (docs/handover-verification.md) — the
   // app captures it offline-first; verification is deferred server-side.
-  const evidenceBody = {
-    reason: Type.Optional(Type.String({ maxLength: 300 })),
-    /** Collection confirm method: 'scan' | 'pin' (absent = bulk). */
-    method: Type.Optional(Type.Union([Type.Literal('scan'), Type.Literal('pin')])),
-    scannedRefs: Type.Optional(Type.Array(Type.String({ maxLength: 64 }), { maxItems: 100 })),
-    /** Entered pin (pickup override at collection; delivery pin at the door). */
-    pinEntered: Type.Optional(Type.String({ maxLength: 8 })),
-    /** Age-restricted delivery: how the age was checked. */
-    ageCheck: Type.Optional(
-      Type.Object(
-        {
-          method: Type.Union([Type.Literal('id-attestation'), Type.Literal('visual-override')]),
-          docType: Type.Optional(Type.String({ maxLength: 40 })),
-          /** Government-ID photo (blob ref) when the policy requires it. */
-          idPhotoRef: Type.Optional(Type.String({ maxLength: 64 })),
-        },
-        { additionalProperties: false },
-      ),
-    ),
-    /** Proof-of-delivery photo (blob ref, client-generated pod_…). */
-    photoRef: Type.Optional(Type.String({ maxLength: 64 })),
-    /** Customer signature image (blob ref, client-generated sig_…). */
-    signatureRef: Type.Optional(Type.String({ maxLength: 64 })),
-    /** The driver's "I've arrived" tap (ISO) — arrival-to-handover timing. */
-    arrivedAt: Type.Optional(Type.String({ maxLength: 40 })),
-  };
+  // Evidence body + response live in @fulfil-go/shared (the driver-app
+  // contract — the native app's DTOs are GENERATED from them).
   const reportSchema = (withOrder: boolean) => ({
     tags: ['Transport'],
     params: withOrder
       ? Type.Object({ clientId: Type.String(), tripId: Type.String(), orderId: Type.String() })
       : Type.Object({ clientId: Type.String(), tripId: Type.String() }),
-    body: Type.Object(evidenceBody, { additionalProperties: false }),
+    body: TripReportBodySchema,
     response: {
-      200: Type.Object({
-        updatedOrders: Type.Array(Type.String()),
-        allCollected: Type.Boolean(),
-        tripCompleted: Type.Boolean(),
-        pinOutcome: Type.Optional(Type.String()),
-        note: Type.Optional(Type.String()),
-      }),
+      200: TripReportResponseSchema,
       401: UnauthorizedSchema,
       403: Type.Object({ error: Type.String(), message: Type.String() }),
       404: Type.Object({ error: Type.String(), message: Type.String() }),
@@ -898,14 +871,7 @@ export function registerTransportRoutes(
       schema: {
         tags: ['Transport'],
         params: Type.Object({ clientId: Type.String(), ref: Type.String() }),
-        body: Type.Object(
-          {
-            /** JPEG/PNG, base64 (no data: prefix). App compresses ≤~350KB. */
-            imageBase64: Type.String({ maxLength: 700_000 }),
-            contentType: Type.Union([Type.Literal('image/jpeg'), Type.Literal('image/png')]),
-          },
-          { additionalProperties: false },
-        ),
+        body: PodPhotoUploadSchema,
         response: {
           200: Type.Object({ photoRef: Type.String() }),
           400: Type.Object({ error: Type.String(), message: Type.String() }),
@@ -980,15 +946,9 @@ export function registerTransportRoutes(
           tripId: Type.String(),
           orderId: Type.String(),
         }),
-        body: Type.Object(
-          {
-            kind: Type.Union([Type.Literal('pickup'), Type.Literal('delivery')]),
-            pin: Type.String({ minLength: 1, maxLength: 8 }),
-          },
-          { additionalProperties: false },
-        ),
+        body: VerifyPinRequestSchema,
         response: {
-          200: Type.Object({ verified: Type.Boolean() }),
+          200: VerifyPinResponseSchema,
           401: UnauthorizedSchema,
           403: Type.Object({ error: Type.String(), message: Type.String() }),
           404: Type.Object({ error: Type.String(), message: Type.String() }),

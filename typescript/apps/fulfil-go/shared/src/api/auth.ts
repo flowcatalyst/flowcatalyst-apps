@@ -79,3 +79,18 @@ export const PickerTokenResponseSchema = Type.Object(
   { $id: 'PickerTokenResponse' },
 );
 export type PickerTokenResponse = Static<typeof PickerTokenResponseSchema>;
+
+/**
+ * /clients/:id/driver-auth/me — the signed-in driver's identity + defaults.
+ * No $id (kotlin-contract source; keep it inline-safe everywhere).
+ */
+export const DriverMeResponseSchema = Type.Object({
+  driverId: Type.String(),
+  clientId: Type.String(),
+  depotRef: Type.String(),
+  displayName: Type.Union([Type.String(), Type.Null()]),
+  defaultVehicleReg: Type.Union([Type.String(), Type.Null()]),
+  defaultVehicleClass: Type.Union([Type.String(), Type.Null()]),
+  permissions: Type.Array(Type.String()),
+});
+export type DriverMeResponse = Static<typeof DriverMeResponseSchema>;
