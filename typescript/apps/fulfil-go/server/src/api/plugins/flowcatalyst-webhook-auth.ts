@@ -1,11 +1,14 @@
 /**
  * FlowCatalyst inbound-webhook HMAC verification.
  *
- * Mirrors the Laravel SDK's `WebhookValidator` scheme so the same signing
- * secret works across both clients:
+ * Delegates to the SDK's `verifyDeliverySignature` (v0.9.7+) — the canonical
+ * verifier for scheduled-job firings and dispatch webhooks:
  *   message       = `${timestamp}${rawBody}`
  *   signature     = hmac_sha256(message, secret), hex-encoded
  *   headers       = X-FlowCatalyst-Signature, X-FlowCatalyst-Timestamp
+ *   timestamp     = ms-precision ISO8601 (platform default) OR bare Unix
+ *                   seconds (legacy) — the HMAC covers the raw header string
+ *                   either way
  *   tolerance     = 300s past, 60s future (replay protection)
  *   comparison    = constant-time
  *
@@ -17,7 +20,11 @@
  * need a secret. NEVER deploy without setting `FLOWCATALYST_SIGNING_SECRET`.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  verifyDeliverySignature,
+  WebhookSignatureError,
+  type WebhookSignatureErrorCode,
+} from '@flowcatalyst/sdk';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 // Augment FastifyRequest to expose the raw body string captured by the
@@ -34,10 +41,6 @@ export const FC_TIMESTAMP_HEADER = 'x-flowcatalyst-timestamp';
 export interface VerifyOptions {
   /** Max age of the signed timestamp in seconds. Default 300 (5 min). */
   readonly toleranceSeconds?: number;
-  /** Grace window for clock skew in the future. Default 60s. */
-  readonly futureGraceSeconds?: number;
-  /** Override `Date.now()` for testing. */
-  readonly nowSeconds?: () => number;
 }
 
 export type VerifyResult =
@@ -50,15 +53,31 @@ export type VerifyResult =
         | 'TIMESTAMP_INVALID'
         | 'TIMESTAMP_EXPIRED'
         | 'TIMESTAMP_FUTURE'
-        | 'SIGNATURE_MISMATCH';
+        | 'SIGNATURE_MISMATCH'
+        | 'MISSING_BEARER'
+        | 'INVALID_BEARER';
       readonly message: string;
     };
 
+const CODE_MAP: Record<WebhookSignatureErrorCode, Exclude<VerifyResult, { ok: true }>['code']> = {
+  // The hook never calls the SDK without a secret, but map it defensively —
+  // an empty secret must read as a verification failure, not a bypass.
+  missing_secret: 'SIGNATURE_MISMATCH',
+  missing_signature: 'MISSING_SIGNATURE',
+  missing_timestamp: 'MISSING_TIMESTAMP',
+  invalid_timestamp: 'TIMESTAMP_INVALID',
+  timestamp_expired: 'TIMESTAMP_EXPIRED',
+  timestamp_in_future: 'TIMESTAMP_FUTURE',
+  invalid_signature: 'SIGNATURE_MISMATCH',
+  // Bearer-gate codes (SDK ≥0.9.9): unreachable until the hook opts into
+  // `expectedBearerToken` — mapped so the code map stays total.
+  missing_bearer: 'MISSING_BEARER',
+  invalid_bearer: 'INVALID_BEARER',
+};
+
 /**
- * Pure HMAC verification. Returns a `VerifyResult` discriminated union so
- * the caller (Fastify hook, tests, etc.) decides how to respond.
- *
- * Constant-time comparison uses `timingSafeEqual` on equal-length buffers.
+ * HMAC verification via the SDK, adapted to a `VerifyResult` discriminated
+ * union so the caller (Fastify hook, tests, etc.) decides how to respond.
  */
 export function verifyFlowCatalystSignature(
   rawBody: string,
@@ -67,77 +86,29 @@ export function verifyFlowCatalystSignature(
   secret: string,
   options?: VerifyOptions,
 ): VerifyResult {
-  if (!signature) {
-    return {
-      ok: false,
-      code: 'MISSING_SIGNATURE',
-      message: 'Missing X-FlowCatalyst-Signature header.',
-    };
+  try {
+    verifyDeliverySignature({
+      rawBody,
+      signature,
+      timestamp,
+      secret,
+      ...(options?.toleranceSeconds !== undefined
+        ? { toleranceSeconds: options.toleranceSeconds }
+        : {}),
+    });
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof WebhookSignatureError) {
+      return { ok: false, code: CODE_MAP[error.code], message: error.message };
+    }
+    throw error;
   }
-  if (!timestamp) {
-    return {
-      ok: false,
-      code: 'MISSING_TIMESTAMP',
-      message: 'Missing X-FlowCatalyst-Timestamp header.',
-    };
-  }
-
-  const webhookSeconds = Number(timestamp);
-  if (!Number.isFinite(webhookSeconds)) {
-    return {
-      ok: false,
-      code: 'TIMESTAMP_INVALID',
-      message: `X-FlowCatalyst-Timestamp '${timestamp}' is not a valid number.`,
-    };
-  }
-
-  const tolerance = options?.toleranceSeconds ?? 300;
-  const futureGrace = options?.futureGraceSeconds ?? 60;
-  const now = options?.nowSeconds?.() ?? Math.floor(Date.now() / 1000);
-
-  if (webhookSeconds < now - tolerance) {
-    return {
-      ok: false,
-      code: 'TIMESTAMP_EXPIRED',
-      message: `Webhook timestamp is older than ${tolerance}s.`,
-    };
-  }
-  if (webhookSeconds > now + futureGrace) {
-    return {
-      ok: false,
-      code: 'TIMESTAMP_FUTURE',
-      message: `Webhook timestamp is more than ${futureGrace}s in the future.`,
-    };
-  }
-
-  const message = `${timestamp}${rawBody}`;
-  const expected = createHmac('sha256', secret).update(message).digest('hex');
-
-  // Buffer.compare requires equal lengths — short-circuit length mismatch
-  // before timingSafeEqual so it never throws.
-  if (expected.length !== signature.length) {
-    return {
-      ok: false,
-      code: 'SIGNATURE_MISMATCH',
-      message: 'Webhook signature does not match.',
-    };
-  }
-  const matches = timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(signature, 'utf8'));
-  if (!matches) {
-    return {
-      ok: false,
-      code: 'SIGNATURE_MISMATCH',
-      message: 'Webhook signature does not match.',
-    };
-  }
-
-  return { ok: true };
 }
 
 export interface WebhookAuthHookOptions {
   /** Shared secret from `FLOWCATALYST_SIGNING_SECRET`. When undefined, the hook skips verification (dev mode). */
   readonly signingSecret: string | undefined;
-  /** Override defaults for tolerance / clock skew (mainly for tests). */
+  /** Override the replay tolerance (mainly for tests). */
   readonly verifyOptions?: VerifyOptions;
 }
 
