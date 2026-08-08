@@ -4,7 +4,11 @@ import { useRoute } from 'vue-router';
 import type { PickDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
+import { fmtDateTime as fmt } from '../lib/format.js';
 import PageHeader from '../components/PageHeader.vue';
+import FilterBar from '../components/table/FilterBar.vue';
+import SortableTh, { type SortState } from '../components/table/SortableTh.vue';
+import TruncationFooter from '../components/table/TruncationFooter.vue';
 
 /**
  * Back-office pick views — one component, two routes:
@@ -33,6 +37,63 @@ const storeFilter = persistedFilter<string>('picks-admin', 'store', ALL_STORES);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+/** Slot-window presets; 'custom' opens the two date inputs. */
+type SlotRange = 'all' | 'overdue' | 'today' | 'next48h' | 'next7d' | 'custom';
+const slotRange = persistedFilter<SlotRange>('picks-admin', 'slotRange', 'all');
+const customFrom = persistedFilter<string>('picks-admin', 'slotFrom', '');
+const customTo = persistedFilter<string>('picks-admin', 'slotTo', '');
+const sort = persistedFilter<SortState>('picks-admin', 'sort', { field: 'slotStart', dir: 'asc' });
+
+/** Popover-filter count for the FilterBar badge (store select is inline). */
+const activeFilterCount = computed(() => (slotRange.value !== 'all' ? 1 : 0));
+const hasActiveFilters = computed(
+  () => slotRange.value !== 'all' || storeFilter.value !== ALL_STORES,
+);
+function clearFilters(): void {
+  storeFilter.value = ALL_STORES;
+  slotRange.value = 'all';
+  customFrom.value = '';
+  customTo.value = '';
+}
+
+/** Server cap on /picks/admin (pick-repository listByClient default). */
+const SERVER_LIMIT = 200;
+
+const rangeOptions = [
+  { label: 'All slots', value: 'all' },
+  { label: 'Overdue (slot passed)', value: 'overdue' },
+  { label: 'Today', value: 'today' },
+  { label: 'Next 48 hours', value: 'next48h' },
+  { label: 'Next 7 days', value: 'next7d' },
+  { label: 'Custom range…', value: 'custom' },
+] as const;
+
+/** Resolve the active preset to inclusive slotStart bounds (ISO or null). */
+function slotWindow(): { from: string | null; to: string | null } {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const plus = (base: Date, hours: number): Date => new Date(base.getTime() + hours * 3_600_000);
+  switch (slotRange.value) {
+    case 'overdue':
+      return { from: null, to: now.toISOString() };
+    case 'today':
+      return { from: startOfDay.toISOString(), to: plus(startOfDay, 24).toISOString() };
+    case 'next48h':
+      return { from: now.toISOString(), to: plus(now, 48).toISOString() };
+    case 'next7d':
+      return { from: startOfDay.toISOString(), to: plus(startOfDay, 24 * 7).toISOString() };
+    case 'custom': {
+      // Date-only inputs: from = start of that day, to = END of that day.
+      const from = customFrom.value ? new Date(`${customFrom.value}T00:00:00`) : null;
+      const to = customTo.value ? new Date(`${customTo.value}T23:59:59.999`) : null;
+      return { from: from?.toISOString() ?? null, to: to?.toISOString() ?? null };
+    }
+    default:
+      return { from: null, to: null };
+  }
+}
+
+
 const storeOptions = computed(() => [
   { label: 'All stores', value: ALL_STORES },
   ...stores.value.map((s) => ({ label: `${s.storeRef} · ${s.name}`, value: s.storeRef })),
@@ -52,10 +113,13 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const storeParam =
-      storeFilter.value !== ALL_STORES ? `&store=${encodeURIComponent(storeFilter.value)}` : '';
+    const params = new URLSearchParams({ status: status.value, slotOrder: sort.value.dir });
+    if (storeFilter.value !== ALL_STORES) params.set('store', storeFilter.value);
+    const { from, to } = slotWindow();
+    if (from) params.set('slotFrom', from);
+    if (to) params.set('slotTo', to);
     const res = await api.json<{ picks: PickDto[]; pickers: Record<string, string> }>(
-      `/clients/${clientId.value}/picks/admin?status=${status.value}${storeParam}`,
+      `/clients/${clientId.value}/picks/admin?${params}`,
     );
     picks.value = res.picks;
     pickerNames.value = res.pickers;
@@ -68,11 +132,6 @@ async function load(): Promise<void> {
 
 function units(pick: PickDto): number {
   return pick.lines.reduce((sum, l) => sum + ((l as { quantity?: number }).quantity ?? 0), 0);
-}
-function fmt(iso: string | null): string {
-  return iso
-    ? new Date(iso).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'short' })
-    : '—';
 }
 
 /** Light poll — the admin view doesn't hold an SSE store stream. */
@@ -88,7 +147,9 @@ watch([clientId], () => {
   void loadStores();
   void load();
 });
-watch([status, storeFilter], () => void load());
+watch([status, storeFilter, slotRange, customFrom, customTo, sort], () => void load(), {
+  deep: true,
+});
 </script>
 
 <template>
@@ -116,10 +177,33 @@ watch([status, storeFilter], () => void load());
 
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
 
-    <div class="mb-3 flex items-center gap-3">
-      <USelect v-model="storeFilter" :items="storeOptions" value-key="value" class="w-80" />
-      <span class="text-xs text-neutral-400">{{ picks.length }} pick(s)</span>
-    </div>
+    <FilterBar
+      :active-count="activeFilterCount"
+      :has-active="hasActiveFilters"
+      @clear="clearFilters"
+    >
+      <template #inline>
+        <USelect v-model="storeFilter" :items="storeOptions" value-key="value" class="w-80" />
+      </template>
+      <template #filters>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-neutral-500">Slot window</label>
+          <USelect
+            v-model="slotRange"
+            :items="[...rangeOptions]"
+            value-key="value"
+            icon="i-lucide-calendar-range"
+            class="w-full"
+          />
+        </div>
+        <div v-if="slotRange === 'custom'" class="flex items-center gap-2">
+          <UInput v-model="customFrom" type="date" size="sm" aria-label="Slot from" />
+          <span class="text-xs text-neutral-400">to</span>
+          <UInput v-model="customTo" type="date" size="sm" aria-label="Slot to" />
+        </div>
+      </template>
+      <template #meta>{{ picks.length }} pick(s)</template>
+    </FilterBar>
 
     <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
       <table class="w-full text-sm">
@@ -127,7 +211,7 @@ watch([status, storeFilter], () => void load());
           <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
             <th class="px-3 py-2">Part</th>
             <th class="px-3 py-2">Store</th>
-            <th class="px-3 py-2">Slot</th>
+            <SortableTh v-model="sort" field="slotStart" label="Slot" />
             <th class="px-3 py-2">Lines</th>
             <th class="px-3 py-2">Level</th>
             <th v-if="isActiveView" class="px-3 py-2">Picker</th>
@@ -178,5 +262,6 @@ watch([status, storeFilter], () => void load());
         </tbody>
       </table>
     </div>
+    <TruncationFooter :shown="picks.length" :limit="SERVER_LIMIT" />
   </div>
 </template>

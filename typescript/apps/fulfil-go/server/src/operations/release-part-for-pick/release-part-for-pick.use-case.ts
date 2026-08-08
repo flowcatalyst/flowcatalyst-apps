@@ -13,6 +13,7 @@ import type { FulfilmentId, FulfilmentPartId } from '../../domain/fulfilments/id
 import { FulfilmentPartPickRequested } from '../../domain/fulfilments/events/fulfilment-part-pick-requested.event.js';
 import type { FulfilmentRepository } from '../../domain/fulfilments/fulfilment.repository.js';
 import type { ActivityLogRepository } from '../../infrastructure/activity-log-repository.js';
+import { CreatePickCommandCode } from '../../flowcatalyst/dispatch-commands.js';
 
 export interface ReleasePartCommand {
   readonly clientId: string;
@@ -118,7 +119,7 @@ export class ReleasePartForPickUseCase {
 
     const dispatchJob = CreateDispatchJobDto.create(
       'fulfil-go:fulfilment',
-      'create-pick',
+      CreatePickCommandCode,
       `${this.dispatch.publicBaseUrl}/clients/${fulfilment.clientId}/picks`,
       createPickPayload,
       this.dispatch.dispatchPoolCode,

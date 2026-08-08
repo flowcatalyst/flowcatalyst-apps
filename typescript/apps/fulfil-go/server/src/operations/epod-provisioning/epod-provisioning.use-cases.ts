@@ -44,6 +44,7 @@ import {
   toEpodProducts,
 } from '../../transport/epod/provisioning-mapper.js';
 import type { EpodUpsertResponse } from '../../transport/epod/types.js';
+import { EpodProvisionCommandCode } from '../../flowcatalyst/dispatch-commands.js';
 
 export const EPOD_EXECUTION_SYSTEM = 'epod' as const;
 /** Processing-log category that doubles as the dispatch state guard. */
@@ -119,7 +120,7 @@ export class RequestEpodProvisioningUseCase {
 
     const dispatchJob = CreateDispatchJobDto.create(
       'fulfil-go:fulfilment',
-      'epod-provision',
+      EpodProvisionCommandCode,
       `${this.dispatch.publicBaseUrl}/clients/${fulfilment.clientId}/epod/provision`,
       { fulfilmentId: fulfilment.id },
       this.dispatch.dispatchPoolCode,

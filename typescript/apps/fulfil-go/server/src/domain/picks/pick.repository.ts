@@ -18,9 +18,17 @@ export interface PickRepository {
     window?: { from: Date; to: Date },
   ): Promise<readonly Pick[]>;
 
-  /** Admin listing across stores — oldest slot first; optional narrowing. */
+  /** Admin listing across stores — slot order (default oldest first); optional narrowing. */
   listByClient(
     clientId: string,
-    options?: { status?: PickStatus; storeRef?: string; limit?: number },
+    options?: {
+      status?: PickStatus;
+      storeRef?: string;
+      /** Inclusive slotStart window bounds. */
+      slotFrom?: Date;
+      slotTo?: Date;
+      slotOrder?: 'asc' | 'desc';
+      limit?: number;
+    },
   ): Promise<readonly Pick[]>;
 }

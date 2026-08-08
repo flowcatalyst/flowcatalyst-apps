@@ -5,6 +5,7 @@ import type { FulfilmentDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
+import InspectorPanel from '../components/InspectorPanel.vue';
 
 interface LogEntry {
   id: number;
@@ -383,36 +384,14 @@ function fmt(iso: string): string {
 
     <!-- Non-modal inspector panel (ui-guidelines.md): a layout column, not an
          overlay — clicking other rows swaps content without dismissing. -->
-    <aside
+    <InspectorPanel
       v-if="selected"
-      class="flex w-[480px] shrink-0 flex-col border-l border-neutral-200 bg-white shadow-[-8px_0_32px_rgba(15,23,42,0.06)]"
+      :title="selected.externalRef"
+      :subtitle="selected.id"
+      :status="selected.status"
+      :status-tone="statusColor[selected.status]"
+      @close="closePanel"
     >
-      <div class="flex items-start justify-between gap-3 border-b border-neutral-200 px-5 py-4">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <h2 class="truncate text-lg font-semibold text-navy-900">
-              {{ selected.externalRef }}
-            </h2>
-            <span
-              class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="statusColor[selected.status] ?? 'text-neutral-600 bg-neutral-100'"
-            >
-              {{ selected.status }}
-            </span>
-          </div>
-          <p class="truncate font-mono text-xs text-neutral-400">{{ selected.id }}</p>
-        </div>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-x"
-          aria-label="Close panel"
-          @click="closePanel"
-        />
-      </div>
-
-      <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5">
         <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
             <span class="mb-0.5 block text-xs font-medium text-neutral-500">Type</span>
@@ -565,7 +544,6 @@ function fmt(iso: string): string {
             </li>
           </ol>
         </section>
-      </div>
-    </aside>
+    </InspectorPanel>
   </div>
 </template>

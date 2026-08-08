@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -176,16 +176,26 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
 
     async listByClient(
       clientId: string,
-      options?: { status?: PickStatus; storeRef?: string; limit?: number },
+      options?: {
+        status?: PickStatus;
+        storeRef?: string;
+        slotFrom?: Date;
+        slotTo?: Date;
+        slotOrder?: 'asc' | 'desc';
+        limit?: number;
+      },
     ): Promise<readonly Pick[]> {
       const conditions = [eq(picks.clientId, clientId)];
       if (options?.status) conditions.push(eq(picks.status, options.status));
       if (options?.storeRef) conditions.push(eq(picks.storeRef, options.storeRef));
+      if (options?.slotFrom) conditions.push(gte(picks.slotStart, options.slotFrom));
+      if (options?.slotTo) conditions.push(lte(picks.slotStart, options.slotTo));
+      const dir = options?.slotOrder === 'desc' ? desc : asc;
       const rows = await current()
         .select()
         .from(picks)
         .where(and(...conditions))
-        .orderBy(asc(picks.slotStart), asc(picks.shortId))
+        .orderBy(dir(picks.slotStart), asc(picks.shortId))
         .limit(options?.limit ?? 200);
       return rows.map(toDomain);
     },

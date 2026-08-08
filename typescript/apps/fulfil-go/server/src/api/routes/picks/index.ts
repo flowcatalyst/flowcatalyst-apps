@@ -127,12 +127,17 @@ export function registerPickRoutes(
             ]),
           ),
           store: Type.Optional(Type.String()),
+          /** Inclusive slotStart window (ISO date-times). */
+          slotFrom: Type.Optional(Type.String()),
+          slotTo: Type.Optional(Type.String()),
+          slotOrder: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')])),
         }),
         response: {
           200: Type.Object({
             picks: Type.Array(PickDtoSchema),
             pickers: Type.Record(Type.String(), Type.String()),
           }),
+          400: ErrorResponseSchema,
           401: UnauthorizedSchema,
           403: ErrorResponseSchema,
         },
@@ -152,10 +157,34 @@ export function registerPickRoutes(
         });
       }
       const { clientId } = request.params as { clientId: string };
-      const { status, store } = request.query as { status?: PickStatus; store?: string };
+      const { status, store, slotFrom, slotTo, slotOrder } = request.query as {
+        status?: PickStatus;
+        store?: string;
+        slotFrom?: string;
+        slotTo?: string;
+        slotOrder?: 'asc' | 'desc';
+      };
+      const parseWindowBound = (value: string | undefined): Date | undefined => {
+        if (!value) return undefined;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+      };
+      const from = parseWindowBound(slotFrom);
+      const to = parseWindowBound(slotTo);
+      if ((slotFrom && !from) || (slotTo && !to)) {
+        return reply.code(400).send({
+          error: 'validation',
+          code: 'INVALID_SLOT_WINDOW',
+          message: 'slotFrom/slotTo must be valid ISO date-times.',
+          details: null,
+        });
+      }
       const rows = await appContext.repositories.picks.listByClient(clientId, {
         ...(status ? { status } : {}),
         ...(store ? { storeRef: store } : {}),
+        ...(from ? { slotFrom: from } : {}),
+        ...(to ? { slotTo: to } : {}),
+        ...(slotOrder ? { slotOrder } : {}),
       });
 
       const pickerIds = [

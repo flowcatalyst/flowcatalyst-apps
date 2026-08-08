@@ -50,6 +50,7 @@ import { loadTransportSettingsResolver } from '../../infrastructure/store-settin
 import type { ProviderRegistry } from '../../transport/adapter-registry.js';
 import { resolveProviders } from '../../transport/provider-resolver.js';
 import type { TransportParcel, TransportStop } from '../../transport/provider-port.js';
+import { BookTransportOrderCommandCode } from '../../flowcatalyst/dispatch-commands.js';
 
 export const REQUEST_TRANSPORT_REACTION = 'request-transport' as const;
 
@@ -377,7 +378,7 @@ export class RequestTransportUseCase {
         // delivers it to the book landing pad with retries.
         const dispatchJob = CreateDispatchJobDto.create(
           'fulfil-go:transport',
-          'book-transport-order',
+          BookTransportOrderCommandCode,
           `${this.dispatch.publicBaseUrl}/clients/${order.clientId}/transport/orders/${order.id}/book`,
           { clientId: order.clientId, transportOrderId: order.id },
           this.dispatch.dispatchPoolCode,
