@@ -4,8 +4,12 @@ import { useRoute, useRouter } from 'vue-router';
 import type { FulfilmentDto } from '@fulfil-go/shared';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
+import { fmtDateTime as fmt } from '../lib/format.js';
 import PageHeader from '../components/PageHeader.vue';
 import InspectorPanel from '../components/InspectorPanel.vue';
+import FilterBar from '../components/table/FilterBar.vue';
+import SortableTh, { type SortState } from '../components/table/SortableTh.vue';
+import TruncationFooter from '../components/table/TruncationFooter.vue';
 
 interface LogEntry {
   id: number;
@@ -62,6 +66,35 @@ const typeFilter = persistedFilter('fulfilments', 'type', 'all');
 /** datetime-local values (local time) — sent as ISO. */
 const slotFrom = persistedFilter('fulfilments', 'slotFrom', '');
 const slotTo = persistedFilter('fulfilments', 'slotTo', '');
+/** Server-side quick-search: externalRef contains OR part shortId prefix. */
+const search = persistedFilter('fulfilments', 'q', '');
+const sort = persistedFilter<SortState>('fulfilments', 'sort', {
+  field: 'createdAt',
+  dir: 'desc',
+});
+
+/** Rows requested per load — hitting it renders the truncation notice. */
+const LIMIT = 100;
+
+/** Popover-filter count for the FilterBar badge (store select is inline). */
+const activeFilterCount = computed(
+  () =>
+    (statusFilter.value.length > 0 ? 1 : 0) +
+    (typeFilter.value !== 'all' ? 1 : 0) +
+    (slotFrom.value || slotTo.value ? 1 : 0),
+);
+const hasActiveFilters = computed(
+  () =>
+    activeFilterCount.value > 0 || storeFilter.value.length > 0 || search.value.trim().length > 0,
+);
+function clearFilters(): void {
+  storeFilter.value = [];
+  statusFilter.value = [];
+  typeFilter.value = 'all';
+  slotFrom.value = '';
+  slotTo.value = '';
+  search.value = '';
+}
 
 const storeOptions = computed(() =>
   stores.value.map((s) => ({ label: `${s.storeRef} · ${s.name}`, value: s.storeRef })),
@@ -85,12 +118,17 @@ async function refresh(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const params = new URLSearchParams({ limit: '100' });
+    const params = new URLSearchParams({
+      limit: String(LIMIT),
+      sort: sort.value.field,
+      dir: sort.value.dir,
+    });
     if (storeFilter.value.length > 0) params.set('stores', storeFilter.value.join(','));
     if (statusFilter.value.length > 0) params.set('status', statusFilter.value.join(','));
     if (typeFilter.value !== 'all') params.set('type', typeFilter.value);
     if (slotFrom.value) params.set('slotFrom', new Date(slotFrom.value).toISOString());
     if (slotTo.value) params.set('slotTo', new Date(slotTo.value).toISOString());
+    if (search.value.trim()) params.set('q', search.value.trim());
     const res = await api.json<{ fulfilments: FulfilmentDto[] }>(
       `/clients/${clientId.value}/fulfilments?${params.toString()}`,
     );
@@ -181,7 +219,15 @@ watch(clientId, () => {
   void loadStores();
   void refresh();
 });
-watch([storeFilter, statusFilter, typeFilter, slotFrom, slotTo], () => void refresh());
+watch([storeFilter, statusFilter, typeFilter, slotFrom, slotTo, sort], () => void refresh(), {
+  deep: true,
+});
+// Debounce the server-side quick-search so typing doesn't fire per keystroke.
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(search, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => void refresh(), 300);
+});
 watch(selectedId, (id) => {
   pins.value = null; // never carry a reveal across rows
   if (id) void loadLog(id);
@@ -238,9 +284,6 @@ const partStatusColor: Record<string, string> = {
   cancelled: 'bg-neutral-100 text-neutral-500',
 };
 
-function fmt(iso: string): string {
-  return new Date(iso).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'short' });
-}
 </script>
 
 <template>
@@ -263,62 +306,56 @@ function fmt(iso: string): string {
           </UButton>
         </template>
       </PageHeader>
-      <div class="mb-3 flex flex-wrap items-center gap-2">
-        <USelect
-          v-model="storeFilter"
-          multiple
-          :items="storeOptions"
-          value-key="value"
-          placeholder="Filter by store(s)…"
-          class="w-72"
-        />
-        <USelect
-          v-model="statusFilter"
-          multiple
-          :items="STATUS_OPTIONS"
-          value-key="value"
-          placeholder="Status…"
-          class="w-52"
-        />
-        <USelect v-model="typeFilter" :items="TYPE_OPTIONS" value-key="value" class="w-36" />
-        <label class="flex items-center gap-1 text-xs text-neutral-500">
-          Slot from
-          <input
-            v-model="slotFrom"
-            type="datetime-local"
-            class="rounded border border-neutral-200 px-2 py-1.5 text-sm"
+      <FilterBar
+        v-model:search="search"
+        show-search
+        search-placeholder="Search ref or part #…"
+        :active-count="activeFilterCount"
+        :has-active="hasActiveFilters"
+        @clear="clearFilters"
+      >
+        <template #inline>
+          <USelect
+            v-model="storeFilter"
+            multiple
+            :items="storeOptions"
+            value-key="value"
+            placeholder="Filter by store(s)…"
+            class="w-72"
           />
-        </label>
-        <label class="flex items-center gap-1 text-xs text-neutral-500">
-          to
-          <input
-            v-model="slotTo"
-            type="datetime-local"
-            class="rounded border border-neutral-200 px-2 py-1.5 text-sm"
-          />
-        </label>
-        <UButton
-          v-if="
-            storeFilter.length > 0 ||
-            statusFilter.length > 0 ||
-            typeFilter !== 'all' ||
-            slotFrom ||
-            slotTo
-          "
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          @click="
-            storeFilter = [];
-            statusFilter = [];
-            typeFilter = 'all';
-            slotFrom = '';
-            slotTo = '';
-          "
-        >
-          Clear filters
-        </UButton>
-      </div>
+        </template>
+        <template #filters>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-neutral-500">Status</label>
+            <USelect
+              v-model="statusFilter"
+              multiple
+              :items="STATUS_OPTIONS"
+              value-key="value"
+              placeholder="Any status"
+              class="w-full"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-neutral-500">Type</label>
+            <USelect
+              v-model="typeFilter"
+              :items="TYPE_OPTIONS"
+              value-key="value"
+              class="w-full"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-neutral-500">Slot window</label>
+            <div class="flex items-center gap-2">
+              <UInput v-model="slotFrom" type="datetime-local" size="sm" aria-label="Slot from" />
+              <span class="text-xs text-neutral-400">to</span>
+              <UInput v-model="slotTo" type="datetime-local" size="sm" aria-label="Slot to" />
+            </div>
+          </div>
+        </template>
+        <template #meta>{{ rows.length }} fulfilment(s)</template>
+      </FilterBar>
       <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
 
       <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
@@ -328,10 +365,10 @@ function fmt(iso: string): string {
               <th class="px-3 py-2">External ref</th>
               <th class="px-3 py-2">Type</th>
               <th class="px-3 py-2">Level</th>
-              <th class="px-3 py-2">Status</th>
+              <SortableTh v-model="sort" field="status" label="Status" />
               <th class="px-3 py-2">Store(s)</th>
               <th class="px-3 py-2">Parts</th>
-              <th class="px-3 py-2">Slot start</th>
+              <SortableTh v-model="sort" field="slotStart" label="Slot start" />
             </tr>
           </thead>
           <tbody>
@@ -380,6 +417,7 @@ function fmt(iso: string): string {
           </tbody>
         </table>
       </div>
+      <TruncationFooter :shown="rows.length" :limit="LIMIT" />
     </section>
 
     <!-- Non-modal inspector panel (ui-guidelines.md): a layout column, not an

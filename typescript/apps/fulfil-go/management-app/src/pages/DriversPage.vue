@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
+import SortableTh, { type SortState } from '../components/table/SortableTh.vue';
 
 /**
  * Driver roster — transport-context staff, the PICKER pattern (decided
@@ -31,6 +32,37 @@ const depots = ref<DepotSummary[]>([]);
 const vehicleClasses = ref<{ code: string; name: string }[]>([]);
 const drivers = ref<DriverSummary[]>([]);
 const selectedDepot = persistedFilter<string>('drivers', 'depot', '');
+const rosterSearch = persistedFilter<string>('drivers', 'search', '');
+// 'all' sentinel — reka-ui rejects '' select values.
+const statusFilter = persistedFilter<string>('drivers', 'status', 'all');
+const sort = persistedFilter<SortState>('drivers', 'sort', { field: 'staffCode', dir: 'asc' });
+const statusOptions = [
+  { label: 'All statuses', value: 'all' },
+  { label: 'active', value: 'active' },
+  { label: 'suspended', value: 'suspended' },
+];
+
+/** Client-side narrowing/sort — the roster is bounded per depot. */
+const visibleDrivers = computed<DriverSummary[]>(() => {
+  const q = rosterSearch.value.trim().toLowerCase();
+  const matches = drivers.value.filter((d) => {
+    if (statusFilter.value !== 'all' && d.status !== statusFilter.value) return false;
+    if (!q) return true;
+    return [d.displayName, d.staffCode].some((v) => v.toLowerCase().includes(q));
+  });
+  const key = (d: DriverSummary): string => {
+    switch (sort.value.field) {
+      case 'displayName':
+        return d.displayName;
+      case 'status':
+        return d.status;
+      default:
+        return d.staffCode;
+    }
+  };
+  const flip = sort.value.dir === 'desc' ? -1 : 1;
+  return [...matches].sort((a, b) => flip * key(a).localeCompare(key(b)));
+});
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const busy = reactive({ seed: false, create: false, load: false });
@@ -233,7 +265,7 @@ watch(selectedDepot, () => void loadDrivers());
     </div>
 
     <template v-else>
-      <div class="mb-4 flex items-center gap-3">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
         <USelect
           v-model="selectedDepot"
           :items="depotOptions"
@@ -241,7 +273,20 @@ watch(selectedDepot, () => void loadDrivers());
           placeholder="Select a depot…"
           class="w-96"
         />
-        <span class="text-xs text-neutral-400">{{ drivers.length }} driver(s)</span>
+        <UInput
+          v-model="rosterSearch"
+          icon="i-lucide-search"
+          placeholder="Name or staff code…"
+          class="w-52"
+        />
+        <USelect v-model="statusFilter" :items="statusOptions" value-key="value" class="w-36" />
+        <span class="text-xs text-neutral-400">
+          {{
+            visibleDrivers.length === drivers.length
+              ? `${drivers.length} driver(s)`
+              : `${visibleDrivers.length} of ${drivers.length}`
+          }}
+        </span>
       </div>
 
       <!-- Create -->
@@ -283,17 +328,17 @@ watch(selectedDepot, () => void loadDrivers());
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
-              <th class="px-3 py-2">Staff code</th>
-              <th class="px-3 py-2">Name</th>
+              <SortableTh v-model="sort" field="staffCode" label="Staff code" />
+              <SortableTh v-model="sort" field="displayName" label="Name" />
               <th class="px-3 py-2">Vehicle</th>
               <th class="px-3 py-2">Class</th>
-              <th class="px-3 py-2">Status</th>
+              <SortableTh v-model="sort" field="status" label="Status" />
               <th class="px-3 py-2">Move to depot</th>
               <th class="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="d in drivers" :key="d.id" class="border-t border-neutral-100">
+            <tr v-for="d in visibleDrivers" :key="d.id" class="border-t border-neutral-100">
               <td class="px-3 py-2 font-mono">{{ d.staffCode }}</td>
               <td class="px-3 py-2">{{ d.displayName }}</td>
               <td class="px-3 py-2 font-mono text-xs">{{ d.defaultVehicleReg ?? '—' }}</td>
@@ -365,9 +410,13 @@ watch(selectedDepot, () => void loadDrivers());
                 </div>
               </td>
             </tr>
-            <tr v-if="drivers.length === 0 && !busy.load">
+            <tr v-if="visibleDrivers.length === 0 && !busy.load">
               <td colspan="7" class="px-3 py-8 text-center text-neutral-400">
-                No drivers for this depot — create one above or seed below.
+                {{
+                  drivers.length === 0
+                    ? 'No drivers for this depot — create one above or seed below.'
+                    : 'No drivers match the filters.'
+                }}
               </td>
             </tr>
           </tbody>

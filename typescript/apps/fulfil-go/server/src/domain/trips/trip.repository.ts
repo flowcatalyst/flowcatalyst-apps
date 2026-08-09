@@ -9,12 +9,17 @@ export interface TripRepository {
   /** Tenant-scoped read — a trip is never visible across clients. */
   findById(clientId: string, id: TripId): Promise<Trip | null>;
 
-  /** Management/debug view — newest first. */
+  /** Management/debug view — newest first by default. */
   listByClient(
     clientId: string,
     limit: number,
     offset: number,
     statuses?: readonly string[],
+    options?: {
+      /** Any-of origin-store filter. */
+      readonly storeRefs?: readonly string[];
+      readonly sortDir?: 'asc' | 'desc';
+    },
   ): Promise<readonly Trip[]>;
 
   /** The driver app's "my trips" — this driver's trips, newest first. */

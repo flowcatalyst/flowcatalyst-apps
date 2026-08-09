@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, lte } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -178,7 +178,8 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
       clientId: string,
       options?: {
         status?: PickStatus;
-        storeRef?: string;
+        storeRefs?: readonly string[];
+        q?: string;
         slotFrom?: Date;
         slotTo?: Date;
         slotOrder?: 'asc' | 'desc';
@@ -187,7 +188,10 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
     ): Promise<readonly Pick[]> {
       const conditions = [eq(picks.clientId, clientId)];
       if (options?.status) conditions.push(eq(picks.status, options.status));
-      if (options?.storeRef) conditions.push(eq(picks.storeRef, options.storeRef));
+      if (options?.storeRefs && options.storeRefs.length > 0) {
+        conditions.push(inArray(picks.storeRef, [...options.storeRefs]));
+      }
+      if (options?.q) conditions.push(ilike(picks.shortId, `${options.q.trim()}%`));
       if (options?.slotFrom) conditions.push(gte(picks.slotStart, options.slotFrom));
       if (options?.slotTo) conditions.push(lte(picks.slotStart, options.slotTo));
       const dir = options?.slotOrder === 'desc' ? desc : asc;

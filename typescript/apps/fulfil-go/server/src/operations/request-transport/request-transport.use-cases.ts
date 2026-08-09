@@ -385,6 +385,7 @@ export class RequestTransportUseCase {
         )
           .withSubject(`transport.order.${order.id}`)
           .withMessageGroup(eventGroup('transport-order', order.id))
+          .withMode('BLOCK_ON_ERROR')
           .withIdempotencyKey(`book-transport-${order.id}`);
         await this.outbox.createDispatchJob(dispatchJob);
       }

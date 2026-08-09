@@ -150,6 +150,16 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
           /** slotStart range (ISO datetimes). */
           slotFrom: Type.Optional(Type.String()),
           slotTo: Type.Optional(Type.String()),
+          /** Quick-search: externalRef contains OR part shortId prefix. */
+          q: Type.Optional(Type.String()),
+          sort: Type.Optional(
+            Type.Union([
+              Type.Literal('createdAt'),
+              Type.Literal('slotStart'),
+              Type.Literal('status'),
+            ]),
+          ),
+          dir: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')])),
         }),
         response: {
           200: Type.Object({ fulfilments: Type.Array(FulfilmentDtoSchema) }),
@@ -162,15 +172,19 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { clientId } = request.params as { clientId: string };
-      const { limit, offset, stores, status, type, slotFrom, slotTo } = request.query as {
-        limit?: number;
-        offset?: number;
-        stores?: string;
-        status?: string;
-        type?: string;
-        slotFrom?: string;
-        slotTo?: string;
-      };
+      const { limit, offset, stores, status, type, slotFrom, slotTo, q, sort, dir } =
+        request.query as {
+          limit?: number;
+          offset?: number;
+          stores?: string;
+          status?: string;
+          type?: string;
+          slotFrom?: string;
+          slotTo?: string;
+          q?: string;
+          sort?: 'createdAt' | 'slotStart' | 'status';
+          dir?: 'asc' | 'desc';
+        };
       const storeRefs = csv(stores);
       const statuses = csv(status);
       const from = parseDate(slotFrom);
@@ -185,6 +199,9 @@ export function registerFulfilmentRoutes(fastify: FastifyInstance, appContext: A
           ...(type ? { type } : {}),
           ...(from ? { slotFrom: from } : {}),
           ...(to ? { slotTo: to } : {}),
+          ...(q?.trim() ? { q: q.trim() } : {}),
+          ...(sort ? { sortField: sort } : {}),
+          ...(dir ? { sortDir: dir } : {}),
         },
       );
       return reply.code(200).send({ fulfilments: rows.map(toFulfilmentDto) });

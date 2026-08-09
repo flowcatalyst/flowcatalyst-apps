@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
+import SortableTh, { type SortState } from '../components/table/SortableTh.vue';
 
 interface StoreSummary {
   id: string;
@@ -26,6 +27,37 @@ interface PickerSummary {
 const stores = ref<StoreSummary[]>([]);
 const pickers = ref<PickerSummary[]>([]);
 const selectedStore = persistedFilter<string>('pickers', 'store', '');
+const rosterSearch = persistedFilter<string>('pickers', 'search', '');
+// 'all' sentinel — reka-ui rejects '' select values.
+const statusFilter = persistedFilter<string>('pickers', 'status', 'all');
+const sort = persistedFilter<SortState>('pickers', 'sort', { field: 'staffCode', dir: 'asc' });
+const statusOptions = [
+  { label: 'All statuses', value: 'all' },
+  { label: 'active', value: 'active' },
+  { label: 'suspended', value: 'suspended' },
+];
+
+/** Client-side narrowing/sort — the roster is bounded per store. */
+const visiblePickers = computed<PickerSummary[]>(() => {
+  const q = rosterSearch.value.trim().toLowerCase();
+  const matches = pickers.value.filter((p) => {
+    if (statusFilter.value !== 'all' && p.status !== statusFilter.value) return false;
+    if (!q) return true;
+    return [p.displayName, p.staffCode].some((v) => v.toLowerCase().includes(q));
+  });
+  const key = (p: PickerSummary): string => {
+    switch (sort.value.field) {
+      case 'displayName':
+        return p.displayName;
+      case 'status':
+        return p.status;
+      default:
+        return p.staffCode;
+    }
+  };
+  const flip = sort.value.dir === 'desc' ? -1 : 1;
+  return [...matches].sort((a, b) => flip * key(a).localeCompare(key(b)));
+});
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const busy = reactive({ seed: false, create: false, load: false });
@@ -197,7 +229,7 @@ watch(selectedStore, () => void loadPickers());
     </div>
 
     <template v-else>
-      <div class="mb-4 flex items-center gap-3">
+      <div class="mb-4 flex flex-wrap items-center gap-3">
         <USelect
           v-model="selectedStore"
           :items="storeOptions"
@@ -205,7 +237,20 @@ watch(selectedStore, () => void loadPickers());
           placeholder="Select a store…"
           class="w-96"
         />
-        <span class="text-xs text-neutral-400">{{ pickers.length }} picker(s)</span>
+        <UInput
+          v-model="rosterSearch"
+          icon="i-lucide-search"
+          placeholder="Name or staff code…"
+          class="w-52"
+        />
+        <USelect v-model="statusFilter" :items="statusOptions" value-key="value" class="w-36" />
+        <span class="text-xs text-neutral-400">
+          {{
+            visiblePickers.length === pickers.length
+              ? `${pickers.length} picker(s)`
+              : `${visiblePickers.length} of ${pickers.length}`
+          }}
+        </span>
       </div>
 
       <!-- Create -->
@@ -236,15 +281,15 @@ watch(selectedStore, () => void loadPickers());
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
-              <th class="px-3 py-2">Staff code</th>
-              <th class="px-3 py-2">Name</th>
-              <th class="px-3 py-2">Status</th>
+              <SortableTh v-model="sort" field="staffCode" label="Staff code" />
+              <SortableTh v-model="sort" field="displayName" label="Name" />
+              <SortableTh v-model="sort" field="status" label="Status" />
               <th class="px-3 py-2">Move to store</th>
               <th class="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in pickers" :key="p.id" class="border-t border-neutral-100">
+            <tr v-for="p in visiblePickers" :key="p.id" class="border-t border-neutral-100">
               <td class="px-3 py-2 font-mono">{{ p.staffCode }}</td>
               <td class="px-3 py-2">
                 {{ p.displayName }}
@@ -323,9 +368,13 @@ watch(selectedStore, () => void loadPickers());
                 </div>
               </td>
             </tr>
-            <tr v-if="pickers.length === 0 && !busy.load">
+            <tr v-if="visiblePickers.length === 0 && !busy.load">
               <td colspan="5" class="px-3 py-8 text-center text-neutral-400">
-                No pickers for this store — create one above or seed below.
+                {{
+                  pickers.length === 0
+                    ? 'No pickers for this store — create one above or seed below.'
+                    : 'No pickers match the filters.'
+                }}
               </td>
             </tr>
           </tbody>

@@ -126,7 +126,10 @@ export function registerPickRoutes(
               Type.Literal('failed'),
             ]),
           ),
+          /** Comma-separated storeRefs (any-of). */
           store: Type.Optional(Type.String()),
+          /** shortId prefix search. */
+          q: Type.Optional(Type.String()),
           /** Inclusive slotStart window (ISO date-times). */
           slotFrom: Type.Optional(Type.String()),
           slotTo: Type.Optional(Type.String()),
@@ -157,13 +160,18 @@ export function registerPickRoutes(
         });
       }
       const { clientId } = request.params as { clientId: string };
-      const { status, store, slotFrom, slotTo, slotOrder } = request.query as {
+      const { status, store, q, slotFrom, slotTo, slotOrder } = request.query as {
         status?: PickStatus;
         store?: string;
+        q?: string;
         slotFrom?: string;
         slotTo?: string;
         slotOrder?: 'asc' | 'desc';
       };
+      const storeRefs = store
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const parseWindowBound = (value: string | undefined): Date | undefined => {
         if (!value) return undefined;
         const parsed = new Date(value);
@@ -181,7 +189,8 @@ export function registerPickRoutes(
       }
       const rows = await appContext.repositories.picks.listByClient(clientId, {
         ...(status ? { status } : {}),
-        ...(store ? { storeRef: store } : {}),
+        ...(storeRefs && storeRefs.length > 0 ? { storeRefs } : {}),
+        ...(q?.trim() ? { q: q.trim() } : {}),
         ...(from ? { slotFrom: from } : {}),
         ...(to ? { slotTo: to } : {}),
         ...(slotOrder ? { slotOrder } : {}),

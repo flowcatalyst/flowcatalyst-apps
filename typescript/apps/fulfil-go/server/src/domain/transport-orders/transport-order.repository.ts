@@ -12,12 +12,19 @@ export interface TransportOrderRepository {
   listByFulfilment(clientId: string, fulfilmentId: string): Promise<readonly TransportOrder[]>;
   /** Provider webhook correlation ('uber' delivery id → order). */
   findByProviderRef(provider: string, providerRef: string): Promise<TransportOrder | null>;
-  /** Management view — newest first. */
+  /** Management view — newest first by default. */
   listByClient(
     clientId: string,
     limit: number,
     offset: number,
     statuses?: readonly string[],
+    options?: {
+      /** Any-of origin-store filter. */
+      readonly storeRefs?: readonly string[];
+      /** Sort column (default createdAt) + direction (default desc). */
+      readonly sortField?: 'createdAt' | 'slotStart';
+      readonly sortDir?: 'asc' | 'desc';
+    },
   ): Promise<readonly TransportOrder[]>;
   /** Planning marketplace feed: requested orders on our-planned providers at a store. */
   listRequestedByStore(

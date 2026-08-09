@@ -63,7 +63,12 @@ flowcatalyst-go. `?selected=` covers deep links where they matter.
 
 ## Order of work
 
-1. Phase 0 shared components (each wired to a real consumer immediately).
-2. Fulfilments (proves FilterBar + InspectorPanel extraction).
-3. Picks admin + Transport orders (controllers currently can't inspect rows).
-4. Bounded reference pages (Stores, Printers, Drivers/Pickers) as cleanup.
+1. Phase 0 shared components (each wired to a real consumer immediately). ✅ 2026-08-08
+2. Fulfilments (proves FilterBar + InspectorPanel extraction). ✅ 2026-08-08
+3. Picks admin + Transport orders (controllers currently can't inspect rows). ✅ 2026-08-08
+4. Bounded reference pages (Stores, Printers, Drivers/Pickers) as cleanup. ✅ 2026-08-08
+
+All server params shipped alongside (fulfilments q/sort/dir; picks/admin q +
+store CSV; transport orders stores/sort/dir; trips stores/dir). Remaining
+follow-ups: shared StaffRosterPage extraction (Drivers/Pickers duplication),
+StatusBadge adoption in the older grids, VehicleMap legend toggles.

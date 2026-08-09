@@ -111,6 +111,11 @@ export function registerTransportRoutes(
           limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
           offset: Type.Optional(Type.Integer({ minimum: 0 })),
           statuses: Type.Optional(Type.String({ description: 'Comma-separated status filter' })),
+          stores: Type.Optional(Type.String({ description: 'Comma-separated origin storeRefs' })),
+          sort: Type.Optional(
+            Type.Union([Type.Literal('createdAt'), Type.Literal('slotStart')]),
+          ),
+          dir: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')])),
         }),
         response: {
           200: Type.Object({ orders: Type.Array(TransportOrderDtoSchema) }),
@@ -123,20 +128,31 @@ export function registerTransportRoutes(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { clientId } = request.params as { clientId: string };
-      const { limit, offset, statuses } = request.query as {
+      const { limit, offset, statuses, stores, sort, dir } = request.query as {
         limit?: number;
         offset?: number;
         statuses?: string;
+        stores?: string;
+        sort?: 'createdAt' | 'slotStart';
+        dir?: 'asc' | 'desc';
       };
-      const statusFilter = statuses
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      const csvList = (v: string | undefined) =>
+        v
+          ?.split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+      const statusFilter = csvList(statuses);
+      const storeRefs = csvList(stores);
       const orders = await appContext.repositories.transportOrders.listByClient(
         clientId,
         limit ?? 50,
         offset ?? 0,
         statusFilter,
+        {
+          ...(storeRefs && storeRefs.length > 0 ? { storeRefs } : {}),
+          ...(sort ? { sortField: sort } : {}),
+          ...(dir ? { sortDir: dir } : {}),
+        },
       );
       return reply.send({
         orders: orders.map((o) => ({
@@ -175,6 +191,8 @@ export function registerTransportRoutes(
           limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
           offset: Type.Optional(Type.Integer({ minimum: 0 })),
           statuses: Type.Optional(Type.String({ description: 'Comma-separated status filter' })),
+          stores: Type.Optional(Type.String({ description: 'Comma-separated origin storeRefs' })),
+          dir: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')])),
         }),
         response: {
           200: Type.Object({
@@ -213,20 +231,29 @@ export function registerTransportRoutes(
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
       const { clientId } = request.params as { clientId: string };
-      const { limit, offset, statuses } = request.query as {
+      const { limit, offset, statuses, stores, dir } = request.query as {
         limit?: number;
         offset?: number;
         statuses?: string;
+        stores?: string;
+        dir?: 'asc' | 'desc';
       };
-      const statusFilter = statuses
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      const csvList = (v: string | undefined) =>
+        v
+          ?.split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+      const statusFilter = csvList(statuses);
+      const storeRefs = csvList(stores);
       const trips = await appContext.repositories.trips.listByClient(
         clientId,
         limit ?? 50,
         offset ?? 0,
         statusFilter,
+        {
+          ...(storeRefs && storeRefs.length > 0 ? { storeRefs } : {}),
+          ...(dir ? { sortDir: dir } : {}),
+        },
       );
       return reply.send({
         trips: trips.map((t) => ({

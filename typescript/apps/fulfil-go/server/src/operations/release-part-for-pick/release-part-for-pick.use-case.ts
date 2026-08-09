@@ -126,6 +126,10 @@ export class ReleasePartForPickUseCase {
     )
       .withSubject(`fulfilment.part.${part.id}`)
       .withMessageGroup(eventGroup('fulfilment', fulfilment.id))
+      // FIFO per fulfilment; a failed command parks the group (fail-loud) —
+      // matches the subscription's BLOCK_ON_ERROR so commands aren't
+      // weaker-ordered than events (SDK ≥0.9.11).
+      .withMode('BLOCK_ON_ERROR')
       // NOTE: no .withMetadata() — the TS SDK serializes metadata as an
       // OBJECT but the Go platform requires [{key,value}] (SDK bug, flagged);
       // an object fails the whole batch decode with 400 INVALID_JSON.

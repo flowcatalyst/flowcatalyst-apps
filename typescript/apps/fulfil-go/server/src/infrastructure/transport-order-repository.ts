@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -172,16 +172,22 @@ export function createDrizzleTransportOrderRepository(
       return row ? toDomain(row) : null;
     },
 
-    async listByClient(clientId, limit, offset, statuses) {
+    async listByClient(clientId, limit, offset, statuses, options) {
       const conditions = [eq(transportOrders.clientId, clientId)];
       if (statuses && statuses.length > 0) {
         conditions.push(inArray(transportOrders.status, [...statuses]));
       }
+      if (options?.storeRefs && options.storeRefs.length > 0) {
+        conditions.push(inArray(transportOrders.originRef, [...options.storeRefs]));
+      }
+      const sortColumn =
+        options?.sortField === 'slotStart' ? transportOrders.slotStart : transportOrders.createdAt;
+      const dir = options?.sortDir === 'asc' ? asc : desc;
       const rows = await current()
         .select()
         .from(transportOrders)
         .where(and(...conditions))
-        .orderBy(desc(transportOrders.createdAt))
+        .orderBy(dir(sortColumn), desc(transportOrders.createdAt))
         .limit(limit)
         .offset(offset);
       return rows.map(toDomain);

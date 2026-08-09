@@ -127,6 +127,7 @@ export class RequestEpodProvisioningUseCase {
     )
       .withSubject(`fulfilment.${fulfilment.id}`)
       .withMessageGroup(eventGroup('fulfilment', fulfilment.id))
+      .withMode('BLOCK_ON_ERROR')
       // NOTE: no .withMetadata() — the TS SDK serializes metadata as an
       // OBJECT but the Go platform requires [{key,value}] (SDK bug, flagged).
       .withIdempotencyKey(`epod-provision-${fulfilment.id}`);

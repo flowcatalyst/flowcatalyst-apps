@@ -23,7 +23,10 @@ export interface PickRepository {
     clientId: string,
     options?: {
       status?: PickStatus;
-      storeRef?: string;
+      /** Any-of store filter. */
+      storeRefs?: readonly string[];
+      /** shortId prefix search. */
+      q?: string;
       /** Inclusive slotStart window bounds. */
       slotFrom?: Date;
       slotTo?: Date;

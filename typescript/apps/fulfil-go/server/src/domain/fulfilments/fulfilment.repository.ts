@@ -44,6 +44,11 @@ export interface FulfilmentRepository {
       /** slotStart range (rides idx_fulfilments_client_slot). */
       readonly slotFrom?: Date;
       readonly slotTo?: Date;
+      /** Quick-search: externalRef contains OR a part shortId prefix. */
+      readonly q?: string;
+      /** Sort column (default createdAt) + direction (default desc). */
+      readonly sortField?: 'createdAt' | 'slotStart' | 'status';
+      readonly sortDir?: 'asc' | 'desc';
     },
   ): Promise<readonly Fulfilment[]>;
 

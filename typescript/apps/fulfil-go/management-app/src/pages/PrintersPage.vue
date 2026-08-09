@@ -3,6 +3,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
+import FilterBar from '../components/table/FilterBar.vue';
+import SortableTh, { type SortState } from '../components/table/SortableTh.vue';
 
 interface StoreSummary {
   id: string;
@@ -28,6 +30,9 @@ interface PrinterDto {
 const printers = ref<PrinterDto[]>([]);
 const stores = ref<StoreSummary[]>([]);
 const filter = persistedFilter('printers', 'search', '');
+/** Any-of store filter (client-side — the whole set is loaded anyway). */
+const storeFilter = persistedFilter<string[]>('printers', 'stores', []);
+const sort = persistedFilter<SortState>('printers', 'sort', { field: 'storeRef', dir: 'asc' });
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const loading = ref(false);
@@ -166,15 +171,28 @@ async function remove(p: PrinterDto): Promise<void> {
   }
 }
 
-const visible = (): PrinterDto[] => {
+const visible = computed<PrinterDto[]>(() => {
   const q = filter.value.trim().toLowerCase();
-  if (!q) return printers.value;
-  return printers.value.filter((p) =>
-    [p.storeRef, storeNames.value.get(p.storeRef) ?? '', p.name].some((v) =>
+  const matches = printers.value.filter((p) => {
+    if (storeFilter.value.length > 0 && !storeFilter.value.includes(p.storeRef)) return false;
+    if (!q) return true;
+    return [p.storeRef, storeNames.value.get(p.storeRef) ?? '', p.name].some((v) =>
       v.toLowerCase().includes(q),
-    ),
-  );
-};
+    );
+  });
+  const key = (p: PrinterDto): string => (sort.value.field === 'name' ? p.name : p.storeRef);
+  const flip = sort.value.dir === 'desc' ? -1 : 1;
+  return [...matches].sort((a, b) => flip * key(a).localeCompare(key(b)) || a.name.localeCompare(b.name));
+});
+
+const activeFilterCount = computed(() => (storeFilter.value.length > 0 ? 1 : 0));
+const hasActiveFilters = computed(
+  () => activeFilterCount.value > 0 || filter.value.trim().length > 0,
+);
+function clearFilters(): void {
+  filter.value = '';
+  storeFilter.value = [];
+}
 
 onMounted(() => {
   void loadPrinters();
@@ -245,17 +263,42 @@ watch(clientId, () => {
       </UButton>
     </form>
 
-    <div class="mb-3 flex items-center gap-3">
-      <UInput v-model="filter" placeholder="Filter by store / printer name…" class="w-72" />
-      <span class="text-xs text-neutral-400">{{ printers.length }} registered</span>
-    </div>
+    <FilterBar
+      v-model:search="filter"
+      show-search
+      search-placeholder="Filter by store / printer name…"
+      :active-count="activeFilterCount"
+      :has-active="hasActiveFilters"
+      @clear="clearFilters"
+    >
+      <template #filters>
+        <div>
+          <label class="mb-1 block text-xs font-medium text-neutral-500">Stores</label>
+          <USelect
+            v-model="storeFilter"
+            multiple
+            :items="storeOptions"
+            value-key="value"
+            placeholder="All stores"
+            class="w-full"
+          />
+        </div>
+      </template>
+      <template #meta>
+        {{
+          visible.length === printers.length
+            ? `${printers.length} registered`
+            : `${visible.length} of ${printers.length}`
+        }}
+      </template>
+    </FilterBar>
 
     <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-neutral-50 text-left text-xs font-semibold text-navy-700">
-            <th class="px-3 py-2">Store</th>
-            <th class="px-3 py-2">Name</th>
+            <SortableTh v-model="sort" field="storeRef" label="Store" />
+            <SortableTh v-model="sort" field="name" label="Name" />
             <th class="px-3 py-2">Host:Port</th>
             <th class="px-3 py-2">DPI</th>
             <th class="px-3 py-2">Label size</th>
@@ -264,7 +307,7 @@ watch(clientId, () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="p in visible()" :key="p.id" class="border-t border-neutral-100">
+          <tr v-for="p in visible" :key="p.id" class="border-t border-neutral-100">
             <td class="px-3 py-2">
               <span class="font-mono text-xs">{{ p.storeRef }}</span>
               <span v-if="storeNames.get(p.storeRef)" class="ml-1 text-neutral-500">
@@ -318,9 +361,13 @@ watch(clientId, () => {
               </div>
             </td>
           </tr>
-          <tr v-if="printers.length === 0 && !loading">
+          <tr v-if="visible.length === 0 && !loading">
             <td colspan="7" class="px-3 py-8 text-center text-neutral-400">
-              No printers yet — add the store's label printer above.
+              {{
+                printers.length === 0
+                  ? "No printers yet — add the store's label printer above."
+                  : 'No printers match the filters.'
+              }}
             </td>
           </tr>
         </tbody>

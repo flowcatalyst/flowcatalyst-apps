@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -245,9 +245,33 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
         readonly type?: string;
         readonly slotFrom?: Date;
         readonly slotTo?: Date;
+        readonly q?: string;
+        readonly sortField?: 'createdAt' | 'slotStart' | 'status';
+        readonly sortDir?: 'asc' | 'desc';
       },
     ) {
       const conditions = [eq(fulfilments.clientId, clientId)];
+      if (filters?.q) {
+        // externalRef contains OR any part shortId starts-with — the two refs
+        // an operator actually has in hand.
+        const needle = filters.q.trim();
+        const condition = or(
+          ilike(fulfilments.externalRef, `%${needle}%`),
+          inArray(
+            fulfilments.id,
+            db
+              .select({ id: fulfilmentParts.fulfilmentId })
+              .from(fulfilmentParts)
+              .where(
+                and(
+                  eq(fulfilmentParts.clientId, clientId),
+                  ilike(fulfilmentParts.shortId, `${needle}%`),
+                ),
+              ),
+          ),
+        );
+        if (condition) conditions.push(condition);
+      }
       if (filters?.statuses && filters.statuses.length > 0) {
         conditions.push(inArray(fulfilments.status, [...filters.statuses]));
       }
@@ -273,11 +297,17 @@ export function createDrizzleFulfilmentRepository(db: PostgresJsDatabase): Fulfi
           ),
         );
       }
+      const sortColumn = {
+        createdAt: fulfilments.createdAt,
+        slotStart: fulfilments.slotStart,
+        status: fulfilments.status,
+      }[filters?.sortField ?? 'createdAt'];
+      const dir = (filters?.sortDir ?? 'desc') === 'asc' ? asc : desc;
       const rows = await current()
         .select()
         .from(fulfilments)
         .where(and(...conditions))
-        .orderBy(desc(fulfilments.createdAt))
+        .orderBy(dir(sortColumn), desc(fulfilments.createdAt))
         .limit(limit)
         .offset(offset);
       if (rows.length === 0) return [];

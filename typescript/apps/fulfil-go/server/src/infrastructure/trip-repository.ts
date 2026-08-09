@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
   TransactionStore,
@@ -116,16 +116,20 @@ export function createDrizzleTripRepository(db: PostgresJsDatabase): TripReposit
       return rows.map(toDomain);
     },
 
-    async listByClient(clientId, limit, offset, statuses) {
+    async listByClient(clientId, limit, offset, statuses, options) {
       const conditions = [eq(trips.clientId, clientId)];
       if (statuses && statuses.length > 0) {
         conditions.push(inArray(trips.status, [...statuses]));
       }
+      if (options?.storeRefs && options.storeRefs.length > 0) {
+        conditions.push(inArray(trips.originRef, [...options.storeRefs]));
+      }
+      const dir = options?.sortDir === 'asc' ? asc : desc;
       const rows = await current()
         .select()
         .from(trips)
         .where(and(...conditions))
-        .orderBy(desc(trips.createdAt))
+        .orderBy(dir(trips.createdAt))
         .limit(limit)
         .offset(offset);
       return rows.map(toDomain);
