@@ -64,12 +64,12 @@ async function loadLocations() {
     params.set('page', String(page.value));
     params.set('pageSize', String(pageSize.value));
     if (searchQuery.value) params.set('q', searchQuery.value);
+    if (selectedPartitionId.value) params.set('partitionId', selectedPartitionId.value);
 
     const response = await apiFetch<LocationListResponse>(
       `/clients/${clientId.value}/locations?${params.toString()}`,
     );
-    // Client-side partition filter (BFF doesn't support it yet)
-    locations.value = selectedPartitionId.value ? response.items : response.items;
+    locations.value = response.items;
     totalRecords.value = response.total;
   } catch {
     locations.value = [];
@@ -82,7 +82,7 @@ onMounted(() => {
   loadPartitions();
   loadLocations();
 });
-watch([page, pageSize, searchQuery, clientId], loadLocations);
+watch([page, pageSize, searchQuery, clientId, selectedPartitionId], loadLocations);
 watch(clientId, loadPartitions);
 
 function statusSeverity(status: string) {

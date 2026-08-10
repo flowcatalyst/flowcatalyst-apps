@@ -67,6 +67,12 @@ const TRIP_STATUSES = ['offered', 'claimed', 'completed', 'expired', 'released']
 
 const route = useRoute();
 const router = useRouter();
+/**
+ * /transport/requested renders this same component locked to the demand
+ * backlog: orders in 'requested' only, oldest window first, no trips table
+ * (a targeted page, not another spreadsheet view).
+ */
+const isRequestedView = computed(() => route.meta['transportView'] === 'requested');
 const orders = ref<TransportOrder[]>([]);
 const trips = ref<Trip[]>([]);
 const stores = ref<StoreSummary[]>([]);
@@ -84,8 +90,10 @@ const error = ref<string | null>(null);
 /** Both endpoints are requested with this limit. */
 const LIMIT = 100;
 
-const activeFilterCount = computed(
-  () => (orderStatuses.value.length > 0 ? 1 : 0) + (tripStatuses.value.length > 0 ? 1 : 0),
+const activeFilterCount = computed(() =>
+  isRequestedView.value
+    ? 0
+    : (orderStatuses.value.length > 0 ? 1 : 0) + (tripStatuses.value.length > 0 ? 1 : 0),
 );
 const hasActiveFilters = computed(
   () => activeFilterCount.value > 0 || storeFilter.value.length > 0,
@@ -148,7 +156,9 @@ async function load(): Promise<void> {
   try {
     const orderParams = new URLSearchParams({
       limit: String(LIMIT),
-      sort: orderSort.value.field === 'slotStart' ? 'slotStart' : 'createdAt',
+      // Requested view: the backlog is always window-ordered.
+      sort:
+        isRequestedView.value || orderSort.value.field === 'slotStart' ? 'slotStart' : 'createdAt',
       dir: orderSort.value.dir,
     });
     const tripParams = new URLSearchParams({ limit: String(LIMIT) });
@@ -156,16 +166,22 @@ async function load(): Promise<void> {
       orderParams.set('stores', storeFilter.value.join(','));
       tripParams.set('stores', storeFilter.value.join(','));
     }
-    if (orderStatuses.value.length > 0) orderParams.set('statuses', orderStatuses.value.join(','));
+    if (isRequestedView.value) {
+      orderParams.set('statuses', 'requested');
+    } else if (orderStatuses.value.length > 0) {
+      orderParams.set('statuses', orderStatuses.value.join(','));
+    }
     if (tripStatuses.value.length > 0) tripParams.set('statuses', tripStatuses.value.join(','));
-    const [o, t] = await Promise.all([
-      api.json<{ orders: TransportOrder[] }>(
-        `/clients/${clientId.value}/transport/orders?${orderParams}`,
-      ),
-      api.json<{ trips: Trip[] }>(`/clients/${clientId.value}/transport/trips?${tripParams}`),
-    ]);
+    const o = await api.json<{ orders: TransportOrder[] }>(
+      `/clients/${clientId.value}/transport/orders?${orderParams}`,
+    );
     orders.value = o.orders;
-    trips.value = t.trips;
+    if (!isRequestedView.value) {
+      const t = await api.json<{ trips: Trip[] }>(
+        `/clients/${clientId.value}/transport/trips?${tripParams}`,
+      );
+      trips.value = t.trips;
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
@@ -205,14 +221,23 @@ watch(clientId, () => {
   void load();
 });
 watch([orderStatuses, tripStatuses, storeFilter, orderSort], () => void load(), { deep: true });
+// The component is reused across /transport/orders and /transport/requested.
+watch(isRequestedView, () => {
+  closePanel();
+  void load();
+});
 </script>
 
 <template>
   <div class="flex h-full">
     <section class="min-w-0 flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Transport orders"
-        subtitle="Demand (orders per picked part) and planning (the claim marketplace's trips)."
+        :title="isRequestedView ? 'Requested transport' : 'Transport orders'"
+        :subtitle="
+          isRequestedView
+            ? 'The demand backlog — picked parts waiting for a booking or a driver claim, oldest window first.'
+            : 'Demand (orders per picked part) and planning (the claim marketplace trips).'
+        "
       >
         <template #actions>
           <UButton
@@ -244,7 +269,7 @@ watch([orderStatuses, tripStatuses, storeFilter, orderSort], () => void load(), 
             class="w-80"
           />
         </template>
-        <template #filters>
+        <template v-if="!isRequestedView" #filters>
           <div>
             <label class="mb-1 block text-xs font-medium text-neutral-500">Order status</label>
             <USelect
@@ -272,7 +297,9 @@ watch([orderStatuses, tripStatuses, storeFilter, orderSort], () => void load(), 
 
       <!-- Demand side: one order per picked part -->
       <div class="mb-2 flex items-center gap-3">
-        <h2 class="text-sm font-semibold text-neutral-700">Orders</h2>
+        <h2 class="text-sm font-semibold text-neutral-700">
+          {{ isRequestedView ? 'Awaiting booking / claim' : 'Orders' }}
+        </h2>
         <span class="text-xs text-neutral-400">{{ orders.length }} shown</span>
       </div>
       <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
@@ -331,11 +358,14 @@ watch([orderStatuses, tripStatuses, storeFilter, orderSort], () => void load(), 
       <TruncationFooter :shown="orders.length" :limit="LIMIT" />
 
       <!-- Planning side: trips (offers + claims, driver bound at offer time) -->
-      <div class="mt-8 mb-2 flex items-center gap-3">
+      <div v-if="!isRequestedView" class="mt-8 mb-2 flex items-center gap-3">
         <h2 class="text-sm font-semibold text-neutral-700">Trips (claim marketplace)</h2>
         <span class="text-xs text-neutral-400">{{ trips.length }} shown</span>
       </div>
-      <div class="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <div
+        v-if="!isRequestedView"
+        class="overflow-x-auto rounded-lg border border-neutral-200 bg-white"
+      >
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-neutral-200 text-left text-xs text-neutral-500">
@@ -390,7 +420,7 @@ watch([orderStatuses, tripStatuses, storeFilter, orderSort], () => void load(), 
           </tbody>
         </table>
       </div>
-      <TruncationFooter :shown="trips.length" :limit="LIMIT" />
+      <TruncationFooter v-if="!isRequestedView" :shown="trips.length" :limit="LIMIT" />
     </section>
 
     <!-- Non-modal inspector panel — an order OR a trip, by id. -->

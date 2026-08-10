@@ -83,11 +83,6 @@ const PACK_MODES = [
   { label: 'Scan items into bags (contents tracked)', value: 'items' },
 ];
 
-/** Known execution systems — free codes; the common ones get a select. */
-const EXECUTION_SYSTEMS = [
-  { label: 'FulfilGo execution app', value: 'own' },
-  { label: 'EPOD (Integral driver app)', value: 'epod' },
-];
 
 const title = computed(() => (props.domain === 'pick' ? 'Pick profiles' : 'Transport profiles'));
 const numberFields = computed(() => (props.domain === 'pick' ? PICK_FIELDS : TRANSPORT_FIELDS));
@@ -102,9 +97,30 @@ const form = reactive<Record<string, number | ''>>({});
 const INHERIT = 'inherit';
 const formPickSort = ref<string>(INHERIT);
 const formPackMode = ref<string>(INHERIT);
-const formDefaultExec = ref<string>(INHERIT);
-const formExecAlternatives = ref<string>('');
+/**
+ * Allowed transport providers (codes) — the store's whole provider universe,
+ * consolidated 2026-08-10 from the old executionSystems fields ("execution
+ * system" and "transport provider" were the same concept twice). Empty =
+ * inherit. Saving migrates legacy exec-system settings into this list.
+ */
+const formAllowedProviders = ref<string[]>([]);
 const formDefaultProvider = ref<string>('');
+// The three registered transport channels (server adapter-registry): own
+// (our drivers), epod (Integral), uber (Uber Direct). '' = inherit, mapped
+// to a sentinel because reka-ui rejects empty-string select values.
+const INHERIT_PROVIDER = '__inherit__';
+const providerOptions = [
+  { label: 'Inherit', value: INHERIT_PROVIDER },
+  { label: 'own — our drivers', value: 'own' },
+  { label: 'uber — Uber Direct', value: 'uber' },
+  { label: 'epod — EPOD (Integral)', value: 'epod' },
+];
+const defaultProviderSelect = computed({
+  get: () => (formDefaultProvider.value === '' ? INHERIT_PROVIDER : formDefaultProvider.value),
+  set: (v: string) => {
+    formDefaultProvider.value = v === INHERIT_PROVIDER ? '' : v;
+  },
+});
 const formName = ref('');
 const newProfile = reactive({ code: '', name: '' });
 const busy = ref(false);
@@ -143,12 +159,23 @@ function loadForm(): void {
   formPickSort.value = typeof sort === 'string' ? sort : INHERIT;
   const packMode = settings['defaultPackMode'];
   formPackMode.value = typeof packMode === 'string' ? packMode : INHERIT;
-  const exec = settings['defaultExecutionSystem'];
-  formDefaultExec.value = typeof exec === 'string' ? exec : INHERIT;
-  const alts = settings['executionSystems'];
-  formExecAlternatives.value = Array.isArray(alts) ? alts.join(', ') : '';
   const provider = settings['defaultTransportProvider'];
   formDefaultProvider.value = typeof provider === 'string' ? provider : '';
+  // Allowed providers = transportProviders codes UNION the legacy
+  // execution-system fields, so pre-consolidation profiles surface (and
+  // migrate on the next save) instead of silently dropping e.g. epod.
+  const providerEntries = settings['transportProviders'];
+  const legacyAlts = settings['executionSystems'];
+  const legacyDefault = settings['defaultExecutionSystem'];
+  formAllowedProviders.value = [
+    ...new Set([
+      ...(Array.isArray(providerEntries)
+        ? providerEntries.map((p) => (p as { code?: string }).code).filter(Boolean)
+        : []),
+      ...(Array.isArray(legacyAlts) ? legacyAlts.filter((a) => typeof a === 'string') : []),
+      ...(typeof legacyDefault === 'string' ? [legacyDefault] : []),
+    ]),
+  ] as string[];
   formName.value = selected.value?.name ?? selectedCode.value;
 }
 
@@ -186,22 +213,28 @@ async function save(): Promise<void> {
       if (formPackMode.value !== INHERIT) settings['defaultPackMode'] = formPackMode.value;
       else delete settings['defaultPackMode'];
     } else {
-      if (formDefaultExec.value !== INHERIT) {
-        settings['defaultExecutionSystem'] = formDefaultExec.value;
-      } else {
-        delete settings['defaultExecutionSystem'];
-      }
-      const alternatives = formExecAlternatives.value
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-      if (alternatives.length > 0) settings['executionSystems'] = alternatives;
-      else delete settings['executionSystems'];
       if (formDefaultProvider.value !== '') {
         settings['defaultTransportProvider'] = formDefaultProvider.value;
       } else {
         delete settings['defaultTransportProvider'];
       }
+      // Allowed providers → transportProviders entries. Keep existing
+      // entries' coverage/config for codes that stay; new codes get bare
+      // {code}. Empty selection = inherit (drop the key).
+      const priorEntries = Array.isArray(selected.value?.settings['transportProviders'])
+        ? (selected.value.settings['transportProviders'] as { code: string }[])
+        : [];
+      if (formAllowedProviders.value.length > 0) {
+        settings['transportProviders'] = formAllowedProviders.value.map(
+          (code) => priorEntries.find((p) => p.code === code) ?? { code },
+        );
+      } else {
+        delete settings['transportProviders'];
+      }
+      // Migration-on-save: the legacy execution-system fields are now
+      // expressed by the provider list above.
+      delete settings['defaultExecutionSystem'];
+      delete settings['executionSystems'];
     }
     await api.json(
       `/clients/${clientId.value}/config/${props.domain}/store-profiles/${selectedCode.value}`,
@@ -386,37 +419,29 @@ watch(
 
           <template v-if="domain === 'transport'">
             <UFormField
-              label="Default execution system"
-              help="The system transport defaults to for this store's work."
+              label="Default transport provider"
+              help="Provider the resolver ranks first when it is a candidate."
             >
               <USelect
-                v-model="formDefaultExec"
-                :items="[
-                  {
-                    label: `Inherit (${inheritedString('defaultExecutionSystem', 'none')})`,
-                    value: INHERIT,
-                  },
-                  ...EXECUTION_SYSTEMS,
-                ]"
+                v-model="defaultProviderSelect"
+                :items="providerOptions"
+                value-key="value"
                 class="w-64"
               />
             </UFormField>
             <UFormField
-              label="Alternative execution systems"
-              help="Comma-separated codes also allowed at this store (e.g. own, epod)."
+              label="Allowed transport providers"
+              help="Every provider that may serve this store's work (the default included).
+                Empty = inherit. Per-provider coverage/config stays API-managed."
             >
-              <UInput
-                v-model="formExecAlternatives"
-                placeholder="own, epod"
-                class="w-64 font-mono"
+              <USelect
+                v-model="formAllowedProviders"
+                multiple
+                :items="providerOptions.filter((o) => o.value !== INHERIT_PROVIDER)"
+                value-key="value"
+                placeholder="Inherit"
+                class="w-64"
               />
-            </UFormField>
-            <UFormField
-              label="Default transport provider"
-              help="Provider the resolver ranks first when it is a candidate (e.g. own, uber, epod).
-                Allowed-provider entries with coverage/config are API-managed."
-            >
-              <UInput v-model="formDefaultProvider" placeholder="inherit" class="w-64 font-mono" />
             </UFormField>
           </template>
         </div>

@@ -1,7 +1,8 @@
 /**
  * Idempotent local-dev DB bootstrap for pinpoint.
  *
- * Run after `pnpm db:up` to make sure the running Postgres container has:
+ * Runs against the fc-dev embedded Postgres (port 15432) — or whatever
+ * DATABASE_URL points at — and makes sure the `pinpoint` database has:
  *   1. the `pinpoint` schema (CREATE SCHEMA IF NOT EXISTS)
  *   2. the postgis extension installed (CREATE EXTENSION IF NOT EXISTS)
  *   3. the pg_trgm extension installed (used by Slice 8 fuzzy address
@@ -17,11 +18,35 @@
 import postgres from 'postgres';
 import { applyOutboxTableMigration } from '../src/infrastructure/migrate.js';
 
-const DEFAULT_URL = 'postgresql://pinpoint:pinpoint@localhost:5433/pinpoint';
+const DEFAULT_URL = 'postgresql://postgres:postgres@localhost:15432/pinpoint';
 const SCHEMA = 'public';
+
+/**
+ * The embedded fc-dev Postgres doesn't auto-create app databases (the old
+ * docker compose did via POSTGRES_DB), so ensure the target database exists
+ * before connecting to it. CREATE DATABASE can't run in a transaction or
+ * conditionally, hence the catalog check against the maintenance DB.
+ */
+async function ensureDatabase(url: string): Promise<void> {
+  const target = new URL(url);
+  const dbName = target.pathname.replace(/^\//, '');
+  const admin = new URL(url);
+  admin.pathname = '/postgres';
+  const sql = postgres(admin.toString(), { onnotice: () => {} });
+  try {
+    const exists = await sql`SELECT 1 FROM pg_database WHERE datname = ${dbName}`;
+    if (exists.length === 0) {
+      await sql.unsafe(`CREATE DATABASE "${dbName}"`);
+      console.log(`[db:init] database "${dbName}" created`);
+    }
+  } finally {
+    await sql.end({ timeout: 1 });
+  }
+}
 
 async function main(): Promise<void> {
   const url = process.env['DATABASE_URL'] ?? DEFAULT_URL;
+  await ensureDatabase(url);
   const sql = postgres(url, { onnotice: () => {} });
 
   try {

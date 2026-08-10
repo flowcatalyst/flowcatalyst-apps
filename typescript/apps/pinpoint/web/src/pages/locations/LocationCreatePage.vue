@@ -35,8 +35,12 @@ onMounted(async () => {
   try {
     const response = await apiFetch<PartitionListResponse>(`/clients/${clientId.value}/partitions`);
     partitions.value = response.items;
+    // Partition is required — pre-select the client's 'default' partition
+    // (every client has one; the server seeds it).
+    form.value.partitionId =
+      partitions.value.find((p) => p.code === 'default')?.id ?? partitions.value[0]?.id ?? null;
   } catch {
-    // partition list is optional
+    // Partition list unavailable — the server falls back to 'default'.
   }
 });
 
@@ -153,11 +157,13 @@ async function handleSubmit() {
               :options="partitions"
               option-label="name"
               option-value="id"
-              placeholder="Default partition"
+              placeholder="Select a partition…"
               class="w-full"
-              show-clear
             />
-            <small style="color: #64748b">Leave empty to use the default partition.</small>
+            <small style="color: #64748b">
+              Every location lives in a partition — 'Default' unless this client segments its
+              data.
+            </small>
           </div>
 
           <div style="display: flex; gap: 8px; justify-content: flex-end">
@@ -167,7 +173,7 @@ async function handleSubmit() {
               type="submit"
               icon="pi pi-plus"
               :loading="saving"
-              :disabled="!form.address.trim()"
+              :disabled="!form.address.trim() || (partitions.length > 0 && !form.partitionId)"
             />
           </div>
         </div>

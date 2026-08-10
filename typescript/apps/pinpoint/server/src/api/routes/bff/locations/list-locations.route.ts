@@ -9,12 +9,13 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
-import { asClientId } from '../../../../domain/tenancy/ids.js';
+import { asClientId, asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 
 const LocationSchema = Type.Object({
   id: Type.String(),
   name: Type.Union([Type.String(), Type.Null()]),
+  partitionId: Type.Union([Type.String(), Type.Null()]),
   address: Type.String(),
   city: Type.String(),
   country: Type.String(),
@@ -34,6 +35,8 @@ const ResponseSchema = Type.Object({
 const QuerySchema = Type.Object({
   page: Type.Optional(Type.Integer({ minimum: 0 })),
   pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
+  /** Narrow to one partition. */
+  partitionId: Type.Optional(Type.String({ minLength: 1 })),
 });
 
 const ErrorSchema = Type.Object({
@@ -62,13 +65,19 @@ export function registerBffListLocationsRoute(
       }
 
       const { clientId } = request.params as { clientId: string };
-      const { page = 0, pageSize = 100 } = request.query as {
+      const {
+        page = 0,
+        pageSize = 100,
+        partitionId,
+      } = request.query as {
         page?: number;
         pageSize?: number;
+        partitionId?: string;
       };
 
       const { locations, total } = await appContext.repositories.locations.listByClient({
         clientId: asClientId(clientId),
+        ...(partitionId ? { partitionId: asPartitionId(partitionId) } : {}),
         limit: pageSize,
         offset: page * pageSize,
       });
@@ -77,6 +86,7 @@ export function registerBffListLocationsRoute(
         items: locations.map((l) => ({
           id: l.id,
           name: l.name,
+          partitionId: l.partitionId,
           address: l.rawAddressLine1,
           city: l.rawCity,
           country: l.rawCountry,

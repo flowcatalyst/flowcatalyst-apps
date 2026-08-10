@@ -5,6 +5,8 @@ import type { LocationId, MasterLocationId } from './ids.js';
 
 export interface ListByClientQuery {
   readonly clientId: ClientId;
+  /** Narrow to one partition when set. */
+  readonly partitionId?: PartitionId | null;
   readonly limit: number;
   readonly offset: number;
 }

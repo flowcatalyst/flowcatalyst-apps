@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
+import { osmUrl } from '../lib/geo.js';
 import storeFixtures from '../generator/data/stores.json';
 import PageHeader from '../components/PageHeader.vue';
 import FilterBar from '../components/table/FilterBar.vue';
@@ -13,6 +14,8 @@ interface StoreSummary {
   name: string;
   city: string | null;
   region: string | null;
+  lat: number | null;
+  lng: number | null;
   pickProfileCode: string;
   transportProfileCode: string;
 }
@@ -226,6 +229,7 @@ watch(clientId, () => {
             <SortableTh v-model="sort" field="name" label="Name" />
             <SortableTh v-model="sort" field="city" label="City" />
             <th class="px-3 py-2">Region</th>
+            <th class="px-3 py-2">Map</th>
             <th class="px-3 py-2">Pick profile</th>
             <th class="px-3 py-2">Transport profile</th>
           </tr>
@@ -236,6 +240,20 @@ watch(clientId, () => {
             <td class="px-3 py-2">{{ s.name }}</td>
             <td class="px-3 py-2 text-neutral-500">{{ s.city ?? '—' }}</td>
             <td class="px-3 py-2 text-neutral-500">{{ s.region ?? '—' }}</td>
+            <td class="px-3 py-2">
+              <a
+                v-if="s.lat !== null && s.lng !== null"
+                :href="osmUrl(s.lat, s.lng)"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
+                :title="`${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`"
+              >
+                <UIcon name="i-lucide-map-pin" class="size-3.5" />
+                Map
+              </a>
+              <span v-else class="text-xs text-neutral-300">—</span>
+            </td>
             <td class="px-3 py-2">
               <USelect
                 :model-value="s.pickProfileCode"
@@ -260,7 +278,7 @@ watch(clientId, () => {
             </td>
           </tr>
           <tr v-if="visible.length === 0 && !loading">
-            <td colspan="6" class="px-3 py-8 text-center text-neutral-400">
+            <td colspan="7" class="px-3 py-8 text-center text-neutral-400">
               {{
                 stores.length === 0
                   ? 'No stores yet — sync from fixtures to get started.'

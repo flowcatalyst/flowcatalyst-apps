@@ -104,6 +104,11 @@ export class RequestEpodProvisioningUseCase {
     const epodOrigins = originRefs.filter((ref) => {
       const settings = resolver.resolve(ref);
       return (
+        // Provider-first (2026-08-10 consolidation): "runs EPOD" == epod is
+        // one of the store's transport providers (default or allowed).
+        settings.defaultTransportProvider === EPOD_EXECUTION_SYSTEM ||
+        settings.transportProviders.some((p) => p.code === EPOD_EXECUTION_SYSTEM) ||
+        // Legacy execution-system fields — pre-consolidation stored settings.
         settings.executionSystems.includes(EPOD_EXECUTION_SYSTEM) ||
         settings.defaultExecutionSystem === EPOD_EXECUTION_SYSTEM
       );

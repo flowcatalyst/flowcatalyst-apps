@@ -43,7 +43,9 @@ import {
   MASTER_LOCATION_ID_PREFIX,
 } from '../../domain/locations/ids.js';
 import type { LocationAttribute } from '../../domain/locations/location-attribute.js';
-import { asClientId, asPartitionId } from '../../domain/tenancy/ids.js';
+import { asClientId, asPartitionId, PARTITION_ID_PREFIX } from '../../domain/tenancy/ids.js';
+import { DEFAULT_PARTITION_CODE, Partition } from '../../domain/tenancy/partition.js';
+import { PartitionCreated } from '../../domain/tenancy/events/partition-created.event.js';
 import { LocationCreated } from '../../domain/locations/events/location-created.event.js';
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
 import { LocationValidated } from '../../domain/locations/events/location-validated.event.js';
@@ -104,7 +106,7 @@ export class CreateLocationUseCase {
     }
 
     const clientId = asClientId(command.clientId.trim());
-    const partitionId =
+    const requestedPartitionId =
       command.partitionId && command.partitionId.trim().length > 0
         ? asPartitionId(command.partitionId.trim())
         : null;
@@ -145,12 +147,54 @@ export class CreateLocationUseCase {
       );
     }
 
-    if (partitionId) {
-      const partition = await this.partitions.findById(partitionId);
+    if (requestedPartitionId) {
+      const partition = await this.partitions.findById(requestedPartitionId);
       if (!partition) {
         return Result.failure(
-          UseCaseError.notFound('PARTITION_NOT_FOUND', `Partition '${partitionId}' not found.`),
+          UseCaseError.notFound(
+            'PARTITION_NOT_FOUND',
+            `Partition '${requestedPartitionId}' not found.`,
+          ),
         );
+      }
+    }
+
+    // Locations always land in a partition: no explicit partition → the
+    // client's 'default' one, lazily created in this tx for legacy clients
+    // that predate default-partition seeding (client create cascades it now).
+    let partitionId = requestedPartitionId;
+    if (!partitionId) {
+      const fallback = await this.partitions.findByClientAndCode(
+        clientId,
+        DEFAULT_PARTITION_CODE,
+      );
+      if (fallback) {
+        partitionId = fallback.id;
+      } else {
+        const newPartitionId = asPartitionId(`${PARTITION_ID_PREFIX}_${generateTsid()}`);
+        const partition = Partition.create({
+          id: newPartitionId,
+          clientId,
+          code: DEFAULT_PARTITION_CODE,
+          name: 'Default',
+          description: 'Seeded default partition.',
+          now: new Date(),
+        });
+        const partitionEvent = new PartitionCreated(scope, {
+          partitionId: newPartitionId,
+          clientId,
+          code: DEFAULT_PARTITION_CODE,
+          name: 'Default',
+        });
+        const seeded = await commitAggregate(
+          this.uow,
+          this.registry,
+          partition,
+          partitionEvent,
+          command,
+        );
+        if (isFailure(seeded)) return seeded;
+        partitionId = newPartitionId;
       }
     }
 

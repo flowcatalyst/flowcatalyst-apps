@@ -132,7 +132,10 @@ function renderFeatures() {
   const layerRadius = layerDetail.value?.radiusMeters ?? null;
 
   for (const f of features.value) {
-    if (f.centerLat != null && f.centerLon != null) {
+    // A polygon feature renders as its polygon only — a center marker would
+    // duplicate it, and legacy rows carry bogus (0,0) centers that drag
+    // fitBounds out to Null Island.
+    if (!f.polygonGeojson && f.centerLat != null && f.centerLon != null) {
       const latLng = L.latLng(f.centerLat, f.centerLon);
       bounds.push(latLng);
 

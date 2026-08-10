@@ -252,6 +252,9 @@ function clearWip(): void {
 }
 
 watch([counts, subs, stage, packMode, packages], () => saveWip(), { deep: true });
+// A stale submission error stops describing reality as soon as the picker
+// changes anything — clear it on the next packing/counting mutation.
+watch([counts, packages], () => (error.value = null), { deep: true });
 
 watch(
   pick,
@@ -601,9 +604,23 @@ function assign(line: Line, delta: number): void {
   else pkg.items[line.externalLineRef] = next;
 }
 
+/**
+ * Scan-into-bags mode: a declared package with nothing scanned into it would
+ * make the completion payload MIXED-mode (the server reads empty `items` as
+ * "doesn't list items" → 400 PACKAGING_MODE_MIXED). Block completion and
+ * point at the offending refs instead.
+ */
+const emptyPackageRefs = computed<string[]>(() =>
+  packMode.value === 'items'
+    ? packages.value.filter((p) => Object.keys(p.items).length === 0).map((p) => p.ref)
+    : [],
+);
+
 const canComplete = computed(() => {
   if (packages.value.length === 0) return false;
-  if (packMode.value === 'items') return unassignedTotal.value === 0;
+  if (packMode.value === 'items') {
+    return unassignedTotal.value === 0 && emptyPackageRefs.value.length === 0;
+  }
   return true;
 });
 
@@ -700,8 +717,16 @@ async function submitOutcome(
       return;
     }
     if (!res.ok) {
-      const detail = (await res.text().catch(() => '')).slice(0, 300);
-      error.value = `Failed (${res.status}): ${detail}`;
+      // Prefer the server's human message over raw JSON in the alert.
+      const raw = await res.text().catch(() => '');
+      let detail = raw.slice(0, 300);
+      try {
+        const parsed = JSON.parse(raw) as { message?: string; error?: string };
+        detail = parsed.message ?? parsed.error ?? detail;
+      } catch {
+        // not JSON — show the raw snippet
+      }
+      error.value = `Could not complete (${res.status}): ${detail}`;
       return;
     }
     clearWip();
@@ -819,7 +844,9 @@ async function fail(): Promise<void> {
       </UButton>
     </div>
 
-    <UAlert v-if="error" :description="error" color="error" variant="soft" />
+    <!-- Pick-stage errors; the pack stage repeats this alert at its footer
+         (next to Complete) so it's never off-screen when the list is long. -->
+    <UAlert v-if="error && stage === 'pick'" :description="error" color="error" variant="soft" />
 
     <!-- ════ STAGE: PICK ════ -->
     <template v-if="stage === 'pick'">
@@ -1366,10 +1393,27 @@ async function fail(): Promise<void> {
         </UCard>
       </template>
 
-      <div class="flex gap-2">
-        <UButton color="neutral" variant="soft" @click="stage = 'pick'">← Back to picking</UButton>
+      <div class="flex flex-col gap-2">
+        <UButton color="neutral" variant="soft" block @click="stage = 'pick'">
+          ← Back to picking
+        </UButton>
+        <UAlert
+          v-if="emptyPackageRefs.length > 0"
+          :description="`${emptyPackageRefs.length === 1 ? 'Bag' : 'Bags'} ${emptyPackageRefs.join(', ')} ${emptyPackageRefs.length === 1 ? 'is' : 'are'} empty — scan items in or remove ${emptyPackageRefs.length === 1 ? 'it' : 'them'}.`"
+          color="warning"
+          variant="soft"
+        />
+        <UAlert
+          v-else-if="packMode === 'items' && unassignedTotal > 0"
+          :description="`${unassignedTotal} picked unit(s) not packed yet — everything must go into a bag before you can complete.`"
+          color="warning"
+          variant="soft"
+        />
+        <!-- Submission errors surface HERE too — the shared alert at the top
+             of the page is off-screen when the pack list is long. -->
+        <UAlert v-if="error" :description="error" color="error" variant="soft" />
         <!-- Complete → one final question before submitting. -->
-        <UDrawer v-model:open="vehicleOpen" title="One last thing" class="flex-1">
+        <UDrawer v-model:open="vehicleOpen" title="One last thing">
           <UButton class="w-full" size="xl" :loading="busy" :disabled="!canComplete">
             Complete pick
             {{ packMode === 'items' && unassignedTotal > 0 ? `(${unassignedTotal} unpacked)` : '' }}

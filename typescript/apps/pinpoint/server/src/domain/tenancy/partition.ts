@@ -2,6 +2,13 @@ import type { ClientId, PartitionId } from './ids.js';
 
 export const PARTITION_TYPE = 'Partition' as const;
 
+/**
+ * Every client carries a partition with this code (seeded on client create,
+ * lazily backfilled by create-location for legacy clients). Location creates
+ * without an explicit partition land here.
+ */
+export const DEFAULT_PARTITION_CODE = 'default' as const;
+
 export interface Partition {
   readonly id: PartitionId;
   readonly clientId: ClientId;

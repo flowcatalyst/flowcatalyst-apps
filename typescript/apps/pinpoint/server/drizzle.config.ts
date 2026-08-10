@@ -1,7 +1,7 @@
 import { defineConfig } from 'drizzle-kit';
 
 /**
- * Local-dev default matches the container started by `pnpm db:up`. Pinpoint
+ * Local-dev default matches the fc-dev embedded Postgres (15432). Pinpoint
  * owns a dedicated `pinpoint` database with its tables in the `public` schema;
  * `schemaFilter` keeps generated migrations scoped to `public` so drizzle-kit
  * doesn't try to diff the postgis/pg_trgm/topology schemas.
@@ -12,6 +12,6 @@ export default defineConfig({
   out: './drizzle',
   schemaFilter: ['public'],
   dbCredentials: {
-    url: process.env['DATABASE_URL'] ?? 'postgresql://pinpoint:pinpoint@localhost:5433/pinpoint',
+    url: process.env['DATABASE_URL'] ?? 'postgresql://postgres:postgres@localhost:15432/pinpoint',
   },
 });

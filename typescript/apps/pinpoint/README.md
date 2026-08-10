@@ -52,14 +52,19 @@ backlog every 5 minutes via a platform-signed webhook.
 
 ## Local development
 
-Bring up the dev dependencies (Postgres + PostGIS + libpostal sidecar):
+The database is the fc-dev embedded Postgres (port 15432,
+`postgres`/`postgres`) — it ships PostGIS + pg_trgm, so pinpoint no longer
+runs its own Postgres container. Make sure fc-dev is running, then:
 
 ```sh
-# In apps/pinpoint/server/ — wires up the local DB
-pnpm db:up        # docker compose -f ../compose.yaml up -d --wait
-pnpm db:init      # creates the `pinpoint` schema + role-level search_path
+# In apps/pinpoint/server/
+pnpm libpostal:up # docker compose up the libpostal sidecar
+pnpm db:init      # creates the `pinpoint` database + extensions + search_path
 pnpm db:migrate   # applies drizzle migrations
 ```
+
+`DATABASE_URL` in `server/.env` points at the embedded instance
+(`postgresql://postgres:postgres@localhost:15432/pinpoint`).
 
 Then run the server and the SPA in two terminals:
 

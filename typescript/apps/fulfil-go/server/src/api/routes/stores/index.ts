@@ -18,6 +18,8 @@ const StoreSummarySchema = Type.Object({
   pickProfileCode: Type.String(),
   transportProfileCode: Type.String(),
   region: Type.Union([Type.String(), Type.Null()]),
+  lat: Type.Union([Type.Number(), Type.Null()]),
+  lng: Type.Union([Type.Number(), Type.Null()]),
 });
 
 export function registerStoreRoutes(fastify: FastifyInstance, appContext: AppContext): void {

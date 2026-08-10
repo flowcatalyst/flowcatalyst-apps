@@ -34,7 +34,7 @@ function resolveSsl(): 'require' | { rejectUnauthorized: boolean } | undefined {
  *      injects DB_PASSWORD from a Secrets Manager secret and the rest as plain
  *      env. Pinpoint connects to its OWN `pinpoint` database as its OWN
  *      `pinpoint_server` role with a static (non-rotated) password.
- *   3. the local dev container fallback (matches `pnpm db:up`).
+ *   3. the fc-dev embedded Postgres fallback (port 15432).
  *
  * `opts.max` lets callers (e.g. the migrator) cap the pool size.
  */
@@ -67,7 +67,7 @@ export function makeSql(opts: { max?: number } = {}) {
     });
   }
 
-  return postgres('postgresql://pinpoint:pinpoint@localhost:5433/pinpoint', base);
+  return postgres('postgresql://postgres:postgres@localhost:15432/pinpoint', base);
 }
 
 const sql = makeSql();

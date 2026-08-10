@@ -11,6 +11,7 @@ import {
 import { PinpointPermission } from '@pinpoint/shared';
 
 import { LayerFeature, PROPERTY_VALUES_MAX } from '../../domain/layers/layer-feature.js';
+import { polygonCentroid } from '../../domain/layers/polygon-centroid.js';
 import { asLayerFeatureId, asLayerId, LAYER_FEATURE_ID_PREFIX } from '../../domain/layers/ids.js';
 import { LayerFeatureCreated } from '../../domain/layers/events/layer-feature-created.event.js';
 import type { LayerRepository } from '../../domain/layers/layer.repository.js';
@@ -74,13 +75,18 @@ export class CreateLayerFeatureUseCase {
       );
     }
 
+    // Polygon without an explicit center: derive a display centroid so the
+    // map + grids never show the feature at null/(0,0).
+    const derivedCenter =
+      !hasPoint && hasPolygon ? polygonCentroid(command.polygonGeojson as string) : null;
+
     const id = asLayerFeatureId(`${LAYER_FEATURE_ID_PREFIX}_${generateTsid()}`);
     const feature = LayerFeature.create({
       id,
       layerId,
       label,
-      centerLat: command.centerLat ?? null,
-      centerLon: command.centerLon ?? null,
+      centerLat: command.centerLat ?? derivedCenter?.lat ?? null,
+      centerLon: command.centerLon ?? derivedCenter?.lon ?? null,
       radiusMeters: command.radiusMeters ?? null,
       polygonGeojson: command.polygonGeojson ?? null,
       propertyValues,

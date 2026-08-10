@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
+import { osmUrl } from '../lib/geo.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
@@ -191,6 +192,7 @@ watch(clientId, () => {
             <th class="px-3 py-2">Ref</th>
             <th class="px-3 py-2">Name</th>
             <th class="px-3 py-2">Serves</th>
+            <th class="px-3 py-2">Map</th>
             <th class="px-3 py-2 text-right">Actions</th>
           </tr>
         </thead>
@@ -212,6 +214,20 @@ watch(clientId, () => {
               </span>
             </td>
             <td class="px-3 py-2">
+              <a
+                v-if="d.geo"
+                :href="osmUrl(d.geo.lat, d.geo.lng)"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
+                :title="`${d.geo.lat.toFixed(5)}, ${d.geo.lng.toFixed(5)}`"
+              >
+                <UIcon name="i-lucide-map-pin" class="size-3.5" />
+                Map
+              </a>
+              <span v-else class="text-xs text-neutral-300">—</span>
+            </td>
+            <td class="px-3 py-2">
               <div class="flex justify-end gap-1">
                 <UButton size="xs" variant="soft" @click="startEdit(d)">Edit</UButton>
                 <UButton
@@ -227,7 +243,7 @@ watch(clientId, () => {
             </td>
           </tr>
           <tr v-if="depots.length === 0 && !busy.load">
-            <td colspan="4" class="px-3 py-8 text-center text-neutral-400">
+            <td colspan="5" class="px-3 py-8 text-center text-neutral-400">
               No depots yet — create one above or seed from store cities below.
             </td>
           </tr>

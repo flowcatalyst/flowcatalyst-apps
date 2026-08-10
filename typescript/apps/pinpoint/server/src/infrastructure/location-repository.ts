@@ -154,7 +154,9 @@ export function createDrizzleLocationRepository(db: PostgresJsDatabase): Locatio
     },
 
     async listByClient(query: ListByClientQuery): Promise<ListByClientResult> {
-      const where = eq(locations.clientId, query.clientId);
+      const where = query.partitionId
+        ? and(eq(locations.clientId, query.clientId), eq(locations.partitionId, query.partitionId))
+        : eq(locations.clientId, query.clientId);
       const [rows, totalRow] = await Promise.all([
         db
           .select()

@@ -332,7 +332,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     useCases: {
       createClient: new CreateClientUseCase(uow, aggregateRegistry, clientRepo),
       updateClient: new UpdateClientUseCase(uow, aggregateRegistry, clientRepo),
-      deleteClient: new DeleteClientUseCase(uow, aggregateRegistry, clientRepo),
+      deleteClient: new DeleteClientUseCase(uow, aggregateRegistry, clientRepo, partitionRepo),
       createPartition: new CreatePartitionUseCase(
         uow,
         aggregateRegistry,

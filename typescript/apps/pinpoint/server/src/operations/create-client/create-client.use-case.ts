@@ -4,6 +4,7 @@ import {
   ScopeStore,
   UseCaseError,
   commitAggregate,
+  isFailure,
   type AggregateRegistryImpl,
   type Scope,
   type UnitOfWork,
@@ -11,8 +12,15 @@ import {
 import { PinpointPermission } from '@pinpoint/shared';
 
 import { Client } from '../../domain/tenancy/client.js';
-import { asClientId, CLIENT_ID_PREFIX } from '../../domain/tenancy/ids.js';
+import { DEFAULT_PARTITION_CODE, Partition } from '../../domain/tenancy/partition.js';
+import {
+  asClientId,
+  asPartitionId,
+  CLIENT_ID_PREFIX,
+  PARTITION_ID_PREFIX,
+} from '../../domain/tenancy/ids.js';
 import { ClientCreated } from '../../domain/tenancy/events/client-created.event.js';
+import { PartitionCreated } from '../../domain/tenancy/events/partition-created.event.js';
 import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
 import type { CreateClientCommand } from './create-client.command.js';
 
@@ -66,7 +74,36 @@ export class CreateClientUseCase {
     const client = Client.create({ id, name, code, now: new Date() });
     const event = new ClientCreated(scope, { clientId: id, name, code });
 
-    return commitAggregate(this.uow, this.registry, client, event, command);
+    const clientResult = await commitAggregate(this.uow, this.registry, client, event, command);
+    if (isFailure(clientResult)) return clientResult;
+
+    // Every client gets a 'default' partition (cascade in the same tx) —
+    // locations always land in a partition, so a default must always exist.
+    const partitionId = asPartitionId(`${PARTITION_ID_PREFIX}_${generateTsid()}`);
+    const partition = Partition.create({
+      id: partitionId,
+      clientId: id,
+      code: DEFAULT_PARTITION_CODE,
+      name: 'Default',
+      description: 'Seeded default partition.',
+      now: new Date(),
+    });
+    const partitionEvent = new PartitionCreated(scope, {
+      partitionId,
+      clientId: id,
+      code: DEFAULT_PARTITION_CODE,
+      name: 'Default',
+    });
+    const partitionResult = await commitAggregate(
+      this.uow,
+      this.registry,
+      partition,
+      partitionEvent,
+      command,
+    );
+    if (isFailure(partitionResult)) return partitionResult;
+
+    return clientResult;
   }
 
   private authorize(scope: Scope): boolean {

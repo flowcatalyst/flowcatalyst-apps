@@ -55,9 +55,13 @@ describe('CreatePartitionUseCase (integration)', () => {
     expect(partition?.code).toBe('EU');
     expect(partition?.clientId).toBe(clientId);
 
+    // Filter on the code: client creation also seeds a 'default' partition,
+    // which emits its own partition:created event.
     const events = await db.execute(sql`
       SELECT 1 FROM outbox_messages
-      WHERE type = 'EVENT' AND payload::jsonb->>'type' = 'pinpoint:tenancy:partition:created'
+      WHERE type = 'EVENT'
+        AND payload::jsonb->>'type' = 'pinpoint:tenancy:partition:created'
+        AND (payload::jsonb->>'data')::jsonb->>'code' = 'EU'
     `);
     expect(events.length).toBe(1);
   });

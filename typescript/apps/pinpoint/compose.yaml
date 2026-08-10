@@ -1,37 +1,16 @@
-# Local dev Postgres + PostGIS for the pinpoint app.
+# Local dev sidecars for the pinpoint app.
 #
-# Embedded postgres in fc-dev (port 15432) doesn't ship with PostGIS — the
-# theseus-rs binaries it bundles are plain PG. Pinpoint needs PostGIS from
-# Slice 5 onward, so local dev uses this docker container instead.
+# The database is NOT here: local dev uses the fc-dev embedded Postgres
+# (port 15432, postgres/postgres), which ships PostGIS + pg_trgm as of
+# PG 18.3 / PostGIS 3.6.4. `pnpm db:init` creates the `pinpoint` database
+# schema + extensions there; DATABASE_URL in server/.env points at it.
 #
-# Port 5433 avoids colliding with both a native-installed Postgres (5432)
-# and the fc-dev embedded Postgres (15432). The `pinpoint` schema isolation
-# + role-level search_path are handled by `pnpm db:init`.
+# (Historical note: this file used to run its own Postgres+PostGIS on 5433
+# because the embedded fc-dev Postgres didn't bundle PostGIS. It does now,
+# so the container was retired. Integration tests still pull
+# imresamu/postgis:18-3.6 themselves via testcontainers.)
 
 services:
-  postgres:
-    # imresamu/postgis is the multi-arch PostGIS image maintained by Imre Samu
-    # (one of the PostGIS project maintainers). The official postgis/postgis
-    # images are amd64-only; this fork ships both linux/amd64 and linux/arm64,
-    # which matters for Apple Silicon. The official docker-postgis README
-    # links here as the recommended source for arm64 dev images.
-    image: imresamu/postgis:18-3.6
-    container_name: pinpoint-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: pinpoint
-      POSTGRES_PASSWORD: pinpoint
-      POSTGRES_DB: pinpoint
-    ports:
-      - '5433:5432'
-    volumes:
-      - pinpoint-pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U pinpoint -d pinpoint']
-      interval: 2s
-      timeout: 2s
-      retries: 20
-
   # libpostal sidecar — the address normalizer the matching pipeline calls.
   # Same image the Rust pinpoint targets (pelias/libpostal-service); the
   # /parse + /expand endpoints are stable so TS + Rust hashes collide for
@@ -53,6 +32,3 @@ services:
       timeout: 3s
       retries: 30
       start_period: 60s
-
-volumes:
-  pinpoint-pgdata:

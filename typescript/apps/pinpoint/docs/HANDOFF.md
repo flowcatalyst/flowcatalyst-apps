@@ -10,7 +10,7 @@
 - **Workspaces:** 13 (added `@pinpoint/web` in 11), all `pnpm -r typecheck` clean
 - **Tests:** 90 unit (`pnpm test`) + 116 integration across 37 files (`pnpm test:integration`, needs Docker — Postgres + Redis testcontainers)
 - **Drizzle migrations:** three generated, applied (schema + countries/global-default seed + 10c flashy_ricochet) — see `apps/pinpoint/server/drizzle/`
-- **Local dev:** `pnpm db:up && pnpm db:init && pnpm db:migrate` brings up a fresh PostGIS-enabled DB on port 5433 + the pelias/libpostal-service sidecar (Slice 8 wired into `apps/pinpoint/compose.yaml`). Production: `docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the repo root brings up the full stack.
+- **Local dev:** `pnpm libpostal:up && pnpm db:init && pnpm db:migrate` — the DB is the fc-dev embedded Postgres (port 15432, ships PostGIS + pg_trgm); compose only runs the pelias/libpostal-service sidecar. Production: `docker compose -f apps/pinpoint/compose.prod.yaml up --build` from the repo root brings up the full stack.
 
 ## Decision factors
 
@@ -596,9 +596,10 @@ dev without an IdP, set `PINPOINT_AUTH_DEV_FALLBACK=true` — the
 # typecheck everything
 pnpm -r --if-present typecheck
 
-# bring up the dev DB + apply migrations (idempotent — re-run anytime)
+# bring up the libpostal sidecar + init the fc-dev embedded Postgres +
+# apply migrations (idempotent — re-run anytime)
 cd apps/pinpoint/server
-pnpm db:up && pnpm db:init && pnpm db:migrate
+pnpm libpostal:up && pnpm db:init && pnpm db:migrate
 
 # boot the server (DB now required for live routes)
 PORT=3199 pnpm tsx src/server.ts

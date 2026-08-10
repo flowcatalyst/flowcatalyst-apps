@@ -262,17 +262,25 @@ async function handleSaveFeature() {
   }
   featureSaving.value = true;
   try {
+    // POLYGON layers: the polygon IS the geometry — never send a center
+    // (stale/zero values here put the feature at Null Island; the server
+    // derives a display centroid from the polygon instead).
+    const body = JSON.stringify(
+      layer.value?.layerType === 'POLYGON'
+        ? { ...featureForm.value, centerLat: null, centerLon: null }
+        : featureForm.value,
+    );
     if (editingFeature.value) {
       const updated = await apiFetch<FeatureItem>(
         layerPath(`/features/${editingFeature.value.id}`),
-        { method: 'PUT', body: JSON.stringify(featureForm.value) },
+        { method: 'PUT', body },
       );
       const idx = features.value.findIndex((f) => f.id === updated.id);
       if (idx >= 0) features.value[idx] = updated;
     } else {
       const created = await apiFetch<FeatureItem>(layerPath('/features'), {
         method: 'POST',
-        body: JSON.stringify(featureForm.value),
+        body,
       });
       features.value.push(created);
     }

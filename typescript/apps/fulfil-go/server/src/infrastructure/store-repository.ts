@@ -11,6 +11,8 @@ export interface StoreSummary {
   readonly name: string;
   readonly city: string | null;
   readonly region: string | null;
+  readonly lat: number | null;
+  readonly lng: number | null;
   readonly pickProfileCode: string;
   readonly transportProfileCode: string;
 }
@@ -39,6 +41,8 @@ function toSummary(row: StoreRow): StoreSummary {
     name: row.name,
     city: row.city,
     region: row.region,
+    lat: row.lat,
+    lng: row.lng,
     pickProfileCode: row.pickProfileCode,
     transportProfileCode: row.transportProfileCode,
   };

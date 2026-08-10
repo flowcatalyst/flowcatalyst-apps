@@ -136,9 +136,15 @@ export type TransportAllocationStrategy = z.infer<typeof TransportAllocationStra
 
 export const TransportStoreSettingsSchema = z
   .object({
-    /** The execution system transport defaults to for this store. */
+    /**
+     * @deprecated (2026-08-10) — consolidated into defaultTransportProvider.
+     * Still parsed so pre-consolidation stored settings keep resolving.
+     */
     defaultExecutionSystem: z.string().min(1).max(32).optional(),
-    /** ALTERNATIVE execution systems allowed at this store (codes like 'epod', 'own'). */
+    /**
+     * @deprecated (2026-08-10) — consolidated into transportProviders.
+     * Still parsed so pre-consolidation stored settings keep resolving.
+     */
     executionSystems: z.array(z.string().min(1).max(32)).max(20).optional(),
     /** STANDARD service level requests transport at slotStart − this. */
     transportLeadTimeMinutes: z.number().int().min(0).max(1440).optional(),

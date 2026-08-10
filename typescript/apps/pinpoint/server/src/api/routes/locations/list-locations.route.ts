@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { asClientId } from '../../../domain/tenancy/ids.js';
+import { asClientId, asPartitionId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
@@ -45,6 +45,8 @@ const ListLocationsResponseSchema = Type.Object({
 const ListLocationsQuerySchema = Type.Object({
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
   offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
+  /** Narrow to one partition. */
+  partitionId: Type.Optional(Type.String({ minLength: 1 })),
 });
 
 export function registerListLocationsRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -60,12 +62,18 @@ export function registerListLocationsRoute(fastify: FastifyInstance, appContext:
     },
     async (request) => {
       const { clientId } = request.params as { clientId: string };
-      const { limit = 50, offset = 0 } = request.query as {
+      const {
+        limit = 50,
+        offset = 0,
+        partitionId,
+      } = request.query as {
         limit?: number;
         offset?: number;
+        partitionId?: string;
       };
       const result = await appContext.repositories.locations.listByClient({
         clientId: asClientId(clientId),
+        ...(partitionId ? { partitionId: asPartitionId(partitionId) } : {}),
         limit,
         offset,
       });

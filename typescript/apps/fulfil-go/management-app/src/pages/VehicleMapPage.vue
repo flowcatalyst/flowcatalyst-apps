@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { L, osmTileLayer } from '../lib/leaflet-setup.js';
 import { api, clientId } from '../context.js';
 import PageHeader from '../components/PageHeader.vue';
 
@@ -13,8 +12,8 @@ import PageHeader from '../components/PageHeader.vue';
  * inactive (no fix in 10 min, server-computed). 10s polling; the ops SSE
  * channel can nudge this later.
  *
- * Tiles: VITE_MAP_STYLE_URL (the router service's tile stack once exposed)
- * — falls back to the public MapLibre demo style for dev.
+ * Leaflet + OpenStreetMap raster tiles (free, attribution required) —
+ * replaced the MapLibre GL + style-URL stack 2026-08-10.
  */
 interface VehiclePosition {
   executionSystem: string;
@@ -36,17 +35,16 @@ const SYSTEM_COLORS: Record<string, string> = {
 };
 const FALLBACK_COLOR = '#64748b';
 
-const STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL ?? 'https://demotiles.maplibre.org/style.json';
 /** Centre of SA — sensible first view until positions arrive. */
-const DEFAULT_CENTER: [number, number] = [25.0, -29.0];
+const DEFAULT_CENTER: [number, number] = [-29.0, 25.0];
 
 const mapEl = ref<HTMLDivElement | null>(null);
 const vehicles = ref<VehiclePosition[]>([]);
 const error = ref<string | null>(null);
 const lastRefresh = ref<Date | null>(null);
 
-let map: maplibregl.Map | null = null;
-const markers = new Map<string, maplibregl.Marker>();
+let map: L.Map | null = null;
+const markers = new Map<string, L.CircleMarker>();
 let timer: ReturnType<typeof setInterval> | null = null;
 let fitted = false;
 
@@ -76,22 +74,22 @@ function renderMarkers(): void {
     const color = SYSTEM_COLORS[v.executionSystem] ?? FALLBACK_COLOR;
     let marker = markers.get(key);
     if (!marker) {
-      const el = document.createElement('div');
-      el.style.cssText =
-        'width:16px;height:16px;border-radius:50%;border:2.5px solid white;' +
-        'box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer';
-      marker = new maplibregl.Marker({ element: el })
-        .setLngLat([v.lng, v.lat])
-        .setPopup(new maplibregl.Popup({ offset: 12 }).setHTML(popupHtml(v)))
+      marker = L.circleMarker([v.lat, v.lng], { radius: 8 })
+        .bindPopup(popupHtml(v))
+        .bindTooltip(v.label ?? v.vehicleRef)
         .addTo(map);
       markers.set(key, marker);
     } else {
-      marker.setLngLat([v.lng, v.lat]);
-      marker.getPopup()?.setHTML(popupHtml(v));
+      marker.setLatLng([v.lat, v.lng]);
+      marker.setPopupContent(popupHtml(v));
     }
-    const el = marker.getElement();
-    el.style.background = color;
-    el.style.opacity = v.active ? '1' : '0.35';
+    marker.setStyle({
+      color: 'white',
+      weight: 2.5,
+      fillColor: color,
+      fillOpacity: v.active ? 1 : 0.35,
+      opacity: v.active ? 1 : 0.35,
+    });
   }
   // Vehicles that disappeared from the feed.
   for (const [key, marker] of markers) {
@@ -101,9 +99,8 @@ function renderMarkers(): void {
     }
   }
   if (!fitted && vehicles.value.length > 0 && map) {
-    const bounds = new maplibregl.LngLatBounds();
-    for (const v of vehicles.value) bounds.extend([v.lng, v.lat]);
-    map.fitBounds(bounds, { padding: 80, maxZoom: 13 });
+    const bounds = L.latLngBounds(vehicles.value.map((v) => [v.lat, v.lng] as [number, number]));
+    map.fitBounds(bounds, { padding: [80, 80], maxZoom: 13 });
     fitted = true;
   }
 }
@@ -124,14 +121,8 @@ async function refresh(): Promise<void> {
 
 onMounted(() => {
   if (!mapEl.value) return;
-  map = new maplibregl.Map({
-    container: mapEl.value,
-    style: STYLE_URL,
-    center: DEFAULT_CENTER,
-    zoom: 5,
-    attributionControl: { compact: true },
-  });
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  map = L.map(mapEl.value).setView(DEFAULT_CENTER, 5);
+  osmTileLayer().addTo(map);
   void refresh();
   timer = setInterval(() => void refresh(), 10_000);
 });
@@ -140,6 +131,7 @@ onBeforeUnmount(() => {
   if (timer) clearInterval(timer);
   map?.remove();
   map = null;
+  markers.clear();
 });
 
 watch(clientId, () => {
@@ -183,7 +175,7 @@ watch(clientId, () => {
 
     <div
       ref="mapEl"
-      class="min-h-[480px] flex-1 overflow-hidden rounded-lg border border-neutral-200"
+      class="z-0 min-h-[480px] flex-1 overflow-hidden rounded-lg border border-neutral-200"
     />
   </div>
 </template>

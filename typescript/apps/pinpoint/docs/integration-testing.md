@@ -38,9 +38,9 @@ pnpm -F @pinpoint/server test:integration        # integration (~25 tests, ~30s)
 pnpm -F @pinpoint/server test:all                # both
 ```
 
-The integration suite requires Docker. The container image
-(`imresamu/postgis:18-3.6`) matches the dev compose so the image is
-already cached after `pnpm db:up`.
+The integration suite requires Docker. Testcontainers pulls
+`imresamu/postgis:18-3.6` on first run (local dev itself uses the fc-dev
+embedded Postgres, so this image is only needed for tests).
 
 ## How the harness works
 
