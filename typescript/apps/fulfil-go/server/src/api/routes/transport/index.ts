@@ -691,6 +691,129 @@ export function registerTransportRoutes(
     },
   );
 
+  // Active (claimed) trips for the back-office — depot/store filterable.
+  // SCOPE-RESTRICTED: principals carrying a storeRef/depotRef attribute
+  // (station + driver sessions) are hard-limited to their own store/depot
+  // regardless of the query params; platform admins see everything.
+  fastify.get(
+    '/clients/:clientId/transport/active-trips',
+    {
+      schema: {
+        tags: ['Transport'],
+        summary: 'Active (claimed) trips, depot/store filtered + scope-restricted',
+        params: Type.Object({ clientId: Type.String() }),
+        querystring: Type.Object({
+          stores: Type.Optional(Type.String({ description: 'Comma-separated origin storeRefs' })),
+          depots: Type.Optional(Type.String({ description: 'Comma-separated depotRefs' })),
+          limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
+        }),
+        response: {
+          200: Type.Object({
+            trips: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                provider: Type.String(),
+                originRef: Type.String(),
+                depotRef: Type.Union([Type.String(), Type.Null()]),
+                driverRef: Type.String(),
+                vehicleRef: Type.String(),
+                routeKm: Type.Union([Type.Number(), Type.Null()]),
+                routeMinutes: Type.Union([Type.Number(), Type.Null()]),
+                claimedAt: Type.String({ format: 'date-time' }),
+                stops: Type.Array(
+                  Type.Object({
+                    orderId: Type.String(),
+                    shortId: Type.String(),
+                    name: Type.String(),
+                    geo: Type.Union([
+                      Type.Object({ lat: Type.Number(), lng: Type.Number() }),
+                      Type.Null(),
+                    ]),
+                    /** Package barcodes the driver collects/hands over. */
+                    parcels: Type.Array(
+                      Type.Object({
+                        ref: Type.String(),
+                        kind: Type.String(),
+                        size: Type.Union([Type.String(), Type.Null()]),
+                      }),
+                    ),
+                  }),
+                ),
+              }),
+            ),
+          }),
+          401: UnauthorizedSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId } = request.params as { clientId: string };
+      const { stores, depots, limit } = request.query as {
+        stores?: string;
+        depots?: string;
+        limit?: number;
+      };
+      const csvList = (v: string | undefined) =>
+        v
+          ?.split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+      let storeRefs = csvList(stores);
+      let depotRefs = csvList(depots);
+      // Attribute-bound principals see ONLY their own store/depot.
+      const attrStore = scope.attributes['storeRef'];
+      const attrDepot = scope.attributes['depotRef'];
+      if (typeof attrStore === 'string' && attrStore.length > 0) storeRefs = [attrStore];
+      if (typeof attrDepot === 'string' && attrDepot.length > 0) depotRefs = [attrDepot];
+      const rows = await appContext.repositories.trips.listByClient(
+        clientId,
+        limit ?? 100,
+        0,
+        ['claimed'],
+        {
+          ...(storeRefs && storeRefs.length > 0 ? { storeRefs } : {}),
+          ...(depotRefs && depotRefs.length > 0 ? { depotRefs } : {}),
+        },
+      );
+      // Package barcodes per stop — from the member orders' parcels.
+      const allOrderIds = rows.flatMap((t) => [...t.orderIds]);
+      const orders =
+        allOrderIds.length > 0
+          ? await appContext.repositories.transportOrders.findManyByIds(clientId, allOrderIds)
+          : [];
+      const parcelsByOrder = new Map<string, { ref: string; kind: string; size: string | null }[]>(
+        orders.map((o) => [
+          o.id,
+          o.parcels.map((p) => ({ ref: p.ref, kind: p.kind, size: p.size })),
+        ]),
+      );
+      return reply.send({
+        trips: rows.map((t) => ({
+          id: t.id,
+          provider: t.provider,
+          originRef: t.originRef,
+          depotRef: t.depotRef,
+          driverRef: t.driverRef,
+          vehicleRef: t.vehicleRef,
+          routeKm: t.routeKm,
+          routeMinutes: t.routeMinutes,
+          claimedAt: t.updatedAt.toISOString(),
+          stops: t.stops.map((s) => ({
+            orderId: s.orderId,
+            shortId: s.shortId,
+            name: s.destination.name,
+            geo: s.destination.geo ?? null,
+            parcels: parcelsByOrder.get(s.orderId) ?? [],
+          })),
+        })),
+      });
+    },
+  );
+
   // The driver's own trips — the Work tab's persistent state (a claimed
   // trip must survive app restarts; page-local state does not).
   fastify.get(

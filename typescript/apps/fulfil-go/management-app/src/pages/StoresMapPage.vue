@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { L, osmTileLayer } from '../lib/leaflet-setup.js';
 import { api, clientId } from '../context.js';
-import { osmUrl } from '../lib/geo.js';
+import { persistedFilter } from '../lib/persisted-filter.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
- * Store map — the whole registry on one map (Leaflet + OSM tiles). Read-only
- * situational view: where the stores are, which have no coordinates. Row-level
- * operations stay on the Stores grid (targeted-pages rule).
+ * Network map — stores AND depots on one map (Leaflet + OSM tiles), each on
+ * its own toggleable layer. Read-only situational view; registry management
+ * stays on the Stores/Depots grids (targeted-pages rule).
+ *
+ * Deep-link focus: ?focus=<storeRef> or ?focusDepot=<depotRef> zooms to that
+ * entity and opens its popup — the Stores/Depots grids' "Map" links land here.
  */
 interface StoreSummary {
   id: string;
@@ -22,22 +26,45 @@ interface StoreSummary {
   transportProfileCode: string;
 }
 
-/** Centre of SA — sensible first view until stores load. */
-const DEFAULT_CENTER: [number, number] = [-29.0, 25.0];
+interface DepotSummary {
+  depotRef: string;
+  name: string;
+  geo: { lat: number; lng: number } | null;
+  storeRefs: string[];
+}
 
+/** Centre of SA — sensible first view until data loads. */
+const DEFAULT_CENTER: [number, number] = [-29.0, 25.0];
+const DEPOT_COLOR = '#7c3aed'; // violet — matches the depot/EPOD accent elsewhere
+
+const route = useRoute();
 const mapEl = ref<HTMLDivElement | null>(null);
 const stores = ref<StoreSummary[]>([]);
+const depots = ref<DepotSummary[]>([]);
 const error = ref<string | null>(null);
 const loading = ref(false);
+const showStores = persistedFilter('network-map', 'showStores', true);
+const showDepots = persistedFilter('network-map', 'showDepots', true);
 
 let map: L.Map | null = null;
-let markerLayer: L.LayerGroup | null = null;
+let storeLayer: L.LayerGroup | null = null;
+let depotLayer: L.LayerGroup | null = null;
+let fitted = false;
 
-const mapped = computed(() => stores.value.filter((s) => s.lat !== null && s.lng !== null));
-const unmapped = computed(() => stores.value.length - mapped.value.length);
+const mappedStores = computed(() => stores.value.filter((s) => s.lat !== null && s.lng !== null));
+const mappedDepots = computed(() => depots.value.filter((d) => d.geo !== null));
+const unmapped = computed(
+  () =>
+    stores.value.length -
+    mappedStores.value.length +
+    (depots.value.length - mappedDepots.value.length),
+);
 
-function popupHtml(s: StoreSummary): string {
-  const esc = (v: string) => v.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`);
+function esc(v: string): string {
+  return v.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+function storePopup(s: StoreSummary): string {
   const place = [s.city, s.region].filter(Boolean).join(', ');
   return `
     <div style="font: 12px Inter, sans-serif; min-width: 190px">
@@ -45,36 +72,101 @@ function popupHtml(s: StoreSummary): string {
       <code style="color:#64748b">${esc(s.storeRef)}</code><br/>
       ${place ? `${esc(place)}<br/>` : ''}
       <span style="color:#64748b">Pick:</span> ${esc(s.pickProfileCode)} ·
-      <span style="color:#64748b">Transport:</span> ${esc(s.transportProfileCode)}<br/>
-      <a href="${osmUrl(s.lat as number, s.lng as number)}" target="_blank" rel="noopener">
-        Open in OpenStreetMap
-      </a>
+      <span style="color:#64748b">Transport:</span> ${esc(s.transportProfileCode)}
+    </div>`;
+}
+
+function depotPopup(d: DepotSummary): string {
+  return `
+    <div style="font: 12px Inter, sans-serif; min-width: 190px">
+      <strong>${esc(d.name)}</strong> <span style="color:#7c3aed">(depot)</span><br/>
+      <code style="color:#64748b">${esc(d.depotRef)}</code><br/>
+      <span style="color:#64748b">Serves:</span> ${esc(d.storeRefs.join(', ') || '—')}
     </div>`;
 }
 
 function render(): void {
-  if (!map || !markerLayer) return;
-  markerLayer.clearLayers();
-  for (const s of mapped.value) {
-    L.marker([s.lat as number, s.lng as number])
+  if (!map || !storeLayer || !depotLayer) return;
+  storeLayer.clearLayers();
+  depotLayer.clearLayers();
+  const storeMarkers = new Map<string, L.Marker>();
+  const depotMarkers = new Map<string, L.CircleMarker>();
+  for (const s of mappedStores.value) {
+    const marker = L.marker([s.lat as number, s.lng as number])
       .bindTooltip(`${s.storeRef} · ${s.name}`)
-      .bindPopup(popupHtml(s))
-      .addTo(markerLayer);
+      .bindPopup(storePopup(s))
+      .addTo(storeLayer);
+    storeMarkers.set(s.storeRef, marker);
   }
-  if (mapped.value.length > 0) {
-    const bounds = L.latLngBounds(
-      mapped.value.map((s) => [s.lat as number, s.lng as number] as [number, number]),
-    );
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
+  for (const d of mappedDepots.value) {
+    const geo = d.geo as { lat: number; lng: number };
+    const marker = L.circleMarker([geo.lat, geo.lng], {
+      radius: 10,
+      color: 'white',
+      weight: 2.5,
+      fillColor: DEPOT_COLOR,
+      fillOpacity: 0.95,
+    })
+      .bindTooltip(`${d.depotRef} · ${d.name}`)
+      .bindPopup(depotPopup(d))
+      .addTo(depotLayer);
+    depotMarkers.set(d.depotRef, marker);
   }
+
+  // Deep-link focus beats whole-network fitBounds.
+  const focusStore = route.query['focus'] as string | undefined;
+  const focusDepot = route.query['focusDepot'] as string | undefined;
+  if (!fitted && focusStore && storeMarkers.has(focusStore)) {
+    const marker = storeMarkers.get(focusStore)!;
+    showStores.value = true;
+    map.setView(marker.getLatLng(), 15);
+    marker.openPopup();
+    fitted = true;
+    return;
+  }
+  if (!fitted && focusDepot && depotMarkers.has(focusDepot)) {
+    const marker = depotMarkers.get(focusDepot)!;
+    showDepots.value = true;
+    map.setView(marker.getLatLng(), 14);
+    marker.openPopup();
+    fitted = true;
+    return;
+  }
+
+  if (!fitted) {
+    const points: [number, number][] = [
+      ...mappedStores.value.map((s) => [s.lat as number, s.lng as number] as [number, number]),
+      ...mappedDepots.value.map(
+        (d) => [(d.geo as { lat: number }).lat, (d.geo as { lng: number }).lng] as [number, number],
+      ),
+    ];
+    if (points.length > 0) {
+      map.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 12 });
+      fitted = true;
+    }
+  }
+}
+
+function syncLayerVisibility(): void {
+  if (!map || !storeLayer || !depotLayer) return;
+  const sync = (layer: L.LayerGroup, on: boolean) => {
+    if (on && !map!.hasLayer(layer)) layer.addTo(map!);
+    if (!on && map!.hasLayer(layer)) layer.remove();
+  };
+  sync(storeLayer, showStores.value);
+  sync(depotLayer, showDepots.value);
 }
 
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const res = await api.json<{ stores: StoreSummary[] }>(`/clients/${clientId.value}/stores`);
-    stores.value = res.stores;
+    const [storeRes, depotRes] = await Promise.all([
+      api.json<{ stores: StoreSummary[] }>(`/clients/${clientId.value}/stores`),
+      api.json<{ depots: DepotSummary[] }>(`/clients/${clientId.value}/depots`),
+    ]);
+    stores.value = storeRes.stores;
+    depots.value = depotRes.depots;
     render();
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -87,24 +179,31 @@ onMounted(() => {
   if (!mapEl.value) return;
   map = L.map(mapEl.value).setView(DEFAULT_CENTER, 5);
   osmTileLayer().addTo(map);
-  markerLayer = L.layerGroup().addTo(map);
+  storeLayer = L.layerGroup();
+  depotLayer = L.layerGroup();
+  syncLayerVisibility();
   void load();
 });
 
 onBeforeUnmount(() => {
   map?.remove();
   map = null;
-  markerLayer = null;
+  storeLayer = null;
+  depotLayer = null;
 });
 
-watch(clientId, () => void load());
+watch([showStores, showDepots], syncLayerVisibility);
+watch(clientId, () => {
+  fitted = false;
+  void load();
+});
 </script>
 
 <template>
   <div class="flex h-full flex-col p-6">
-    <PageHeader title="Store map">
+    <PageHeader title="Network map">
       <template #subtitle>
-        Every registered store on the map. Manage the registry on the Stores page.
+        Stores and depots on one map — toggle either layer. Manage them on their own pages.
       </template>
       <template #actions>
         <UButton
@@ -121,8 +220,26 @@ watch(clientId, () => void load());
 
     <UAlert v-if="error" :description="error" color="error" variant="soft" class="mb-3" />
 
-    <div class="mb-2 flex items-center gap-4 text-xs text-neutral-500">
-      <span>{{ mapped.length }} store(s) on the map</span>
+    <div class="mb-2 flex items-center gap-5 text-xs text-neutral-600">
+      <UCheckbox v-model="showStores">
+        <template #label>
+          <span class="flex items-center gap-1.5 text-xs">
+            <UIcon name="i-lucide-map-pin" class="size-3.5 text-brand-600" />
+            Stores ({{ mappedStores.length }})
+          </span>
+        </template>
+      </UCheckbox>
+      <UCheckbox v-model="showDepots">
+        <template #label>
+          <span class="flex items-center gap-1.5 text-xs">
+            <span
+              class="inline-block size-3 rounded-full border-2 border-white shadow"
+              :style="{ background: DEPOT_COLOR }"
+            />
+            Depots ({{ mappedDepots.length }})
+          </span>
+        </template>
+      </UCheckbox>
       <span v-if="unmapped > 0" class="text-amber-600">
         {{ unmapped }} without coordinates — not shown
       </span>

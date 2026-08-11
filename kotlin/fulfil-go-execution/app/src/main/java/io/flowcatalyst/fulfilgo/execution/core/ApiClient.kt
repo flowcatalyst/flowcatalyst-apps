@@ -56,7 +56,12 @@ class ApiClient(
         val builder = Request.Builder().url("${baseUrl()}$path")
         for ((k, v) in authHeaders()) builder.header(k, v)
         for ((k, v) in headers) builder.header(k, v)
-        val body = jsonBody?.toRequestBody(jsonMedia)
+        // OkHttp THROWS on POST/PUT/PATCH with a null body ("method POST must
+        // have a request body") — before any network I/O. Body-less mutating
+        // calls (e.g. offer claim) send an empty JSON object instead.
+        val effectiveJson =
+            jsonBody ?: if (method == "POST" || method == "PUT" || method == "PATCH") "{}" else null
+        val body = effectiveJson?.toRequestBody(jsonMedia)
         builder.method(method, body)
         http.newCall(builder.build()).execute().use { res ->
             ApiResponse(res.code, res.body?.string() ?: "")

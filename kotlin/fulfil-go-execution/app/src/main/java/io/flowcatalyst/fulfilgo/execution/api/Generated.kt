@@ -78,6 +78,7 @@ data class Offer(
     val partReferences: List<String>,
     val transportOrderRefs: List<String>,
     val expiresAt: String,
+    val expiresInSeconds: Double,
     val originRef: String,
     val stops: List<OfferStop>,
     val routeKm: Double? = null,

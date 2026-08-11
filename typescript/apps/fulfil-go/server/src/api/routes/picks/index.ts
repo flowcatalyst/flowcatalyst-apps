@@ -21,6 +21,7 @@ import {
 } from '@fulfil-go/shared';
 import type { AppContext } from '../../../app-context.js';
 import { toPickDto } from '../../../domain/picks/pick-dto.js';
+import { asPickId, isPickId } from '../../../domain/picks/ids.js';
 import type { PickStatus } from '../../../domain/picks/pick.js';
 import { PickShortPicked } from '../../../domain/picks/events/pick-outcome.events.js';
 import { sendUseCaseError, useCaseErrorOutcome } from '../../plugins/error-mapper.js';
@@ -203,6 +204,107 @@ export function registerPickRoutes(
       const pickers = Object.fromEntries(pickerRows.map((p) => [p.id, p.displayName]));
 
       return reply.code(200).send({ picks: rows.map(toPickDto), pickers });
+    },
+  );
+
+  // Single-pick admin fetch — the enquiry panel's deep-link fallback (the
+  // grid only holds the current filtered page).
+  fastify.get(
+    '/clients/:clientId/picks/admin/:pickId',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String(), pickId: Type.String() }),
+        response: {
+          200: Type.Object({
+            pick: PickDtoSchema,
+            pickers: Type.Record(Type.String(), Type.String()),
+          }),
+          401: UnauthorizedSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const scope = ScopeStore.get();
+      if (!scope) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      if (!scope.permissions.has(FulfilGoPermission.ManagePickers)) {
+        return reply.code(403).send({
+          error: 'forbidden',
+          code: 'PERMISSION_DENIED',
+          message: `Missing permission ${FulfilGoPermission.ManagePickers}.`,
+          details: null,
+        });
+      }
+      const { clientId, pickId } = request.params as { clientId: string; pickId: string };
+      if (!isPickId(pickId)) {
+        return reply.code(404).send({
+          error: 'not_found',
+          code: 'PICK_NOT_FOUND',
+          message: `Pick '${pickId}' not found.`,
+          details: null,
+        });
+      }
+      const pick = await appContext.repositories.picks.findById(clientId, asPickId(pickId));
+      if (!pick) {
+        return reply.code(404).send({
+          error: 'not_found',
+          code: 'PICK_NOT_FOUND',
+          message: `Pick '${pickId}' not found.`,
+          details: null,
+        });
+      }
+      const pickerRows = pick.claimedBy
+        ? await appContext.repositories.pickerUsers.findByIds(clientId, [pick.claimedBy])
+        : [];
+      const pickers = Object.fromEntries(pickerRows.map((p) => [p.id, p.displayName]));
+      return reply.code(200).send({ pick: toPickDto(pick), pickers });
+    },
+  );
+
+  // The picks a fulfilment spawned (one per part) — powers the fulfilment
+  // panel's "view pick" links.
+  fastify.get(
+    '/clients/:clientId/fulfilments/:fulfilmentId/picks',
+    {
+      schema: {
+        tags: ['Picks'],
+        params: Type.Object({ clientId: Type.String(), fulfilmentId: Type.String() }),
+        response: {
+          200: Type.Object({
+            picks: Type.Array(
+              Type.Object({
+                id: Type.String(),
+                partId: Type.String(),
+                shortId: Type.String(),
+                status: Type.String(),
+              }),
+            ),
+          }),
+          401: UnauthorizedSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!ScopeStore.get()) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
+      }
+      const { clientId, fulfilmentId } = request.params as {
+        clientId: string;
+        fulfilmentId: string;
+      };
+      const rows = await appContext.repositories.picks.listByFulfilment(clientId, fulfilmentId);
+      return reply.code(200).send({
+        picks: rows.map((p) => ({
+          id: p.id,
+          partId: p.partId,
+          shortId: p.shortId,
+          status: p.status,
+        })),
+      });
     },
   );
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import FulfilmentInspector from '../components/FulfilmentInspector.vue';
 import { createSseClient, type SseClient, type SseState } from '@fulfil-go/mobile-kit/sse';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
@@ -166,9 +167,20 @@ watch(clientId, () => {
 });
 watch(storeFilter, () => void refresh());
 
+/**
+ * Row click docks the fulfilment inspector ON the flightboard (?selected=,
+ * same deep-link semantics as the Fulfilments grid) — controllers never
+ * lose the live board while inspecting.
+ */
+const route = useRoute();
+const selectedId = computed(() => (route.query['selected'] as string | undefined) ?? null);
 function open(row: { fulfilmentId?: string; id?: string }): void {
   const id = row.fulfilmentId ?? row.id;
-  if (id) void router.push({ path: '/fulfilments', query: { selected: id } });
+  if (id) void router.replace({ query: { ...route.query, selected: id } });
+}
+function closePanel(): void {
+  const { selected: _drop, ...rest } = route.query;
+  void router.replace({ query: rest });
 }
 
 /** Exception kind → label + tone. Transport kinds land with that context. */
@@ -209,7 +221,8 @@ function fmtPct(value: number | null): string {
 </script>
 
 <template>
-  <div class="p-6">
+  <div class="flex h-full">
+    <section class="min-w-0 flex-1 overflow-y-auto p-6">
     <PageHeader
       title="Flightboard"
       subtitle="Live controller view — ±24h slot window, ASAP first, exceptions on top."
@@ -431,5 +444,13 @@ function fmtPct(value: number | null): string {
         </tbody>
       </table>
     </div>
+    </section>
+
+    <FulfilmentInspector
+      v-if="selectedId"
+      :fulfilment-id="selectedId"
+      @close="closePanel"
+      @changed="refresh"
+    />
   </div>
 </template>

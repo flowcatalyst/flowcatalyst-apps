@@ -32,6 +32,7 @@ export const NAVIGATION: NavGroup[] = [
     items: [
       { label: 'Requested picks', to: '/picking/picks/requested', icon: 'i-lucide-clipboard-list' },
       { label: 'Active picks', to: '/picking/picks/active', icon: 'i-lucide-shopping-cart' },
+      { label: 'Pick enquiry', to: '/picking/picks/enquiry', icon: 'i-lucide-search' },
       { label: 'Pickers', to: '/picking/pickers', icon: 'i-lucide-users' },
       {
         label: 'Pick profiles',
@@ -45,6 +46,7 @@ export const NAVIGATION: NavGroup[] = [
     items: [
       { label: 'Vehicle map', to: '/transport/map', icon: 'i-lucide-map' },
       { label: 'Requested', to: '/transport/requested', icon: 'i-lucide-inbox' },
+      { label: 'Active trips', to: '/transport/active', icon: 'i-lucide-navigation' },
       { label: 'Transport orders', to: '/transport/orders', icon: 'i-lucide-route' },
       { label: 'Drivers', to: '/transport/drivers', icon: 'i-lucide-truck' },
       { label: 'Depots', to: '/transport/depots', icon: 'i-lucide-warehouse' },
@@ -59,7 +61,7 @@ export const NAVIGATION: NavGroup[] = [
     label: 'Stores',
     items: [
       { label: 'Stores', to: '/stores', icon: 'i-lucide-store' },
-      { label: 'Store map', to: '/stores/map', icon: 'i-lucide-map-pinned' },
+      { label: 'Network map', to: '/stores/map', icon: 'i-lucide-map-pinned' },
       { label: 'Printers', to: '/stores/printers', icon: 'i-lucide-printer' },
     ],
   },

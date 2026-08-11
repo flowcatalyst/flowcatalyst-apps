@@ -7,6 +7,8 @@ import { useAppCtx } from '../context.js';
 // every stream open) — the Refresh button is just a manual reconcile.
 const ctx = useAppCtx();
 const expanded = ref<string | null>(null);
+/** Handover section (bottom of page) — collapsed until store staff need a PIN. */
+const handoverOpen = ref(false);
 const claiming = ref<string | null>(null);
 
 const available = computed(() => ctx.picks.available.value);
@@ -177,10 +179,57 @@ async function toggleCarFlag(pick: PickDto): Promise<void> {
       </ul>
     </UCard>
 
+
+    <h2 class="mt-2 font-semibold">Mine ({{ mine.length }})</h2>
+    <p v-if="mine.length === 0" class="text-sm text-neutral-500">Nothing claimed yet.</p>
+    <!-- Tap opens the picking workflow (count/scan → complete or fail). -->
+    <UCard
+      v-for="pick in mine"
+      :key="pick.id"
+      class="cursor-pointer"
+      @click="$router.push(`/picks/${pick.id}`)"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-mono text-lg font-semibold">#{{ pick.shortId }}</p>
+          <p class="text-xs text-neutral-500">
+            {{ pick.lines.length }} line(s) · {{ units(pick) }} units · slot {{ slot(pick) }}
+          </p>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span
+            v-if="pick.requireFullPick"
+            class="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700"
+          >
+            FULL
+          </span>
+          <span
+            v-if="pick.requiresCarOrLarger === true"
+            class="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700"
+            title="Needs a car or bigger — no bike/scooter"
+          >
+            🚗 CAR+
+          </span>
+          <UButton size="lg" variant="soft">Pick →</UButton>
+        </div>
+      </div>
+    </UCard>
     <!-- Awaiting driver handover: the store side of collection. The PIN is
-         the override for a failed scan — each reveal is audited. -->
+         the override for a failed scan — each reveal is audited. Lives at
+         the bottom, collapsed — it's a lookup surface, not the work queue. -->
     <template v-if="awaitingHandover.length > 0">
-      <h2 class="mt-2 font-semibold">Handover ({{ awaitingHandover.length }})</h2>
+      <button
+        type="button"
+        class="mt-2 flex w-full items-center justify-between text-left"
+        @click="handoverOpen = !handoverOpen"
+      >
+        <h2 class="font-semibold">Handover ({{ awaitingHandover.length }})</h2>
+        <UIcon
+          :name="handoverOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+          class="size-5 text-neutral-400"
+        />
+      </button>
+      <template v-if="handoverOpen">
       <UAlert v-if="pinError" :description="pinError" color="warning" variant="soft" />
       <UCard v-for="pick in awaitingHandover" :key="`ho-${pick.id}`" :ui="{ body: 'p-3' }">
         <div class="flex items-center justify-between gap-3">
@@ -226,41 +275,7 @@ async function toggleCarFlag(pick: PickDto): Promise<void> {
           </div>
         </div>
       </UCard>
+      </template>
     </template>
-
-    <h2 class="mt-2 font-semibold">Mine ({{ mine.length }})</h2>
-    <p v-if="mine.length === 0" class="text-sm text-neutral-500">Nothing claimed yet.</p>
-    <!-- Tap opens the picking workflow (count/scan → complete or fail). -->
-    <UCard
-      v-for="pick in mine"
-      :key="pick.id"
-      class="cursor-pointer"
-      @click="$router.push(`/picks/${pick.id}`)"
-    >
-      <div class="flex items-center justify-between gap-3">
-        <div class="min-w-0">
-          <p class="font-mono text-lg font-semibold">#{{ pick.shortId }}</p>
-          <p class="text-xs text-neutral-500">
-            {{ pick.lines.length }} line(s) · {{ units(pick) }} units · slot {{ slot(pick) }}
-          </p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2">
-          <span
-            v-if="pick.requireFullPick"
-            class="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700"
-          >
-            FULL
-          </span>
-          <span
-            v-if="pick.requiresCarOrLarger === true"
-            class="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700"
-            title="Needs a car or bigger — no bike/scooter"
-          >
-            🚗 CAR+
-          </span>
-          <UButton size="lg" variant="soft">Pick →</UButton>
-        </div>
-      </div>
-    </UCard>
   </div>
 </template>

@@ -12,9 +12,10 @@ import SortableTh, { type SortState } from '../components/table/SortableTh.vue';
 import TruncationFooter from '../components/table/TruncationFooter.vue';
 
 /**
- * Back-office pick views — one component, two routes:
+ * Back-office pick views — one component, three routes:
  *   /picking/picks/requested  (meta.pickStatus 'requested')  — waiting for a picker
  *   /picking/picks/active     (meta.pickStatus 'claimed')    — being picked right now
+ *   /picking/picks/enquiry    (meta.pickStatus 'enquiry')    — ANY pick, any status
  */
 interface StoreSummary {
   id: string;
@@ -26,8 +27,19 @@ interface StoreSummary {
 
 const route = useRoute();
 const router = useRouter();
-const status = computed(() => (route.meta['pickStatus'] as 'requested' | 'claimed') ?? 'requested');
-const isActiveView = computed(() => status.value === 'claimed');
+const view = computed(
+  () => (route.meta['pickStatus'] as 'requested' | 'claimed' | 'enquiry') ?? 'requested',
+);
+const isActiveView = computed(() => view.value === 'claimed');
+const isEnquiry = computed(() => view.value === 'enquiry');
+
+const PICK_STATUSES = ['requested', 'claimed', 'picked', 'short_picked', 'failed'];
+/** Enquiry-only status narrowing; 'all' = no status param. */
+const statusChoice = persistedFilter<string>('picks-enquiry', 'status', 'all');
+const statusOptions = [
+  { label: 'All statuses', value: 'all' },
+  ...PICK_STATUSES.map((s) => ({ label: s.replaceAll('_', ' '), value: s })),
+];
 
 const picks = ref<PickDto[]>([]);
 const pickerNames = ref<Record<string, string>>({});
@@ -115,7 +127,12 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const params = new URLSearchParams({ status: status.value, slotOrder: sort.value.dir });
+    const params = new URLSearchParams({ slotOrder: sort.value.dir });
+    if (isEnquiry.value) {
+      if (statusChoice.value !== 'all') params.set('status', statusChoice.value);
+    } else {
+      params.set('status', view.value);
+    }
     if (storeFilter.value.length > 0) params.set('store', storeFilter.value.join(','));
     if (search.value.trim()) params.set('q', search.value.trim());
     const { from, to } = slotWindow();
@@ -143,7 +160,28 @@ function lineText(line: unknown): { qty: number; description: string; sku: strin
 
 /** Panel selection lives in the route query — deep links + back/forward work. */
 const selectedId = computed(() => (route.query['selected'] as string | undefined) ?? null);
-const selected = computed(() => picks.value.find((p) => p.id === selectedId.value));
+/** Deep-link fallback: the selected pick may be outside the filtered page. */
+const fetchedPick = ref<PickDto | null>(null);
+const selected = computed(
+  () =>
+    picks.value.find((p) => p.id === selectedId.value) ??
+    (fetchedPick.value?.id === selectedId.value ? fetchedPick.value : undefined),
+);
+watch([selectedId, picks], async ([id]) => {
+  if (!id || picks.value.some((p) => p.id === id)) {
+    fetchedPick.value = null;
+    return;
+  }
+  try {
+    const res = await api.json<{ pick: PickDto; pickers: Record<string, string> }>(
+      `/clients/${clientId.value}/picks/admin/${id}`,
+    );
+    fetchedPick.value = res.pick;
+    pickerNames.value = { ...pickerNames.value, ...res.pickers };
+  } catch {
+    fetchedPick.value = null;
+  }
+});
 function select(id: string): void {
   void router.replace({ query: { ...route.query, selected: id } });
 }
@@ -177,7 +215,7 @@ watch([clientId], () => {
   void loadStores();
   void load();
 });
-watch([status, storeFilter, slotRange, customFrom, customTo, sort], () => void load(), {
+watch([view, statusChoice, storeFilter, slotRange, customFrom, customTo, sort], () => void load(), {
   deep: true,
 });
 // Debounce the server-side quick-search so typing doesn't fire per keystroke.
@@ -193,11 +231,13 @@ watch(search, () => {
     <!-- Grid stays fully interactive while the panel is open. -->
     <section class="min-w-0 flex-1 overflow-y-auto p-6">
       <PageHeader
-        :title="isActiveView ? 'Active picks' : 'Requested picks'"
+        :title="isEnquiry ? 'Pick enquiry' : isActiveView ? 'Active picks' : 'Requested picks'"
         :subtitle="
-          isActiveView
-            ? 'Claimed and being picked right now, per store and picker.'
-            : 'Released to stores and waiting for a picker to claim.'
+          isEnquiry
+            ? 'Any pick, any status — search by part number and inspect.'
+            : isActiveView
+              ? 'Claimed and being picked right now, per store and picker.'
+              : 'Released to stores and waiting for a picker to claim.'
         "
       >
         <template #actions>
@@ -232,6 +272,13 @@ watch(search, () => {
             placeholder="All stores"
             class="w-80"
           />
+          <USelect
+            v-if="isEnquiry"
+            v-model="statusChoice"
+            :items="statusOptions"
+            value-key="value"
+            class="w-44"
+          />
         </template>
         <template #filters>
           <div>
@@ -262,9 +309,12 @@ watch(search, () => {
               <SortableTh v-model="sort" field="slotStart" label="Slot" />
               <th class="px-3 py-2">Lines</th>
               <th class="px-3 py-2">Level</th>
+              <th v-if="isEnquiry" class="px-3 py-2">Status</th>
               <th v-if="isActiveView" class="px-3 py-2">Picker</th>
               <th v-if="isActiveView" class="px-3 py-2">Claimed</th>
-              <th v-else class="px-3 py-2">Waiting since</th>
+              <th v-if="!isActiveView" class="px-3 py-2">
+                {{ isEnquiry ? 'Requested' : 'Waiting since' }}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -302,11 +352,21 @@ watch(search, () => {
                   FULL
                 </span>
               </td>
+              <td v-if="isEnquiry" class="px-3 py-2">
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="pickStatusColor[p.status] ?? 'bg-neutral-100 text-neutral-600'"
+                >
+                  {{ p.status }}
+                </span>
+              </td>
               <td v-if="isActiveView" class="px-3 py-2">
                 {{ (p.claimedBy && pickerNames[p.claimedBy]) || p.claimedBy || '—' }}
               </td>
               <td v-if="isActiveView" class="px-3 py-2 text-neutral-500">{{ fmt(p.claimedAt) }}</td>
-              <td v-else class="px-3 py-2 text-neutral-500">{{ fmt(p.createdAt) }}</td>
+              <td v-if="!isActiveView" class="px-3 py-2 text-neutral-500">
+                {{ fmt(p.createdAt) }}
+              </td>
             </tr>
             <tr v-if="picks.length === 0 && !loading">
               <td colspan="7" class="px-3 py-8 text-center text-neutral-400">

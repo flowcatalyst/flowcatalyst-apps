@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
-import { osmUrl } from '../lib/geo.js';
 import PageHeader from '../components/PageHeader.vue';
 
 /**
@@ -216,11 +215,11 @@ watch(clientId, () => {
             <td class="px-3 py-2">
               <a
                 v-if="d.geo"
-                :href="osmUrl(d.geo.lat, d.geo.lng)"
+                :href="`/stores/map?focusDepot=${encodeURIComponent(d.depotRef)}`"
                 target="_blank"
                 rel="noopener"
                 class="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
-                :title="`${d.geo.lat.toFixed(5)}, ${d.geo.lng.toFixed(5)}`"
+                :title="`Open on the network map (${d.geo.lat.toFixed(5)}, ${d.geo.lng.toFixed(5)})`"
               >
                 <UIcon name="i-lucide-map-pin" class="size-3.5" />
                 Map

@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { api, clientId } from '../context.js';
 import { persistedFilter } from '../lib/persisted-filter.js';
-import { osmUrl } from '../lib/geo.js';
 import storeFixtures from '../generator/data/stores.json';
 import PageHeader from '../components/PageHeader.vue';
 import FilterBar from '../components/table/FilterBar.vue';
@@ -243,11 +242,11 @@ watch(clientId, () => {
             <td class="px-3 py-2">
               <a
                 v-if="s.lat !== null && s.lng !== null"
-                :href="osmUrl(s.lat, s.lng)"
+                :href="`/stores/map?focus=${encodeURIComponent(s.storeRef)}`"
                 target="_blank"
                 rel="noopener"
                 class="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
-                :title="`${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`"
+                :title="`Open on the network map (${s.lat.toFixed(5)}, ${s.lng.toFixed(5)})`"
               >
                 <UIcon name="i-lucide-map-pin" class="size-3.5" />
                 Map

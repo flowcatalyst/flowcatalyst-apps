@@ -124,6 +124,9 @@ export function createDrizzleTripRepository(db: PostgresJsDatabase): TripReposit
       if (options?.storeRefs && options.storeRefs.length > 0) {
         conditions.push(inArray(trips.originRef, [...options.storeRefs]));
       }
+      if (options?.depotRefs && options.depotRefs.length > 0) {
+        conditions.push(inArray(trips.depotRef, [...options.depotRefs]));
+      }
       const dir = options?.sortDir === 'asc' ? asc : desc;
       const rows = await current()
         .select()

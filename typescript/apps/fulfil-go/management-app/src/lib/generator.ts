@@ -20,12 +20,19 @@ export interface GeneratorOptions {
    * Multi-store fulfilments still add a same-city partner store.
    */
   readonly storeRef?: string;
+  /**
+   * STANDARD slots start on a WHOLE hour within this many hours from now
+   * (e.g. 3 → 16:00/17:00/18:00 when generating at 15:20). ASAP is always
+   * near-now and ignores this.
+   */
+  readonly slotWindowHours: number;
 }
 
 export const DEFAULT_OPTIONS: GeneratorOptions = {
   deliveryShare: 0.7,
   asapShare: 0.4,
   multiStoreShare: 0.2,
+  slotWindowHours: 3,
 };
 
 type Store = (typeof stores)[number];
@@ -164,12 +171,15 @@ export function buildFulfilment(
   const chosenStores = pickStores(Math.random() < options.multiStoreShare, options.storeRef);
   const anchor = chosenStores[0]!;
 
-  // ASAP: a near-now window; STANDARD: a 2h slot tomorrow morning/afternoon.
+  // ASAP: a near-now window; STANDARD: a 2h slot starting on a WHOLE hour
+  // within the configured window (16:00-style, not 16:23).
   const now = Date.now();
+  const nextWholeHour = Math.ceil(now / 3600_000) * 3600_000;
+  const windowHours = Math.max(1, Math.floor(options.slotWindowHours));
   const slotStart =
     serviceLevel === 'ASAP'
       ? new Date(now + 30 * 60_000)
-      : new Date(now + 24 * 3600_000 + Math.floor(between(0, 8)) * 3600_000);
+      : new Date(nextWholeHour + Math.floor(between(0, windowHours)) * 3600_000);
   const slotEnd = new Date(slotStart.getTime() + (serviceLevel === 'ASAP' ? 60 : 120) * 60_000);
 
   const customer = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;

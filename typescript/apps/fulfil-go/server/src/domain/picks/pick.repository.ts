@@ -7,6 +7,8 @@ export interface PickRepository {
   delete(aggregate: Pick, tx?: TransactionContext): Promise<boolean>;
 
   findById(clientId: string, id: PickId): Promise<Pick | null>;
+  /** All picks spawned by one fulfilment (one per part, at most). */
+  listByFulfilment(clientId: string, fulfilmentId: string): Promise<readonly Pick[]>;
   /** The create-pick idempotency lookup: (clientId, partId) is unique. */
   findByPartId(clientId: string, partId: string): Promise<Pick | null>;
   /** Store-scoped listing for pickers — oldest slot first. */

@@ -146,6 +146,15 @@ export function createDrizzlePickRepository(db: PostgresJsDatabase): PickReposit
       return row ? toDomain(row) : null;
     },
 
+    async listByFulfilment(clientId: string, fulfilmentId: string): Promise<readonly Pick[]> {
+      const rows = await current()
+        .select()
+        .from(picks)
+        .where(and(eq(picks.clientId, clientId), eq(picks.fulfilmentId, fulfilmentId)))
+        .orderBy(asc(picks.shortId));
+      return rows.map(toDomain);
+    },
+
     async findByPartId(clientId: string, partId: string): Promise<Pick | null> {
       const [row] = await current()
         .select()

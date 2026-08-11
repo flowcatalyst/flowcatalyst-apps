@@ -21,6 +21,8 @@ export interface TransportOfferDto {
   readonly partReferences: readonly string[];
   readonly transportOrderRefs: readonly string[];
   readonly expiresAt: string;
+  /** Hold remaining at response time — the app's skew-immune countdown source. */
+  readonly expiresInSeconds: number;
   readonly originRef: string;
   readonly stops: readonly OfferStopDto[];
   readonly routeKm: number | null;

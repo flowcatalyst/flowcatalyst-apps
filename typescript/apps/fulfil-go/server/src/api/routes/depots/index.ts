@@ -183,22 +183,44 @@ export function registerDepotRoutes(fastify: FastifyInstance, appContext: AppCon
       if (!requireManageStores(reply)) return reply;
       const { clientId } = request.params as { clientId: string };
       const stores = await appContext.repositories.stores.listByClient(clientId);
-      const byCity = new Map<string, { name: string; storeRefs: string[] }>();
+      const byCity = new Map<
+        string,
+        { name: string; storeRefs: string[]; coords: { lat: number; lng: number }[] }
+      >();
       for (const store of stores) {
         const city = store.city ?? 'unassigned';
         const slug = city
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-|-$/g, '');
-        const entry = byCity.get(slug) ?? { name: `${city} Depot`, storeRefs: [] };
+        const entry =
+          byCity.get(slug) ??
+          ({ name: `${city} Depot`, storeRefs: [], coords: [] } as {
+            name: string;
+            storeRefs: string[];
+            coords: { lat: number; lng: number }[];
+          });
         entry.storeRefs.push(store.storeRef);
+        if (store.lat !== null && store.lng !== null) {
+          entry.coords.push({ lat: store.lat, lng: store.lng });
+        }
         byCity.set(slug, entry);
       }
       let linked = 0;
       for (const [slug, entry] of byCity) {
+        // Depot geo = centroid of its linked stores (they're same-city, so a
+        // plain average is a sensible "middle of the serviced area").
+        const geo =
+          entry.coords.length > 0
+            ? {
+                lat: entry.coords.reduce((s, c) => s + c.lat, 0) / entry.coords.length,
+                lng: entry.coords.reduce((s, c) => s + c.lng, 0) / entry.coords.length,
+              }
+            : null;
         await appContext.repositories.depots.upsert(clientId, {
           depotRef: `dep-${slug}`,
           name: entry.name,
+          geo,
           storeRefs: entry.storeRefs,
         });
         linked += entry.storeRefs.length;

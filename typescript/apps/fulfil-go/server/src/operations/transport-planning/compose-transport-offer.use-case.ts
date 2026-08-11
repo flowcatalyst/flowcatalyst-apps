@@ -300,6 +300,13 @@ export class ComposeTransportOfferUseCase {
               partReferences: trip.stops.map((s) => s.shortId),
               transportOrderRefs: [...trip.orderIds],
               expiresAt: expiresAt.toISOString(),
+              // Duration at response time — the app counts down from THIS on
+              // its monotonic clock. Comparing expiresAt to the device clock
+              // breaks under device/server skew (emulators especially).
+              expiresInSeconds: Math.max(
+                0,
+                Math.round((expiresAt.getTime() - Date.now()) / 1000),
+              ),
               originRef: trip.originRef,
               stops: trip.stops.map((s) => ({
                 orderId: s.orderId,

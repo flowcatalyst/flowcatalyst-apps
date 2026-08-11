@@ -12,6 +12,7 @@ import StoreProfilesPage from '../pages/StoreProfilesPage.vue';
 import VehicleMapPage from '../pages/VehicleMapPage.vue';
 import LoginCallbackPage from '../pages/LoginCallbackPage.vue';
 import TransportOrdersPage from '../pages/TransportOrdersPage.vue';
+import ActiveTripsPage from '../pages/ActiveTripsPage.vue';
 import DepotsPage from '../pages/DepotsPage.vue';
 
 export const router = createRouter({
@@ -38,6 +39,11 @@ export const router = createRouter({
       meta: { title: 'Active picks', pickStatus: 'claimed' },
     },
     {
+      path: '/picking/picks/enquiry',
+      component: PicksAdminPage,
+      meta: { title: 'Pick enquiry', pickStatus: 'enquiry' },
+    },
+    {
       path: '/picking/store-profiles',
       component: StoreProfilesPage,
       props: { domain: 'pick' },
@@ -54,6 +60,11 @@ export const router = createRouter({
       path: '/transport/requested',
       component: TransportOrdersPage,
       meta: { title: 'Requested transport', transportView: 'requested' },
+    },
+    {
+      path: '/transport/active',
+      component: ActiveTripsPage,
+      meta: { title: 'Active trips' },
     },
     { path: '/transport/drivers', component: DriversPage, meta: { title: 'Drivers' } },
     { path: '/transport/depots', component: DepotsPage, meta: { title: 'Depots' } },

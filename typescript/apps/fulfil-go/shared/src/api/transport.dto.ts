@@ -61,6 +61,13 @@ export const TransportOfferSchema = Type.Object({
   partReferences: Type.Array(Type.String()),
   transportOrderRefs: Type.Array(Type.String()),
   expiresAt: Type.String(),
+  /**
+   * Seconds of hold remaining, computed server-side AT RESPONSE TIME. The
+   * app MUST count down from this (monotonic clock), never by comparing
+   * expiresAt to the device clock — device/server skew (emulators
+   * especially) otherwise shows live countdowns on already-dead offers.
+   */
+  expiresInSeconds: Type.Number(),
   originRef: Type.String(),
   stops: Type.Array(OfferStopSchema),
   routeKm: Type.Union([Type.Number(), Type.Null()]),

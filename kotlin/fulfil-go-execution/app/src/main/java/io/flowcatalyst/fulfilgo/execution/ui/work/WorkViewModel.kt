@@ -1,6 +1,7 @@
 package io.flowcatalyst.fulfilgo.execution.ui.work
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -20,6 +21,7 @@ import io.flowcatalyst.fulfilgo.execution.api.Offer
 import io.flowcatalyst.fulfilgo.execution.api.PinCheckResult
 import io.flowcatalyst.fulfilgo.execution.api.ReportBody
 import io.flowcatalyst.fulfilgo.execution.api.STATUS_RANK
+import io.flowcatalyst.fulfilgo.execution.core.ApiHttpException
 import io.flowcatalyst.fulfilgo.execution.core.OverlayKind
 import io.flowcatalyst.fulfilgo.execution.core.networkRegained
 import kotlinx.coroutines.Job
@@ -223,6 +225,10 @@ class WorkViewModel(app: Application) : AndroidViewModel(app) {
     // ── Offer / claim ──
 
     fun findWork() {
+        // Re-entrancy guard: a double tap composes TWO offers back-to-back and
+        // the second steals the first's reservations — the rendered offer then
+        // 410s on claim while looking perfectly valid.
+        if (busy) return
         viewModelScope.launch {
             busy = true
             error = null
@@ -235,7 +241,7 @@ class WorkViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
                 offer = res.offers.first()
-                startCountdown(res.offers.first().expiresAt)
+                startCountdown(res.offers.first().expiresInSeconds)
             } catch (err: Exception) {
                 error = err.message ?: err.toString()
             } finally {
@@ -246,6 +252,7 @@ class WorkViewModel(app: Application) : AndroidViewModel(app) {
 
     fun claim() {
         val current = offer ?: return
+        if (busy) return
         viewModelScope.launch {
             busy = true
             error = null
@@ -254,11 +261,21 @@ class WorkViewModel(app: Application) : AndroidViewModel(app) {
                 offer = null
                 stopCountdown()
                 loadMyTrips()
-            } catch (_: Exception) {
-                // 410 = the hold lapsed or someone raced us — just look again.
+            } catch (err: ApiHttpException) {
                 offer = null
                 stopCountdown()
-                error = "That offer expired — find work again."
+                // Only 410 is genuinely "expired" — labelling every failure
+                // that way sent us chasing clock bugs (2026-08-10).
+                error = when (err.status) {
+                    410 -> "That offer expired — find work again."
+                    409 -> "You already have an open trip — finish it before claiming another."
+                    else -> "Claim failed (${err.status}): ${err.bodyText.take(140)}"
+                }
+            } catch (err: Exception) {
+                // Network-level failure — the hold lapses on its own.
+                offer = null
+                stopCountdown()
+                error = "Network problem while claiming — find work again. (${err.message ?: "offline"})"
             } finally {
                 busy = false
             }
@@ -271,16 +288,22 @@ class WorkViewModel(app: Application) : AndroidViewModel(app) {
         stopCountdown()
     }
 
-    private fun startCountdown(expiresAt: String) {
+    private fun startCountdown(expiresInSeconds: Double) {
         stopCountdown()
-        val expiry = runCatching { Instant.parse(expiresAt).toEpochMilli() }.getOrNull() ?: return
+        // Server-provided DURATION on the monotonic clock — never compare the
+        // server's expiresAt timestamp to the device wall clock: device/server
+        // skew (emulators especially) makes dead offers look claimable.
+        val expiryElapsed = SystemClock.elapsedRealtime() + (expiresInSeconds * 1000).toLong()
         countdownJob = viewModelScope.launch {
             while (true) {
-                val left = ((expiry - System.currentTimeMillis()) / 1000.0).toInt().coerceAtLeast(0)
+                val left =
+                    ((expiryElapsed - SystemClock.elapsedRealtime()) / 1000.0).toInt()
+                        .coerceAtLeast(0)
                 secondsLeft = left
                 if (left == 0) {
                     // Hold lapsed — the reservation frees itself server-side.
                     offer = null
+                    error = "That offer expired — find work again."
                     break
                 }
                 delay(500)

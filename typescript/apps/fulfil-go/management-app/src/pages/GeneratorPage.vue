@@ -13,6 +13,7 @@ const form = reactive({
   deliveryShare: DEFAULT_OPTIONS.deliveryShare * 100,
   asapShare: DEFAULT_OPTIONS.asapShare * 100,
   multiStoreShare: DEFAULT_OPTIONS.multiStoreShare * 100,
+  slotWindowHours: DEFAULT_OPTIONS.slotWindowHours,
   /** RANDOM_STORE = random per fulfilment; otherwise every fulfilment anchors here. */
   storeRef: RANDOM_STORE,
 });
@@ -41,6 +42,7 @@ async function run(): Promise<void> {
       deliveryShare: form.deliveryShare / 100,
       asapShare: form.asapShare / 100,
       multiStoreShare: form.multiStoreShare / 100,
+      slotWindowHours: form.slotWindowHours,
       ...(form.storeRef !== RANDOM_STORE ? { storeRef: form.storeRef } : {}),
     });
     try {
@@ -100,6 +102,12 @@ async function run(): Promise<void> {
       </UFormField>
       <UFormField label="Multi-store %">
         <UInput v-model.number="form.multiStoreShare" type="number" :min="0" :max="100" />
+      </UFormField>
+      <UFormField
+        label="Slot window (h)"
+        help="STANDARD slots start on a whole hour within the next N hours."
+      >
+        <UInput v-model.number="form.slotWindowHours" type="number" :min="1" :max="48" />
       </UFormField>
       <UFormField label="Store" class="col-span-2">
         <USelect v-model="form.storeRef" :items="storeOptions" value-key="value" class="w-full" />

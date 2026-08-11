@@ -18,6 +18,8 @@ export interface TripRepository {
     options?: {
       /** Any-of origin-store filter. */
       readonly storeRefs?: readonly string[];
+      /** Any-of depot filter. */
+      readonly depotRefs?: readonly string[];
       readonly sortDir?: 'asc' | 'desc';
     },
   ): Promise<readonly Trip[]>;
