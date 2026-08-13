@@ -42,15 +42,16 @@ onUnmounted(() => {
 
 <template>
   <UApp>
-    <MobileShell :tabs="TABS">
+    <MobileShell :tabs="TABS" tone="navy">
       <template #header>
-        <MobileHeader :title="title">
+        <MobileHeader :title="title" tone="navy">
           <template #right>
             <div v-if="ctx.signedIn.value" class="flex items-center gap-3">
               <ConnectionBadge
                 :state="ctx.picks.sseState.value"
                 :pending="queueState.pending.value"
                 :dead="queueState.dead.value"
+                tone="navy"
               />
               <UButton size="xs" color="neutral" variant="soft" @click="exit">Exit</UButton>
             </div>

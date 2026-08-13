@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 
-const props = defineProps<{ title: string; back?: boolean }>();
+/**
+ * `tone="navy"` paints the FlowCatalyst chrome navy (#102a43 — web-kit's
+ * fc-navy-900, the management app's sidebar) with light foreground.
+ * Default stays the neutral white chrome.
+ */
+const props = defineProps<{ title: string; back?: boolean; tone?: 'default' | 'navy' }>();
 const router = useRouter();
 
 function goBack(): void {
@@ -11,12 +16,22 @@ function goBack(): void {
 
 <template>
   <div
-    class="flex h-12 items-center gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-800 dark:bg-neutral-900"
+    class="flex h-12 items-center gap-2 border-b px-3"
+    :class="
+      tone === 'navy'
+        ? 'border-[#0a1929] bg-[#102a43] text-white'
+        : 'border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
+    "
   >
     <button
       v-if="back"
       type="button"
-      class="-ml-1 rounded-md p-1.5 text-neutral-600 transition-colors active:bg-neutral-100 dark:text-neutral-300 dark:active:bg-neutral-800"
+      class="-ml-1 rounded-md p-1.5 transition-colors"
+      :class="
+        tone === 'navy'
+          ? 'text-slate-200 active:bg-white/10'
+          : 'text-neutral-600 active:bg-neutral-100 dark:text-neutral-300 dark:active:bg-neutral-800'
+      "
       aria-label="Back"
       @click="goBack"
     >

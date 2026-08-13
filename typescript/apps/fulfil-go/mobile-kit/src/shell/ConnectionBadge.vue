@@ -2,7 +2,13 @@
 import { computed } from 'vue';
 import type { SseState } from '../sse/sse-client.js';
 
-const props = defineProps<{ state: SseState; pending: number; dead: number }>();
+/** `tone="navy"` — light text for the navy chrome variant (see MobileHeader). */
+const props = defineProps<{
+  state: SseState;
+  pending: number;
+  dead: number;
+  tone?: 'default' | 'navy';
+}>();
 
 const dotClass = computed(() =>
   props.state === 'open'
@@ -19,7 +25,10 @@ const label = computed(() =>
 
 <!-- SSE/network state + offline-queue badges — drop into a header's right slot. -->
 <template>
-  <div class="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
+  <div
+    class="flex items-center gap-2 text-xs"
+    :class="tone === 'navy' ? 'text-slate-300' : 'text-neutral-600 dark:text-neutral-300'"
+  >
     <span class="flex items-center gap-1">
       <span class="inline-block h-2 w-2 rounded-full" :class="dotClass" />
       {{ label }}
