@@ -1,30 +1,22 @@
 /**
- * BFF master-location confirm-geocode. Mirror of Rust
- * `routes/bff/master_locations.rs::confirm_geocode`.
+ * POST /bff/clients/:clientId/master-locations/:masterLocationId/confirm-geocode
  *
- * The SPA's "confirm a reverse-geocode suggestion" flow: takes the
- * confirmed address components + coordinates, applies them atomically
- * to the master, appends a processing-log entry, then runs
- * confirm-master-location for the * → VALIDATED transition with
- * cascade. The address update itself is a direct repo write (matches
- * Rust); the VALIDATED event from confirm-master-location is the
- * load-bearing audit signal for downstream consumers.
+ * Operator confirms address components + coordinates (after reverse-geocode or
+ * manual entry): confirm-master-location-geocode applies them (→ GEOCODED,
+ * emits `master_location:geocode-confirmed`), then confirm-master-location
+ * canonicalises the master (→ VALIDATED, cascades to the child locations).
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
-import { ConfirmMasterLocationCommandSchema } from '@pinpoint/shared';
-import { asMasterLocationId } from '../../../../domain/locations/ids.js';
-import { ProcessingStep } from '../../../../domain/locations/processing-log.repository.js';
+import { ScopeStore, isFailure } from '@pinpoint/framework';
 import {
-  addressHash as computeAddressHash,
-  toAddressLine,
-  type NormalizedAddress,
-} from '../../../../domain/services/address-normalizer.js';
+  ConfirmMasterLocationCommandSchema,
+  ConfirmMasterLocationGeocodeCommandSchema,
+} from '@pinpoint/shared';
+import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
-import { isFailure } from '@pinpoint/framework';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 import { BffMasterLocationRef } from './master-location.schema.js';
 
@@ -39,7 +31,6 @@ const BodySchema = Type.Object({
   latitude: Type.Number({ minimum: -90, maximum: 90 }),
   longitude: Type.Number({ minimum: -180, maximum: 180 }),
 });
-
 const ResponseSchema = BffMasterLocationRef;
 
 export function registerBffConfirmGeocodeRoute(
@@ -61,6 +52,7 @@ export function registerBffConfirmGeocodeRoute(
           200: ResponseSchema,
           400: ErrorResponseRef,
           401: ErrorResponseRef,
+          403: ErrorResponseRef,
           404: ErrorResponseRef,
           409: ErrorResponseRef,
           500: ErrorResponseRef,
@@ -68,100 +60,44 @@ export function registerBffConfirmGeocodeRoute(
       },
     },
     async (request, reply) => {
-      const { clientId, masterLocationId } = request.params as {
-        clientId: string;
-        masterLocationId: string;
-      };
-      const body = request.body as {
-        houseNumber?: string | null;
-        road?: string | null;
-        suburb?: string | null;
-        city: string;
-        state?: string | null;
-        postalCode?: string | null;
-        country: string;
-        latitude: number;
-        longitude: number;
-      };
-
       const scope = ScopeStore.get();
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-
-      const mid = asMasterLocationId(masterLocationId);
-      const existing = await appContext.repositories.masterLocations.findById(mid);
-      if (!existing) {
-        return reply.code(404).send({
-          error: 'NotFound',
-          message: `Master location '${masterLocationId}' not found.`,
-        });
-      }
-
-      const normalized: NormalizedAddress = {
-        houseNumber: body.houseNumber ?? null,
-        road: body.road ?? null,
-        suburb: body.suburb ?? null,
-        city: body.city,
-        state: body.state ?? null,
-        postalCode: body.postalCode ?? null,
-        country: body.country,
+      const { clientId, masterLocationId } = request.params as {
+        clientId: string;
+        masterLocationId: string;
       };
+      const body = request.body as Record<string, unknown>;
 
-      // Apply the confirmed address + coords atomically. Plain repo
-      // write — the audit for the confirm flow comes from the
-      // subsequent confirm-master-location use case's VALIDATED event.
-      await appContext.repositories.masterLocations.applyConfirmedGeocode({
-        masterLocationId: mid,
-        normalizedHouseNumber: normalized.houseNumber,
-        normalizedRoad: normalized.road,
-        normalizedSuburb: normalized.suburb,
-        normalizedCity: normalized.city,
-        normalizedState: normalized.state,
-        normalizedPostalCode: normalized.postalCode,
-        normalizedCountry: normalized.country,
-        addressHash: computeAddressHash(normalized),
-        normalizedAddressLine: toAddressLine(normalized),
-        latitude: body.latitude,
-        longitude: body.longitude,
+      const geocodeCmd = ConfirmMasterLocationGeocodeCommandSchema.safeParse({
+        clientId,
+        masterLocationId,
+        ...body,
       });
-
-      // Best-effort processing log — failures must not block (matches
-      // pattern across the rest of the matching pipeline).
-      try {
-        await appContext.repositories.processingLog.append(mid, ProcessingStep.ConfirmGeocode, {
-          houseNumber: normalized.houseNumber,
-          road: normalized.road,
-          suburb: normalized.suburb,
-          city: normalized.city,
-          state: normalized.state,
-          postalCode: normalized.postalCode,
-          country: normalized.country,
-          latitude: body.latitude,
-          longitude: body.longitude,
-          source: 'bff:confirm-geocode',
-        });
-      } catch {
-        // intentionally swallowed
+      if (!geocodeCmd.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: geocodeCmd.error.issues });
       }
+      const geocoded = await appContext.runWrite(() =>
+        appContext.useCases.confirmMasterLocationGeocode.execute(geocodeCmd.data),
+      );
+      if (isFailure(geocoded)) return sendUseCaseError(reply, geocoded.error);
 
-      // Run the VALIDATED transition + cascade through the use case
-      // so events emit and child locations get updated.
-      const parsed = ConfirmMasterLocationCommandSchema.safeParse({
+      const confirmCmd = ConfirmMasterLocationCommandSchema.safeParse({
         clientId,
         masterLocationId,
       });
-      if (!parsed.success) {
-        return reply.code(400).send({ error: 'ValidationError' });
+      if (!confirmCmd.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: confirmCmd.error.issues });
       }
-      const result = await appContext.runWrite(() =>
-        appContext.useCases.confirmMasterLocation.execute(parsed.data),
+      const confirmed = await appContext.runWrite(() =>
+        appContext.useCases.confirmMasterLocation.execute(confirmCmd.data),
       );
-      if (isFailure(result)) {
-        return sendUseCaseError(reply, result.error);
-      }
+      if (isFailure(confirmed)) return sendUseCaseError(reply, confirmed.error);
 
-      const ml = await appContext.repositories.masterLocations.findById(mid);
+      const ml = await appContext.repositories.masterLocations.findById(
+        asMasterLocationId(masterLocationId),
+      );
       if (!ml) {
         return reply.code(500).send({
           error: 'InfrastructureError',

@@ -76,3 +76,23 @@ export {
   UpdateMatchingConfigCommandSchema,
   type UpdateMatchingConfigCommand,
 } from './contracts/matching/matching-config-contracts.js';
+export {
+  SetLayerFeatureStatusCommandSchema,
+  type SetLayerFeatureStatusCommand,
+} from './contracts/layers/layer-feature-contracts.js';
+export {
+  SetLayerPartitionsCommandSchema,
+  type SetLayerPartitionsCommand,
+} from './contracts/layers/layer-contracts.js';
+export {
+  GrantPartitionAccessCommandSchema,
+  RevokePartitionAccessCommandSchema,
+  type GrantPartitionAccessCommand,
+  type RevokePartitionAccessCommand,
+} from './contracts/tenancy/partition-contracts.js';
+export {
+  MatchMasterLocationFeaturesCommandSchema,
+  ConfirmMasterLocationGeocodeCommandSchema,
+  type MatchMasterLocationFeaturesCommand,
+  type ConfirmMasterLocationGeocodeCommand,
+} from './contracts/locations/master-location-contracts.js';

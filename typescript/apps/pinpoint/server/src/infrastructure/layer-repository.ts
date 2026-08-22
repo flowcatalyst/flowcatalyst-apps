@@ -2,6 +2,7 @@ import { and, asc, count, eq, sql } from 'drizzle-orm';
 import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { boundaryGeometryExpr } from './spatial/boundary-expr.js';
 import { asClientId, type ClientId } from '../domain/tenancy/ids.js';
 import { asLayerId, type LayerId } from '../domain/layers/ids.js';
 import type { Layer, LayerKind, LayerStatus } from '../domain/layers/layer.js';
@@ -48,6 +49,7 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
           centerLon: aggregate.centerLon,
           radiusMeters: aggregate.radiusMeters,
           polygonGeojson: aggregate.polygonGeojson,
+          boundary: boundaryGeometryExpr(aggregate) as never,
           status: aggregate.status,
           createdAt: aggregate.createdAt,
           updatedAt: aggregate.updatedAt,
@@ -62,6 +64,7 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
             centerLon: aggregate.centerLon,
             radiusMeters: aggregate.radiusMeters,
             polygonGeojson: aggregate.polygonGeojson,
+            boundary: boundaryGeometryExpr(aggregate) as never,
             status: aggregate.status,
             updatedAt: aggregate.updatedAt,
           },
@@ -129,20 +132,26 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
       return rows.map((r) => r.partitionId);
     },
 
-    async setPartitionIds(layerId: LayerId, partitionIds: readonly string[]): Promise<void> {
-      // Replace-all atomically — delete existing assignments then insert
-      // the new set. No aggregate / event involved (matches Rust's
-      // `set_layer_partitions`). Wrap in a tx to avoid leaving a layer
-      // with no rows visible mid-write.
-      await db.transaction(async (tx) => {
-        await tx.delete(layerPartitions).where(eq(layerPartitions.layerId, layerId));
+    async setPartitionIds(
+      layerId: LayerId,
+      partitionIds: readonly string[],
+      tx?: TransactionContext,
+    ): Promise<void> {
+      // Replace-all atomically — delete existing assignments then insert the
+      // new set. Runs on the caller's transaction when there is one (the
+      // set-layer-partitions use case), otherwise in its own, so a layer is
+      // never observable with no rows mid-write.
+      const run = async (client: Pick<typeof db, 'delete' | 'insert'>): Promise<void> => {
+        await client.delete(layerPartitions).where(eq(layerPartitions.layerId, layerId));
         if (partitionIds.length > 0) {
-          await tx
+          await client
             .insert(layerPartitions)
             .values(partitionIds.map((partitionId) => ({ layerId, partitionId })))
             .onConflictDoNothing();
         }
-      });
+      };
+      if (tx) await run(resolveDb(db, tx));
+      else await db.transaction((t) => run(t));
     },
   };
 }

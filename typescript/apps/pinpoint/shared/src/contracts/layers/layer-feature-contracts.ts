@@ -28,3 +28,11 @@ export const DeleteLayerFeatureCommandSchema = z.object({
   featureId: z.string().trim().min(1),
 });
 export type DeleteLayerFeatureCommand = z.infer<typeof DeleteLayerFeatureCommandSchema>;
+
+export const SetLayerFeatureStatusCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  layerId: z.string().trim().min(1),
+  featureId: z.string().trim().min(1),
+  status: z.enum(['ACTIVE', 'INACTIVE']),
+});
+export type SetLayerFeatureStatusCommand = z.infer<typeof SetLayerFeatureStatusCommandSchema>;

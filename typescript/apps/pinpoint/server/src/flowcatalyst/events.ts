@@ -44,6 +44,12 @@ import { MasterLocationRejectedEventType } from '../domain/locations/events/mast
 import { MasterLocationDeletedEventType } from '../domain/locations/events/master-location-deleted.event.js';
 
 import { MatchingConfigUpdatedEventType } from '../domain/matching/events/matching-config-updated.event.js';
+import { LayerFeatureStatusChangedEventType } from '../domain/layers/events/layer-feature-status-changed.event.js';
+import { LayerPartitionsSetEventType } from '../domain/layers/events/layer-partitions-set.event.js';
+import { PartitionAccessGrantedEventType } from '../domain/tenancy/events/partition-access-granted.event.js';
+import { PartitionAccessRevokedEventType } from '../domain/tenancy/events/partition-access-revoked.event.js';
+import { MasterLocationFeaturesMatchedEventType } from '../domain/locations/events/master-location-features-matched.event.js';
+import { MasterLocationGeocodeConfirmedEventType } from '../domain/locations/events/master-location-geocode-confirmed.event.js';
 
 /**
  * A pinpoint event type — the SDK's `EventTypeDefinition` shape plus a
@@ -87,4 +93,11 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   MasterLocationRejectedEventType,
   MasterLocationDeletedEventType,
   MatchingConfigUpdatedEventType,
+  // Operator actions that used to be direct repository writes (2026-08-22)
+  PartitionAccessGrantedEventType,
+  PartitionAccessRevokedEventType,
+  LayerPartitionsSetEventType,
+  LayerFeatureStatusChangedEventType,
+  MasterLocationFeaturesMatchedEventType,
+  MasterLocationGeocodeConfirmedEventType,
 ];

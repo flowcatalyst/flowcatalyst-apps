@@ -24,3 +24,13 @@ export const DeletePartitionCommandSchema = z.object({
   partitionId: z.string().trim().min(1),
 });
 export type DeletePartitionCommand = z.infer<typeof DeletePartitionCommandSchema>;
+
+export const GrantPartitionAccessCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  partitionId: z.string().trim().min(1),
+  principalId: z.string().trim().min(1),
+});
+export type GrantPartitionAccessCommand = z.infer<typeof GrantPartitionAccessCommandSchema>;
+
+export const RevokePartitionAccessCommandSchema = GrantPartitionAccessCommandSchema;
+export type RevokePartitionAccessCommand = z.infer<typeof RevokePartitionAccessCommandSchema>;

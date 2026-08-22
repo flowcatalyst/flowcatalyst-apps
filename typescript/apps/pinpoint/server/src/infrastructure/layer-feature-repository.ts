@@ -1,6 +1,7 @@
 import { asc, count, eq, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
+import { boundaryGeometryExpr } from './spatial/boundary-expr.js';
 import { asLayerFeatureId, asLayerId, type LayerFeatureId } from '../domain/layers/ids.js';
 import type {
   LayerFeature,
@@ -53,6 +54,7 @@ export function createDrizzleLayerFeatureRepository(
           centerLon: aggregate.centerLon,
           radiusMeters: aggregate.radiusMeters,
           polygonGeojson: aggregate.polygonGeojson,
+          boundary: boundaryGeometryExpr(aggregate) as never,
           propertyValues: aggregate.propertyValues,
           status: aggregate.status,
           createdAt: aggregate.createdAt,
@@ -66,6 +68,7 @@ export function createDrizzleLayerFeatureRepository(
             centerLon: aggregate.centerLon,
             radiusMeters: aggregate.radiusMeters,
             polygonGeojson: aggregate.polygonGeojson,
+            boundary: boundaryGeometryExpr(aggregate) as never,
             propertyValues: aggregate.propertyValues,
             status: aggregate.status,
             updatedAt: aggregate.updatedAt,
@@ -260,13 +263,6 @@ export function createDrizzleLayerFeatureRepository(
           })),
         )
         .onConflictDoNothing();
-    },
-
-    async setStatus(featureId: LayerFeatureId, status: 'ACTIVE' | 'INACTIVE'): Promise<void> {
-      await db
-        .update(layerFeatures)
-        .set({ status, updatedAt: new Date() })
-        .where(eq(layerFeatures.id, featureId));
     },
 
     async findFeaturesContainingPoint(

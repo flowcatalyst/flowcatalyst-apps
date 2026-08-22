@@ -43,3 +43,11 @@ export const DeleteLayerCommandSchema = z.object({
   layerId: z.string().trim().min(1),
 });
 export type DeleteLayerCommand = z.infer<typeof DeleteLayerCommandSchema>;
+
+export const SetLayerPartitionsCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  layerId: z.string().trim().min(1),
+  /** Empty = the layer is visible to every partition of the client. */
+  partitionIds: z.array(z.string().trim().min(1)),
+});
+export type SetLayerPartitionsCommand = z.infer<typeof SetLayerPartitionsCommandSchema>;

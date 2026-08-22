@@ -10,14 +10,14 @@
 
 Pinpoint turns raw customer addresses into **canonical, geocoded master locations** and overlays business meaning on them through **layers** (sales territories, delivery zones, geofences). A customer (`Client`) uploads or creates locations; pinpoint normalises the address (libpostal), deduplicates it against existing master locations (hash + trigram/Jaro-Winkler fuzzy match, optionally LLM-verified), geocodes the master (Photon), confirms it, and associates it with every layer feature whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.
 
-| Fact | Value |
-| --- | --- |
-| Runtime | Node 24 · Fastify 5 · TypeScript 6 (strict) · Drizzle ORM 1.0 RC · PostgreSQL 18 + PostGIS + pg_trgm |
-| SPA | Vue 3 + PrimeVue + Vite, served by the same server in prod |
-| Surfaces | canonical API `/clients/…` + unscoped; BFF `/bff/…` for the SPA — **101 operations**, one OpenAPI 3 contract (`openapi.gen.json`) |
-| Domain | 9 aggregates, **25 use cases**, **27 domain event types**, 34 permissions, 6 platform roles |
-| Platform | OIDC login against FlowCatalyst; events via outbox → `fc-outbox-processor`; one scheduled job (`pinpoint-validate-master-locations`, every 5 min) |
-| External services | libpostal sidecar (normalisation), Photon (forward/reverse geocoding), LLM verifier (Bedrock Gemma / Ollama / none) |
+| Fact              | Value                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime           | Node 24 · Fastify 5 · TypeScript 6 (strict) · Drizzle ORM 1.0 RC · PostgreSQL 18 + PostGIS + pg_trgm                                              |
+| SPA               | Vue 3 + PrimeVue + Vite, served by the same server in prod                                                                                        |
+| Surfaces          | canonical API `/clients/…` + unscoped; BFF `/bff/…` for the SPA — **101 operations**, one OpenAPI 3 contract (`openapi.gen.json`)                 |
+| Domain            | 9 aggregates, **31 use cases**, **33 domain event types**, 34 permissions, 6 platform roles                                                       |
+| Platform          | OIDC login against FlowCatalyst; events via outbox → `fc-outbox-processor`; one scheduled job (`pinpoint-validate-master-locations`, every 5 min) |
+| External services | libpostal sidecar (normalisation), Photon (forward/reverse geocoding), LLM verifier (Bedrock Gemma / Ollama / none)                               |
 
 ## 2. System context
 
@@ -69,7 +69,7 @@ apps/pinpoint/
 ├── server/      @pinpoint/server
 │   └── src/
 │       ├── domain/          aggregates, repository interfaces, domain events, pure services (matcher, hash)
-│       ├── operations/      25 use cases — one directory each
+│       ├── operations/      31 use cases — one directory each
 │       ├── infrastructure/  Drizzle repositories, schema, external-service clients, migrations
 │       ├── api/             routes (canonical + bff), plugins (error mapper, shared schemas, webhook auth)
 │       ├── auth/            OIDC client, token validator, session stores, permission resolution
@@ -86,18 +86,18 @@ Identity travels on an `AsyncLocalStorage` `Scope` (bound in the `onRequest` hoo
 
 ## 4. Domain model
 
-| Aggregate | ID | Lifecycle | Notes |
-| --- | --- | --- | --- |
-| **Client** | `cli_` | `ACTIVE` / `SUSPENDED` | tenancy root; creating one seeds a `default` partition |
-| **Partition** | `par_` | — | sub-tenant inside a client (`code` unique per client); layers can be scoped to partitions |
-| **Principal** | `prn_` (IdP `sub`) | — | upserted on login; `principal_partitions` grants (BFF direct writes) |
-| **Layer** | `lyr_` | `ACTIVE` / `INACTIVE` | `RADIUS` / `POLYGON` / `POINT`; PostGIS `boundary` geometry (GIST); `layer_partitions` (empty = visible to all partitions) |
-| **LayerFeature** | `lfe_` | `ACTIVE` / `INACTIVE` | a region inside a layer with `boundary` and ≤ 6 `propertyValues`; `location_feature_associations` link locations to features |
-| **PropertySet** | `pst_` / `prp_` | — | named set of ≤ 6 key/value properties on a layer |
-| **Location** | `loc_` | `PENDING` → `VALIDATED` | a customer's raw address; `rawAddressLine1` immutable, `matchAddress` editable; `matchMethod` `EXACT_HASH` / `FUZZY`; `location_attributes` (insert-only) |
-| **MasterLocation** | `mlo_` | `PENDING` → `GEOCODED` → `VALIDATED`, any → `REJECTED` | canonical deduplicated address; SHA-256 `addressHash`, `normalizedAddressLine` (trigram index), `point` geometry; `processing_log` append-only trail |
-| **MatchingConfig** | `mcf_` | — | thresholds, resolved partition → client → global default |
-| Country (read model) | int | — | seeded; ISO codes + geometry |
+| Aggregate            | ID                 | Lifecycle                                              | Notes                                                                                                                                                     |
+| -------------------- | ------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Client**           | `cli_`             | `ACTIVE` / `SUSPENDED`                                 | tenancy root; creating one seeds a `default` partition                                                                                                    |
+| **Partition**        | `par_`             | —                                                      | sub-tenant inside a client (`code` unique per client); layers can be scoped to partitions                                                                 |
+| **Principal**        | `prn_` (IdP `sub`) | —                                                      | upserted on login; `principal_partitions` grants (BFF direct writes)                                                                                      |
+| **Layer**            | `lyr_`             | `ACTIVE` / `INACTIVE`                                  | `RADIUS` / `POLYGON` / `POINT`; PostGIS `boundary` geometry (GIST); `layer_partitions` (empty = visible to all partitions)                                |
+| **LayerFeature**     | `lfe_`             | `ACTIVE` / `INACTIVE`                                  | a region inside a layer with `boundary` and ≤ 6 `propertyValues`; `location_feature_associations` link locations to features                              |
+| **PropertySet**      | `pst_` / `prp_`    | —                                                      | named set of ≤ 6 key/value properties on a layer                                                                                                          |
+| **Location**         | `loc_`             | `PENDING` → `VALIDATED`                                | a customer's raw address; `rawAddressLine1` immutable, `matchAddress` editable; `matchMethod` `EXACT_HASH` / `FUZZY`; `location_attributes` (insert-only) |
+| **MasterLocation**   | `mlo_`             | `PENDING` → `GEOCODED` → `VALIDATED`, any → `REJECTED` | canonical deduplicated address; SHA-256 `addressHash`, `normalizedAddressLine` (trigram index), `point` geometry; `processing_log` append-only trail      |
+| **MatchingConfig**   | `mcf_`             | —                                                      | thresholds, resolved partition → client → global default                                                                                                  |
+| Country (read model) | int                | —                                                      | seeded; ISO codes + geometry                                                                                                                              |
 
 ```mermaid
 erDiagram
@@ -211,7 +211,7 @@ Two use cases move a master forward; the second can run from the UI or from the 
 1. **validate-master-location** (permission `master_location:validate`, BFF "geocode"): requires `PENDING`; Photon forward geocode of the normalised address line (rate-limited token bucket, default 5 rps); stores lat/lon + confidence → `GEOCODED`; emits `master_location:geocoded`.
 2. **confirm-master-location** (permission `master_location:confirm`, BFF "validate"): requires coordinates; runs `spatialLookup` at the master's point, replaces `location_feature_associations` for **every child location**, flips children to `VALIDATED`, master → `VALIDATED` with `validatedAt`; emits `master_location:validated` + one `location:validated` (with `layerProperties[]`) per child; logs `validated`.
 
-Operator shortcuts in the BFF: **reverse-geocode** (Photon `/reverse`, read-only suggestion) and **confirm-geocode** (operator-supplied components + coordinates written directly, logged as `confirm-geocode`, then confirm).
+Operator shortcuts in the BFF: **reverse-geocode** (Photon `/reverse`, read-only suggestion) and **confirm-geocode** (`confirm-master-location-geocode` use case: operator-supplied components + coordinates applied in one step — hash and address line recomputed, status → `GEOCODED`, `master_location:geocode-confirmed` emitted — then `confirm-master-location`).
 
 ### 6.3 Scheduled validation batch
 
@@ -253,7 +253,9 @@ One SQL shape (`layer-feature-repository.ts`) serves `POST …/spatial-lookup`, 
 - a layer is visible to a partition if it has **no** `layer_partitions` rows or one for that partition; optional `layer.code IN (…)`
 - `ST_Intersects(layer_features.boundary, point)` for containment; `ST_Distance(boundary::geography, point::geography)` as `distanceMeters`; ordered per layer by distance; `ACTIVE` features only.
 
-"Match features" (single or bulk per client) rewrites `location_feature_associations` for each child of a master directly through the repository — no use case, no event (see §14).
+"Match features" (single, or bulk per client from the BFF) runs the `match-master-location-features` use case per master — one transaction and one `master_location:features-matched` event each — rewriting `location_feature_associations` for every child.
+
+**Boundary derivation.** `layers.boundary` and `layer_features.boundary` are computed on every persist from the scalar shape (`infrastructure/spatial/boundary-expr.ts`): RADIUS → `ST_Buffer(point::geography, metres)`, POLYGON → `ST_GeomFromGeoJSON`, POINT → `ST_MakePoint`. Nothing else writes those columns.
 
 ### 6.6 Login, session and per-request identity
 
@@ -282,11 +284,11 @@ Per-request identity precedence (`server.ts` `extractRequestToken`): `Authorizat
 
 ## 7. HTTP surface and contracts
 
-| Surface | Prefix | Consumers | Shape |
-| --- | --- | --- | --- |
-| Canonical API | `/clients/{clientId}/…`, unscoped `/me`, `/countries`, `/geocode/*`, `/verify-match`, `/master-locations/unvalidated`, `/jobs/*`, `/health` | integrations, scripts | mirrors the original Rust API; `PATCH` for updates |
-| BFF | `/bff/…` (52 ops) | the Vue SPA | UI-shaped payloads, `q` search + pagination on lists, operator actions (geocode / reverse-geocode / confirm-geocode / validate / match-features / processing-log, partition principals, layer partitions, feature status, dashboard) |
-| Auth | `/auth/login`, `/auth/callback`, `/auth/logout`, `/auth/me` | browser | OIDC + session cookie |
+| Surface       | Prefix                                                                                                                                      | Consumers             | Shape                                                                                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Canonical API | `/clients/{clientId}/…`, unscoped `/me`, `/countries`, `/geocode/*`, `/verify-match`, `/master-locations/unvalidated`, `/jobs/*`, `/health` | integrations, scripts | mirrors the original Rust API; `PATCH` for updates                                                                                                                                                                                   |
+| BFF           | `/bff/…` (52 ops)                                                                                                                           | the Vue SPA           | UI-shaped payloads, `q` search + pagination on lists, operator actions (geocode / reverse-geocode / confirm-geocode / validate / match-features / processing-log, partition principals, layer partitions, feature status, dashboard) |
+| Auth          | `/auth/login`, `/auth/callback`, `/auth/logout`, `/auth/me`                                                                                 | browser               | OIDC + session cookie                                                                                                                                                                                                                |
 
 **Contract pipeline.** Every route carries a TypeBox schema and a unique `operationId`; `@fastify/swagger` derives the OpenAPI document, `pnpm openapi:pinpoint` exports it to `apps/pinpoint/openapi.gen.json` and regenerates `web/src/api/schema.gen.d.ts` (`openapi-typescript`); `pnpm openapi:pinpoint:check` fails CI-style when either is stale. Shared shapes are `$id` schemas listed in `api/plugins/shared-schemas.ts` and become `components.schemas` (12 today: `ErrorResponse`, `BffClient`, `BffPartition`, `BffLayerDetail`, `BffLayerPropertySet`, `BffLayerFeature`, `BffLayerFeatureInput`, `BffFeatureAssociation`, `BffMasterLocation`, `MatchingConfig`, `RematchLocationBody`, `RematchLocationResponse`). The SPA consumes the contract through `web/src/api/client.ts` (`api` = openapi-fetch, `ok()`, `ApiResponse<>`); there is deliberately no untyped escape hatch.
 
@@ -303,15 +305,15 @@ Per-request identity precedence (`server.ts` `extractRequestToken`): `Authorizat
 
 ## 9. FlowCatalyst platform integration
 
-| Mechanism | Direction | Detail |
-| --- | --- | --- |
-| **Definitions sync** | pinpoint → platform (script) | `pnpm flowcatalyst:sync` (client-credentials service account `FLOWCATALYST_API_CLIENT_ID/SECRET`) pushes the `DefinitionSet`: application `pinpoint`, 27 event types (`code`, `name`, `description`), dispatch pool `pinpoint-default`, 6 roles, 1 scheduled job; then pushes each event's TypeBox payload schema as a spec version (`addSchemaVersion`, minor-bumped, `1.0.0` first) only when the shape changed. Idempotent. |
-| **Events** | pinpoint → platform (runtime) | outbox rows written in the use-case transaction; `fc-outbox-processor` dispatches them. Codes `pinpoint:<subdomain>:<entity>:<verb>` across tenancy (6), layers (10), locations (10), matching (1). |
-| **Scheduled job** | platform → pinpoint | `pinpoint-validate-master-locations`, `*/5 * * * *` UTC, `targetUrl = <PINPOINT_PUBLIC_BASE_URL>/jobs/validate-master-locations`, HMAC with `FLOWCATALYST_SIGNING_SECRET`, non-concurrent. |
-| **Identity** | pinpoint → platform | OIDC login + JWKS validation; roles → scope. |
-| **Subscriptions** | — | none today (`subscriptions.ts` returns `[]`); pinpoint publishes but does not consume platform events. |
+| Mechanism            | Direction                     | Detail                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Definitions sync** | pinpoint → platform (script)  | `pnpm flowcatalyst:sync` (client-credentials service account `FLOWCATALYST_API_CLIENT_ID/SECRET`) pushes the `DefinitionSet`: application `pinpoint`, 33 event types (`code`, `name`, `description`), dispatch pool `pinpoint-default`, 6 roles, 1 scheduled job; then pushes each event's TypeBox payload schema as a spec version (`addSchemaVersion`, minor-bumped, `1.0.0` first) only when the shape changed. Idempotent. |
+| **Events**           | pinpoint → platform (runtime) | outbox rows written in the use-case transaction; `fc-outbox-processor` dispatches them. Codes `pinpoint:<subdomain>:<entity>:<verb>` across tenancy (8), layers (12), locations (12), matching (1).                                                                                                                                                                                                                            |
+| **Scheduled job**    | platform → pinpoint           | `pinpoint-validate-master-locations`, `*/5 * * * *` UTC, `targetUrl = <PINPOINT_PUBLIC_BASE_URL>/jobs/validate-master-locations`, HMAC with `FLOWCATALYST_SIGNING_SECRET`, non-concurrent.                                                                                                                                                                                                                                     |
+| **Identity**         | pinpoint → platform           | OIDC login + JWKS validation; roles → scope.                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Subscriptions**    | —                             | none today (`subscriptions.ts` returns `[]`); pinpoint publishes but does not consume platform events.                                                                                                                                                                                                                                                                                                                         |
 
-State on **fc-dev** after the 2026-08-22 sync: 27 pinpoint event types, each with schema version `1.0.0`; scheduled job `sjb_…` `ACTIVE`; a second run reports `pushed=0 skipped=27`.
+State on **fc-dev** after the 2026-08-22 sync: 33 pinpoint event types, each with schema version `1.0.0`; scheduled job `ACTIVE`; a re-run reports `pushed=0 skipped=33`.
 
 ## 10. Deployment
 
@@ -341,33 +343,33 @@ flowchart TB
 
 ## 11. Data, indexes and migrations
 
-| Concern | Mechanism |
-| --- | --- |
-| Spatial | `geometry` custom Drizzle type (`codec: 'text'`, see `docs/spatial-queries.md`); GIST on `layers.boundary`, `layer_features.boundary`, `master_locations.point`, `countries.geometry` |
-| Fuzzy candidates | `pg_trgm` GIST on `master_locations.normalized_address_line` (`similarity(...) ≥ 0.3 ORDER BY similarity DESC`) |
+| Concern                | Mechanism                                                                                                                                                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spatial                | `geometry` custom Drizzle type (`codec: 'text'`, see `docs/spatial-queries.md`); GIST on `layers.boundary`, `layer_features.boundary`, `master_locations.point`, `countries.geometry`                                                                                                   |
+| Fuzzy candidates       | `pg_trgm` GIST on `master_locations.normalized_address_line` (`similarity(...) ≥ 0.3 ORDER BY similarity DESC`)                                                                                                                                                                         |
 | Free-text search (`q`) | GIN trigram **expression** index per table (`idx_{layers,locations,master_locations}_search_trgm`) over a concatenated search text; the repository filters with the identical expression (`layerSearchText` / `locationSearchText` / `masterLocationSearchText`) so the planner uses it |
-| Dedup | `idx_locations_address_hash` (client, partition, hash), partial unique `idx_locations_external_id`; `master_locations.address_hash` |
-| Outbox / audit | `outbox_messages` (SDK DDL) + `audit_logs` (app-framework), written in the use-case tx |
-| Sessions | `sessions` table when `PINPOINT_SESSION_DRIVER=postgres` |
-| Migrations | `server/drizzle/*` (6 folders); `pnpm db:generate` from the Drizzle schema; seed migrations via `drizzle-kit generate --custom` |
+| Dedup                  | `idx_locations_address_hash` (client, partition, hash), partial unique `idx_locations_external_id`; `master_locations.address_hash`                                                                                                                                                     |
+| Outbox / audit         | `outbox_messages` (SDK DDL) + `audit_logs` (app-framework), written in the use-case tx                                                                                                                                                                                                  |
+| Sessions               | `sessions` table when `PINPOINT_SESSION_DRIVER=postgres`                                                                                                                                                                                                                                |
+| Migrations             | `server/drizzle/*` (6 folders); `pnpm db:generate` from the Drizzle schema; seed migrations via `drizzle-kit generate --custom`                                                                                                                                                         |
 
 ## 12. Configuration reference
 
-| Variable | Purpose |
-| --- | --- |
-| `PORT`, `HOST`, `LOG_LEVEL` | Fastify listen + Pino level |
-| `PINPOINT_PUBLIC_BASE_URL` | browser-facing base; OIDC redirect base; scheduled-job `targetUrl` base |
-| `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (+ `PINPOINT_DB_SSL=require\|no-verify`) | Postgres connection (prod: dedicated `pinpoint` DB, static non-rotated password) |
-| `PINPOINT_DB_SCHEMA` (`public`), `PINPOINT_DB_AUTO_MIGRATE` | search_path pin; run migrations on boot |
-| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SCOPES`, `OIDC_AUDIENCE` | OIDC (unset issuer = OIDC off) |
-| `PINPOINT_AUTH_DEV_FALLBACK`, `PINPOINT_AUTH_POST_LOGIN_REDIRECT` | `x-user-id` dev identity (never in prod); post-login path |
-| `PINPOINT_SESSION_DRIVER` (`memory\|redis\|postgres`), `PINPOINT_SESSION_REDIS_URL` | session store |
-| `PINPOINT_LIBPOSTAL_URL` | libpostal sidecar (`http://localhost:4400`) |
-| `PINPOINT_GEOCODING_API_URL`, `PINPOINT_GEOCODING_RATE_LIMIT` | Photon base URL; token-bucket rps (5) |
-| `PINPOINT_LLM_PROVIDER` (`none\|bedrock\|ollama`), `PINPOINT_LLM_MODEL`, `PINPOINT_BEDROCK_REGION`, `PINPOINT_BEDROCK_BASE_URL`, `PINPOINT_OLLAMA_URL` | address-match verifier |
-| `FLOWCATALYST_APPLICATION_CODE` (`pinpoint`), `FLOWCATALYST_SIGNING_SECRET`, `PINPOINT_DISPATCH_POOL` | outbox tenant; webhook HMAC; dispatch pool code |
-| `FLOWCATALYST_URL`, `FLOWCATALYST_API_CLIENT_ID`, `FLOWCATALYST_API_CLIENT_SECRET`, `FLOWCATALYST_REMOVE_UNLISTED`, `PINPOINT_SCHEMA_SYNC` | `flowcatalyst:sync` script only |
-| `PINPOINT_WEB_DIST_DIR` | serve the built SPA from the server (prod image sets it) |
+| Variable                                                                                                                                               | Purpose                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `PORT`, `HOST`, `LOG_LEVEL`                                                                                                                            | Fastify listen + Pino level                                                      |
+| `PINPOINT_PUBLIC_BASE_URL`                                                                                                                             | browser-facing base; OIDC redirect base; scheduled-job `targetUrl` base          |
+| `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (+ `PINPOINT_DB_SSL=require\|no-verify`)                                           | Postgres connection (prod: dedicated `pinpoint` DB, static non-rotated password) |
+| `PINPOINT_DB_SCHEMA` (`public`), `PINPOINT_DB_AUTO_MIGRATE`                                                                                            | search_path pin; run migrations on boot                                          |
+| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SCOPES`, `OIDC_AUDIENCE`                                         | OIDC (unset issuer = OIDC off)                                                   |
+| `PINPOINT_AUTH_DEV_FALLBACK`, `PINPOINT_AUTH_POST_LOGIN_REDIRECT`                                                                                      | `x-user-id` dev identity (never in prod); post-login path                        |
+| `PINPOINT_SESSION_DRIVER` (`memory\|redis\|postgres`), `PINPOINT_SESSION_REDIS_URL`                                                                    | session store                                                                    |
+| `PINPOINT_LIBPOSTAL_URL`                                                                                                                               | libpostal sidecar (`http://localhost:4400`)                                      |
+| `PINPOINT_GEOCODING_API_URL`, `PINPOINT_GEOCODING_RATE_LIMIT`                                                                                          | Photon base URL; token-bucket rps (5)                                            |
+| `PINPOINT_LLM_PROVIDER` (`none\|bedrock\|ollama`), `PINPOINT_LLM_MODEL`, `PINPOINT_BEDROCK_REGION`, `PINPOINT_BEDROCK_BASE_URL`, `PINPOINT_OLLAMA_URL` | address-match verifier                                                           |
+| `FLOWCATALYST_APPLICATION_CODE` (`pinpoint`), `FLOWCATALYST_SIGNING_SECRET`, `PINPOINT_DISPATCH_POOL`                                                  | outbox tenant; webhook HMAC; dispatch pool code                                  |
+| `FLOWCATALYST_URL`, `FLOWCATALYST_API_CLIENT_ID`, `FLOWCATALYST_API_CLIENT_SECRET`, `FLOWCATALYST_REMOVE_UNLISTED`, `PINPOINT_SCHEMA_SYNC`             | `flowcatalyst:sync` script only                                                  |
+| `PINPOINT_WEB_DIST_DIR`                                                                                                                                | serve the built SPA from the server (prod image sets it)                         |
 
 ## 13. Testing and tooling
 
@@ -380,7 +382,6 @@ flowchart TB
 ## 14. Known gaps and divergences
 
 - `Location.status = MATCHED` and `matchMethod = MANUAL` exist in the type but are never assigned.
-- Several BFF operator actions write through repositories **without** a use case or domain event: match-features (single/bulk), confirm-geocode's coordinate write, set-feature-status, set-layer-partitions, partition principal grant/revoke. They are audited only by the HTTP log.
 - `subscriptions` is empty — pinpoint publishes but never consumes platform events.
 - `compose.prod.yaml` describes a single-host stack, not the ECS topology in §10; the ECS wiring lives in `inhance/iac` + `inhance/flowcatalyst-deploy`.
-- Where the `boundary` geometry is derived from radius/polygon on write was not located in the repository SQL during this review — worth pinning down before touching layer geometry.
+- Resolved 2026-08-22: the BFF operator actions (match-features, confirm-geocode, set-feature-status, set-layer-partitions, partition access grant/revoke) now run through use cases and emit events; and `boundary` geometry is derived on persist — the TS port had never written it, so spatial containment silently matched nothing on rows created through the API. Both came out of the docs review and are covered by integration tests.

@@ -67,3 +67,28 @@ export const DeleteMasterLocationCommandSchema = z.object({
   clientId: z.string().trim().min(1),
 });
 export type DeleteMasterLocationCommand = z.infer<typeof DeleteMasterLocationCommandSchema>;
+
+export const MatchMasterLocationFeaturesCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  masterLocationId: z.string().trim().min(1),
+});
+export type MatchMasterLocationFeaturesCommand = z.infer<
+  typeof MatchMasterLocationFeaturesCommandSchema
+>;
+
+export const ConfirmMasterLocationGeocodeCommandSchema = z.object({
+  clientId: z.string().trim().min(1),
+  masterLocationId: z.string().trim().min(1),
+  houseNumber: z.string().trim().optional().nullable(),
+  road: z.string().trim().optional().nullable(),
+  suburb: z.string().trim().optional().nullable(),
+  city: z.string().trim().min(1),
+  state: z.string().trim().optional().nullable(),
+  postalCode: z.string().trim().optional().nullable(),
+  country: z.string().trim().min(1),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+export type ConfirmMasterLocationGeocodeCommand = z.infer<
+  typeof ConfirmMasterLocationGeocodeCommandSchema
+>;

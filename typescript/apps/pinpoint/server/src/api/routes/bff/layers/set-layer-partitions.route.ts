@@ -1,19 +1,19 @@
 /**
- * Set partition assignments for a layer. Mirror of Rust BFF
- * `set_layer_partitions`. Empty array = wildcard (applies to all
- * partitions). Plain repo call — no aggregate / event (matches Rust).
+ * PUT /bff/clients/:clientId/layers/:layerId/partitions
+ * Replace the partitions a layer is visible to via the set-layer-partitions
+ * use case (emits `pinpoint:layers:layer:partitions-set`).
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
-import { asLayerId } from '../../../../domain/layers/ids.js';
+import { ScopeStore, isFailure } from '@pinpoint/framework';
+import { SetLayerPartitionsCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
+import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({
   partitionIds: Type.Array(Type.String({ minLength: 1 })),
 });
-
 const ResponseSchema = Type.Object({
   partitionIds: Type.Array(Type.String()),
 });
@@ -35,7 +35,9 @@ export function registerBffSetLayerPartitionsRoute(
         body: BodySchema,
         response: {
           200: ResponseSchema,
+          400: ErrorResponseRef,
           401: ErrorResponseRef,
+          403: ErrorResponseRef,
           404: ErrorResponseRef,
           500: ErrorResponseRef,
         },
@@ -46,12 +48,19 @@ export function registerBffSetLayerPartitionsRoute(
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-
-      const { layerId } = request.params as { clientId: string; layerId: string };
+      const params = request.params as { clientId: string; layerId: string };
       const { partitionIds } = request.body as { partitionIds: readonly string[] };
+      const parsed = SetLayerPartitionsCommandSchema.safeParse({ ...params, partitionIds });
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
+      }
 
-      await appContext.repositories.layers.setPartitionIds(asLayerId(layerId), partitionIds);
-      return reply.code(200).send({ partitionIds: [...partitionIds] });
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.setLayerPartitions.execute(parsed.data),
+      );
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
+
+      return reply.code(200).send({ partitionIds: [...result.value.getData().partitionIds] });
     },
   );
 }

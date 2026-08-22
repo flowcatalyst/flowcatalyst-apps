@@ -71,7 +71,6 @@ export interface LayerFeatureRepository {
     tx?: TransactionContext,
   ): Promise<void>;
   findFeatureAssociations(locationId: string): Promise<readonly FeatureAssociation[]>;
-  setStatus(featureId: LayerFeatureId, status: 'ACTIVE' | 'INACTIVE'): Promise<void>;
   findFeaturesContainingPoint(
     query: FindFeaturesContainingPointQuery,
   ): Promise<readonly FeatureAssociation[]>;

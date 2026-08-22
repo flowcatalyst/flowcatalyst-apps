@@ -109,6 +109,9 @@ async function bootstrap(): Promise<DbFixtureState> {
   const tableRows = await sql<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = ${SCHEMA}
       AND tablename != '__drizzle_migrations'
+      -- PostGIS's SRID catalogue lives in public too; truncating it breaks every
+      -- geography cast / ST_Buffer with 'Cannot find SRID (4326)'.
+      AND tablename != 'spatial_ref_sys'
   `;
   const truncatables = tableRows.map((r) => r.tablename).filter((t) => !SEED_PRESERVED.has(t));
 

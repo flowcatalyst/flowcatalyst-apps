@@ -5211,6 +5211,15 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -5256,7 +5265,34 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6121,7 +6157,25 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6830,7 +6884,25 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7443,6 +7515,15 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -7500,6 +7581,15 @@ export interface operations {
                             distanceMeters: number | null;
                         }[];
                     };
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Standard pinpoint error envelope. */

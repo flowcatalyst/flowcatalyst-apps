@@ -57,7 +57,7 @@ apps/pinpoint/
 │   ├── src/
 │   │   ├── domain/                    # aggregates, repo interfaces, events
 │   │   ├── infrastructure/            # Drizzle repo impls, services, schema
-│   │   ├── operations/                # use cases (21 of them)
+│   │   ├── operations/                # use cases (31 of them)
 │   │   ├── api/                       # routes (~91 files), plugins, hooks
 │   │   ├── scheduling/                # validate-master-locations batch handler
 │   │   ├── auth/                      # OIDC + session store

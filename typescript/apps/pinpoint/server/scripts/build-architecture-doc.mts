@@ -128,8 +128,8 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
   <p>A customer (<code>Client</code>) creates or uploads <strong>locations</strong> — raw addresses. Pinpoint normalises each one with libpostal, deduplicates it against existing <strong>master locations</strong> (SHA-256 hash, then trigram / Jaro-Winkler fuzzy match, optionally confirmed by an LLM), geocodes the master with Photon, confirms it, and associates it with every <strong>layer feature</strong> whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.</p>
   <div class="facts">
     <div class="fact"><div class="n">101</div><div class="l">API operations</div></div>
-    <div class="fact"><div class="n">25</div><div class="l">use cases</div></div>
-    <div class="fact"><div class="n">27</div><div class="l">domain event types</div></div>
+    <div class="fact"><div class="n">31</div><div class="l">use cases</div></div>
+    <div class="fact"><div class="n">33</div><div class="l">domain event types</div></div>
     <div class="fact"><div class="n">9</div><div class="l">aggregates</div></div>
     <div class="fact"><div class="n">34</div><div class="l">permissions · 6 roles</div></div>
   </div>
@@ -157,7 +157,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
     <tr><td><code>shared/</code></td><td><code>@pinpoint/shared</code> — Zod command schemas, the <code>PinpointPermission</code> catalog</td></tr>
     <tr><td><code>framework/</code></td><td><code>@pinpoint/framework</code> — re-exports app-framework (Scope, UoW helpers) + the SDK's non-Effect surface</td></tr>
     <tr><td><code>server/src/domain</code></td><td>aggregates, repository interfaces, domain events, pure services (address matcher, hash)</td></tr>
-    <tr><td><code>server/src/operations</code></td><td>25 use cases — one directory each, plain <code>async</code> classes</td></tr>
+    <tr><td><code>server/src/operations</code></td><td>31 use cases — one directory each, plain <code>async</code> classes</td></tr>
     <tr><td><code>server/src/infrastructure</code></td><td>Drizzle repositories + schema, external-service clients, migrations</td></tr>
     <tr><td><code>server/src/api</code></td><td>routes (canonical + bff), plugins (error mapper, shared schemas, webhook auth)</td></tr>
     <tr><td><code>server/src/auth</code> · <code>scheduling</code> · <code>flowcatalyst</code></td><td>OIDC + sessions + permissions · the validation batch · platform definitions (events, roles, pool, scheduled job)</td></tr>
@@ -252,7 +252,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
   <ol class="steps">
     <li><b>validate-master-location</b> (BFF "geocode", permission <code>master_location:validate</code>) — requires <span class="state">PENDING</span>; Photon forward-geocodes the normalised address (token bucket, 5 rps default); stores lat/lon + confidence → <span class="state">GEOCODED</span>; emits <code>master_location:geocoded</code>.</li>
     <li><b>confirm-master-location</b> (BFF "validate", permission <code>master_location:confirm</code>) — requires coordinates; spatial lookup at the master's point; replaces <code>location_feature_associations</code> for <em>every child</em>; children → <span class="state">VALIDATED</span>; master → <span class="state">VALIDATED</span> with <code>validatedAt</code>; emits <code>master_location:validated</code> + one <code>location:validated</code> (with <code>layerProperties[]</code>) per child.</li>
-    <li>Operator shortcuts: <b>reverse-geocode</b> (Photon <code>/reverse</code>, read-only suggestion) and <b>confirm-geocode</b> (operator-supplied components + coordinates written directly, logged as <code>confirm-geocode</code>, then confirm).</li>
+    <li>Operator shortcuts: <b>reverse-geocode</b> (Photon <code>/reverse</code>, read-only suggestion) and <b>confirm-geocode</b> — the <code>confirm-master-location-geocode</code> use case applies operator-supplied components + coordinates in one step (hash and address line recomputed, status → <span class="state">GEOCODED</span>, <code>master_location:geocode-confirmed</code> emitted), then <code>confirm-master-location</code> runs.</li>
   </ol>
 
   <h3>Scheduled validation batch</h3>
@@ -260,7 +260,8 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
 
   <h3>Rematch, spatial lookup, feature association</h3>
   <p><b>Rematch</b> sets a new <code>matchAddress</code> and re-runs normalisation + matching. A VALIDATED match re-points the location and validates it; otherwise a new PENDING master is created. The previous master is deleted only if it was PENDING <em>and</em> has no other children.</p>
-  <p><b>Spatial lookup</b> (<code>POST …/spatial-lookup</code>, confirm, and "match features") is one SQL shape: <code>ST_SetSRID(ST_MakePoint(lon, lat), 4326)</code>; a layer is visible to a partition if it has no <code>layer_partitions</code> rows or one for that partition; <code>ST_Intersects(boundary, point)</code> for containment; <code>ST_Distance(geography)</code> as <code>distanceMeters</code>; ACTIVE features only, ordered per layer by distance.</p>
+  <p><b>Match features</b> (single master, or bulk per client) runs the <code>match-master-location-features</code> use case per master — one transaction and one <code>master_location:features-matched</code> event each — rewriting <code>location_feature_associations</code> for every child. <b>Boundaries</b> (<code>layers.boundary</code>, <code>layer_features.boundary</code>) are derived on every persist from the scalar shape: RADIUS → <code>ST_Buffer(point::geography, metres)</code>, POLYGON → <code>ST_GeomFromGeoJSON</code>, POINT → <code>ST_MakePoint</code>.</p>
+  <p><b>Spatial lookup</b> (<code>POST …/spatial-lookup</code>, confirm, and match features) is one SQL shape: <code>ST_SetSRID(ST_MakePoint(lon, lat), 4326)</code>; a layer is visible to a partition if it has no <code>layer_partitions</code> rows or one for that partition; <code>ST_Intersects(boundary, point)</code> for containment; <code>ST_Distance(geography)</code> as <code>distanceMeters</code>; ACTIVE features only, ordered per layer by distance.</p>
 
   <h3>Login, session and per-request identity</h3>
   ${mm(6, '<b>Server-side OIDC, cookie session.</b> Per-request identity precedence: <code>Authorization: Bearer</code> JWT → <code>pp_session</code> cookie (one in-band refresh on expiry) → <code>x-user-id</code> dev fallback (only when <code>PINPOINT_AUTH_DEV_FALLBACK=true</code>) → anonymous (401). The SPA redirects to login only on 401 — never on 403.')}
@@ -296,13 +297,13 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
   <h2>FlowCatalyst platform integration</h2>
   <div class="tbl"><table>
     <tr><th>Mechanism</th><th>Direction</th><th>Detail</th></tr>
-    <tr><td><b>Definitions sync</b></td><td>pinpoint → platform (script)</td><td><code>pnpm flowcatalyst:sync</code> (service account) pushes the DefinitionSet — application <code>pinpoint</code>, 27 event types, dispatch pool <code>pinpoint-default</code>, 6 roles, 1 scheduled job — then each event's TypeBox payload schema as a spec version (<code>1.0.0</code> first, minor-bumped on change). Idempotent.</td></tr>
-    <tr><td><b>Events</b></td><td>pinpoint → platform (runtime)</td><td>outbox rows written in the use-case transaction; <code>fc-outbox-processor</code> dispatches. Codes <code>pinpoint:&lt;subdomain&gt;:&lt;entity&gt;:&lt;verb&gt;</code> across tenancy (6), layers (10), locations (10), matching (1).</td></tr>
+    <tr><td><b>Definitions sync</b></td><td>pinpoint → platform (script)</td><td><code>pnpm flowcatalyst:sync</code> (service account) pushes the DefinitionSet — application <code>pinpoint</code>, 33 event types, dispatch pool <code>pinpoint-default</code>, 6 roles, 1 scheduled job — then each event's TypeBox payload schema as a spec version (<code>1.0.0</code> first, minor-bumped on change). Idempotent.</td></tr>
+    <tr><td><b>Events</b></td><td>pinpoint → platform (runtime)</td><td>outbox rows written in the use-case transaction; <code>fc-outbox-processor</code> dispatches. Codes <code>pinpoint:&lt;subdomain&gt;:&lt;entity&gt;:&lt;verb&gt;</code> across tenancy (8), layers (12), locations (12), matching (1).</td></tr>
     <tr><td><b>Scheduled job</b></td><td>platform → pinpoint</td><td><code>pinpoint-validate-master-locations</code>, <code>*/5 * * * *</code> UTC, HMAC with <code>FLOWCATALYST_SIGNING_SECRET</code>, non-concurrent.</td></tr>
     <tr><td><b>Identity</b></td><td>pinpoint → platform</td><td>OIDC login + JWKS validation; roles → scope.</td></tr>
     <tr><td><b>Subscriptions</b></td><td>—</td><td>none today — pinpoint publishes but does not consume platform events.</td></tr>
   </table></div>
-  <div class="note"><p><b>Verified against fc-dev on 2026-08-22:</b> 27 pinpoint event types registered, each with schema version <code>1.0.0</code>; scheduled job <code>ACTIVE</code>; a second sync run reports <code>pushed=0 skipped=27</code>. (The sync had been failing silently before — the DefinitionSet carried the TypeBox schema inline and the platform rejected it; fixed in <code>2db9d8e</code>.)</p></div>
+  <div class="note"><p><b>Verified against fc-dev on 2026-08-22:</b> 33 pinpoint event types registered, each with schema version <code>1.0.0</code>; scheduled job <code>ACTIVE</code>; a re-run reports <code>pushed=0 skipped=33</code>. (The sync had been failing silently before — the DefinitionSet carried the TypeBox schema inline and the platform rejected it; fixed in <code>2db9d8e</code>.)</p></div>
 </section>
 
 <section id="deploy">
@@ -392,10 +393,9 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
   <h2>Known gaps &amp; divergences</h2>
   <ul class="gaps">
     <li><code>Location.status = MATCHED</code> and <code>matchMethod = MANUAL</code> exist in the type but are never assigned.</li>
-    <li>Several BFF operator actions write through repositories <b>without</b> a use case or domain event: match-features (single/bulk), confirm-geocode's coordinate write, set-feature-status, set-layer-partitions, partition principal grant/revoke. They are audited only by the HTTP log.</li>
-    <li>Subscriptions are empty — pinpoint publishes but never consumes platform events.</li>
+        <li>Subscriptions are empty — pinpoint publishes but never consumes platform events.</li>
     <li><code>compose.prod.yaml</code> describes a single-host stack, not the ECS topology above; the ECS wiring lives in <code>inhance/iac</code> + <code>inhance/flowcatalyst-deploy</code>.</li>
-    <li>Where the <code>boundary</code> geometry is derived from radius / polygon on write was not located in the repository SQL during this review — pin it down before touching layer geometry.</li>
+    <li><b>Resolved 2026-08-22:</b> the BFF operator actions (match-features, confirm-geocode, set-feature-status, set-layer-partitions, partition access grant/revoke) now run through use cases and emit events; and <code>boundary</code> geometry is derived on persist — the TS port had never written it, so spatial containment silently matched nothing on rows created through the API. Both came out of this review and are covered by integration tests.</li>
   </ul>
 </section>
 </main>

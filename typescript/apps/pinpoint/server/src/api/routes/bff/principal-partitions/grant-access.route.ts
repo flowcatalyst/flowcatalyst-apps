@@ -1,23 +1,17 @@
 /**
- * Grant a principal access to a partition. Mirror of Rust
- * `routes/bff/principal_partitions.rs::grant_access`.
- *
- * No use case wrapper — `grantPartitionAccess` is a plain repo method
- * (Slice 10b.3). The body carries the target `principalId`; the
- * `grantedBy` is the current principal from the scope. 404 if the
- * target principal doesn't exist (matches Rust). Re-granting is a
- * no-op via `ON CONFLICT DO NOTHING` in the repo.
+ * POST /bff/clients/:clientId/partitions/:partitionId/principals
+ * Grant a principal access to a partition via the grant-partition-access use
+ * case (emits `pinpoint:tenancy:partition:access-granted`).
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
-import { asPartitionId } from '../../../../domain/tenancy/ids.js';
-import { asPrincipalId } from '../../../../domain/auth/ids.js';
+import { ScopeStore, isFailure } from '@pinpoint/framework';
+import { GrantPartitionAccessCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
+import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({ principalId: Type.String({ minLength: 1 }) });
-
 const ResponseSchema = Type.Object({ success: Type.Literal(true) });
 
 export function registerBffGrantPartitionAccessRoute(
@@ -39,6 +33,7 @@ export function registerBffGrantPartitionAccessRoute(
           200: ResponseSchema,
           400: ErrorResponseRef,
           401: ErrorResponseRef,
+          403: ErrorResponseRef,
           404: ErrorResponseRef,
           500: ErrorResponseRef,
         },
@@ -49,23 +44,17 @@ export function registerBffGrantPartitionAccessRoute(
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
-
-      const { partitionId } = request.params as { clientId: string; partitionId: string };
+      const params = request.params as { clientId: string; partitionId: string };
       const { principalId } = request.body as { principalId: string };
-
-      const target = await appContext.repositories.principals.findById(asPrincipalId(principalId));
-      if (!target) {
-        return reply
-          .code(404)
-          .send({ error: 'NotFound', message: `Principal '${principalId}' not found.` });
+      const parsed = GrantPartitionAccessCommandSchema.safeParse({ ...params, principalId });
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
       }
 
-      await appContext.repositories.principals.grantPartitionAccess(
-        target.id,
-        asPartitionId(partitionId),
-        asPrincipalId(scope.principalId),
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.grantPartitionAccess.execute(parsed.data),
       );
-
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
       return reply.code(200).send({ success: true });
     },
   );

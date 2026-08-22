@@ -96,6 +96,12 @@ import { ValidateMasterLocationUseCase } from './operations/validate-master-loca
 import { ConfirmMasterLocationUseCase } from './operations/confirm-master-location/confirm-master-location.use-case.js';
 import { UpdateMasterLocationUseCase } from './operations/update-master-location/update-master-location.use-case.js';
 import { RejectMasterLocationUseCase } from './operations/reject-master-location/reject-master-location.use-case.js';
+import { SetLayerFeatureStatusUseCase } from './operations/set-layer-feature-status/set-layer-feature-status.use-case.js';
+import { SetLayerPartitionsUseCase } from './operations/set-layer-partitions/set-layer-partitions.use-case.js';
+import { GrantPartitionAccessUseCase } from './operations/grant-partition-access/grant-partition-access.use-case.js';
+import { RevokePartitionAccessUseCase } from './operations/revoke-partition-access/revoke-partition-access.use-case.js';
+import { MatchMasterLocationFeaturesUseCase } from './operations/match-master-location-features/match-master-location-features.use-case.js';
+import { ConfirmMasterLocationGeocodeUseCase } from './operations/confirm-master-location-geocode/confirm-master-location-geocode.use-case.js';
 import { DeleteMasterLocationUseCase } from './operations/delete-master-location/delete-master-location.use-case.js';
 
 /**
@@ -193,6 +199,12 @@ export interface AppContextUseCases {
   readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
   readonly updateMasterLocation: UpdateMasterLocationUseCase;
   readonly rejectMasterLocation: RejectMasterLocationUseCase;
+  readonly setLayerFeatureStatus: SetLayerFeatureStatusUseCase;
+  readonly setLayerPartitions: SetLayerPartitionsUseCase;
+  readonly grantPartitionAccess: GrantPartitionAccessUseCase;
+  readonly revokePartitionAccess: RevokePartitionAccessUseCase;
+  readonly matchMasterLocationFeatures: MatchMasterLocationFeaturesUseCase;
+  readonly confirmMasterLocationGeocode: ConfirmMasterLocationGeocodeUseCase;
   readonly deleteMasterLocation: DeleteMasterLocationUseCase;
 }
 
@@ -417,6 +429,27 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         uow,
         aggregateRegistry,
         masterLocationRepo,
+      ),
+      setLayerFeatureStatus: new SetLayerFeatureStatusUseCase(
+        uow,
+        aggregateRegistry,
+        layerFeatureRepo,
+        layerRepo,
+      ),
+      setLayerPartitions: new SetLayerPartitionsUseCase(uow, layerRepo, partitionRepo),
+      grantPartitionAccess: new GrantPartitionAccessUseCase(uow, partitionRepo, principalRepo),
+      revokePartitionAccess: new RevokePartitionAccessUseCase(uow, partitionRepo, principalRepo),
+      matchMasterLocationFeatures: new MatchMasterLocationFeaturesUseCase(
+        uow,
+        masterLocationRepo,
+        locationRepo,
+        layerFeatureRepo,
+      ),
+      confirmMasterLocationGeocode: new ConfirmMasterLocationGeocodeUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+        processingLogRepo,
       ),
       deleteMasterLocation: new DeleteMasterLocationUseCase(
         uow,

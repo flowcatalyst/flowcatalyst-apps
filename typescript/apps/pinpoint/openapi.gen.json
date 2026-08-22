@@ -8807,6 +8807,16 @@
               }
             }
           },
+          "403": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Standard pinpoint error envelope.",
             "content": {
@@ -8887,7 +8897,37 @@
               }
             }
           },
+          "400": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Standard pinpoint error envelope.",
             "content": {
               "application/json": {
@@ -10666,7 +10706,27 @@
               }
             }
           },
+          "400": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard pinpoint error envelope.",
             "content": {
               "application/json": {
@@ -11883,7 +11943,27 @@
               }
             }
           },
+          "400": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Standard pinpoint error envelope.",
             "content": {
               "application/json": {
@@ -12988,6 +13068,16 @@
               }
             }
           },
+          "403": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Standard pinpoint error envelope.",
             "content": {
@@ -13105,6 +13195,16 @@
                       }
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard pinpoint error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

@@ -26,5 +26,9 @@ export interface LayerRepository {
   /** Total layers across all clients (dashboard). */
   count(): Promise<number>;
   findPartitionIds(layerId: LayerId): Promise<readonly string[]>;
-  setPartitionIds(layerId: LayerId, partitionIds: readonly string[]): Promise<void>;
+  setPartitionIds(
+    layerId: LayerId,
+    partitionIds: readonly string[],
+    tx?: TransactionContext,
+  ): Promise<void>;
 }

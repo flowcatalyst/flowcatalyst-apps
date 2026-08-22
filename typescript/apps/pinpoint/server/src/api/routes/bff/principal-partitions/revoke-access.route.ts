@@ -1,19 +1,14 @@
 /**
- * Revoke a principal's access to a partition. Mirror of Rust
- * `routes/bff/principal_partitions.rs::revoke_access`.
- *
- * Returns `{success: true}` regardless of whether the grant existed
- * — matches Rust (idempotent revoke). The repo method returns a
- * boolean we currently ignore; could surface it as `{deleted}` later
- * if the SPA wants to distinguish "no-op revoke" from "actually
- * revoked".
+ * DELETE /bff/clients/:clientId/partitions/:partitionId/principals/:principalId
+ * Revoke a principal's partition access via the revoke-partition-access use
+ * case (emits `pinpoint:tenancy:partition:access-revoked`).
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
-import { ScopeStore } from '@pinpoint/framework';
-import { asPartitionId } from '../../../../domain/tenancy/ids.js';
-import { asPrincipalId } from '../../../../domain/auth/ids.js';
+import { ScopeStore, isFailure } from '@pinpoint/framework';
+import { RevokePartitionAccessCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
+import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({ success: Type.Literal(true) });
@@ -33,7 +28,14 @@ export function registerBffRevokePartitionAccessRoute(
           partitionId: Type.String({ minLength: 1 }),
           principalId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
+        response: {
+          200: ResponseSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
+        },
       },
     },
     async (request, reply) => {
@@ -41,18 +43,15 @@ export function registerBffRevokePartitionAccessRoute(
       if (!scope) {
         return reply.code(401).send({ error: 'Unauthorized', message: 'Authentication required.' });
       }
+      const parsed = RevokePartitionAccessCommandSchema.safeParse(request.params);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'ValidationError', issues: parsed.error.issues });
+      }
 
-      const { partitionId, principalId } = request.params as {
-        clientId: string;
-        partitionId: string;
-        principalId: string;
-      };
-
-      await appContext.repositories.principals.revokePartitionAccess(
-        asPrincipalId(principalId),
-        asPartitionId(partitionId),
+      const result = await appContext.runWrite(() =>
+        appContext.useCases.revokePartitionAccess.execute(parsed.data),
       );
-
+      if (isFailure(result)) return sendUseCaseError(reply, result.error);
       return reply.code(200).send({ success: true });
     },
   );
