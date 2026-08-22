@@ -2,7 +2,7 @@ import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   fmt: {
-    ignorePatterns: ['dist/**', '.vite/**', '.vite-plus/**', 'coverage/**', '*.gen.*'],
+    ignorePatterns: ['dist/**', '.vite/**', '.vite-plus/**', 'coverage/**', '*.gen.*', 'apps/pinpoint/docs/architecture.html'],
     singleQuote: true,
     semi: true,
     trailingComma: 'all',
@@ -10,7 +10,7 @@ export default defineConfig({
   },
 
   lint: {
-    ignorePatterns: ['dist/**', '.vite/**', '.vite-plus/**', 'coverage/**', '*.gen.*'],
+    ignorePatterns: ['dist/**', '.vite/**', '.vite-plus/**', 'coverage/**', '*.gen.*', 'apps/pinpoint/docs/architecture.html'],
     options: {
       // type-aware rules off by default — fulfil's branded-ID casts (`x as FulfilmentId`)
       // trip `no-unsafe-type-assertion`. Flip on per-package via lint.overrides when
