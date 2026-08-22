@@ -20,6 +20,7 @@ import { createOidcClient } from '../../../src/auth/oidc-client.js';
 import { tryRefreshSession } from '../../../src/auth/session-refresh.js';
 import { createInMemorySessionStore } from '../../../src/auth/session-store.js';
 import { startFakeIdp, type FakeIdp } from './fake-idp.js';
+import { PinpointPermission } from '@pinpoint/shared';
 
 describe('OIDC end-to-end against a live IdP', () => {
   let idp: FakeIdp;
@@ -199,9 +200,16 @@ describe('OIDC end-to-end against a live IdP', () => {
         allowInsecureRequests: true,
       });
 
+      // The platform expands the viewer role into the `*:read` permissions on
+      // the `scope` claim; pinpoint derives permissions from that, not from
+      // the role name.
+      const readScope = Object.values(PinpointPermission)
+        .filter((p) => p.endsWith(':read'))
+        .join(' ');
       idp.setAuthorizedUser({
         sub: 'prn_eve',
         roles: ['viewer'],
+        scope: readScope,
         email: 'eve@example.test',
       });
       const params = await oidc.buildAuthorizeUrl();
@@ -233,7 +241,7 @@ describe('OIDC end-to-end against a live IdP', () => {
       );
 
       expect(result?.sub).toBe('prn_eve');
-      // viewer role grants every `*:read` permission
+      // viewer scope → every `*:read` permission, nothing else
       expect(result?.permissions?.has('pinpoint:tenancy:client:read')).toBe(true);
       expect(result?.permissions?.has('pinpoint:tenancy:client:create')).toBe(false);
 

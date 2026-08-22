@@ -33,6 +33,13 @@ export interface FakeIdpUser {
   readonly name?: string;
   readonly email?: string;
   readonly roles?: readonly string[];
+  /**
+   * Space-delimited `scope` claim. The real platform expands a principal's
+   * roles into granted permission strings here; pinpoint keeps the
+   * `pinpoint:*` entries (see `resolvePermissions`). Roles alone grant
+   * nothing unless they are a super-admin role.
+   */
+  readonly scope?: string;
 }
 
 export interface FakeIdp {
@@ -110,6 +117,7 @@ export async function startFakeIdp(options: FakeIdpOptions = {}): Promise<FakeId
       iat: now,
       exp: now + ttlSeconds,
       roles: user.roles ?? [],
+      ...(user.scope ? { scope: user.scope } : {}),
       // Random per-token jti: without it, two tokens minted in the
       // same wall-clock second (e.g. auth-code grant immediately
       // followed by a refresh in a test) would be byte-identical and
