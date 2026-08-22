@@ -16,7 +16,9 @@
     "format:check": "vp check --no-lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "run": "vp run",
-    "clean": "pnpm -r exec rm -rf dist .turbo .vite .vite-plus"
+    "clean": "pnpm -r exec rm -rf dist .turbo .vite .vite-plus",
+    "openapi:pinpoint": "pnpm --filter @pinpoint/server openapi:export && pnpm --filter @pinpoint/web api:types",
+    "openapi:pinpoint:check": "pnpm --filter @pinpoint/server openapi:check && pnpm --filter @pinpoint/web api:types:check"
   },
   "devDependencies": {
     "typescript": "catalog:",

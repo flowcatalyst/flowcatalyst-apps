@@ -2,34 +2,13 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast, getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface FeatureAssociation {
-  layerFeatureId: string;
-  layerId: string;
-  layerName: string;
-  featureLabel: string;
-  distanceMeters: number | null;
-}
-
-interface LocationDetail {
-  id: string;
-  name: string | null;
-  address: string;
-  receivedAddress: string;
-  matchAddress: string;
-  city: string;
-  country: string;
-  status: string;
-  masterLocationId: string | null;
-  matchConfidence: number | null;
-  matchMethod: string | null;
-  createdAt: string;
-  features: FeatureAssociation[];
-}
+type LocationDetail = ApiResponse<'/bff/clients/{clientId}/locations/{locationId}', 'get'>;
+type FeatureAssociation = LocationDetail['features'][number];
 
 const route = useRoute();
 const router = useRouter();
@@ -62,13 +41,19 @@ async function handleRematch() {
   if (value.length === 0) return;
   rematching.value = true;
   try {
-    const res = await apiFetch<{ previousMasterDeleted: boolean; status: string }>(
-      `/clients/${clientId}/locations/${loc.id}/rematch`,
-      { method: 'POST', body: JSON.stringify({ matchAddress: value }) },
-      { suppressErrorToast: true },
+    const res = await ok(
+      api.POST('/bff/clients/{clientId}/locations/{locationId}/rematch', {
+        params: { path: { clientId, locationId: loc.id } },
+        body: { matchAddress: value },
+        ...suppressErrorToast,
+      }),
     );
     // Refresh so the new master link + status + associations render.
-    location.value = await apiFetch<LocationDetail>(`/clients/${clientId}/locations/${loc.id}`);
+    location.value = await ok(
+      api.GET('/bff/clients/{clientId}/locations/{locationId}', {
+        params: { path: { clientId, locationId: loc.id } },
+      }),
+    );
     matchAddressInput.value = location.value.matchAddress;
     toast.success(
       'Rematched',
@@ -97,11 +82,10 @@ function handleDelete() {
     accept: async () => {
       deleting.value = true;
       try {
-        await apiFetch(
-          `/clients/${clientId}/locations/${loc.id}`,
-          { method: 'DELETE' },
-          { suppressErrorToast: true },
-        );
+        await api.DELETE('/bff/clients/{clientId}/locations/{locationId}', {
+          params: { path: { clientId, locationId: loc.id } },
+          ...suppressErrorToast,
+        });
         toast.success('Deleted', 'Location deleted.');
         await router.push('/locations');
       } catch (e) {
@@ -119,8 +103,10 @@ onMounted(async () => {
     return;
   }
   try {
-    location.value = await apiFetch<LocationDetail>(
-      `/clients/${clientId}/locations/${route.params['id'] as string}`,
+    location.value = await ok(
+      api.GET('/bff/clients/{clientId}/locations/{locationId}', {
+        params: { path: { clientId, locationId: route.params['id'] as string } },
+      }),
     );
     matchAddressInput.value = location.value.matchAddress;
   } catch {

@@ -2,54 +2,18 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface PropertyItem {
-  key: string;
-  value: string;
-}
-interface PropertySetItem {
-  id: string;
-  name: string;
-  description: string | null;
-  properties: PropertyItem[];
-}
-interface FeatureItem {
-  id: string;
-  label: string;
-  centerLat: number | null;
-  centerLon: number | null;
-  radiusMeters: number | null;
-  polygonGeojson: string | null;
-  propertyValues: Record<string, string>;
-  status: string;
-  createdAt: string;
-}
-interface LayerDetail {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  layerType: string;
-  status: string;
-  centerLat: number | null;
-  centerLon: number | null;
-  radiusMeters: number | null;
-  polygonGeojson: string | null;
-  propertySets: PropertySetItem[];
-  partitionIds: string[];
-  createdAt: string;
-}
-
-interface Partition {
-  id: string;
-  code: string;
-  name: string;
-}
+type LayerDetail = ApiResponse<'/bff/clients/{clientId}/layers/{layerId}', 'get'>;
+type FeatureItem = ApiResponse<
+  '/bff/clients/{clientId}/layers/{layerId}/features',
+  'get'
+>['items'][number];
+type Partition = ApiResponse<'/bff/clients/{clientId}/partitions', 'get'>['items'][number];
 
 const route = useRoute();
 const router = useRouter();
@@ -97,10 +61,9 @@ const creatingSchemaPending = ref(false);
 
 const editForm = ref({ name: '', description: '' });
 const clientId = clientStore.selectedClientId;
-
-function layerPath(suffix = '') {
-  return `/clients/${clientId}/layers/${route.params['id'] as string}${suffix}`;
-}
+const layerId = route.params['id'] as string;
+/** Path params shared by every call on this page. */
+const layerPath = { clientId: clientId ?? '', layerId };
 
 // The single property set (schema) for this layer
 const propertySet = computed(() => layer.value?.propertySets[0] ?? null);
@@ -117,12 +80,18 @@ onMounted(async () => {
     return;
   }
   try {
-    layer.value = await apiFetch<LayerDetail>(layerPath());
+    layer.value = await ok(
+      api.GET('/bff/clients/{clientId}/layers/{layerId}', { params: { path: layerPath } }),
+    );
     selectedPartitionIds.value = layer.value.partitionIds ?? [];
-    const featureResp = await apiFetch<{ items: FeatureItem[] }>(layerPath('/features'));
+    const featureResp = await ok(
+      api.GET('/bff/clients/{clientId}/layers/{layerId}/features', { params: { path: layerPath } }),
+    );
     features.value = featureResp.items;
     // Load partitions for assignment UI
-    const partResp = await apiFetch<{ items: Partition[] }>(`/clients/${clientId}/partitions`);
+    const partResp = await ok(
+      api.GET('/bff/clients/{clientId}/partitions', { params: { path: { clientId } } }),
+    );
     partitions.value = partResp.items;
   } catch {
     /* global toast */
@@ -134,14 +103,11 @@ onMounted(async () => {
 async function handleSavePartitions() {
   savingPartitions.value = true;
   try {
-    await apiFetch(
-      layerPath('/partitions'),
-      {
-        method: 'PUT',
-        body: JSON.stringify({ partitionIds: selectedPartitionIds.value }),
-      },
-      { suppressErrorToast: true },
-    );
+    await api.PUT('/bff/clients/{clientId}/layers/{layerId}/partitions', {
+      params: { path: layerPath },
+      body: { partitionIds: selectedPartitionIds.value },
+      ...suppressErrorToast,
+    });
     if (layer.value) layer.value.partitionIds = [...selectedPartitionIds.value];
     toast.success(
       'Updated',
@@ -168,21 +134,24 @@ async function handleSave() {
   if (!layer.value) return;
   saving.value = true;
   try {
-    layer.value = await apiFetch<LayerDetail>(
-      layerPath(),
-      {
-        method: 'PUT',
-        body: JSON.stringify({
+    const updated = await ok(
+      api.PUT('/bff/clients/{clientId}/layers/{layerId}', {
+        params: { path: layerPath },
+        body: {
           name: editForm.value.name,
           description: editForm.value.description || null,
           centerLat: layer.value.centerLat,
           centerLon: layer.value.centerLon,
           radiusMeters: layer.value.radiusMeters,
           polygonGeojson: layer.value.polygonGeojson,
-        }),
-      },
-      { suppressErrorToast: true },
+        },
+        ...suppressErrorToast,
+      }),
     );
+    // TODO(openapi-sync): bffUpdateLayer's response schema types propertySets
+    // as unknown[] (bffGetLayer has the full shape) — cast until the server
+    // schema is tightened.
+    layer.value = { ...updated, propertySets: updated.propertySets as LayerDetail['propertySets'] };
     toast.success('Saved', 'Layer updated.');
     editing.value = false;
   } catch (e) {
@@ -200,7 +169,10 @@ function confirmDeleteLayer() {
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
-        await apiFetch(layerPath(), { method: 'DELETE' }, { suppressErrorToast: true });
+        await api.DELETE('/bff/clients/{clientId}/layers/{layerId}', {
+          params: { path: layerPath },
+          ...suppressErrorToast,
+        });
         toast.success('Deleted', 'Layer deleted.');
         await router.push('/layers');
       } catch (e) {
@@ -265,23 +237,26 @@ async function handleSaveFeature() {
     // POLYGON layers: the polygon IS the geometry — never send a center
     // (stale/zero values here put the feature at Null Island; the server
     // derives a display centroid from the polygon instead).
-    const body = JSON.stringify(
+    const body =
       layer.value?.layerType === 'POLYGON'
         ? { ...featureForm.value, centerLat: null, centerLon: null }
-        : featureForm.value,
-    );
+        : featureForm.value;
     if (editingFeature.value) {
-      const updated = await apiFetch<FeatureItem>(
-        layerPath(`/features/${editingFeature.value.id}`),
-        { method: 'PUT', body },
+      const updated = await ok(
+        api.PUT('/bff/clients/{clientId}/layers/{layerId}/features/{featureId}', {
+          params: { path: { ...layerPath, featureId: editingFeature.value.id } },
+          body,
+        }),
       );
       const idx = features.value.findIndex((f) => f.id === updated.id);
       if (idx >= 0) features.value[idx] = updated;
     } else {
-      const created = await apiFetch<FeatureItem>(layerPath('/features'), {
-        method: 'POST',
-        body,
-      });
+      const created = await ok(
+        api.POST('/bff/clients/{clientId}/layers/{layerId}/features', {
+          params: { path: layerPath },
+          body,
+        }),
+      );
       features.value.push(created);
     }
     showFeatureDialog.value = false;
@@ -301,11 +276,10 @@ function confirmDeleteFeature(f: FeatureItem) {
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
-        await apiFetch(
-          layerPath(`/features/${f.id}`),
-          { method: 'DELETE' },
-          { suppressErrorToast: true },
-        );
+        await api.DELETE('/bff/clients/{clientId}/layers/{layerId}/features/{featureId}', {
+          params: { path: { ...layerPath, featureId: f.id } },
+          ...suppressErrorToast,
+        });
         features.value = features.value.filter((x) => x.id !== f.id);
         toast.success('Deleted', 'Feature deleted.');
       } catch (e) {
@@ -318,13 +292,12 @@ function confirmDeleteFeature(f: FeatureItem) {
 async function toggleFeatureStatus(f: FeatureItem) {
   const newStatus = f.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
   try {
-    const updated = await apiFetch<FeatureItem>(
-      layerPath(`/features/${f.id}/status`),
-      {
-        method: 'PUT',
-        body: JSON.stringify({ status: newStatus }),
-      },
-      { suppressErrorToast: true },
+    const updated = await ok(
+      api.PUT('/bff/clients/{clientId}/layers/{layerId}/features/{featureId}/status', {
+        params: { path: { ...layerPath, featureId: f.id } },
+        body: { status: newStatus },
+        ...suppressErrorToast,
+      }),
     );
     const idx = features.value.findIndex((x) => x.id === f.id);
     if (idx >= 0) features.value[idx] = updated;
@@ -339,13 +312,12 @@ async function toggleFeatureStatus(f: FeatureItem) {
 async function createSchema() {
   creatingSchemaPending.value = true;
   try {
-    const ps = await apiFetch<PropertySetItem>(
-      layerPath('/property-sets'),
-      {
-        method: 'POST',
-        body: JSON.stringify({ name: 'Properties' }),
-      },
-      { suppressErrorToast: true },
+    const ps = await ok(
+      api.POST('/bff/clients/{clientId}/layers/{layerId}/property-sets', {
+        params: { path: layerPath },
+        body: { name: 'Properties' },
+        ...suppressErrorToast,
+      }),
     );
     if (layer.value) layer.value.propertySets = [ps];
   } catch (e) {
@@ -359,11 +331,10 @@ async function deleteSchema() {
   const ps = propertySet.value;
   if (!ps) return;
   try {
-    await apiFetch(
-      layerPath(`/property-sets/${ps.id}`),
-      { method: 'DELETE' },
-      { suppressErrorToast: true },
-    );
+    await api.DELETE('/bff/clients/{clientId}/layers/{layerId}/property-sets/{propertySetId}', {
+      params: { path: { ...layerPath, propertySetId: ps.id } },
+      ...suppressErrorToast,
+    });
     if (layer.value) layer.value.propertySets = [];
   } catch (e) {
     toast.error('Failed to delete', getErrorMessage(e, 'Unknown error'));
@@ -391,13 +362,13 @@ async function saveSchema() {
   const ps = propertySet.value;
   if (!ps) return;
   try {
-    await apiFetch(
-      layerPath(`/property-sets/${ps.id}/properties`),
+    await api.PUT(
+      '/bff/clients/{clientId}/layers/{layerId}/property-sets/{propertySetId}/properties',
       {
-        method: 'PUT',
-        body: JSON.stringify({ properties: ps.properties.filter((p) => p.key.trim()) }),
+        params: { path: { ...layerPath, propertySetId: ps.id } },
+        body: { properties: ps.properties.filter((p) => p.key.trim()) },
+        ...suppressErrorToast,
       },
-      { suppressErrorToast: true },
     );
     toast.success('Saved', 'Property schema updated.');
   } catch (e) {

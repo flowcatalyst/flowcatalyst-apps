@@ -1,25 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { apiFetch } from '@/api/client';
+import { api, ok, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 
-interface Layer {
-  id: string;
-  code: string;
-  name: string;
-  layerType: string;
-  status: string;
-  propertySetCount: number;
-  createdAt: string;
-}
-
-interface LayerListResponse {
-  items: Layer[];
-  total: number;
-}
+type Layer = ApiResponse<'/bff/clients/{clientId}/layers', 'get'>['items'][number];
 
 const router = useRouter();
 const clientStore = useClientStore();
@@ -43,13 +30,10 @@ async function loadLayers() {
   }
   loading.value = true;
   try {
-    const params = new URLSearchParams();
-    params.set('page', String(page.value));
-    params.set('page_size', String(pageSize.value));
-    if (searchQuery.value) params.set('q', searchQuery.value);
-
-    const response = await apiFetch<LayerListResponse>(
-      `/clients/${clientId.value}/layers?${params.toString()}`,
+    // TODO(openapi-sync): bffListLayers accepts no query params — the server
+    // returns every layer, so page/pageSize/q were always ignored here.
+    const response = await ok(
+      api.GET('/bff/clients/{clientId}/layers', { params: { path: { clientId: clientId.value } } }),
     );
     layers.value = response.items;
     totalRecords.value = response.total;

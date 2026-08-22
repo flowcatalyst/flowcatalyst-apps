@@ -2,67 +2,17 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface FeatureAssociation {
-  layerFeatureId: string;
-  layerId: string;
-  layerName: string;
-  featureLabel: string;
-  distanceMeters: number | null;
-}
-
-interface MasterLocation {
-  id: string;
-  address: string;
-  houseNumber: string | null;
-  road: string | null;
-  suburb: string | null;
-  city: string;
-  state: string | null;
-  postalCode: string | null;
-  country: string;
-  status: string;
-  latitude: number | null;
-  longitude: number | null;
-  addressHash: string;
-  createdAt: string;
-  features: FeatureAssociation[];
-}
-
-interface ProcessingLogEntry {
-  id: string;
-  step: string;
-  data: Record<string, unknown>;
-  createdAt: string;
-}
-
-interface ReverseGeocodeResult {
-  houseNumber: string | null;
-  road: string | null;
-  city: string;
-  state: string | null;
-  postalCode: string | null;
-  country: string;
-  formattedAddress: string;
-  confidence: number;
-}
-
-interface Country {
-  isoA3: string;
-  isoA2: string;
-  name: string;
-}
-
-interface MatchFeaturesResult {
-  masterLocationId: string;
-  locationsUpdated: number;
-  featuresMatched: FeatureAssociation[];
-}
+type MasterLocation = ApiResponse<'/bff/clients/{clientId}/master-locations/{masterLocationId}', 'get'>;
+type FeatureAssociation = MasterLocation['features'][number];
+type ProcessingLogEntry = ApiResponse<'/bff/clients/{clientId}/master-locations/{masterLocationId}/processing-log', 'get'>[number];
+type ReverseGeocodeResult = ApiResponse<'/bff/clients/{clientId}/master-locations/{masterLocationId}/reverse-geocode', 'post'>;
+type Country = ApiResponse<'/bff/countries', 'get'>[number];
 
 const route = useRoute();
 const router = useRouter();
@@ -104,7 +54,7 @@ const clientId = clientStore.selectedClientId;
 
 onMounted(async () => {
   // Load countries for display and edit
-  apiFetch<Country[]>('/countries')
+  ok(api.GET('/bff/countries'))
     .then((c) => {
       countries.value = c;
     })
@@ -115,8 +65,10 @@ onMounted(async () => {
     return;
   }
   try {
-    masterLocation.value = await apiFetch<MasterLocation>(
-      `/clients/${clientId}/master-locations/${route.params['id'] as string}`,
+    masterLocation.value = await ok(
+      api.GET('/bff/clients/{clientId}/master-locations/{masterLocationId}', {
+        params: { path: { clientId, masterLocationId: route.params['id'] as string } },
+      }),
     );
   } catch {
     // handled by global error toast
@@ -130,10 +82,11 @@ async function handleReverseGeocode() {
   reversingGeocode.value = true;
   reverseResult.value = null;
   try {
-    const result = await apiFetch<ReverseGeocodeResult>(
-      `/clients/${clientId}/master-locations/${masterLocation.value.id}/reverse-geocode`,
-      { method: 'POST' },
-      { suppressErrorToast: true },
+    const result = await ok(
+      api.POST('/bff/clients/{clientId}/master-locations/{masterLocationId}/reverse-geocode', {
+        params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+        ...suppressErrorToast,
+      }),
     );
     // Backfill: keep existing values where reverse geocode returned nothing
     const ml = masterLocation.value;
@@ -154,6 +107,7 @@ async function handleReverseGeocode() {
     reverseResult.value = {
       houseNumber: result.houseNumber ?? ml.houseNumber ?? null,
       road: result.road ?? ml.road ?? null,
+      suburb: result.suburb ?? ml.suburb ?? null,
       city: result.city || ml.city,
       state: result.state ?? ml.state ?? null,
       postalCode: result.postalCode ?? ml.postalCode ?? null,
@@ -170,24 +124,31 @@ async function handleReverseGeocode() {
 
 async function handleConfirm() {
   if (!masterLocation.value || !clientId || !reverseResult.value) return;
+  const { latitude, longitude } = masterLocation.value;
+  if (latitude === null || longitude === null) {
+    // confirm-geocode requires coordinates; reverse geocode only runs once
+    // they exist, so this is a defensive guard rather than a reachable path.
+    toast.error('Failed to confirm', 'Master location has no coordinates.');
+    return;
+  }
   confirming.value = true;
   try {
-    const updated = await apiFetch<MasterLocation>(
-      `/clients/${clientId}/master-locations/${masterLocation.value.id}/confirm-geocode`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
+    const updated = await ok(
+      api.POST('/bff/clients/{clientId}/master-locations/{masterLocationId}/confirm-geocode', {
+        params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+        body: {
           houseNumber: reverseResult.value.houseNumber,
           road: reverseResult.value.road,
+          suburb: reverseResult.value.suburb,
           city: reverseResult.value.city,
           state: reverseResult.value.state,
           postalCode: reverseResult.value.postalCode,
           country: reverseResult.value.country,
-          latitude: masterLocation.value.latitude,
-          longitude: masterLocation.value.longitude,
-        }),
-      },
-      { suppressErrorToast: true },
+          latitude,
+          longitude,
+        },
+        ...suppressErrorToast,
+      }),
     );
     // Merge (don't replace): the confirm-geocode response omits `features`, so a
     // straight assignment would blank the features list and crash the render.
@@ -206,10 +167,11 @@ async function handleMatchFeatures() {
   if (!masterLocation.value || !clientId) return;
   matching.value = true;
   try {
-    const result = await apiFetch<MatchFeaturesResult>(
-      `/clients/${clientId}/master-locations/${masterLocation.value.id}/match-features`,
-      { method: 'POST' },
-      { suppressErrorToast: true },
+    const result = await ok(
+      api.POST('/bff/clients/{clientId}/master-locations/{masterLocationId}/match-features', {
+        params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+        ...suppressErrorToast,
+      }),
     );
     masterLocation.value.features = result.featuresMatched;
     const count = result.featuresMatched.length;
@@ -242,11 +204,10 @@ async function handleSaveEdit() {
   if (!masterLocation.value || !clientId) return;
   saving.value = true;
   try {
-    const updated = await apiFetch<MasterLocation>(
-      `/clients/${clientId}/master-locations/${masterLocation.value.id}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({
+    const updated = await ok(
+      api.PUT('/bff/clients/{clientId}/master-locations/{masterLocationId}', {
+        params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+        body: {
           houseNumber: editForm.value.houseNumber || null,
           road: editForm.value.road || null,
           suburb: editForm.value.suburb || null,
@@ -254,9 +215,9 @@ async function handleSaveEdit() {
           state: editForm.value.state || null,
           postalCode: editForm.value.postalCode || null,
           country: editForm.value.country,
-        }),
-      },
-      { suppressErrorToast: true },
+        },
+        ...suppressErrorToast,
+      }),
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     editing.value = false;
@@ -273,10 +234,11 @@ async function handleGeocode() {
   if (!masterLocation.value || !clientId) return;
   geocoding.value = true;
   try {
-    const updated = await apiFetch<MasterLocation>(
-      `/clients/${clientId}/master-locations/${masterLocation.value.id}/geocode`,
-      { method: 'POST' },
-      { suppressErrorToast: true },
+    const updated = await ok(
+      api.POST('/bff/clients/{clientId}/master-locations/{masterLocationId}/geocode', {
+        params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+        ...suppressErrorToast,
+      }),
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     processingLog.value = [];
@@ -292,10 +254,11 @@ async function handleValidate() {
   if (!masterLocation.value || !clientId) return;
   validating.value = true;
   try {
-    const updated = await apiFetch<MasterLocation>(
-      `/clients/${clientId}/master-locations/${masterLocation.value.id}/validate`,
-      { method: 'POST' },
-      { suppressErrorToast: true },
+    const updated = await ok(
+      api.POST('/bff/clients/{clientId}/master-locations/{masterLocationId}/validate', {
+        params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+        ...suppressErrorToast,
+      }),
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     processingLog.value = [];
@@ -322,10 +285,11 @@ function handleDelete() {
     accept: async () => {
       deleting.value = true;
       try {
-        const res = await apiFetch<{ success: true; locationsDeleted: number }>(
-          `/clients/${clientId}/master-locations/${ml.id}`,
-          { method: 'DELETE' },
-          { suppressErrorToast: true },
+        const res = await ok(
+          api.DELETE('/bff/clients/{clientId}/master-locations/{masterLocationId}', {
+            params: { path: { clientId, masterLocationId: ml.id } },
+            ...suppressErrorToast,
+          }),
         );
         const n = res.locationsDeleted;
         toast.success(
@@ -347,10 +311,11 @@ async function toggleProcessingLog() {
   if (showLog.value && processingLog.value.length === 0 && masterLocation.value && clientId) {
     loadingLog.value = true;
     try {
-      processingLog.value = await apiFetch<ProcessingLogEntry[]>(
-        `/clients/${clientId}/master-locations/${masterLocation.value.id}/processing-log`,
-        {},
-        { suppressErrorToast: true },
+      processingLog.value = await ok(
+        api.GET('/bff/clients/{clientId}/master-locations/{masterLocationId}/processing-log', {
+          params: { path: { clientId, masterLocationId: masterLocation.value.id } },
+          ...suppressErrorToast,
+        }),
       );
     } catch (e) {
       toast.error('Failed to load log', getErrorMessage(e, 'Unknown error'));

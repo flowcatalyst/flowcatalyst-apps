@@ -1,21 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, type ApiResponse } from '@/api/client';
 import { useLocalState } from '@flowcatalyst-apps/web-kit';
 
-export interface Client {
-  id: string;
-  name: string;
-  code: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ClientListResponse {
-  items: Client[];
-  total: number;
-}
+export type Client = ApiResponse<'/bff/clients', 'get'>['items'][number];
 
 export const useClientStore = defineStore('client', () => {
   const clients = ref<Client[]>([]);
@@ -30,7 +18,7 @@ export const useClientStore = defineStore('client', () => {
   async function loadClients(): Promise<void> {
     loading.value = true;
     try {
-      const response = await apiFetch<ClientListResponse>('/clients');
+      const response = await ok(api.GET('/bff/clients'));
       clients.value = response.items;
 
       // Auto-select first client if none selected

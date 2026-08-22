@@ -2,43 +2,18 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface LayerItem {
-  id: string;
-  code: string;
-  name: string;
-  layerType: string;
-}
-
-interface FeatureItem {
-  id: string;
-  label: string;
-  centerLat: number | null;
-  centerLon: number | null;
-  radiusMeters: number | null;
-  polygonGeojson: string | null;
-  propertyValues: Record<string, string>;
-}
-
-interface PropertySetItem {
-  id: string;
-  name: string;
-  properties: Array<{ key: string; value: string }>;
-}
-
-interface LayerDetail {
-  id: string;
-  code: string;
-  name: string;
-  layerType: string;
-  radiusMeters: number | null;
-  propertySets: PropertySetItem[];
-}
+type LayerItem = ApiResponse<'/bff/clients/{clientId}/layers', 'get'>['items'][number];
+type FeatureItem = ApiResponse<
+  '/bff/clients/{clientId}/layers/{layerId}/features',
+  'get'
+>['items'][number];
+type LayerDetail = ApiResponse<'/bff/clients/{clientId}/layers/{layerId}', 'get'>;
 
 const clientStore = useClientStore();
 const authStore = useAuthStore();
@@ -73,7 +48,9 @@ onMounted(async () => {
     return;
   }
   try {
-    const resp = await apiFetch<{ items: LayerItem[] }>(`/clients/${clientId.value}/layers`);
+    const resp = await ok(
+      api.GET('/bff/clients/{clientId}/layers', { params: { path: { clientId: clientId.value } } }),
+    );
     layers.value = resp.items;
   } catch {
     /* toast */
@@ -109,9 +86,10 @@ watch(selectedLayerId, async (layerId) => {
   }
   featureLoading.value = true;
   try {
+    const path = { clientId: clientId.value, layerId };
     const [detail, featureResp] = await Promise.all([
-      apiFetch<LayerDetail>(`/clients/${clientId.value}/layers/${layerId}`),
-      apiFetch<{ items: FeatureItem[] }>(`/clients/${clientId.value}/layers/${layerId}/features`),
+      ok(api.GET('/bff/clients/{clientId}/layers/{layerId}', { params: { path } })),
+      ok(api.GET('/bff/clients/{clientId}/layers/{layerId}/features', { params: { path } })),
     ]);
     layerDetail.value = detail;
     features.value = featureResp.items;
@@ -203,10 +181,18 @@ async function handleSave() {
   if (!selectedFeature.value || !clientId.value || !selectedLayerId.value) return;
   saving.value = true;
   try {
-    const updated = await apiFetch<FeatureItem>(
-      `/clients/${clientId.value}/layers/${selectedLayerId.value}/features/${selectedFeature.value.id}`,
-      { method: 'PUT', body: JSON.stringify(selectedFeature.value) },
-      { suppressErrorToast: true },
+    const updated = await ok(
+      api.PUT('/bff/clients/{clientId}/layers/{layerId}/features/{featureId}', {
+        params: {
+          path: {
+            clientId: clientId.value,
+            layerId: selectedLayerId.value,
+            featureId: selectedFeature.value.id,
+          },
+        },
+        body: selectedFeature.value,
+        ...suppressErrorToast,
+      }),
     );
     const idx = features.value.findIndex((f) => f.id === updated.id);
     if (idx >= 0) features.value[idx] = updated;

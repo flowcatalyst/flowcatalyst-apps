@@ -2,20 +2,13 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useConfirm } from 'primevue/useconfirm';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface PartitionDetail {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+type PartitionDetail = ApiResponse<'/bff/clients/{clientId}/partitions/{partitionId}', 'get'>;
 
 const route = useRoute();
 const router = useRouter();
@@ -39,8 +32,10 @@ onMounted(async () => {
     return;
   }
   try {
-    partition.value = await apiFetch<PartitionDetail>(
-      `/clients/${clientId}/partitions/${route.params['id'] as string}`,
+    partition.value = await ok(
+      api.GET('/bff/clients/{clientId}/partitions/{partitionId}', {
+        params: { path: { clientId, partitionId: route.params['id'] as string } },
+      }),
     );
   } catch {
     // handled by global error toast
@@ -67,16 +62,15 @@ async function handleSave() {
   if (!partition.value || !clientId) return;
   saving.value = true;
   try {
-    partition.value = await apiFetch<PartitionDetail>(
-      `/clients/${clientId}/partitions/${partition.value.id}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({
+    partition.value = await ok(
+      api.PUT('/bff/clients/{clientId}/partitions/{partitionId}', {
+        params: { path: { clientId, partitionId: partition.value.id } },
+        body: {
           name: editForm.value.name,
           description: editForm.value.description || null,
-        }),
-      },
-      { suppressErrorToast: true },
+        },
+        ...suppressErrorToast,
+      }),
     );
     toast.success('Saved', 'Partition updated.');
     editing.value = false;
@@ -101,11 +95,10 @@ async function handleDelete() {
   const clientId = clientStore.selectedClientId;
   if (!partition.value || !clientId) return;
   try {
-    await apiFetch(
-      `/clients/${clientId}/partitions/${partition.value.id}`,
-      { method: 'DELETE' },
-      { suppressErrorToast: true },
-    );
+    await api.DELETE('/bff/clients/{clientId}/partitions/{partitionId}', {
+      params: { path: { clientId, partitionId: partition.value.id } },
+      ...suppressErrorToast,
+    });
     toast.success('Deleted', `Partition "${partition.value.name}" has been deleted.`);
     await router.push('/partitions');
   } catch (e) {

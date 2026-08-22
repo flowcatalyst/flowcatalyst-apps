@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast } from '@/api/client';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
@@ -34,13 +34,11 @@ watch(
 async function handleSubmit() {
   saving.value = true;
   try {
-    const result = await apiFetch<{ id: string }>(
-      '/clients',
-      {
-        method: 'POST',
-        body: JSON.stringify(form.value),
-      },
-      { suppressErrorToast: true },
+    const result = await ok(
+      api.POST('/bff/clients', {
+        body: form.value,
+        ...suppressErrorToast,
+      }),
     );
     toast.success('Client Created', `Client "${form.value.name}" has been created.`);
     await router.push(`/clients/${result.id}`);

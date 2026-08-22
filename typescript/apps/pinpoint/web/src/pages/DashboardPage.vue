@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, type ApiResponse } from '@/api/client';
 
-interface DashboardStats {
-  totalClients: number;
-  totalLocations: number;
-  totalMasterLocations: number;
-  totalLayers: number;
-}
+// TODO(openapi-sync): bffDashboard only returns `totalClients` today; the other
+// three tiles render '--' until the server widens the response. Keep them
+// optional here so the template stays honest about what the API provides.
+type DashboardStats = ApiResponse<'/bff/dashboard/stats', 'get'> & {
+  totalLocations?: number;
+  totalMasterLocations?: number;
+  totalLayers?: number;
+};
 
 const stats = ref<DashboardStats | null>(null);
 const loading = ref(true);
@@ -65,7 +67,7 @@ const dashboardCards = [
 
 onMounted(async () => {
   try {
-    stats.value = await apiFetch<DashboardStats>('/dashboard/stats');
+    stats.value = await ok(api.GET('/bff/dashboard/stats'));
   } catch {
     // Stats endpoint may not exist yet
   } finally {

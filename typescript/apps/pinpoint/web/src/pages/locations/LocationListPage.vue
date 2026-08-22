@@ -1,31 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 
-interface Location {
-  id: string;
-  name: string | null;
-  address: string;
-  city: string;
-  status: string;
-  masterLocationId: string | null;
-  matchConfidence: number | null;
-  createdAt: string;
-}
-
-interface LocationListResponse {
-  items: Location[];
-  total: number;
-}
-
-interface Partition {
-  id: string;
-  code: string;
-  name: string;
-}
+type Location = ApiResponse<'/bff/clients/{clientId}/locations', 'get'>['items'][number];
+type Partition = ApiResponse<'/bff/clients/{clientId}/partitions', 'get'>['items'][number];
 
 const clientStore = useClientStore();
 const authStore = useAuthStore();
@@ -45,7 +26,9 @@ const clientId = computed(() => clientStore.selectedClientId);
 async function loadPartitions() {
   if (!clientId.value) return;
   try {
-    const resp = await apiFetch<{ items: Partition[] }>(`/clients/${clientId.value}/partitions`);
+    const resp = await ok(
+      api.GET('/bff/clients/{clientId}/partitions', { params: { path: { clientId: clientId.value } } }),
+    );
     partitions.value = resp.items;
   } catch {
     /* optional */
@@ -60,14 +43,19 @@ async function loadLocations() {
   }
   loading.value = true;
   try {
-    const params = new URLSearchParams();
-    params.set('page', String(page.value));
-    params.set('pageSize', String(pageSize.value));
-    if (searchQuery.value) params.set('q', searchQuery.value);
-    if (selectedPartitionId.value) params.set('partitionId', selectedPartitionId.value);
-
-    const response = await apiFetch<LocationListResponse>(
-      `/clients/${clientId.value}/locations?${params.toString()}`,
+    // TODO(openapi-sync): bffListLocations has no `q` param — the search box was
+    // always ignored server-side; only page/pageSize/partitionId are sent.
+    const response = await ok(
+      api.GET('/bff/clients/{clientId}/locations', {
+        params: {
+          path: { clientId: clientId.value },
+          query: {
+            page: page.value,
+            pageSize: pageSize.value,
+            ...(selectedPartitionId.value ? { partitionId: selectedPartitionId.value } : {}),
+          },
+        },
+      }),
     );
     locations.value = response.items;
     totalRecords.value = response.total;

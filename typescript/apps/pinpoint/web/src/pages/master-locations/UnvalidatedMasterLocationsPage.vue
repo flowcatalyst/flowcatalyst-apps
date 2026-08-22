@@ -1,28 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 
-interface MasterLocation {
-  id: string;
-  address: string;
-  city: string;
-  status: string;
-  latitude: number | null;
-  longitude: number | null;
-  createdAt: string;
-}
-
-interface MasterLocationListResponse {
-  items: MasterLocation[];
-  total: number;
-}
-
-interface Partition {
-  id: string;
-  code: string;
-  name: string;
-}
+type MasterLocation = ApiResponse<
+  '/bff/clients/{clientId}/master-locations',
+  'get'
+>['items'][number];
+type Partition = ApiResponse<'/bff/clients/{clientId}/partitions', 'get'>['items'][number];
 
 const clientStore = useClientStore();
 const clients = computed(() => clientStore.clients ?? []);
@@ -39,8 +24,10 @@ async function loadPartitions() {
   selectedPartitionId.value = null;
   if (!selectedClientId.value) return;
   try {
-    const resp = await apiFetch<{ items: Partition[] }>(
-      `/clients/${selectedClientId.value}/partitions`,
+    const resp = await ok(
+      api.GET('/bff/clients/{clientId}/partitions', {
+        params: { path: { clientId: selectedClientId.value } },
+      }),
     );
     partitions.value = resp.items;
   } catch {
@@ -57,13 +44,11 @@ async function loadUnvalidated() {
 
   try {
     for (const client of clientsToLoad) {
-      for (const status of ['PENDING', 'GEOCODED']) {
-        const params = new URLSearchParams();
-        params.set('page', '0');
-        params.set('pageSize', '200');
-        params.set('status', status);
-        const resp = await apiFetch<MasterLocationListResponse>(
-          `/clients/${client.id}/master-locations?${params.toString()}`,
+      for (const status of ['PENDING', 'GEOCODED'] as const) {
+        const resp = await ok(
+          api.GET('/bff/clients/{clientId}/master-locations', {
+            params: { path: { clientId: client.id }, query: { page: 0, pageSize: 200, status } },
+          }),
         );
         masterLocations.value.push(...resp.items);
         totalRecords.value += resp.total;

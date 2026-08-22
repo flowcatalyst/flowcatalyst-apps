@@ -1,25 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface Partition {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface PartitionListResponse {
-  items: Partition[];
-  total: number;
-}
+type Partition = ApiResponse<'/bff/clients/{clientId}/partitions', 'get'>['items'][number];
 
 const router = useRouter();
 const clientStore = useClientStore();
@@ -45,7 +33,9 @@ async function loadPartitions() {
   }
   loading.value = true;
   try {
-    const response = await apiFetch<PartitionListResponse>(`/clients/${clientId.value}/partitions`);
+    const response = await ok(
+      api.GET('/bff/clients/{clientId}/partitions', { params: { path: { clientId: clientId.value } } }),
+    );
     partitions.value = response.items;
   } catch {
     partitions.value = [];
@@ -63,18 +53,15 @@ async function handleCreate() {
   if (!clientId.value) return;
   creating.value = true;
   try {
-    await apiFetch(
-      `/clients/${clientId.value}/partitions`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          code: createForm.value.code,
-          name: createForm.value.name,
-          description: createForm.value.description || null,
-        }),
+    await api.POST('/bff/clients/{clientId}/partitions', {
+      params: { path: { clientId: clientId.value } },
+      body: {
+        code: createForm.value.code,
+        name: createForm.value.name,
+        description: createForm.value.description || null,
       },
-      { suppressErrorToast: true },
-    );
+      ...suppressErrorToast,
+    });
     toast.success('Partition Created', `Partition "${createForm.value.name}" has been created.`);
     showCreateDialog.value = false;
     await loadPartitions();

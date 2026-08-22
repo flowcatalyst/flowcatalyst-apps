@@ -1,24 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface MatchingConfig {
-  id: string;
-  clientId: string | null;
-  partitionId: string | null;
-  streetThreshold: number;
-  houseNumberThreshold: number;
-  postalCodeThreshold: number;
-  stateThreshold: number;
-  addressNameThreshold: number;
-  overallThreshold: number;
-  createdAt: string;
-  updatedAt: string;
-}
+type MatchingConfig = ApiResponse<'/bff/clients/{clientId}/matching-config', 'get'>;
 
 const clientStore = useClientStore();
 const authStore = useAuthStore();
@@ -53,7 +41,11 @@ async function loadConfig() {
   }
   loading.value = true;
   try {
-    config.value = await apiFetch<MatchingConfig>(`/clients/${clientId.value}/matching-config`);
+    config.value = await ok(
+      api.GET('/bff/clients/{clientId}/matching-config', {
+        params: { path: { clientId: clientId.value } },
+      }),
+    );
   } catch {
     config.value = null;
   } finally {
@@ -78,21 +70,18 @@ async function handleSave() {
   if (!config.value || !clientId.value) return;
   saving.value = true;
   try {
-    await apiFetch(
-      `/clients/${clientId.value}/matching-config`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({
-          streetThreshold: editForm.value.streetThreshold / 100,
-          houseNumberThreshold: editForm.value.houseNumberThreshold / 100,
-          postalCodeThreshold: editForm.value.postalCodeThreshold / 100,
-          stateThreshold: editForm.value.stateThreshold / 100,
-          addressNameThreshold: editForm.value.addressNameThreshold / 100,
-          overallThreshold: editForm.value.overallThreshold / 100,
-        }),
+    await api.PUT('/bff/clients/{clientId}/matching-config', {
+      params: { path: { clientId: clientId.value } },
+      body: {
+        streetThreshold: editForm.value.streetThreshold / 100,
+        houseNumberThreshold: editForm.value.houseNumberThreshold / 100,
+        postalCodeThreshold: editForm.value.postalCodeThreshold / 100,
+        stateThreshold: editForm.value.stateThreshold / 100,
+        addressNameThreshold: editForm.value.addressNameThreshold / 100,
+        overallThreshold: editForm.value.overallThreshold / 100,
       },
-      { suppressErrorToast: true },
-    );
+      ...suppressErrorToast,
+    });
     toast.success('Saved', 'Matching configuration updated.');
     editing.value = false;
     await loadConfig();

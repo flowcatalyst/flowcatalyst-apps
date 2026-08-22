@@ -29,6 +29,8 @@ TypeScript port of the Rust `pinpoint` service. Address normalization (libpostal
 
 Vue 3 + PrimeVue + Vite. Lives at `apps/pinpoint/web/`. Dev proxy fronts `/bff` / `/api` / `/auth` at the local server.
 
+**API access is typed.** `web/src/api/client.ts` exports `api` (openapi-fetch over `web/src/api/schema.gen.d.ts`, generated from `openapi.gen.json` by `pnpm api:types`), `ok()` to unwrap a call to its body, and `ApiResponse<path, method>` / `ApiRequestBody<path, method>` to name row/detail/payload types. Pages must not hand-write interfaces for server responses — derive them. `apiFetch` is the deprecated untyped fallback for calls the spec doesn't describe; don't add call sites. Error policy (401 → login redirect, 403 → PermissionDenied dialog, else toast unless `...suppressErrorToast` is spread into the init) is shared by both and lives in the middleware.
+
 ## Project structure
 
 ```
@@ -455,8 +457,9 @@ In order:
 
 `apps/pinpoint/openapi.gen.json` is the language-neutral description of both HTTP surfaces (canonical `/clients/...` + `/bff/...`), derived from the TypeBox route schemas — the same document `@fastify/swagger-ui` serves at `/docs`.
 
-- **Regenerate** after any route/schema change: `pnpm --filter @pinpoint/server openapi:export` (boots the app offline — no DB, IdP, or Redis needed — and dumps `server.swagger()`).
-- **Drift check**: `pnpm --filter @pinpoint/server openapi:check` exits 1 if the file is stale. Run it before committing route work.
+- **Regenerate** after any route/schema change: `pnpm openapi:pinpoint` from `typescript/` (= `@pinpoint/server openapi:export`, which boots the app offline — no DB, IdP, or Redis needed — and dumps `server.swagger()`; then `@pinpoint/web api:types`, which regenerates `web/src/api/schema.gen.d.ts`). Commit both generated files with the route change.
+- **Drift check**: `pnpm openapi:pinpoint:check` exits 1 if either generated file is stale. Run it before committing route work.
+- **Typed web client**: pages consume the spec through `web/src/api/client.ts` (`api` + `ok()` + `ApiResponse<>`); see the Web section above. A route/schema change that breaks a page shows up as a vue-tsc error — that is the sync working.
 - **operationId** is mandatory on every route and must be unique: camelCase of the route file stem (`delete-location.route.ts` → `deleteLocation`), prefixed `bff` for BFF routes (`bffListLocations`). Files that register two routes (`auth/me.route.ts`, `bff/master-locations/match-features.route.ts`) assign distinct ids by hand.
 - `*.gen.*` is formatter-ignored; never hand-edit the file. Schemas are inlined per operation (no `$ref` components yet), so the file is large — that's expected.
 - Consumers: client/type generation for the Vue SPA (`openapi-typescript`), and any non-TS port of the service.

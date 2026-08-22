@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { apiFetch } from '@/api/client';
+import { api, ok, type ApiResponse } from '@/api/client';
 
-interface Client {
-  id: string;
-  name: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+type Client = ApiResponse<'/bff/clients/{clientId}', 'get'>;
 
 const route = useRoute();
 const client = ref<Client | null>(null);
@@ -17,7 +11,11 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    client.value = await apiFetch<Client>(`/clients/${route.params['id'] as string}`);
+    client.value = await ok(
+      api.GET('/bff/clients/{clientId}', {
+        params: { path: { clientId: route.params['id'] as string } },
+      }),
+    );
   } catch {
     // handled by global error toast
   } finally {
@@ -55,11 +53,11 @@ onMounted(async () => {
           </div>
           <div class="detail-item">
             <span class="detail-label">Created</span>
-            <span class="detail-value">{{ client.created_at }}</span>
+            <span class="detail-value">{{ client.createdAt }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Updated</span>
-            <span class="detail-value">{{ client.updated_at }}</span>
+            <span class="detail-value">{{ client.updatedAt }}</span>
           </div>
         </div>
       </div>

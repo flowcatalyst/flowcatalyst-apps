@@ -1,15 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import type { ApiResponse } from '@/api/client';
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-}
+/** Body of `GET /auth/me` — typed from the OpenAPI spec, fetched raw below. */
+type MeResponse = ApiResponse<'/auth/me', 'get'>;
 
-interface MeResponse extends User {
-  permissions?: string[];
-}
+export type User = Pick<MeResponse, 'id' | 'email' | 'name'>;
 
 function redirectToLogin(): void {
   window.location.href = '/auth/login';
@@ -35,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const displayName = computed(() => {
     if (!user.value) return '';
-    return user.value.name || user.value.email;
+    return user.value.name || user.value.email || '';
   });
 
   const userInitials = computed(() => {

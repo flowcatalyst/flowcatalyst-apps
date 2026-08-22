@@ -1,4 +1,24 @@
+/**
+ * HTTP client for the pinpoint BFF.
+ *
+ * Two surfaces, one error policy:
+ *
+ *  - `api` — the typed client (openapi-fetch over `schema.gen.d.ts`, which is
+ *    generated from `apps/pinpoint/openapi.gen.json` by `pnpm api:types`).
+ *    Paths, params, bodies and responses are checked against the server's
+ *    TypeBox route schemas. Prefer this for everything.
+ *  - `apiFetch` — the legacy untyped helper. Only for calls the spec doesn't
+ *    describe; new code should not add call sites.
+ *
+ * Both share `handleErrorResponse`: emit on the error bus (drives the
+ * PermissionDenied dialog), redirect on 401, toast on everything else unless
+ * the caller opted out, then throw `ApiError`.
+ */
+import createClient, { type Middleware } from 'openapi-fetch';
 import { toast } from '@flowcatalyst-apps/web-kit';
+import type { paths } from './schema.gen';
+
+export type ApiPaths = paths;
 
 export const API_BASE_URL = '/bff';
 
@@ -42,7 +62,7 @@ export function notifyPermissionDenied(
   emitApiError(403, message);
 }
 
-/** Per-call knobs for apiFetch that aren't part of the fetch RequestInit. */
+/** Per-call knobs that aren't part of the fetch RequestInit. */
 export interface ApiFetchConfig {
   /**
    * Skip the generic "Request Failed" toast on error. Pass this when the caller
@@ -52,6 +72,145 @@ export interface ApiFetchConfig {
   suppressErrorToast?: boolean;
 }
 
+/**
+ * Shared non-2xx handling. Returns the `ApiError` for the caller to throw.
+ * Server errors carry both a machine `error` and a human `message`
+ * (`{ error: 'authorization', message: 'Missing permission …' }`); prefer
+ * the message.
+ */
+function handleErrorResponse(
+  status: number,
+  body: Record<string, unknown>,
+  config: ApiFetchConfig,
+): ApiError {
+  const message =
+    (body['message'] as string | undefined) ??
+    (body['error'] as string | undefined) ??
+    'Request failed';
+  const code = body['code'] as string | undefined;
+
+  emitApiError(status, message);
+
+  if (status === 401) {
+    // Session missing or expired — the server already attempted an in-band
+    // refresh before returning 401, so re-authentication is required. This
+    // is the ONLY status that redirects to login. A 403 is
+    // authenticated-but-forbidden (a permission gap, not a session
+    // problem) and must NOT redirect, or a user lacking one permission
+    // gets bounced through login on a loop.
+    window.location.href = '/auth/login';
+    return new ApiError(message, status, code);
+  }
+
+  // 403 is surfaced by the global PermissionDeniedDialog (it subscribes to
+  // emitApiError above), so skip the toast to avoid a double notification.
+  // suppressErrorToast lets a caller that renders its own contextual toast
+  // opt out of this generic one (same anti-duplication reason).
+  if (status !== 403 && !config.suppressErrorToast) {
+    toast.error('Request Failed', message);
+  }
+  return new ApiError(message, status, code);
+}
+
+// ── Typed client ─────────────────────────────────────────────────────────────
+
+/**
+ * Marker header a caller adds to opt out of the generic error toast. It is
+ * consumed by the middleware and stripped before the request leaves the
+ * browser — the server never sees it.
+ */
+const SUPPRESS_TOAST_HEADER = 'x-pinpoint-suppress-error-toast';
+
+/**
+ * Spread into a typed call's init to skip the generic error toast:
+ *
+ *   await api.DELETE('/bff/clients/{clientId}/layers/{layerId}', {
+ *     params: { path: { clientId, layerId } },
+ *     ...suppressErrorToast,
+ *   });
+ */
+export const suppressErrorToast = { headers: { [SUPPRESS_TOAST_HEADER]: '1' } } as const;
+
+const suppressedRequestIds = new Set<string>();
+
+const errorHandling: Middleware = {
+  onRequest({ request, id }) {
+    if (request.headers.has(SUPPRESS_TOAST_HEADER)) {
+      request.headers.delete(SUPPRESS_TOAST_HEADER);
+      suppressedRequestIds.add(id);
+    }
+  },
+  async onResponse({ response, id }) {
+    const suppress = suppressedRequestIds.delete(id);
+    if (response.ok) return;
+    const body = (await response
+      .clone()
+      .json()
+      .catch(() => ({ error: 'Request failed' }))) as Record<string, unknown>;
+    // Throwing from middleware rejects the `api.X()` promise — callers see
+    // the same ApiError they got from apiFetch.
+    throw handleErrorResponse(response.status, body, { suppressErrorToast: suppress });
+  },
+  onError({ id }) {
+    suppressedRequestIds.delete(id);
+  },
+};
+
+/**
+ * Typed BFF client. Paths are the full spec paths (they include `/bff`), so
+ * `baseUrl` is empty and requests stay same-origin (vite proxies `/bff` and
+ * `/auth` in dev; the server serves both in prod).
+ */
+export const api = createClient<paths>({ baseUrl: '', credentials: 'include' });
+api.use(errorHandling);
+
+/**
+ * Unwrap a typed call to its response body. The error middleware throws on
+ * non-2xx, so a resolved call always carries data (it is only `undefined`
+ * for 204, which no caller reads).
+ *
+ *   const { items } = await ok(api.GET('/bff/clients/{clientId}/layers', {
+ *     params: { path: { clientId } },
+ *   }));
+ */
+export async function ok<T extends { data?: unknown }>(
+  call: Promise<T>,
+): Promise<NonNullable<T['data']>> {
+  const { data } = await call;
+  return data as NonNullable<T['data']>;
+}
+
+type JsonOf<R> = R extends { content: { 'application/json': infer B } } ? B : never;
+
+/**
+ * The 200/201 JSON response body of an operation — use it to name row/detail
+ * types in pages instead of hand-writing interfaces:
+ *
+ *   type Layer = ApiResponse<'/bff/clients/{clientId}/layers', 'get'>['items'][number];
+ */
+export type ApiResponse<P extends keyof paths, M extends keyof paths[P]> =
+  paths[P][M] extends { responses: infer R }
+    ? R extends { 200: infer S }
+      ? JsonOf<S>
+      : R extends { 201: infer S }
+        ? JsonOf<S>
+        : never
+    : never;
+
+/** The JSON request body of an operation (for typing form payloads). */
+export type ApiRequestBody<P extends keyof paths, M extends keyof paths[P]> =
+  paths[P][M] extends { requestBody?: infer RB }
+    ? RB extends { content: { 'application/json': infer B } }
+      ? B
+      : never
+    : never;
+
+// ── Legacy untyped client ────────────────────────────────────────────────────
+
+/**
+ * @deprecated Prefer `api` + `ok()`. Kept for calls the OpenAPI spec does not
+ * describe; do not add new call sites.
+ */
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -75,36 +234,7 @@ export async function apiFetch<T>(
       string,
       unknown
     >;
-    // Prefer the human-readable `message`; fall back to the machine `error`
-    // type only when there's no message. (Server errors carry both:
-    // `{ error: 'authorization', message: 'Missing permission …' }`.)
-    const message =
-      (error['message'] as string | undefined) ??
-      (error['error'] as string | undefined) ??
-      'Request failed';
-    const code = error['code'] as string | undefined;
-
-    emitApiError(response.status, message);
-
-    if (response.status === 401) {
-      // Session missing or expired — the server already attempted an in-band
-      // refresh before returning 401, so re-authentication is required. This
-      // is the ONLY status that redirects to login. A 403 is
-      // authenticated-but-forbidden (a permission gap, not a session
-      // problem) and must NOT redirect, or a user lacking one permission
-      // gets bounced through login on a loop.
-      window.location.href = '/auth/login';
-      throw new ApiError(message, response.status, code);
-    }
-
-    // 403 is surfaced by the global PermissionDeniedDialog (it subscribes to
-    // emitApiError above), so skip the toast to avoid a double notification.
-    // suppressErrorToast lets a caller that renders its own contextual toast
-    // opt out of this generic one (same anti-duplication reason).
-    if (response.status !== 403 && !config.suppressErrorToast) {
-      toast.error('Request Failed', message);
-    }
-    throw new ApiError(message, response.status, code);
+    throw handleErrorResponse(response.status, error, config);
   }
 
   if (response.status === 204) {

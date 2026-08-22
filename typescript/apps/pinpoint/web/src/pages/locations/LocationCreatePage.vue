@@ -1,21 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiRequestBody, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface Partition {
-  id: string;
-  code: string;
-  name: string;
-}
-
-interface PartitionListResponse {
-  items: Partition[];
-  total: number;
-}
+type Partition = ApiResponse<'/bff/clients/{clientId}/partitions', 'get'>['items'][number];
+type CreateLocationBody = ApiRequestBody<'/bff/clients/{clientId}/locations', 'post'>;
 
 const router = useRouter();
 const clientStore = useClientStore();
@@ -33,7 +25,9 @@ const form = ref({
 onMounted(async () => {
   if (!clientId.value) return;
   try {
-    const response = await apiFetch<PartitionListResponse>(`/clients/${clientId.value}/partitions`);
+    const response = await ok(
+      api.GET('/bff/clients/{clientId}/partitions', { params: { path: { clientId: clientId.value } } }),
+    );
     partitions.value = response.items;
     // Partition is required — pre-select the client's 'default' partition
     // (every client has one; the server seeds it).
@@ -48,20 +42,19 @@ async function handleSubmit() {
   if (!clientId.value || !form.value.address.trim()) return;
   saving.value = true;
   try {
-    const body: Record<string, unknown> = {
+    const body: CreateLocationBody = {
       address: form.value.address.trim(),
     };
-    if (form.value.name.trim()) body['name'] = form.value.name.trim();
-    if (form.value.externalId.trim()) body['externalId'] = form.value.externalId.trim();
-    if (form.value.partitionId) body['partitionId'] = form.value.partitionId;
+    if (form.value.name.trim()) body.name = form.value.name.trim();
+    if (form.value.externalId.trim()) body.externalId = form.value.externalId.trim();
+    if (form.value.partitionId) body.partitionId = form.value.partitionId;
 
-    const result = await apiFetch<{ id: string }>(
-      `/clients/${clientId.value}/locations`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      },
-      { suppressErrorToast: true },
+    const result = await ok(
+      api.POST('/bff/clients/{clientId}/locations', {
+        params: { path: { clientId: clientId.value } },
+        body,
+        ...suppressErrorToast,
+      }),
     );
     toast.success('Location Created', 'The location has been created and is being processed.');
     await router.push(`/locations/${result.id}`);

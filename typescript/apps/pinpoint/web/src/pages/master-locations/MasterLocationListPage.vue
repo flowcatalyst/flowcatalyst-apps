@@ -1,32 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiPaths, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { useAuthStore } from '@/stores/auth';
 import { useListState } from '@flowcatalyst-apps/web-kit';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface MasterLocation {
-  id: string;
-  address: string;
-  city: string;
-  status: string;
-  latitude: number | null;
-  longitude: number | null;
-  createdAt: string;
-}
-
-interface MasterLocationListResponse {
-  items: MasterLocation[];
-  total: number;
-}
-
-interface Partition {
-  id: string;
-  code: string;
-  name: string;
-}
+const LIST_PATH = '/bff/clients/{clientId}/master-locations';
+type MasterLocation = ApiResponse<typeof LIST_PATH, 'get'>['items'][number];
+type MasterLocationStatus = NonNullable<
+  NonNullable<ApiPaths[typeof LIST_PATH]['get']['parameters']['query']>['status']
+>;
+type Partition = ApiResponse<'/bff/clients/{clientId}/partitions', 'get'>['items'][number];
 
 const statusOptions = [
   { label: 'All Statuses', value: '' },
@@ -60,14 +46,19 @@ async function loadMasterLocations() {
   }
   loading.value = true;
   try {
-    const params = new URLSearchParams();
-    params.set('page', String(page.value));
-    params.set('pageSize', String(pageSize.value));
-    if (searchQuery.value) params.set('q', searchQuery.value);
-    if (statusFilter.value) params.set('status', statusFilter.value);
-
-    const response = await apiFetch<MasterLocationListResponse>(
-      `/clients/${clientId.value}/master-locations?${params.toString()}`,
+    // TODO(openapi-sync): bffListMasterLocations has no `q` param — the search
+    // box was never applied server-side; only page/pageSize/status are sent.
+    const response = await ok(
+      api.GET(LIST_PATH, {
+        params: {
+          path: { clientId: clientId.value },
+          query: {
+            page: page.value,
+            pageSize: pageSize.value,
+            ...(statusFilter.value ? { status: statusFilter.value as MasterLocationStatus } : {}),
+          },
+        },
+      }),
     );
     masterLocations.value = response.items;
     totalRecords.value = response.total;
@@ -86,7 +77,11 @@ function onStatusChange() {
 async function loadPartitions() {
   if (!clientId.value) return;
   try {
-    const resp = await apiFetch<{ items: Partition[] }>(`/clients/${clientId.value}/partitions`);
+    const resp = await ok(
+      api.GET('/bff/clients/{clientId}/partitions', {
+        params: { path: { clientId: clientId.value } },
+      }),
+    );
     partitions.value = resp.items;
   } catch {
     /* optional */
@@ -121,10 +116,11 @@ async function handleBulkMatch() {
   if (!clientId.value) return;
   bulkMatching.value = true;
   try {
-    const result = await apiFetch<{ mastersProcessed: number; totalAssociations: number }>(
-      `/clients/${clientId.value}/master-locations/match-features`,
-      { method: 'POST' },
-      { suppressErrorToast: true },
+    const result = await ok(
+      api.POST('/bff/clients/{clientId}/master-locations/match-features', {
+        params: { path: { clientId: clientId.value } },
+        ...suppressErrorToast,
+      }),
     );
     toast.success(
       'Spatial Matching Complete',

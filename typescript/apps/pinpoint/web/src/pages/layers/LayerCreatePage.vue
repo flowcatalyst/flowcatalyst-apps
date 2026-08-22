@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
@@ -32,18 +32,17 @@ async function handleSubmit() {
   const f = form.value;
   saving.value = true;
   try {
-    const result = await apiFetch<{ id: string }>(
-      `/clients/${clientId.value}/layers`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
+    const result = await ok(
+      api.POST('/bff/clients/{clientId}/layers', {
+        params: { path: { clientId: clientId.value } },
+        body: {
           code: f.code,
           name: f.name,
           description: f.description.trim() || null,
           layerType: f.layerType,
-        }),
-      },
-      { suppressErrorToast: true },
+        },
+        ...suppressErrorToast,
+      }),
     );
     toast.success('Layer Created', `Layer "${f.name}" has been created.`);
     await router.push(`/layers/${result.id}`);

@@ -1,33 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { apiFetch } from '@/api/client';
+import { api, ok, suppressErrorToast, type ApiRequestBody, type ApiResponse } from '@/api/client';
 import { useClientStore } from '@/stores/client';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-interface LookupFeature {
-  layerId: string;
-  layerCode: string;
-  layerName: string;
-  layerType: string;
-  featureId: string;
-  featureLabel: string;
-  distanceMeters: number | null;
-  properties: Record<string, string>;
-}
-
-interface LookupResponse {
-  latitude: number;
-  longitude: number;
-  results: LookupFeature[];
-}
-
-interface Layer {
-  id: string;
-  code: string;
-  name: string;
-  layerType: string;
-}
+type LookupRequest = ApiRequestBody<'/bff/clients/{clientId}/spatial-lookup', 'post'>;
+type LookupFeature = ApiResponse<
+  '/bff/clients/{clientId}/spatial-lookup',
+  'post'
+>['results'][number];
+type Layer = ApiResponse<'/bff/clients/{clientId}/layers', 'get'>['items'][number];
 
 const clientStore = useClientStore();
 const clientId = computed(() => clientStore.selectedClientId);
@@ -43,7 +26,9 @@ const lookupCoords = ref<{ lat: number; lon: number } | null>(null);
 async function loadLayers() {
   if (!clientId.value) return;
   try {
-    const resp = await apiFetch<{ items: Layer[] }>(`/clients/${clientId.value}/layers`);
+    const resp = await ok(
+      api.GET('/bff/clients/{clientId}/layers', { params: { path: { clientId: clientId.value } } }),
+    );
     layers.value = resp.items;
   } catch {
     /* optional */
@@ -63,19 +48,18 @@ async function handleLookup() {
   loading.value = true;
   results.value = [];
   try {
-    const body: Record<string, unknown> = {
+    const body: LookupRequest = {
       latitude: lat.value,
       longitude: lon.value,
     };
-    if (selectedLayerCodes.value.length > 0) body['layerCodes'] = selectedLayerCodes.value;
+    if (selectedLayerCodes.value.length > 0) body.layerCodes = selectedLayerCodes.value;
 
-    const resp = await apiFetch<LookupResponse>(
-      `/clients/${clientId.value}/spatial-lookup`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      },
-      { suppressErrorToast: true },
+    const resp = await ok(
+      api.POST('/bff/clients/{clientId}/spatial-lookup', {
+        params: { path: { clientId: clientId.value } },
+        body,
+        ...suppressErrorToast,
+      }),
     );
     results.value = resp.results;
     lookupCoords.value = { lat: resp.latitude, lon: resp.longitude };
