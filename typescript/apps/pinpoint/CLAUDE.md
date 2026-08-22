@@ -41,6 +41,7 @@ apps/pinpoint/
 ├── compose.prod.yaml                  # prod: full stack
 ├── Dockerfile                         # multi-stage prod image
 ├── docs/
+│   ├── architecture.md                # architecture, diagrams, process flows — start here for the big picture
 │   ├── MIGRATION_PLAN.md              # historical port plan + slice notes
 │   ├── HANDOFF.md                     # pickup state + gotchas — read after this file
 │   ├── route-triage.md                # Rust route inventory + TS port status
@@ -447,11 +448,12 @@ Keep it dumb — wiring only, no business logic. New use cases: add the import, 
 
 In order:
 
-1. `apps/pinpoint/docs/HANDOFF.md` — pickup state, slice notes, every gotcha discovered during the port (and there are many). Read this before making non-trivial changes.
-2. `apps/pinpoint/docs/MIGRATION_PLAN.md` — historical slice ordering + scope adjustments. Useful when reading old commit messages.
-3. `apps/pinpoint/docs/spatial-queries.md` — PostGIS + Drizzle 1.0 RC gotchas. Read this before touching any geometry column.
-4. `apps/pinpoint/docs/integration-testing.md` — testcontainers harness shape. Read this before adding integration tests.
-5. `apps/fulfil/CLAUDE.md` — the Effect-stack reference. Useful for architectural background; **translate the use-case + repo shapes** via the table above before applying anything to pinpoint code.
+1. `apps/pinpoint/docs/architecture.md` — the system on one page: context, domain model, write path, process flows (matching pipeline, scheduled validation, auth, platform sync), deployment, config. Read this first if you are new to pinpoint.
+2. `apps/pinpoint/docs/HANDOFF.md` — pickup state, slice notes, every gotcha discovered during the port (and there are many). Read this before making non-trivial changes.
+3. `apps/pinpoint/docs/MIGRATION_PLAN.md` — historical slice ordering + scope adjustments. Useful when reading old commit messages.
+4. `apps/pinpoint/docs/spatial-queries.md` — PostGIS + Drizzle 1.0 RC gotchas. Read this before touching any geometry column.
+5. `apps/pinpoint/docs/integration-testing.md` — testcontainers harness shape. Read this before adding integration tests.
+6. `apps/fulfil/CLAUDE.md` — the Effect-stack reference. Useful for architectural background; **translate the use-case + repo shapes** via the table above before applying anything to pinpoint code.
 
 ## OpenAPI contract
 
