@@ -190,7 +190,15 @@ async function handleSave() {
             featureId: selectedFeature.value.id,
           },
         },
-        body: selectedFeature.value,
+        // Only the fields bffUpdateFeature accepts — not the whole row.
+        body: {
+          label: selectedFeature.value.label,
+          centerLat: selectedFeature.value.centerLat,
+          centerLon: selectedFeature.value.centerLon,
+          radiusMeters: selectedFeature.value.radiusMeters,
+          polygonGeojson: selectedFeature.value.polygonGeojson,
+          propertyValues: selectedFeature.value.propertyValues,
+        },
         ...suppressErrorToast,
       }),
     );

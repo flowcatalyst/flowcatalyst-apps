@@ -22,8 +22,8 @@
  *    (fuzzy candidate search via `pg_trgm` similarity, partial on
  *    `normalized_address_line IS NOT NULL`)
  */
-import { doublePrecision, index, pgTable, text, varchar } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { type AnyPgColumn, doublePrecision, index, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import { sql, type SQL } from 'drizzle-orm';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { clients } from './clients.js';
 import { partitions } from './partitions.js';
@@ -72,8 +72,31 @@ export const masterLocations = pgTable(
     index('idx_master_locations_address_trgm')
       .using('gist', sql`${t.normalizedAddressLine} gist_trgm_ops`)
       .where(sql`${t.normalizedAddressLine} IS NOT NULL`),
+    // Free-text search (BFF `q`) — see `masterLocationSearchText` below. The
+    // gist index above serves similarity() candidate search; this one serves
+    // ILIKE over the wider address text.
+    index('idx_master_locations_search_trgm').using(
+      'gin',
+      sql`(${masterLocationSearchText(t)}) gin_trgm_ops`,
+    ),
   ],
 );
+
+/**
+ * The searchable text of a master location — normalized address line, road,
+ * suburb, city, postal code. MUST stay identical to the expression indexed by
+ * `idx_master_locations_search_trgm`; the repository's `listByClient` search
+ * filter is `masterLocationSearchText(masterLocations) ILIKE '%…%'`.
+ */
+export function masterLocationSearchText(t: {
+  normalizedAddressLine: AnyPgColumn;
+  normalizedRoad: AnyPgColumn;
+  normalizedSuburb: AnyPgColumn;
+  normalizedCity: AnyPgColumn;
+  normalizedPostalCode: AnyPgColumn;
+}): SQL {
+  return sql`coalesce(${t.normalizedAddressLine}, '') || ' ' || coalesce(${t.normalizedRoad}, '') || ' ' || coalesce(${t.normalizedSuburb}, '') || ' ' || ${t.normalizedCity} || ' ' || coalesce(${t.normalizedPostalCode}, '')`;
+}
 
 export type NewMasterLocation = typeof masterLocations.$inferInsert;
 export type MasterLocationRow = typeof masterLocations.$inferSelect;

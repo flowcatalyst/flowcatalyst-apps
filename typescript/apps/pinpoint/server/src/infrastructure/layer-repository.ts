@@ -1,4 +1,4 @@
-import { and, asc, count, eq, ilike, or } from 'drizzle-orm';
+import { and, asc, count, eq, sql } from 'drizzle-orm';
 import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
@@ -10,7 +10,7 @@ import type {
   ListLayersQuery,
   ListLayersResult,
 } from '../domain/layers/layer.repository.js';
-import { layers, type LayerRow } from './schema/layers.js';
+import { layers, layerSearchText, type LayerRow } from './schema/layers.js';
 import { layerPartitions } from './schema/layer-partitions.js';
 
 function toDomain(row: LayerRow): Layer {
@@ -97,13 +97,8 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
       const pattern = search ? containsPattern(search) : null;
       const where = and(
         eq(layers.clientId, query.clientId),
-        pattern
-          ? or(
-              ilike(layers.code, pattern),
-              ilike(layers.name, pattern),
-              ilike(layers.description, pattern),
-            )
-          : undefined,
+        // Same expression as idx_layers_search_trgm → index-backed ILIKE.
+        pattern ? sql`${layerSearchText(layers)} ILIKE ${pattern}` : undefined,
       );
       const [rows, totalRow] = await Promise.all([
         db

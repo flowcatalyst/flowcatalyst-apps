@@ -1,4 +1,4 @@
-import { and, asc, count, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
@@ -15,7 +15,7 @@ import type {
   ListByClientResult,
   LocationRepository,
 } from '../domain/locations/location.repository.js';
-import { locations, type LocationRow } from './schema/locations.js';
+import { locations, locationSearchText, type LocationRow } from './schema/locations.js';
 
 function toDomain(row: LocationRow): Location {
   return {
@@ -160,16 +160,8 @@ export function createDrizzleLocationRepository(db: PostgresJsDatabase): Locatio
       const where = and(
         eq(locations.clientId, query.clientId),
         query.partitionId ? eq(locations.partitionId, query.partitionId) : undefined,
-        pattern
-          ? or(
-              ilike(locations.name, pattern),
-              ilike(locations.externalId, pattern),
-              ilike(locations.rawAddressLine1, pattern),
-              ilike(locations.rawSuburb, pattern),
-              ilike(locations.rawCity, pattern),
-              ilike(locations.rawPostalCode, pattern),
-            )
-          : undefined,
+        // Same expression as idx_locations_search_trgm → index-backed ILIKE.
+        pattern ? sql`${locationSearchText(locations)} ILIKE ${pattern}` : undefined,
       );
       const [rows, totalRow] = await Promise.all([
         db

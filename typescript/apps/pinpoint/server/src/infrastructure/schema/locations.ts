@@ -8,8 +8,16 @@
  * matching pipeline (rewritten `create-location` use case) actually
  * populates the normalized + match info.
  */
-import { doublePrecision, index, pgTable, text, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import {
+  type AnyPgColumn,
+  doublePrecision,
+  index,
+  pgTable,
+  text,
+  uniqueIndex,
+  varchar,
+} from 'drizzle-orm/pg-core';
+import { sql, type SQL } from 'drizzle-orm';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { clients } from './clients.js';
 import { partitions } from './partitions.js';
@@ -61,6 +69,11 @@ export const locations = pgTable(
     index('idx_locations_master').on(t.masterLocationId),
     index('idx_locations_hash').on(t.addressHash),
     index('idx_locations_status').on(t.status),
+    // Free-text search (BFF `q`) — see `locationSearchText` below.
+    index('idx_locations_search_trgm').using(
+      'gin',
+      sql`(${locationSearchText(t)}) gin_trgm_ops`,
+    ),
     // Dedup-by-hash lookup, scoped to (client, partition).
     index('idx_locations_address_hash')
       .on(t.clientId, t.partitionId, t.addressHash)
@@ -74,3 +87,21 @@ export const locations = pgTable(
 
 export type NewLocation = typeof locations.$inferInsert;
 export type LocationRow = typeof locations.$inferSelect;
+
+/**
+ * The searchable text of a location — name, external id, raw address line,
+ * suburb, city, postal code. MUST stay identical to the expression indexed by
+ * `idx_locations_search_trgm` (Postgres only uses an expression index when the
+ * query expression matches exactly); the repository's `listByClient` search
+ * filter is `locationSearchText(locations) ILIKE '%…%'`.
+ */
+export function locationSearchText(t: {
+  name: AnyPgColumn;
+  externalId: AnyPgColumn;
+  rawAddressLine1: AnyPgColumn;
+  rawSuburb: AnyPgColumn;
+  rawCity: AnyPgColumn;
+  rawPostalCode: AnyPgColumn;
+}): SQL {
+  return sql`coalesce(${t.name}, '') || ' ' || coalesce(${t.externalId}, '') || ' ' || ${t.rawAddressLine1} || ' ' || coalesce(${t.rawSuburb}, '') || ' ' || ${t.rawCity} || ' ' || coalesce(${t.rawPostalCode}, '')`;
+}

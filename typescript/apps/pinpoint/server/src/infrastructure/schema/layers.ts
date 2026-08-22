@@ -15,6 +15,8 @@
  * and location_layer_associations.
  */
 import { doublePrecision, pgTable, text, uniqueIndex, varchar, index } from 'drizzle-orm/pg-core';
+import { sql, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { clients } from './clients.js';
 import { geometry } from './types/geometry.js';
@@ -43,8 +45,25 @@ export const layers = pgTable(
     index('idx_layers_client').on(t.clientId),
     uniqueIndex('idx_layers_client_code').on(t.clientId, t.code),
     index('idx_layers_boundary').using('gist', t.boundary),
+    // Free-text search (BFF `q`). Trigram GIN over the concatenated search
+    // text; the repository filters with `layerSearchText(layers) ILIKE …`, which
+    // is the same expression, so the planner can use this index.
+    index('idx_layers_search_trgm').using('gin', sql`(${layerSearchText(t)}) gin_trgm_ops`),
   ],
 );
+
+/**
+ * The searchable text of a layer — code, name, description. MUST stay
+ * identical to the expression indexed by `idx_layers_search_trgm` (Postgres
+ * only uses an expression index when the query expression matches exactly).
+ */
+export function layerSearchText(t: {
+  code: AnyPgColumn;
+  name: AnyPgColumn;
+  description: AnyPgColumn;
+}): SQL {
+  return sql`${t.code} || ' ' || ${t.name} || ' ' || coalesce(${t.description}, '')`;
+}
 
 export type NewLayer = typeof layers.$inferInsert;
 export type LayerRow = typeof layers.$inferSelect;

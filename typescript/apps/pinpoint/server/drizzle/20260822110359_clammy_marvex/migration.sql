@@ -1,0 +1,3 @@
+CREATE INDEX "idx_layers_search_trgm" ON "layers" USING gin (("code" || ' ' || "name" || ' ' || coalesce("description", '')) gin_trgm_ops);--> statement-breakpoint
+CREATE INDEX "idx_locations_search_trgm" ON "locations" USING gin ((coalesce("name", '') || ' ' || coalesce("external_id", '') || ' ' || "raw_address_line1" || ' ' || coalesce("raw_suburb", '') || ' ' || "raw_city" || ' ' || coalesce("raw_postal_code", '')) gin_trgm_ops);--> statement-breakpoint
+CREATE INDEX "idx_master_locations_search_trgm" ON "master_locations" USING gin ((coalesce("normalized_address_line", '') || ' ' || coalesce("normalized_road", '') || ' ' || coalesce("normalized_suburb", '') || ' ' || "normalized_city" || ' ' || coalesce("normalized_postal_code", '')) gin_trgm_ops);

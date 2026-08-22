@@ -29,7 +29,7 @@ TypeScript port of the Rust `pinpoint` service. Address normalization (libpostal
 
 Vue 3 + PrimeVue + Vite. Lives at `apps/pinpoint/web/`. Dev proxy fronts `/bff` / `/api` / `/auth` at the local server.
 
-**API access is typed.** `web/src/api/client.ts` exports `api` (openapi-fetch over `web/src/api/schema.gen.d.ts`, generated from `openapi.gen.json` by `pnpm api:types`), `ok()` to unwrap a call to its body, and `ApiResponse<path, method>` / `ApiRequestBody<path, method>` to name row/detail/payload types. Pages must not hand-write interfaces for server responses — derive them. `apiFetch` is the deprecated untyped fallback for calls the spec doesn't describe; don't add call sites. Error policy (401 → login redirect, 403 → PermissionDenied dialog, else toast unless `...suppressErrorToast` is spread into the init) is shared by both and lives in the middleware.
+**API access is typed.** `web/src/api/client.ts` exports `api` (openapi-fetch over `web/src/api/schema.gen.d.ts`, generated from `openapi.gen.json` by `pnpm api:types`), `ok()` to unwrap a call to its body, and `ApiResponse<path, method>` / `ApiRequestBody<path, method>` to name row/detail/payload types. Pages must not hand-write interfaces for server responses — derive them. There is deliberately no untyped fallback — if the SPA needs an endpoint, add it to the server and regenerate. Error policy (401 → login redirect, 403 → PermissionDenied dialog, else toast unless `...suppressErrorToast` is spread into the init) lives in the client middleware.
 
 ## Project structure
 

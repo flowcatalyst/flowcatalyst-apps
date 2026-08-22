@@ -1,16 +1,13 @@
 /**
  * HTTP client for the pinpoint BFF.
  *
- * Two surfaces, one error policy:
+ * `api` is the typed client: openapi-fetch over `schema.gen.d.ts`, which is
+ * generated from `apps/pinpoint/openapi.gen.json` by `pnpm api:types`. Paths,
+ * params, bodies and responses are checked against the server's TypeBox route
+ * schemas. If an endpoint you need isn't on `api`, add it to the server (and
+ * regenerate) — there is deliberately no untyped escape hatch.
  *
- *  - `api` — the typed client (openapi-fetch over `schema.gen.d.ts`, which is
- *    generated from `apps/pinpoint/openapi.gen.json` by `pnpm api:types`).
- *    Paths, params, bodies and responses are checked against the server's
- *    TypeBox route schemas. Prefer this for everything.
- *  - `apiFetch` — the legacy untyped helper. Only for calls the spec doesn't
- *    describe; new code should not add call sites.
- *
- * Both share `handleErrorResponse`: emit on the error bus (drives the
+ * Error policy lives in the middleware: emit on the error bus (drives the
  * PermissionDenied dialog), redirect on 401, toast on everything else unless
  * the caller opted out, then throw `ApiError`.
  */
@@ -19,8 +16,6 @@ import { toast } from '@flowcatalyst-apps/web-kit';
 import type { paths } from './schema.gen';
 
 export type ApiPaths = paths;
-
-export const API_BASE_URL = '/bff';
 
 export class ApiError extends Error {
   status: number;
@@ -62,8 +57,8 @@ export function notifyPermissionDenied(
   emitApiError(403, message);
 }
 
-/** Per-call knobs that aren't part of the fetch RequestInit. */
-export interface ApiFetchConfig {
+/** Per-call error-handling knobs (see `suppressErrorToast`). */
+interface ApiFetchConfig {
   /**
    * Skip the generic "Request Failed" toast on error. Pass this when the caller
    * shows its own contextual toast (e.g. `toast.error('Geocoding failed', …)`),
@@ -204,42 +199,3 @@ export type ApiRequestBody<P extends keyof paths, M extends keyof paths[P]> =
       ? B
       : never
     : never;
-
-// ── Legacy untyped client ────────────────────────────────────────────────────
-
-/**
- * @deprecated Prefer `api` + `ok()`. Kept for calls the OpenAPI spec does not
- * describe; do not add new call sites.
- */
-export async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-  config: ApiFetchConfig = {},
-): Promise<T> {
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  };
-  if (options.body) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = (await response.json().catch(() => ({ error: 'Request failed' }))) as Record<
-      string,
-      unknown
-    >;
-    throw handleErrorResponse(response.status, error, config);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}

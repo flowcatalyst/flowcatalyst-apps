@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
@@ -18,7 +18,11 @@ import type {
   ListMasterLocationsResult,
   MasterLocationRepository,
 } from '../domain/locations/master-location.repository.js';
-import { masterLocations, type MasterLocationRow } from './schema/master-locations.js';
+import {
+  masterLocations,
+  masterLocationSearchText,
+  type MasterLocationRow,
+} from './schema/master-locations.js';
 
 function toDomain(row: MasterLocationRow): MasterLocation {
   return {
@@ -199,15 +203,8 @@ export function createDrizzleMasterLocationRepository(
       const where = and(
         eq(masterLocations.clientId, query.clientId),
         query.status == null ? undefined : eq(masterLocations.status, query.status),
-        pattern
-          ? or(
-              ilike(masterLocations.normalizedAddressLine, pattern),
-              ilike(masterLocations.normalizedRoad, pattern),
-              ilike(masterLocations.normalizedSuburb, pattern),
-              ilike(masterLocations.normalizedCity, pattern),
-              ilike(masterLocations.normalizedPostalCode, pattern),
-            )
-          : undefined,
+        // Same expression as idx_master_locations_search_trgm → index-backed ILIKE.
+        pattern ? sql`${masterLocationSearchText(masterLocations)} ILIKE ${pattern}` : undefined,
       );
       const [rows, totalRow] = await Promise.all([
         db
