@@ -41,6 +41,7 @@ export function registerCreateLayerFeatureRoute(
     '/clients/:clientId/layers/:layerId/features',
     {
       schema: {
+        operationId: 'createLayerFeature',
         tags: ['Layers'],
         params: CreateLayerFeatureParamsSchema,
         body: CreateLayerFeatureBodySchema,

@@ -54,6 +54,7 @@ export function registerListLocationsRoute(fastify: FastifyInstance, appContext:
     '/clients/:clientId/locations',
     {
       schema: {
+        operationId: 'listLocations',
         tags: ['Locations'],
         params: Type.Object({ clientId: Type.String() }),
         querystring: ListLocationsQuerySchema,

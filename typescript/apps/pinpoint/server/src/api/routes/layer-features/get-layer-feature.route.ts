@@ -33,6 +33,7 @@ export function registerGetLayerFeatureRoute(
     '/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
+        operationId: 'getLayerFeature',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String(),

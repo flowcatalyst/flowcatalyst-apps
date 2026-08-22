@@ -58,6 +58,7 @@ export function registerBffCreateLayerRoute(
     '/bff/clients/:clientId/layers',
     {
       schema: {
+        operationId: 'bffCreateLayer',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         body: BodySchema,

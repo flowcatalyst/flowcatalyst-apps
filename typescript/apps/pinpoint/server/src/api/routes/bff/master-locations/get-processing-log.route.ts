@@ -32,6 +32,7 @@ export function registerBffGetProcessingLogRoute(
     '/bff/clients/:clientId/master-locations/:masterLocationId/processing-log',
     {
       schema: {
+        operationId: 'bffGetProcessingLog',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

@@ -54,6 +54,7 @@ export function registerBffSpatialLookupRoute(
     '/bff/clients/:clientId/spatial-lookup',
     {
       schema: {
+        operationId: 'bffSpatialLookup',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         body: BodySchema,

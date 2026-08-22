@@ -53,6 +53,7 @@ export function registerBffUpdateLayerRoute(
     '/bff/clients/:clientId/layers/:layerId',
     {
       schema: {
+        operationId: 'bffUpdateLayer',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

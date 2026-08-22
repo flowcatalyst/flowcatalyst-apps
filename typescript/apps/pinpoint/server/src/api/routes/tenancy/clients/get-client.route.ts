@@ -22,6 +22,7 @@ export function registerGetClientRoute(fastify: FastifyInstance, appContext: App
     '/clients/:clientId',
     {
       schema: {
+        operationId: 'getClient',
         tags: ['Tenancy'],
         params: Type.Object({ clientId: Type.String() }),
         response: { 200: ClientResponseSchema, 404: NotFoundSchema },

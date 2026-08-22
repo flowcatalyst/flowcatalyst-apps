@@ -47,6 +47,7 @@ export function registerBffCreatePropertySetRoute(
     '/bff/clients/:clientId/layers/:layerId/property-sets',
     {
       schema: {
+        operationId: 'bffCreatePropertySet',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

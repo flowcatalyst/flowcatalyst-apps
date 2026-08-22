@@ -105,6 +105,7 @@ export function registerBffListMasterLocationsRoute(
     '/bff/clients/:clientId/master-locations',
     {
       schema: {
+        operationId: 'bffListMasterLocations',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         querystring: QuerySchema,

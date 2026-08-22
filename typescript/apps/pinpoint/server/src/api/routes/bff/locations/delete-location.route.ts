@@ -26,6 +26,7 @@ export function registerBffDeleteLocationRoute(
     '/bff/clients/:clientId/locations/:locationId',
     {
       schema: {
+        operationId: 'bffDeleteLocation',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

@@ -28,6 +28,7 @@ export function registerBffDeletePartitionRoute(
     '/bff/clients/:clientId/partitions/:partitionId',
     {
       schema: {
+        operationId: 'bffDeletePartition',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

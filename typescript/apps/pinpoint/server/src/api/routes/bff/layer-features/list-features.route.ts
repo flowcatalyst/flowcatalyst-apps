@@ -43,6 +43,7 @@ export function registerBffListLayerFeaturesRoute(
     '/bff/clients/:clientId/layers/:layerId/features',
     {
       schema: {
+        operationId: 'bffListFeatures',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

@@ -26,6 +26,7 @@ export function registerDeleteLocationRoute(
     '/clients/:clientId/locations/:locationId',
     {
       schema: {
+        operationId: 'deleteLocation',
         tags: ['Locations'],
         description:
           'Delete a location. Cascades to its feature, attribute, and layer association rows.',

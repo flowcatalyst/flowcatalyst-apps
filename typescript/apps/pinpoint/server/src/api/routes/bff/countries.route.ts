@@ -31,6 +31,7 @@ export function registerBffCountriesRoute(fastify: FastifyInstance, appContext: 
     '/bff/countries',
     {
       schema: {
+        operationId: 'bffCountries',
         tags: ['BFF'],
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
       },

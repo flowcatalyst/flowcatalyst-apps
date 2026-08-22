@@ -48,6 +48,7 @@ export function registerSpatialLookupRoute(fastify: FastifyInstance, appContext:
     '/clients/:clientId/spatial-lookup',
     {
       schema: {
+        operationId: 'spatialLookup',
         tags: ['Matching'],
         params: ParamsSchema,
         body: SpatialLookupBodySchema,

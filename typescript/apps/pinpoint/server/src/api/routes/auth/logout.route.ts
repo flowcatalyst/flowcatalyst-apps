@@ -7,7 +7,7 @@ import { clearSessionCookie, SESSION_COOKIE_NAME } from '../../../auth/session-c
  * /auth/login (or /, when the SPA owns the post-logout landing).
  */
 export function registerLogoutRoute(fastify: FastifyInstance, appContext: AppContext): void {
-  fastify.get('/auth/logout', { schema: { tags: ['Auth'] } }, async (request, reply) => {
+  fastify.get('/auth/logout', { schema: { operationId: 'logout', tags: ['Auth'] } }, async (request, reply) => {
     const { sessionStore, config } = appContext.auth;
     const sessionId = request.cookies?.[SESSION_COOKIE_NAME];
     if (sessionId) await sessionStore.delete(sessionId);

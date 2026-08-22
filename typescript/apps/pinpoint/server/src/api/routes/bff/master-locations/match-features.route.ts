@@ -94,6 +94,7 @@ export function registerBffMatchFeaturesRoutes(
     '/bff/clients/:clientId/master-locations/:masterLocationId/match-features',
     {
       schema: {
+        operationId: 'bffMatchFeatures',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),
@@ -168,6 +169,7 @@ export function registerBffMatchFeaturesRoutes(
     '/bff/clients/:clientId/master-locations/match-features',
     {
       schema: {
+        operationId: 'bffMatchFeaturesBulk',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: { 200: BulkResponseSchema, 401: ErrorSchema, 403: ErrorSchema, 500: ErrorSchema },

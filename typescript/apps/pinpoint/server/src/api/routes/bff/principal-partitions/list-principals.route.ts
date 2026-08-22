@@ -36,6 +36,7 @@ export function registerBffListPrincipalsForPartitionRoute(
     '/bff/clients/:clientId/partitions/:partitionId/principals',
     {
       schema: {
+        operationId: 'bffListPrincipals',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

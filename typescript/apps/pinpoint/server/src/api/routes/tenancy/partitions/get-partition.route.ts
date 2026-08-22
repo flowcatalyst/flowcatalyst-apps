@@ -23,6 +23,7 @@ export function registerGetPartitionRoute(fastify: FastifyInstance, appContext: 
     '/clients/:clientId/partitions/:partitionId',
     {
       schema: {
+        operationId: 'getPartition',
         tags: ['Tenancy'],
         params: Type.Object({
           clientId: Type.String(),

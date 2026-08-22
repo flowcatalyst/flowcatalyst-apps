@@ -58,6 +58,7 @@ export function registerCreateLocationRoute(
     '/clients/:clientId/locations',
     {
       schema: {
+        operationId: 'createLocation',
         tags: ['Locations'],
         params: CreateLocationParamsSchema,
         body: CreateLocationBodySchema,

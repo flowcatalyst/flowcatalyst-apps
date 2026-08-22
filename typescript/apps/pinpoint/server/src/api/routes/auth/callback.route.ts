@@ -23,6 +23,7 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
     '/auth/callback',
     {
       schema: {
+        operationId: 'callback',
         tags: ['Auth'],
         querystring: Type.Object({
           code: Type.Optional(Type.String()),

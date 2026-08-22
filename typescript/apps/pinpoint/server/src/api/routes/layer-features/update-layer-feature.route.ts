@@ -36,6 +36,7 @@ export function registerUpdateLayerFeatureRoute(
     '/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
+        operationId: 'updateLayerFeature',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

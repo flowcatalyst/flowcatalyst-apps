@@ -27,6 +27,7 @@ export function registerBffDeleteLayerFeatureRoute(
     '/bff/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
+        operationId: 'bffDeleteFeature',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

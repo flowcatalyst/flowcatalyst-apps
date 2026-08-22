@@ -49,6 +49,7 @@ export function registerBffReverseGeocodeMasterLocationRoute(
     '/bff/clients/:clientId/master-locations/:masterLocationId/reverse-geocode',
     {
       schema: {
+        operationId: 'bffReverseGeocodeMasterLocation',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

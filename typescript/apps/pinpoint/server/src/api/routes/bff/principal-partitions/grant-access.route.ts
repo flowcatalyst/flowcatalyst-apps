@@ -32,6 +32,7 @@ export function registerBffGrantPartitionAccessRoute(
     '/bff/clients/:clientId/partitions/:partitionId/principals',
     {
       schema: {
+        operationId: 'bffGrantAccess',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

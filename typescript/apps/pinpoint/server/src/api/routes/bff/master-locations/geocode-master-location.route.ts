@@ -50,6 +50,7 @@ export function registerBffGeocodeMasterLocationRoute(
     '/bff/clients/:clientId/master-locations/:masterLocationId/geocode',
     {
       schema: {
+        operationId: 'bffGeocodeMasterLocation',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

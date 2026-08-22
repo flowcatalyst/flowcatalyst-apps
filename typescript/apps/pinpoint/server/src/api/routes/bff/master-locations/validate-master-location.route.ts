@@ -49,6 +49,7 @@ export function registerBffValidateMasterLocationRoute(
     '/bff/clients/:clientId/master-locations/:masterLocationId/validate',
     {
       schema: {
+        operationId: 'bffValidateMasterLocation',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

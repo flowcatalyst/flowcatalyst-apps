@@ -37,6 +37,7 @@ export function registerBffRematchLocationRoute(
     '/bff/clients/:clientId/locations/:locationId/rematch',
     {
       schema: {
+        operationId: 'bffRematchLocation',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

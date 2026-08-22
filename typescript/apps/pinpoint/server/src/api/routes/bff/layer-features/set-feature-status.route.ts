@@ -41,6 +41,7 @@ export function registerBffSetFeatureStatusRoute(
     '/bff/clients/:clientId/layers/:layerId/features/:featureId/status',
     {
       schema: {
+        operationId: 'bffSetFeatureStatus',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

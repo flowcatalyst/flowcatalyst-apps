@@ -32,6 +32,7 @@ export function registerCreatePropertySetRoute(
     '/clients/:clientId/layers/:layerId/property-sets',
     {
       schema: {
+        operationId: 'createPropertySet',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

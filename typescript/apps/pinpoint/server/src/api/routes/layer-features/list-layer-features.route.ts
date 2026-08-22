@@ -40,6 +40,7 @@ export function registerListLayerFeaturesRoute(
     '/clients/:clientId/layers/:layerId/features',
     {
       schema: {
+        operationId: 'listLayerFeatures',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String(),

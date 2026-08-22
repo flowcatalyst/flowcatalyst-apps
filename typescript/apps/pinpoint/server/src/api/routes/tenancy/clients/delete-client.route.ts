@@ -24,6 +24,7 @@ export function registerDeleteClientRoute(fastify: FastifyInstance, appContext: 
     '/clients/:clientId',
     {
       schema: {
+        operationId: 'deleteClient',
         tags: ['Tenancy'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: {

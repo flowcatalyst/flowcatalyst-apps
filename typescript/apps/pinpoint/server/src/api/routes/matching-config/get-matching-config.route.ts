@@ -39,6 +39,7 @@ export function registerGetMatchingConfigRoute(
     '/clients/:clientId/matching-config',
     {
       schema: {
+        operationId: 'getMatchingConfig',
         tags: ['Matching'],
         params: ParamsSchema,
         querystring: QuerySchema,

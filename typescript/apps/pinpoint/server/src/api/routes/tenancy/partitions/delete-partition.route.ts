@@ -27,6 +27,7 @@ export function registerDeletePartitionRoute(
     '/clients/:clientId/partitions/:partitionId',
     {
       schema: {
+        operationId: 'deletePartition',
         tags: ['Tenancy'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

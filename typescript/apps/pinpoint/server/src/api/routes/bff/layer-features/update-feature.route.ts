@@ -51,6 +51,7 @@ export function registerBffUpdateLayerFeatureRoute(
     '/bff/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
+        operationId: 'bffUpdateFeature',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

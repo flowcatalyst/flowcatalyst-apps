@@ -28,6 +28,7 @@ export function registerBffDeletePropertySetRoute(
     '/bff/clients/:clientId/layers/:layerId/property-sets/:propertySetId',
     {
       schema: {
+        operationId: 'bffDeletePropertySet',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

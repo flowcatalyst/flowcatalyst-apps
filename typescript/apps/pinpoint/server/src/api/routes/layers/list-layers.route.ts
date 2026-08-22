@@ -39,6 +39,7 @@ export function registerListLayersRoute(fastify: FastifyInstance, appContext: Ap
     '/clients/:clientId/layers',
     {
       schema: {
+        operationId: 'listLayers',
         tags: ['Layers'],
         params: Type.Object({ clientId: Type.String() }),
         querystring: ListLayersQuerySchema,

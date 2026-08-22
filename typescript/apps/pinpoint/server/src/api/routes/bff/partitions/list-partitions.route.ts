@@ -36,6 +36,7 @@ export function registerBffListPartitionsRoute(
     '/bff/clients/:clientId/partitions',
     {
       schema: {
+        operationId: 'bffListPartitions',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },

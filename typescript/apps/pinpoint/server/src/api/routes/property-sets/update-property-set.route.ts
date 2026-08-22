@@ -32,6 +32,7 @@ export function registerUpdatePropertySetRoute(
     '/clients/:clientId/layers/:layerId/property-sets/:propertySetId',
     {
       schema: {
+        operationId: 'updatePropertySet',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

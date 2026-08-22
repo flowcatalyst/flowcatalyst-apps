@@ -28,6 +28,7 @@ export function registerListClientsRoute(fastify: FastifyInstance, appContext: A
     '/clients',
     {
       schema: {
+        operationId: 'listClients',
         tags: ['Tenancy'],
         querystring: ListClientsQuerySchema,
         response: { 200: ListClientsResponseSchema },

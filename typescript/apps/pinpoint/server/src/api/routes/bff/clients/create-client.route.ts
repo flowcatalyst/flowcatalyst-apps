@@ -47,6 +47,7 @@ export function registerBffCreateClientRoute(
     '/bff/clients',
     {
       schema: {
+        operationId: 'bffCreateClient',
         tags: ['BFF'],
         body: CreateClientBodySchema,
         response: {

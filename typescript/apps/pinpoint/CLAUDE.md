@@ -12,7 +12,7 @@ TypeScript port of the Rust `pinpoint` service. Address normalization (libpostal
 
 - **Runtime**: Node.js 24 LTS, pnpm 11, TypeScript 6 (strict)
 - **HTTP**: Fastify + `@fastify/type-provider-typebox`
-- **OpenAPI**: `@fastify/swagger` + `@fastify/swagger-ui` (generated from TypeBox, never hand-written)
+- **OpenAPI**: `@fastify/swagger` + `@fastify/swagger-ui` (generated from TypeBox, never hand-written). Every route carries a unique `operationId` (camelCase of the route file stem; BFF routes prefixed `bff`). The spec is exported to `apps/pinpoint/openapi.gen.json` by `pnpm --filter @pinpoint/server openapi:export` — commit it alongside route changes; `openapi:check` fails if it's stale. See [OpenAPI contract](#openapi-contract).
 - **DB**: Drizzle ORM 1.0 RC + `postgres-js` driver against PostgreSQL 18 + PostGIS
 - **Schemas**: TypeBox (events, route schemas), Zod (shared/domain validation)
 - **Use case primitives**: `@flowcatalyst/sdk/usecase` — sealed `Result<T>`, `UseCaseError` factory namespace (with `.validation` / `.notFound` / `.businessRule` / `.concurrency` / `.authorization` / `.infrastructure`), plain `UnitOfWork` interface (`commit` / `commitAggregate` / `commitDelete` / `emitEvent`), `OutboxUnitOfWork` class, `DomainEvent` / `BaseDomainEvent`. Re-exported through `@pinpoint/framework`.
@@ -34,6 +34,7 @@ Vue 3 + PrimeVue + Vite. Lives at `apps/pinpoint/web/`. Dev proxy fronts `/bff` 
 ```
 apps/pinpoint/
 ├── CLAUDE.md                          # this file
+├── openapi.gen.json                   # exported OpenAPI 3 spec — generated, never hand-edited
 ├── compose.yaml                       # dev: Postgres + libpostal sidecar
 ├── compose.prod.yaml                  # prod: full stack
 ├── Dockerfile                         # multi-stage prod image
@@ -60,7 +61,7 @@ apps/pinpoint/
 │   │   ├── app-context.ts             # composition root (this is where wiring goes)
 │   │   └── server.ts                  # Fastify bootstrap
 │   ├── drizzle/                       # migrations
-│   ├── scripts/                       # db-init, sync-flowcatalyst
+│   ├── scripts/                       # db-init, sync-flowcatalyst, export-openapi
 │   └── test/integration/              # testcontainers-backed integration suite
 └── web/                               # Vue 3 SPA
 ```
@@ -449,3 +450,13 @@ In order:
 3. `apps/pinpoint/docs/spatial-queries.md` — PostGIS + Drizzle 1.0 RC gotchas. Read this before touching any geometry column.
 4. `apps/pinpoint/docs/integration-testing.md` — testcontainers harness shape. Read this before adding integration tests.
 5. `apps/fulfil/CLAUDE.md` — the Effect-stack reference. Useful for architectural background; **translate the use-case + repo shapes** via the table above before applying anything to pinpoint code.
+
+## OpenAPI contract
+
+`apps/pinpoint/openapi.gen.json` is the language-neutral description of both HTTP surfaces (canonical `/clients/...` + `/bff/...`), derived from the TypeBox route schemas — the same document `@fastify/swagger-ui` serves at `/docs`.
+
+- **Regenerate** after any route/schema change: `pnpm --filter @pinpoint/server openapi:export` (boots the app offline — no DB, IdP, or Redis needed — and dumps `server.swagger()`).
+- **Drift check**: `pnpm --filter @pinpoint/server openapi:check` exits 1 if the file is stale. Run it before committing route work.
+- **operationId** is mandatory on every route and must be unique: camelCase of the route file stem (`delete-location.route.ts` → `deleteLocation`), prefixed `bff` for BFF routes (`bffListLocations`). Files that register two routes (`auth/me.route.ts`, `bff/master-locations/match-features.route.ts`) assign distinct ids by hand.
+- `*.gen.*` is formatter-ignored; never hand-edit the file. Schemas are inlined per operation (no `$ref` components yet), so the file is large — that's expected.
+- Consumers: client/type generation for the Vue SPA (`openapi-typescript`), and any non-TS port of the service.

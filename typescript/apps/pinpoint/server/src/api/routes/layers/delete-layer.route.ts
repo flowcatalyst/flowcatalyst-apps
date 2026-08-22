@@ -24,6 +24,7 @@ export function registerDeleteLayerRoute(fastify: FastifyInstance, appContext: A
     '/clients/:clientId/layers/:layerId',
     {
       schema: {
+        operationId: 'deleteLayer',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

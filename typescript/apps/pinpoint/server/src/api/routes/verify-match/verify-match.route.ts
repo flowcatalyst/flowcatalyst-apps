@@ -40,6 +40,7 @@ export function registerVerifyMatchRoute(fastify: FastifyInstance, appContext: A
     '/verify-match',
     {
       schema: {
+        operationId: 'verifyMatch',
         tags: ['Verify'],
         body: VerifyMatchBodySchema,
         response: {

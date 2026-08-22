@@ -65,6 +65,7 @@ export function registerValidateMasterLocationsRoute(
     {
       preHandler: [authHook],
       schema: {
+        operationId: 'validateMasterLocations',
         tags: ['Jobs'],
         // The platform's scheduled-job runner sends `{}` by default — the
         // job's `payload` field on the platform side is empty. Accept any

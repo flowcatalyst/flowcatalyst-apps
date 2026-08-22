@@ -27,6 +27,7 @@ export function registerBffGetClientRoute(fastify: FastifyInstance, appContext: 
     '/bff/clients/:clientId',
     {
       schema: {
+        operationId: 'bffGetClient',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: {

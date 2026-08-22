@@ -37,6 +37,7 @@ export function registerUpdateMasterLocationRoute(
     '/clients/:clientId/master-locations/:masterLocationId',
     {
       schema: {
+        operationId: 'updateMasterLocation',
         tags: ['MasterLocations'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

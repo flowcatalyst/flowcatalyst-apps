@@ -41,6 +41,7 @@ export function registerBffGetMatchingConfigRoute(
     '/bff/clients/:clientId/matching-config',
     {
       schema: {
+        operationId: 'bffGetMatchingConfig',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },

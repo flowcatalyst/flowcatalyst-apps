@@ -30,6 +30,7 @@ export function registerBffSetLayerPartitionsRoute(
     '/bff/clients/:clientId/layers/:layerId/partitions',
     {
       schema: {
+        operationId: 'bffSetLayerPartitions',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

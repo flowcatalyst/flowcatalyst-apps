@@ -39,6 +39,7 @@ export function registerReverseGeocodeRoute(
     '/geocode/reverse',
     {
       schema: {
+        operationId: 'reverseGeocode',
         tags: ['Geocode'],
         body: ReverseGeocodeBodySchema,
         response: {

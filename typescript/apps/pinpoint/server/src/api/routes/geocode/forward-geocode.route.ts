@@ -46,6 +46,7 @@ export function registerForwardGeocodeRoute(
     '/geocode/forward',
     {
       schema: {
+        operationId: 'forwardGeocode',
         tags: ['Geocode'],
         body: ForwardGeocodeBodySchema,
         response: {

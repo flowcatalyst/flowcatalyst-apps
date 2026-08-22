@@ -31,6 +31,7 @@ export function registerListPropertySetsRoute(
     '/clients/:clientId/layers/:layerId/property-sets',
     {
       schema: {
+        operationId: 'listPropertySets',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

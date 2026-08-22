@@ -1,5 +1,6 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Fastify, { type FastifyRequest } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
@@ -186,7 +187,12 @@ async function extractRequestToken(
   return null;
 }
 
-async function buildServer() {
+/**
+ * Build the fully-wired Fastify instance without listening. Exported so
+ * `scripts/export-openapi.ts` can boot the app offline and dump the spec;
+ * `main()` below is the real entrypoint.
+ */
+export async function buildServer() {
   const server = Fastify({
     logger: { level: process.env['LOG_LEVEL'] ?? 'info' },
   }).withTypeProvider<TypeBoxTypeProvider>();
@@ -289,7 +295,7 @@ async function buildServer() {
   });
 
   // Smoke endpoint — confirms the server boots and reaches steady state.
-  server.get('/health', { schema: { tags: ['System'] } }, async () => ({
+  server.get('/health', { schema: { operationId: 'health', tags: ['System'] } }, async () => ({
     status: 'ok',
     service: 'pinpoint',
   }));
@@ -369,4 +375,10 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+// Only auto-start when executed directly (`node dist/server.js` / `tsx src/server.ts`),
+// not when imported (e.g. by scripts/export-openapi.ts).
+const isEntrypoint =
+  process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isEntrypoint) {
+  main();
+}

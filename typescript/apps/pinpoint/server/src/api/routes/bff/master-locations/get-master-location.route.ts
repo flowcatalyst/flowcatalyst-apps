@@ -51,6 +51,7 @@ export function registerBffGetMasterLocationRoute(
     '/bff/clients/:clientId/master-locations/:masterLocationId',
     {
       schema: {
+        operationId: 'bffGetMasterLocation',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

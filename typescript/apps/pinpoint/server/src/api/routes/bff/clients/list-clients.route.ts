@@ -39,6 +39,7 @@ export function registerBffListClientsRoute(
     '/bff/clients',
     {
       schema: {
+        operationId: 'bffListClients',
         tags: ['BFF'],
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
       },

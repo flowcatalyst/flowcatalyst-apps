@@ -46,6 +46,7 @@ export function registerGetMasterLocationRoute(
     '/clients/:clientId/master-locations/:masterLocationId',
     {
       schema: {
+        operationId: 'getMasterLocation',
         tags: ['MasterLocations'],
         params: Type.Object({
           clientId: Type.String(),

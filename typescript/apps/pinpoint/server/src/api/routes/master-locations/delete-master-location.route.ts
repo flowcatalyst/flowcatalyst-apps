@@ -27,6 +27,7 @@ export function registerDeleteMasterLocationRoute(
     '/clients/:clientId/master-locations/:masterLocationId',
     {
       schema: {
+        operationId: 'deleteMasterLocation',
         tags: ['Master Locations'],
         description:
           "Delete a master location. CASCADE: also deletes every child location linked to it (each cascading its own association rows) and the master location's processing-log rows.",

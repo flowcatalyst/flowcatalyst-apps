@@ -39,6 +39,7 @@ export function registerValidateMasterLocationRoute(
     '/clients/:clientId/master-locations/:masterLocationId/validate',
     {
       schema: {
+        operationId: 'validateMasterLocation',
         tags: ['MasterLocations'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

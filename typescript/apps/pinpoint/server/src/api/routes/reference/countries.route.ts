@@ -25,6 +25,7 @@ export function registerCountriesRoute(fastify: FastifyInstance, appContext: App
     '/countries',
     {
       schema: {
+        operationId: 'countries',
         tags: ['Reference'],
         response: {
           200: CountriesResponseSchema,

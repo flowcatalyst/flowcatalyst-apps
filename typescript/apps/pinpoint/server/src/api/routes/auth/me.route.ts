@@ -81,6 +81,14 @@ export function registerMeRoute(fastify: FastifyInstance, appContext: AppContext
     };
   };
 
-  fastify.get('/me', routeOptions, handler);
-  fastify.get('/auth/me', routeOptions, handler);
+  fastify.get(
+    '/me',
+    { ...routeOptions, schema: { ...routeOptions.schema, operationId: 'getMe' } },
+    handler,
+  );
+  fastify.get(
+    '/auth/me',
+    { ...routeOptions, schema: { ...routeOptions.schema, operationId: 'getAuthMe' } },
+    handler,
+  );
 }

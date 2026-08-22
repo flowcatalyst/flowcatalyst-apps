@@ -38,6 +38,7 @@ export function registerBffReplacePropertySetPropertiesRoute(
     '/bff/clients/:clientId/layers/:layerId/property-sets/:propertySetId/properties',
     {
       schema: {
+        operationId: 'bffReplaceProperties',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

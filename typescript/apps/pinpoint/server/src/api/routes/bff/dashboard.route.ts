@@ -23,6 +23,7 @@ export function registerBffDashboardRoute(fastify: FastifyInstance, appContext: 
     '/bff/dashboard/stats',
     {
       schema: {
+        operationId: 'bffDashboard',
         tags: ['BFF'],
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
       },

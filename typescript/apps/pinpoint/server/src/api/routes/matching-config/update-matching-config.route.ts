@@ -45,6 +45,7 @@ export function registerUpdateMatchingConfigRoute(
     '/clients/:clientId/matching-config',
     {
       schema: {
+        operationId: 'updateMatchingConfig',
         tags: ['Matching'],
         params: ParamsSchema,
         body: UpdateMatchingConfigBodySchema,

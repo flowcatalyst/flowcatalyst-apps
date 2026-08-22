@@ -27,6 +27,7 @@ export function registerDeletePropertySetRoute(
     '/clients/:clientId/layers/:layerId/property-sets/:propertySetId',
     {
       schema: {
+        operationId: 'deletePropertySet',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

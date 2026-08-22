@@ -28,6 +28,7 @@ export function registerUpdateClientRoute(fastify: FastifyInstance, appContext: 
     '/clients/:clientId',
     {
       schema: {
+        operationId: 'updateClient',
         tags: ['Tenancy'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         body: UpdateClientBodySchema,

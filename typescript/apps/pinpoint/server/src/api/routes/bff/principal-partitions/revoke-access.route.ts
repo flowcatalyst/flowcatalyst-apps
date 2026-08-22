@@ -30,6 +30,7 @@ export function registerBffRevokePartitionAccessRoute(
     '/bff/clients/:clientId/partitions/:partitionId/principals/:principalId',
     {
       schema: {
+        operationId: 'bffRevokeAccess',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

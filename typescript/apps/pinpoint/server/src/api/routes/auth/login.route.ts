@@ -21,6 +21,7 @@ export function registerLoginRoute(fastify: FastifyInstance, appContext: AppCont
     '/auth/login',
     {
       schema: {
+        operationId: 'login',
         tags: ['Auth'],
         response: { 503: NotConfiguredSchema },
       },

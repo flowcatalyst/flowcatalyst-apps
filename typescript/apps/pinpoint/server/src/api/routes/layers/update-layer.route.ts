@@ -34,6 +34,7 @@ export function registerUpdateLayerRoute(fastify: FastifyInstance, appContext: A
     '/clients/:clientId/layers/:layerId',
     {
       schema: {
+        operationId: 'updateLayer',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

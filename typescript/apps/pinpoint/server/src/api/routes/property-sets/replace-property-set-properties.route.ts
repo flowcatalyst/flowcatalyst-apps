@@ -37,6 +37,7 @@ export function registerReplacePropertySetPropertiesRoute(
     '/clients/:clientId/layers/:layerId/property-sets/:propertySetId/properties',
     {
       schema: {
+        operationId: 'replacePropertySetProperties',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

@@ -31,6 +31,7 @@ export function registerRejectMasterLocationRoute(
     '/clients/:clientId/master-locations/:masterLocationId/reject',
     {
       schema: {
+        operationId: 'rejectMasterLocation',
         tags: ['MasterLocations'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

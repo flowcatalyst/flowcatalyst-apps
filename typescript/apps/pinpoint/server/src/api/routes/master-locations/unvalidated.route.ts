@@ -98,6 +98,7 @@ export function registerUnvalidatedMasterLocationsRoute(
     '/master-locations/unvalidated',
     {
       schema: {
+        operationId: 'unvalidated',
         tags: ['MasterLocations'],
         querystring: QuerySchema,
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },

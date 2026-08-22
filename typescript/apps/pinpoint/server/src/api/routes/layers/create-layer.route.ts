@@ -39,6 +39,7 @@ export function registerCreateLayerRoute(fastify: FastifyInstance, appContext: A
     '/clients/:clientId/layers',
     {
       schema: {
+        operationId: 'createLayer',
         tags: ['Layers'],
         params: CreateLayerParamsSchema,
         body: CreateLayerBodySchema,

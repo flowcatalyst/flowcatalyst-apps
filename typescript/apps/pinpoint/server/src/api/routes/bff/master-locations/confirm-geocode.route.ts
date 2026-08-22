@@ -70,6 +70,7 @@ export function registerBffConfirmGeocodeRoute(
     '/bff/clients/:clientId/master-locations/:masterLocationId/confirm-geocode',
     {
       schema: {
+        operationId: 'bffConfirmGeocode',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

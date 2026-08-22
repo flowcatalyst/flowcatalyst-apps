@@ -41,6 +41,7 @@ export function registerBffListLayersRoute(fastify: FastifyInstance, appContext:
     '/bff/clients/:clientId/layers',
     {
       schema: {
+        operationId: 'bffListLayers',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },

@@ -45,6 +45,7 @@ export function registerGetLocationRoute(fastify: FastifyInstance, appContext: A
     '/clients/:clientId/locations/:locationId',
     {
       schema: {
+        operationId: 'getLocation',
         tags: ['Locations'],
         params: Type.Object({
           clientId: Type.String(),

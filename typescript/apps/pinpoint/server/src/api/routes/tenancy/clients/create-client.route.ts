@@ -29,6 +29,7 @@ export function registerCreateClientRoute(fastify: FastifyInstance, appContext: 
     '/clients',
     {
       schema: {
+        operationId: 'createClient',
         tags: ['Tenancy'],
         body: CreateClientBodySchema,
         response: {

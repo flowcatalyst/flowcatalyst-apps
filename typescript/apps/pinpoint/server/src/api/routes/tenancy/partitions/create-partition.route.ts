@@ -37,6 +37,7 @@ export function registerCreatePartitionRoute(
     '/clients/:clientId/partitions',
     {
       schema: {
+        operationId: 'createPartition',
         tags: ['Tenancy'],
         params: CreatePartitionParamsSchema,
         body: CreatePartitionBodySchema,

@@ -35,6 +35,7 @@ export function registerConfirmMasterLocationRoute(
     '/clients/:clientId/master-locations/:masterLocationId/confirm',
     {
       schema: {
+        operationId: 'confirmMasterLocation',
         tags: ['MasterLocations'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

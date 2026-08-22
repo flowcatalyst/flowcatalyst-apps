@@ -44,6 +44,7 @@ export function registerBffGetLayerRoute(fastify: FastifyInstance, appContext: A
     '/bff/clients/:clientId/layers/:layerId',
     {
       schema: {
+        operationId: 'bffGetLayer',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

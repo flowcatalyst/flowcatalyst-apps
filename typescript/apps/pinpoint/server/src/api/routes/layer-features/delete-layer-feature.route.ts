@@ -26,6 +26,7 @@ export function registerDeleteLayerFeatureRoute(
     '/clients/:clientId/layers/:layerId/features/:featureId',
     {
       schema: {
+        operationId: 'deleteLayerFeature',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

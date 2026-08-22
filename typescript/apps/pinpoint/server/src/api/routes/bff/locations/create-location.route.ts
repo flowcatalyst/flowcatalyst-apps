@@ -54,6 +54,7 @@ export function registerBffCreateLocationRoute(
     '/bff/clients/:clientId/locations',
     {
       schema: {
+        operationId: 'bffCreateLocation',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         body: BodySchema,

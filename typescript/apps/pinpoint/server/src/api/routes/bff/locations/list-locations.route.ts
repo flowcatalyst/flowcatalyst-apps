@@ -52,6 +52,7 @@ export function registerBffListLocationsRoute(
     '/bff/clients/:clientId/locations',
     {
       schema: {
+        operationId: 'bffListLocations',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         querystring: QuerySchema,

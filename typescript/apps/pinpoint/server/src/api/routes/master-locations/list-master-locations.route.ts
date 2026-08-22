@@ -48,6 +48,7 @@ export function registerListMasterLocationsRoute(
     '/clients/:clientId/master-locations',
     {
       schema: {
+        operationId: 'listMasterLocations',
         tags: ['MasterLocations'],
         params: Type.Object({ clientId: Type.String() }),
         querystring: ListQuerySchema,

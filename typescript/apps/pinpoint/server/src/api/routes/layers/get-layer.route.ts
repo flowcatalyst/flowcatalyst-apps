@@ -32,6 +32,7 @@ export function registerGetLayerRoute(fastify: FastifyInstance, appContext: AppC
     '/clients/:clientId/layers/:layerId',
     {
       schema: {
+        operationId: 'getLayer',
         tags: ['Layers'],
         params: Type.Object({
           clientId: Type.String(),

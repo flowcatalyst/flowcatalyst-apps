@@ -42,6 +42,7 @@ export function registerBffUpdatePartitionRoute(
     '/bff/clients/:clientId/partitions/:partitionId',
     {
       schema: {
+        operationId: 'bffUpdatePartition',
         tags: ['BFF'],
         params: Type.Object({
           clientId: Type.String({ minLength: 1 }),

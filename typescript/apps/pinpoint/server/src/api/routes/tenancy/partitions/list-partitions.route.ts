@@ -25,6 +25,7 @@ export function registerListPartitionsRoute(
     '/clients/:clientId/partitions',
     {
       schema: {
+        operationId: 'listPartitions',
         tags: ['Tenancy'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: { 200: ListPartitionsResponseSchema },
