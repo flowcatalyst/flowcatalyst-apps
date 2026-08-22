@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asLocationId } from '../../../domain/locations/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -35,11 +36,6 @@ const LocationResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const NotFoundSchema = Type.Object({
-  error: Type.Literal('NotFound'),
-  message: Type.String(),
-});
-
 export function registerGetLocationRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
     '/clients/:clientId/locations/:locationId',
@@ -51,7 +47,7 @@ export function registerGetLocationRoute(fastify: FastifyInstance, appContext: A
           clientId: Type.String(),
           locationId: Type.String(),
         }),
-        response: { 200: LocationResponseSchema, 404: NotFoundSchema },
+        response: { 200: LocationResponseSchema, 404: ErrorResponseRef },
       },
     },
     async (request, reply) => {

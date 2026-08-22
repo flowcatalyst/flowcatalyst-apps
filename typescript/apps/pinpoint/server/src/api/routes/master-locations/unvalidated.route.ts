@@ -26,6 +26,7 @@ import {
   type PartitionId,
 } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const QuerySchema = Type.Object({
   clientIds: Type.Optional(Type.String()),
@@ -55,11 +56,6 @@ const ResponseSchema = Type.Object({
   total: Type.Integer({ minimum: 0 }),
   limit: Type.Integer(),
   offset: Type.Integer(),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 const DEFAULT_LIMIT = 100;
@@ -101,7 +97,7 @@ export function registerUnvalidatedMasterLocationsRoute(
         operationId: 'unvalidated',
         tags: ['MasterLocations'],
         querystring: QuerySchema,
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

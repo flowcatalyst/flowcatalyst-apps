@@ -18,6 +18,7 @@ import { asLayerId, asPropertySetId } from '../../../../../domain/layers/ids.js'
 import type { AppContext } from '../../../../../app-context.js';
 import { sendUseCaseError } from '../../../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
+import { ErrorResponseRef } from '../../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -29,14 +30,6 @@ const ResponseSchema = Type.Object({
   name: Type.String(),
   description: Type.Union([Type.String(), Type.Null()]),
   properties: Type.Array(Type.Object({ key: Type.String(), value: Type.String() })),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-  issues: Type.Optional(Type.Array(Type.Unknown())),
 });
 
 export function registerBffCreatePropertySetRoute(
@@ -56,11 +49,11 @@ export function registerBffCreatePropertySetRoute(
         body: BodySchema,
         response: {
           201: ResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          404: ErrorSchema,
-          409: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

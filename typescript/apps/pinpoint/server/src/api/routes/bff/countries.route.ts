@@ -12,6 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import type { AppContext } from '../../../app-context.js';
 import { countries } from '../../../infrastructure/schema/countries.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const ItemSchema = Type.Object({
   isoA3: Type.String(),
@@ -21,11 +22,6 @@ const ItemSchema = Type.Object({
 
 const ResponseSchema = Type.Array(ItemSchema);
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerBffCountriesRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
     '/bff/countries',
@@ -33,7 +29,7 @@ export function registerBffCountriesRoute(fastify: FastifyInstance, appContext: 
       schema: {
         operationId: 'bffCountries',
         tags: ['BFF'],
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (_request, reply) => {

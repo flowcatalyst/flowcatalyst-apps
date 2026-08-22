@@ -11,6 +11,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore, isFailure } from '@pinpoint/framework';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const CreateClientBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -19,13 +20,6 @@ const CreateClientBodySchema = Type.Object({
 
 const CreateClientResponseSchema = Type.Object({
   id: Type.String(),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
 });
 
 /**
@@ -52,11 +46,11 @@ export function registerBffCreateClientRoute(
         body: CreateClientBodySchema,
         response: {
           201: CreateClientResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          409: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

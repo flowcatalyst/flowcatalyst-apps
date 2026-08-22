@@ -11,6 +11,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asClientId, asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const LocationSchema = Type.Object({
   id: Type.String(),
@@ -41,11 +42,6 @@ const QuerySchema = Type.Object({
   q: Type.Optional(Type.String({ maxLength: 200 })),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerBffListLocationsRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -58,7 +54,7 @@ export function registerBffListLocationsRoute(
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         querystring: QuerySchema,
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

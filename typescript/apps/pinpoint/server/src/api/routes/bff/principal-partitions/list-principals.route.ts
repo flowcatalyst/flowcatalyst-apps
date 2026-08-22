@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const PrincipalSchema = Type.Object({
   id: Type.String(),
@@ -21,11 +22,6 @@ const PrincipalSchema = Type.Object({
 const ResponseSchema = Type.Object({
   items: Type.Array(PrincipalSchema),
   total: Type.Integer({ minimum: 0 }),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 export function registerBffListPrincipalsForPartitionRoute(
@@ -42,7 +38,7 @@ export function registerBffListPrincipalsForPartitionRoute(
           clientId: Type.String({ minLength: 1 }),
           partitionId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

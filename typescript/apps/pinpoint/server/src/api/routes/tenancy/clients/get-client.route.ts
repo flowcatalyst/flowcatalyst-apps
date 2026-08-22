@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ClientResponseSchema = Type.Object({
   id: Type.String(),
@@ -12,11 +13,6 @@ const ClientResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const NotFoundSchema = Type.Object({
-  error: Type.Literal('NotFound'),
-  message: Type.String(),
-});
-
 export function registerGetClientRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
     '/clients/:clientId',
@@ -25,7 +21,7 @@ export function registerGetClientRoute(fastify: FastifyInstance, appContext: App
         operationId: 'getClient',
         tags: ['Tenancy'],
         params: Type.Object({ clientId: Type.String() }),
-        response: { 200: ClientResponseSchema, 404: NotFoundSchema },
+        response: { 200: ClientResponseSchema, 404: ErrorResponseRef },
       },
     },
     async (request, reply) => {

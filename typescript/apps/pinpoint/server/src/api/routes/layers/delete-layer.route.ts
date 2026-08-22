@@ -5,18 +5,11 @@ import { DeleteLayerCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const DeleteLayerResponseSchema = Type.Object({
   layerId: Type.String(),
   deletedAt: Type.String({ format: 'date-time' }),
-});
-
-const ErrorResponseSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-  issues: Type.Optional(Type.Array(Type.Unknown())),
 });
 
 export function registerDeleteLayerRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -32,11 +25,11 @@ export function registerDeleteLayerRoute(fastify: FastifyInstance, appContext: A
         }),
         response: {
           200: DeleteLayerResponseSchema,
-          400: ErrorResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          500: ErrorResponseSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

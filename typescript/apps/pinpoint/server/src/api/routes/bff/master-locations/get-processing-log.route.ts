@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const EntrySchema = Type.Object({
   id: Type.String(),
@@ -18,11 +19,6 @@ const EntrySchema = Type.Object({
 });
 
 const ResponseSchema = Type.Array(EntrySchema);
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
 
 export function registerBffGetProcessingLogRoute(
   fastify: FastifyInstance,
@@ -38,7 +34,7 @@ export function registerBffGetProcessingLogRoute(
           clientId: Type.String({ minLength: 1 }),
           masterLocationId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

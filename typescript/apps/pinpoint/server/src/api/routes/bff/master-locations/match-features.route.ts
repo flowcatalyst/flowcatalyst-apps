@@ -26,6 +26,7 @@ import type { MasterLocation } from '../../../../domain/locations/master-locatio
 import type { FeatureAssociation } from '../../../../domain/layers/layer-feature.repository.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 // Spatial feature matching mutates location↔feature associations; gate it on
 // the same permission as the interactive spatial-lookup tool.
@@ -48,12 +49,6 @@ const SingleResponseSchema = Type.Object({
 const BulkResponseSchema = Type.Object({
   mastersProcessed: Type.Integer({ minimum: 0 }),
   totalAssociations: Type.Integer({ minimum: 0 }),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
 });
 
 const BULK_LIMIT = 10_000;
@@ -102,11 +97,11 @@ export function registerBffMatchFeaturesRoutes(
         }),
         response: {
           200: SingleResponseSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          409: ErrorSchema,
-          500: ErrorSchema,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },
@@ -172,7 +167,12 @@ export function registerBffMatchFeaturesRoutes(
         operationId: 'bffMatchFeaturesBulk',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
-        response: { 200: BulkResponseSchema, 401: ErrorSchema, 403: ErrorSchema, 500: ErrorSchema },
+        response: {
+          200: BulkResponseSchema,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          500: ErrorResponseRef,
+        },
       },
     },
     async (request, reply) => {

@@ -9,6 +9,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ClientSchema = Type.Object({
   id: Type.String(),
@@ -24,11 +25,6 @@ const ResponseSchema = Type.Object({
   total: Type.Integer({ minimum: 0 }),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 const LIST_LIMIT = 100;
 
 export function registerBffListClientsRoute(
@@ -41,7 +37,7 @@ export function registerBffListClientsRoute(
       schema: {
         operationId: 'bffListClients',
         tags: ['BFF'],
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (_request, reply) => {

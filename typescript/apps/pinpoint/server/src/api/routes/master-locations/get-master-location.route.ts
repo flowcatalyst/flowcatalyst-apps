@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asMasterLocationId } from '../../../domain/locations/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -33,11 +34,6 @@ const MasterLocationResponseSchema = Type.Object({
   validatedAt: NullableDate,
 });
 
-const NotFoundSchema = Type.Object({
-  error: Type.Literal('NotFound'),
-  message: Type.String(),
-});
-
 export function registerGetMasterLocationRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -52,7 +48,7 @@ export function registerGetMasterLocationRoute(
           clientId: Type.String(),
           masterLocationId: Type.String(),
         }),
-        response: { 200: MasterLocationResponseSchema, 404: NotFoundSchema },
+        response: { 200: MasterLocationResponseSchema, 404: ErrorResponseRef },
       },
     },
     async (request, reply) => {

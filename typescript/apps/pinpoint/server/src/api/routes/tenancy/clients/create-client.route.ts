@@ -5,6 +5,7 @@ import { isFailure } from '@pinpoint/framework';
 import { CreateClientCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const CreateClientBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -14,14 +15,6 @@ const CreateClientBodySchema = Type.Object({
 const CreateClientResponseSchema = Type.Object({
   clientId: Type.String(),
   createdAt: Type.String({ format: 'date-time' }),
-});
-
-const ErrorResponseSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-  issues: Type.Optional(Type.Array(Type.Unknown())),
 });
 
 export function registerCreateClientRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -34,11 +27,11 @@ export function registerCreateClientRoute(fastify: FastifyInstance, appContext: 
         body: CreateClientBodySchema,
         response: {
           201: CreateClientResponseSchema,
-          400: ErrorResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          409: ErrorResponseSchema,
-          500: ErrorResponseSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asLayerFeatureId } from '../../../domain/layers/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -20,11 +21,6 @@ const LayerFeatureResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const NotFoundSchema = Type.Object({
-  error: Type.Literal('NotFound'),
-  message: Type.String(),
-});
-
 export function registerGetLayerFeatureRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -40,7 +36,7 @@ export function registerGetLayerFeatureRoute(
           layerId: Type.String(),
           featureId: Type.String(),
         }),
-        response: { 200: LayerFeatureResponseSchema, 404: NotFoundSchema },
+        response: { 200: LayerFeatureResponseSchema, 404: ErrorResponseRef },
       },
     },
     async (request, reply) => {

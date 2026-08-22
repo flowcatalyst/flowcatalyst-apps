@@ -17,6 +17,7 @@ import type {
   MasterLocationStatus,
 } from '../../../../domain/locations/master-location.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const StatusEnum = Type.Union([
   Type.Literal('PENDING'),
@@ -53,11 +54,6 @@ const QuerySchema = Type.Object({
   status: Type.Optional(StatusEnum),
   /** Free-text filter over the normalized address fields (case-insensitive contains). */
   q: Type.Optional(Type.String({ maxLength: 200 })),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 export function toBffMasterLocationResponse(ml: MasterLocation): {
@@ -111,7 +107,7 @@ export function registerBffListMasterLocationsRoute(
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         querystring: QuerySchema,
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

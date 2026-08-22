@@ -1034,7 +1034,41 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        /** @description Standard pinpoint error envelope. */
+        ErrorResponse: {
+            error: string;
+            message?: string;
+            code?: string;
+            details?: unknown;
+            issues?: unknown[];
+        };
+        BffLayerPropertySet: {
+            id: string;
+            name: string;
+            description: string | null;
+            properties: {
+                key: string;
+                value: string;
+            }[];
+        };
+        BffLayerDetail: {
+            id: string;
+            code: string;
+            name: string;
+            description: string | null;
+            layerType: "RADIUS" | "POLYGON" | "POINT";
+            status: string;
+            centerLat: number | null;
+            centerLon: number | null;
+            radiusMeters: number | null;
+            polygonGeojson: string | null;
+            propertySets: components["schemas"]["BffLayerPropertySet"][];
+            partitionIds: string[];
+            /** Format: date-time */
+            createdAt: string;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -1177,52 +1211,40 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1338,79 +1360,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1444,17 +1436,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "NotFound";
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1483,79 +1471,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1590,79 +1548,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1733,94 +1661,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1856,17 +1748,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "NotFound";
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1896,79 +1784,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2005,79 +1863,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2181,94 +2009,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2323,17 +2115,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "NotFound";
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2363,79 +2151,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2473,79 +2231,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2633,94 +2361,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2762,17 +2454,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "NotFound";
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2802,79 +2490,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -2916,79 +2574,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3078,94 +2706,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3208,17 +2800,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "NotFound";
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3262,79 +2850,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3365,64 +2923,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3498,94 +3032,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3616,79 +3114,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3726,94 +3194,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3853,79 +3285,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -3966,28 +3368,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4030,79 +3426,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4155,52 +3521,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4240,64 +3594,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4337,64 +3676,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4435,52 +3759,40 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4514,109 +3826,67 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4648,94 +3918,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4782,17 +4016,13 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        error: "NotFound";
-                        message: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4823,79 +4053,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -4937,79 +4137,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5096,79 +4266,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5217,28 +4357,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5345,28 +4479,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5393,28 +4521,22 @@ export interface operations {
                     }[];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5449,28 +4571,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5502,74 +4618,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5603,40 +4694,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5673,28 +4755,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5736,94 +4812,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5858,40 +4898,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -5933,79 +4964,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6034,88 +5035,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6151,28 +5122,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6207,52 +5172,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6282,28 +5235,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6349,28 +5296,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6416,94 +5357,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6550,40 +5455,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6612,88 +5508,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6731,74 +5597,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6847,52 +5688,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6938,28 +5767,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -6994,120 +5817,61 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        code: string;
-                        name: string;
-                        description: string | null;
-                        layerType: "RADIUS" | "POLYGON" | "POINT";
-                        status: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertySets: {
-                            id: string;
-                            name: string;
-                            description: string | null;
-                            properties: {
-                                key: string;
-                                value: string;
-                            }[];
-                        }[];
-                        partitionIds: string[];
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerDetail"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7130,66 +5894,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        code: string;
-                        name: string;
-                        description: string | null;
-                        layerType: "RADIUS" | "POLYGON" | "POINT";
-                        status: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertySets: {
-                            id: string;
-                            name: string;
-                            description: string | null;
-                            properties: {
-                                key: string;
-                                value: string;
-                            }[];
-                        }[];
-                        partitionIds: string[];
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerDetail"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7223,105 +5955,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        code: string;
-                        name: string;
-                        description: string | null;
-                        layerType: "RADIUS" | "POLYGON" | "POINT";
-                        status: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertySets: {
-                            id: string;
-                            name: string;
-                            description: string | null;
-                            properties: {
-                                key: string;
-                                value: string;
-                            }[];
-                        }[];
-                        partitionIds: string[];
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerDetail"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7350,88 +6029,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7465,40 +6114,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7535,28 +6175,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7597,79 +6231,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7706,64 +6310,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7793,60 +6373,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7885,64 +6445,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7987,28 +6523,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8063,94 +6593,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8193,40 +6687,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8282,79 +6767,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8384,60 +6839,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8486,40 +6921,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8568,28 +6994,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8638,40 +7058,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8725,64 +7136,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8812,88 +7199,58 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8925,28 +7282,22 @@ export interface operations {
                     }[];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -8988,74 +7339,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9097,74 +7423,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9200,95 +7501,67 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             502: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9344,74 +7617,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9447,69 +7695,49 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9537,43 +7765,31 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9612,28 +7828,22 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -9683,64 +7893,40 @@ export interface operations {
                     };
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Default Response */
+            /** @description Standard pinpoint error envelope. */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        error: string;
-                        message?: string;
-                        code?: string;
-                        details?: unknown;
-                        issues?: unknown[];
-                    };
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

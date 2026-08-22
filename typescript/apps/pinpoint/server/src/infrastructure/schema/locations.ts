@@ -70,10 +70,7 @@ export const locations = pgTable(
     index('idx_locations_hash').on(t.addressHash),
     index('idx_locations_status').on(t.status),
     // Free-text search (BFF `q`) — see `locationSearchText` below.
-    index('idx_locations_search_trgm').using(
-      'gin',
-      sql`(${locationSearchText(t)}) gin_trgm_ops`,
-    ),
+    index('idx_locations_search_trgm').using('gin', sql`(${locationSearchText(t)}) gin_trgm_ops`),
     // Dedup-by-hash lookup, scoped to (client, partition).
     index('idx_locations_address_hash')
       .on(t.clientId, t.partitionId, t.addressHash)

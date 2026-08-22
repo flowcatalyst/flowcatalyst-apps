@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asLayerId } from '../../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../../app-context.js';
+import { ErrorResponseRef } from '../../../../plugins/error-response.schema.js';
 
 const PropertySchema = Type.Object({ key: Type.String(), value: Type.String() });
 
@@ -21,11 +22,6 @@ const ItemSchema = Type.Object({
 const ResponseSchema = Type.Object({
   items: Type.Array(ItemSchema),
   total: Type.Integer({ minimum: 0 }),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 export function registerBffListPropertySetsRoute(
@@ -42,7 +38,7 @@ export function registerBffListPropertySetsRoute(
           clientId: Type.String({ minLength: 1 }),
           layerId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

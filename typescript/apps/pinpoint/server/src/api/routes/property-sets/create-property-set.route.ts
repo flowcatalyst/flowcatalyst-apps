@@ -5,6 +5,7 @@ import { CreatePropertySetCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const CreatePropertySetBodySchema = Type.Object({
   name: Type.String({ minLength: 1 }),
@@ -14,14 +15,6 @@ const CreatePropertySetBodySchema = Type.Object({
 const CreatePropertySetResponseSchema = Type.Object({
   propertySetId: Type.String(),
   createdAt: Type.String({ format: 'date-time' }),
-});
-
-const ErrorResponseSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-  issues: Type.Optional(Type.Array(Type.Unknown())),
 });
 
 export function registerCreatePropertySetRoute(
@@ -41,12 +34,12 @@ export function registerCreatePropertySetRoute(
         body: CreatePropertySetBodySchema,
         response: {
           201: CreatePropertySetResponseSchema,
-          400: ErrorResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          409: ErrorResponseSchema,
-          500: ErrorResponseSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

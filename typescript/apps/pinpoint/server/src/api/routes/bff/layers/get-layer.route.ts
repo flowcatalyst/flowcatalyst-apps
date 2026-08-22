@@ -8,14 +8,10 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asLayerId } from '../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../app-context.js';
-import { BffLayerDetailResponseSchema } from './layer-response.schema.js';
+import { BffLayerDetailResponseRef } from './layer-response.schema.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
-const ResponseSchema = BffLayerDetailResponseSchema;
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
+const ResponseSchema = BffLayerDetailResponseRef;
 
 export function registerBffGetLayerRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
@@ -28,7 +24,12 @@ export function registerBffGetLayerRoute(fastify: FastifyInstance, appContext: A
           clientId: Type.String({ minLength: 1 }),
           layerId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema },
+        response: {
+          200: ResponseSchema,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
+        },
       },
     },
     async (request, reply) => {

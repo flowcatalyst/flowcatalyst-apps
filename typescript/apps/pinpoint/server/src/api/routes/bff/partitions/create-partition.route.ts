@@ -14,6 +14,7 @@ import { asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({
   code: Type.String({ minLength: 1 }),
@@ -30,14 +31,6 @@ const ResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-  issues: Type.Optional(Type.Array(Type.Unknown())),
-});
-
 export function registerBffCreatePartitionRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -52,12 +45,12 @@ export function registerBffCreatePartitionRoute(
         body: BodySchema,
         response: {
           201: ResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          409: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

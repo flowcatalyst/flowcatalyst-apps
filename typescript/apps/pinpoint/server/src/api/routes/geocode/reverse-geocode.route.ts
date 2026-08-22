@@ -8,6 +8,7 @@ import { ScopeStore, UseCaseError } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const ReverseGeocodeBodySchema = Type.Object({
   latitude: Type.Number({ minimum: -90, maximum: 90 }),
@@ -26,11 +27,6 @@ const ReverseGeocodeResponseSchema = Type.Object({
   confidence: Type.Number(),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerReverseGeocodeRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -44,11 +40,11 @@ export function registerReverseGeocodeRoute(
         body: ReverseGeocodeBodySchema,
         response: {
           200: ReverseGeocodeResponseSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          500: ErrorSchema,
-          502: ErrorSchema,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
+          502: ErrorResponseRef,
         },
       },
     },

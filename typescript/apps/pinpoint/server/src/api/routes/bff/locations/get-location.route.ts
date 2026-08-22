@@ -10,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const FeatureSchema = Type.Object({
   layerFeatureId: Type.String(),
@@ -38,11 +39,6 @@ const ResponseSchema = Type.Object({
   features: Type.Array(FeatureSchema),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerBffGetLocationRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -57,7 +53,12 @@ export function registerBffGetLocationRoute(
           clientId: Type.String({ minLength: 1 }),
           locationId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema },
+        response: {
+          200: ResponseSchema,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
+        },
       },
     },
     async (request, reply) => {

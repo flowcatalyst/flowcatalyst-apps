@@ -365,7 +365,7 @@ export function registerCreateClientRoute(
 
 `sendUseCaseError(reply, error)` reads `error.type` and maps to the HTTP status via `UseCaseError.httpStatus(error)`.
 
-**Route response schemas must declare every status code the handler emits.** Fastify + TypeBox typechecks reply codes against the schema's `response` keys. The standard `ErrorResponseSchema` is in `tenancy/clients/create-client.route.ts` — reuse it.
+**Route response schemas must declare every status code the handler emits.** Fastify + TypeBox typechecks reply codes against the schema's `response` keys. Error statuses use the shared `ErrorResponseRef` from `api/plugins/error-response.schema.ts` (`response: { 200: OkSchema, 400: ErrorResponseRef, 401: ErrorResponseRef, … }`) — it is the `$ref` to the `ErrorResponse` component; do not declare per-route error schemas.
 
 ## Pattern divergences from fulfil
 
@@ -461,5 +461,6 @@ In order:
 - **Drift check**: `pnpm openapi:pinpoint:check` exits 1 if either generated file is stale. Run it before committing route work.
 - **Typed web client**: pages consume the spec through `web/src/api/client.ts` (`api` + `ok()` + `ApiResponse<>`); see the Web section above. A route/schema change that breaks a page shows up as a vue-tsc error — that is the sync working.
 - **operationId** is mandatory on every route and must be unique: camelCase of the route file stem (`delete-location.route.ts` → `deleteLocation`), prefixed `bff` for BFF routes (`bffListLocations`). Files that register two routes (`auth/me.route.ts`, `bff/master-locations/match-features.route.ts`) assign distinct ids by hand.
-- `*.gen.*` is formatter-ignored; never hand-edit the file. Schemas are inlined per operation (no `$ref` components yet), so the file is large — that's expected.
+- `*.gen.*` is formatter-ignored; never hand-edit the file.
+- **Shared schemas → `components.schemas`.** A TypeBox schema with an `$id` that is registered in `server.ts` via `server.addSchema(...)` becomes a named component; routes reference it with a typed `$ref` (`Type.Unsafe<Static<typeof X>>(Type.Ref('X#'))`). Today: `ErrorResponse` (`api/plugins/error-response.schema.ts` — every 4xx/5xx response uses `ErrorResponseRef`; never declare a local `ErrorSchema`), `BffLayerDetail` + `BffLayerPropertySet` (`api/routes/bff/layers/layer-response.schema.ts`). Promote other per-route entity schemas the same way when two or more operations share them. The swagger `refResolver` keeps component names equal to the `$id`.
 - Consumers: client/type generation for the Vue SPA (`openapi-typescript`), and any non-TS port of the service.

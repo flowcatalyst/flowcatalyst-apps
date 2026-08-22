@@ -22,7 +22,14 @@
  *    (fuzzy candidate search via `pg_trgm` similarity, partial on
  *    `normalized_address_line IS NOT NULL`)
  */
-import { type AnyPgColumn, doublePrecision, index, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import {
+  type AnyPgColumn,
+  doublePrecision,
+  index,
+  pgTable,
+  text,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { sql, type SQL } from 'drizzle-orm';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { clients } from './clients.js';

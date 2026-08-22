@@ -18,6 +18,7 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 // Reverse geocoding is part of the geocode/validate workflow, so it shares the
 // master-location validate permission (the same one the "Geocode" action uses).
@@ -33,12 +34,6 @@ const ResponseSchema = Type.Object({
   country: Type.String(),
   formattedAddress: Type.String(),
   confidence: Type.Number(),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
 });
 
 export function registerBffReverseGeocodeMasterLocationRoute(
@@ -57,13 +52,13 @@ export function registerBffReverseGeocodeMasterLocationRoute(
         }),
         response: {
           200: ResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          409: ErrorSchema,
-          500: ErrorSchema,
-          502: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
+          502: ErrorResponseRef,
         },
       },
     },

@@ -16,6 +16,7 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({
   latitude: Type.Number({ minimum: -90, maximum: 90 }),
@@ -41,11 +42,6 @@ const ResponseSchema = Type.Object({
   results: Type.Array(HitSchema),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerBffSpatialLookupRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -60,10 +56,10 @@ export function registerBffSpatialLookupRoute(
         body: BodySchema,
         response: {
           200: ResponseSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          500: ErrorSchema,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

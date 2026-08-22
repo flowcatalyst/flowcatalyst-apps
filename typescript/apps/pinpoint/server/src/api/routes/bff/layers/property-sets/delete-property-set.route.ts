@@ -10,15 +10,9 @@ import { DeletePropertySetCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../../app-context.js';
 import { sendUseCaseError } from '../../../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
+import { ErrorResponseRef } from '../../../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({ success: Type.Literal(true) });
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-});
 
 export function registerBffDeletePropertySetRoute(
   fastify: FastifyInstance,
@@ -37,10 +31,10 @@ export function registerBffDeletePropertySetRoute(
         }),
         response: {
           200: ResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          404: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

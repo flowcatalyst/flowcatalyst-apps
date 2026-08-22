@@ -41,7 +41,7 @@ const BatchResponseSchema = Type.Object({
   ),
 });
 
-const ErrorResponseSchema = Type.Object({
+const JobErrorSchema = Type.Object({
   error: Type.Object({
     type: Type.String(),
     code: Type.String(),
@@ -73,9 +73,9 @@ export function registerValidateMasterLocationsRoute(
         body: Type.Object({}, { additionalProperties: true }),
         response: {
           200: BatchResponseSchema,
-          401: ErrorResponseSchema,
-          415: ErrorResponseSchema,
-          500: ErrorResponseSchema,
+          401: JobErrorSchema,
+          415: JobErrorSchema,
+          500: JobErrorSchema,
         },
       },
     },

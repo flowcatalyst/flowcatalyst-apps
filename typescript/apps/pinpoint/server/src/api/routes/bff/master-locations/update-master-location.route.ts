@@ -18,6 +18,7 @@ import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
 import { isFailure } from '@pinpoint/framework';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({
   houseNumber: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -46,14 +47,6 @@ const ResponseSchema = Type.Object({
   createdAt: Type.String({ format: 'date-time' }),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-  issues: Type.Optional(Type.Array(Type.Unknown())),
-});
-
 export function registerBffUpdateMasterLocationRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -71,10 +64,10 @@ export function registerBffUpdateMasterLocationRoute(
         body: BodySchema,
         response: {
           200: ResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          404: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

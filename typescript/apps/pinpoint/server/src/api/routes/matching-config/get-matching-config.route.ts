@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asClientId, asPartitionId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const ParamsSchema = Type.Object({
   clientId: Type.String({ minLength: 1 }),
@@ -26,11 +27,6 @@ const ResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerGetMatchingConfigRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -43,7 +39,7 @@ export function registerGetMatchingConfigRoute(
         tags: ['Matching'],
         params: ParamsSchema,
         querystring: QuerySchema,
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

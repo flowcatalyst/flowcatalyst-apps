@@ -15,6 +15,7 @@ import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import type { NormalizedAddress } from '../../../domain/services/address-normalizer.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const ForwardGeocodeBodySchema = Type.Object({
   houseNumber: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -33,11 +34,6 @@ const ForwardGeocodeResponseSchema = Type.Object({
   formattedAddress: Type.Union([Type.String(), Type.Null()]),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerForwardGeocodeRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -51,11 +47,11 @@ export function registerForwardGeocodeRoute(
         body: ForwardGeocodeBodySchema,
         response: {
           200: ForwardGeocodeResponseSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          500: ErrorSchema,
-          502: ErrorSchema,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
+          502: ErrorResponseRef,
         },
       },
     },

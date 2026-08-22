@@ -14,13 +14,9 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asPartitionId } from '../../../../domain/tenancy/ids.js';
 import { asPrincipalId } from '../../../../domain/auth/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({ success: Type.Literal(true) });
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
 
 export function registerBffRevokePartitionAccessRoute(
   fastify: FastifyInstance,
@@ -37,7 +33,7 @@ export function registerBffRevokePartitionAccessRoute(
           partitionId: Type.String({ minLength: 1 }),
           principalId: Type.String({ minLength: 1 }),
         }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asLayerFeatureId } from '../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const BodySchema = Type.Object({
   status: Type.Union([Type.Literal('ACTIVE'), Type.Literal('INACTIVE')]),
@@ -28,11 +29,6 @@ const ResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerBffSetFeatureStatusRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -49,7 +45,12 @@ export function registerBffSetFeatureStatusRoute(
           featureId: Type.String({ minLength: 1 }),
         }),
         body: BodySchema,
-        response: { 200: ResponseSchema, 401: ErrorSchema, 404: ErrorSchema, 500: ErrorSchema },
+        response: {
+          200: ResponseSchema,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
+        },
       },
     },
     async (request, reply) => {

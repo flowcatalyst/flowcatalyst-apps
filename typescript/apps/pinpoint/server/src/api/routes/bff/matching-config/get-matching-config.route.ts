@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({
   id: Type.String(),
@@ -28,11 +29,6 @@ const ResponseSchema = Type.Object({
   updatedAt: Type.String({ format: 'date-time' }),
 });
 
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-});
-
 export function registerBffGetMatchingConfigRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
@@ -44,7 +40,7 @@ export function registerBffGetMatchingConfigRoute(
         operationId: 'bffGetMatchingConfig',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (request, reply) => {

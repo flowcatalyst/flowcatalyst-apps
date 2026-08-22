@@ -8,17 +8,13 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import type { AppContext } from '../../../app-context.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({
   totalClients: Type.Integer({ minimum: 0 }),
   totalLocations: Type.Integer({ minimum: 0 }),
   totalMasterLocations: Type.Integer({ minimum: 0 }),
   totalLayers: Type.Integer({ minimum: 0 }),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 export function registerBffDashboardRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -28,7 +24,7 @@ export function registerBffDashboardRoute(fastify: FastifyInstance, appContext: 
       schema: {
         operationId: 'bffDashboard',
         tags: ['BFF'],
-        response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
+        response: { 200: ResponseSchema, 401: ErrorResponseRef, 500: ErrorResponseRef },
       },
     },
     async (_request, reply) => {

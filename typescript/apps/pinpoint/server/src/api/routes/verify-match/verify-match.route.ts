@@ -18,6 +18,7 @@ import { ScopeStore, UseCaseError } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const VerifyMatchBodySchema = Type.Object({
   inputAddress: Type.String({ minLength: 1 }),
@@ -28,11 +29,6 @@ const VerifyMatchResponseSchema = Type.Object({
   matchConfirmed: Type.Boolean(),
   confidence: Type.Number({ minimum: 0, maximum: 1 }),
   reasoning: Type.String(),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 export function registerVerifyMatchRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -46,10 +42,10 @@ export function registerVerifyMatchRoute(fastify: FastifyInstance, appContext: A
         response: {
           200: VerifyMatchResponseSchema,
           204: Type.Null(),
-          400: ErrorSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

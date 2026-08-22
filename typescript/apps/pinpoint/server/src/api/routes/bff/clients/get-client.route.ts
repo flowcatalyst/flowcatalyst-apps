@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ClientSchema = Type.Object({
   id: Type.String(),
@@ -15,11 +16,6 @@ const ClientSchema = Type.Object({
   status: Type.String(),
   createdAt: Type.String({ format: 'date-time' }),
   updatedAt: Type.String({ format: 'date-time' }),
-});
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
 });
 
 export function registerBffGetClientRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -32,9 +28,9 @@ export function registerBffGetClientRoute(fastify: FastifyInstance, appContext: 
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
         response: {
           200: ClientSchema,
-          401: ErrorSchema,
-          404: ErrorSchema,
-          500: ErrorSchema,
+          401: ErrorResponseRef,
+          404: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

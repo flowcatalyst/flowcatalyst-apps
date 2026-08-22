@@ -8,15 +8,9 @@ import { ScopeStore, isFailure } from '@pinpoint/framework';
 import { DeleteLocationCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({ success: Type.Literal(true) });
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.Optional(Type.String()),
-  code: Type.Optional(Type.String()),
-  details: Type.Optional(Type.Unknown()),
-});
 
 export function registerBffDeleteLocationRoute(
   fastify: FastifyInstance,
@@ -34,12 +28,12 @@ export function registerBffDeleteLocationRoute(
         }),
         response: {
           200: ResponseSchema,
-          400: ErrorSchema,
-          401: ErrorSchema,
-          403: ErrorSchema,
-          404: ErrorSchema,
-          409: ErrorSchema,
-          500: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          403: ErrorResponseRef,
+          404: ErrorResponseRef,
+          409: ErrorResponseRef,
+          500: ErrorResponseRef,
         },
       },
     },

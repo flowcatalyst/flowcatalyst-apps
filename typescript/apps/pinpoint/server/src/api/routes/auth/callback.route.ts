@@ -3,11 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../../../app-context.js';
 import { SESSION_COOKIE_NAME } from '../../../auth/session-cookie.js';
 import { asPrincipalId } from '../../../domain/auth/ids.js';
-
-const ErrorSchema = Type.Object({
-  error: Type.String(),
-  message: Type.String(),
-});
+import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 /**
  * GET /auth/callback — exchange the OIDC `code` for tokens, fetch
@@ -32,10 +28,10 @@ export function registerCallbackRoute(fastify: FastifyInstance, appContext: AppC
           error_description: Type.Optional(Type.String()),
         }),
         response: {
-          400: ErrorSchema,
-          401: ErrorSchema,
-          500: ErrorSchema,
-          503: ErrorSchema,
+          400: ErrorResponseRef,
+          401: ErrorResponseRef,
+          500: ErrorResponseRef,
+          503: ErrorResponseRef,
         },
       },
     },

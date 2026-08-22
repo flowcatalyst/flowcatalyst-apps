@@ -164,10 +164,7 @@ export class CreateLocationUseCase {
     // that predate default-partition seeding (client create cascades it now).
     let partitionId = requestedPartitionId;
     if (!partitionId) {
-      const fallback = await this.partitions.findByClientAndCode(
-        clientId,
-        DEFAULT_PARTITION_CODE,
-      );
+      const fallback = await this.partitions.findByClientAndCode(clientId, DEFAULT_PARTITION_CODE);
       if (fallback) {
         partitionId = fallback.id;
       } else {

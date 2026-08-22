@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const PartitionResponseSchema = Type.Object({
   id: Type.String(),
@@ -11,11 +12,6 @@ const PartitionResponseSchema = Type.Object({
   description: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String({ format: 'date-time' }),
   updatedAt: Type.String({ format: 'date-time' }),
-});
-
-const NotFoundSchema = Type.Object({
-  error: Type.Literal('NotFound'),
-  message: Type.String(),
 });
 
 export function registerGetPartitionRoute(fastify: FastifyInstance, appContext: AppContext): void {
@@ -29,7 +25,7 @@ export function registerGetPartitionRoute(fastify: FastifyInstance, appContext: 
           clientId: Type.String(),
           partitionId: Type.String(),
         }),
-        response: { 200: PartitionResponseSchema, 404: NotFoundSchema },
+        response: { 200: PartitionResponseSchema, 404: ErrorResponseRef },
       },
     },
     async (request, reply) => {

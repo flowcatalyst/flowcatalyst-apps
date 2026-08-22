@@ -30,6 +30,11 @@ import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
 import { registerMasterLocationRoutes } from './api/routes/master-locations/index.js';
 import { registerJobsRoutes } from './api/routes/jobs/index.js';
 import { registerBffRoutes } from './api/routes/bff/index.js';
+import { ErrorResponseSchema } from './api/plugins/error-response.schema.js';
+import {
+  BffLayerDetailResponseSchema,
+  BffLayerPropertySetSchema,
+} from './api/routes/bff/layers/layer-response.schema.js';
 import type { AddressVerifierConfig } from './app-context.js';
 
 declare module 'fastify' {
@@ -241,7 +246,18 @@ export async function buildServer() {
       .catch((err) => done(err as Error));
   });
 
+  // Shared schemas → `components.schemas.*` in the OpenAPI document. Routes
+  // reference them via `$ref` (ErrorResponseRef etc.) instead of inlining.
+  server.addSchema(ErrorResponseSchema);
+  server.addSchema(BffLayerPropertySetSchema);
+  server.addSchema(BffLayerDetailResponseSchema);
+
   await server.register(fastifySwagger, {
+    // Keep component names = the schema `$id` (default would rename to def-N).
+    refResolver: {
+      buildLocalReference: (json, _baseUri, _fragment, i) =>
+        typeof json['$id'] === 'string' ? json['$id'] : `def-${i}`,
+    },
     openapi: {
       info: {
         title: 'Pinpoint API',
