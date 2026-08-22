@@ -10150,10 +10150,25 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "totalClients"
+                    "totalClients",
+                    "totalLocations",
+                    "totalMasterLocations",
+                    "totalLayers"
                   ],
                   "properties": {
                     "totalClients": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "totalLocations": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "totalMasterLocations": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "totalLayers": {
                       "minimum": 0,
                       "type": "integer"
                     }
@@ -12102,6 +12117,15 @@
           },
           {
             "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false
+          },
+          {
+            "schema": {
               "minLength": 1,
               "type": "string"
             },
@@ -13480,6 +13504,34 @@
         "parameters": [
           {
             "schema": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "minimum": 1,
+              "maximum": 1000,
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "pageSize",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false
+          },
+          {
+            "schema": {
               "minLength": 1,
               "type": "string"
             },
@@ -13883,7 +13935,51 @@
                     },
                     "propertySets": {
                       "type": "array",
-                      "items": {}
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "properties"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "properties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "value"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     },
                     "partitionIds": {
                       "type": "array",
@@ -14542,7 +14638,51 @@
                     },
                     "propertySets": {
                       "type": "array",
-                      "items": {}
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "properties"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "properties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "key",
+                                "value"
+                              ],
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     },
                     "partitionIds": {
                       "type": "array",
@@ -17519,6 +17659,15 @@
             },
             "in": "query",
             "name": "status",
+            "required": false
+          },
+          {
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
             "required": false
           },
           {

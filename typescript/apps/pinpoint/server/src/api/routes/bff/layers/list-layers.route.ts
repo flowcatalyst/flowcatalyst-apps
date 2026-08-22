@@ -1,7 +1,9 @@
 /**
  * BFF layer list. Mirror of Rust `routes/bff/layers.rs::list_layers`.
- * Returns all layers under the client with `propertySetCount` and a
- * `hasPolygon` flag. No pagination — Rust BFF doesn't paginate either.
+ * Returns layers under the client with `propertySetCount` and a `hasPolygon`
+ * flag. Optional `page` / `pageSize` / `q` (free-text over code / name /
+ * description); with no query it returns everything (up to LIST_LIMIT), which
+ * is what the SPA's dropdowns rely on.
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
@@ -36,6 +38,13 @@ const ErrorSchema = Type.Object({
 
 const LIST_LIMIT = 1000;
 
+const QuerySchema = Type.Object({
+  page: Type.Optional(Type.Integer({ minimum: 0 })),
+  pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: LIST_LIMIT })),
+  /** Free-text filter over code / name / description (case-insensitive contains). */
+  q: Type.Optional(Type.String({ maxLength: 200 })),
+});
+
 export function registerBffListLayersRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(
     '/bff/clients/:clientId/layers',
@@ -44,6 +53,7 @@ export function registerBffListLayersRoute(fastify: FastifyInstance, appContext:
         operationId: 'bffListLayers',
         tags: ['BFF'],
         params: Type.Object({ clientId: Type.String({ minLength: 1 }) }),
+        querystring: QuerySchema,
         response: { 200: ResponseSchema, 401: ErrorSchema, 500: ErrorSchema },
       },
     },
@@ -54,10 +64,16 @@ export function registerBffListLayersRoute(fastify: FastifyInstance, appContext:
       }
 
       const { clientId } = request.params as { clientId: string };
+      const {
+        page = 0,
+        pageSize = LIST_LIMIT,
+        q,
+      } = request.query as { page?: number; pageSize?: number; q?: string };
       const { layers, total } = await appContext.repositories.layers.listByClient({
         clientId: asClientId(clientId),
-        limit: LIST_LIMIT,
-        offset: 0,
+        search: q,
+        limit: pageSize,
+        offset: page * pageSize,
       });
 
       const counts = await appContext.repositories.propertySets.countByLayerIds(

@@ -43,8 +43,6 @@ async function loadLocations() {
   }
   loading.value = true;
   try {
-    // TODO(openapi-sync): bffListLocations has no `q` param — the search box was
-    // always ignored server-side; only page/pageSize/partitionId are sent.
     const response = await ok(
       api.GET('/bff/clients/{clientId}/locations', {
         params: {
@@ -52,6 +50,7 @@ async function loadLocations() {
           query: {
             page: page.value,
             pageSize: pageSize.value,
+            ...(searchQuery.value ? { q: searchQuery.value } : {}),
             ...(selectedPartitionId.value ? { partitionId: selectedPartitionId.value } : {}),
           },
         },

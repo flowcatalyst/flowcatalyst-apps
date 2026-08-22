@@ -46,8 +46,6 @@ async function loadMasterLocations() {
   }
   loading.value = true;
   try {
-    // TODO(openapi-sync): bffListMasterLocations has no `q` param — the search
-    // box was never applied server-side; only page/pageSize/status are sent.
     const response = await ok(
       api.GET(LIST_PATH, {
         params: {
@@ -55,6 +53,7 @@ async function loadMasterLocations() {
           query: {
             page: page.value,
             pageSize: pageSize.value,
+            ...(searchQuery.value ? { q: searchQuery.value } : {}),
             ...(statusFilter.value ? { status: statusFilter.value as MasterLocationStatus } : {}),
           },
         },

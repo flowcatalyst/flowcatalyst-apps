@@ -5,6 +5,8 @@ import type { LayerId } from './ids.js';
 
 export interface ListLayersQuery {
   readonly clientId: ClientId;
+  /** Free-text filter: case-insensitive contains over the searchable text columns. */
+  readonly search?: string | undefined;
   readonly limit: number;
   readonly offset: number;
 }
@@ -21,6 +23,8 @@ export interface LayerRepository {
   findById(id: LayerId): Promise<Layer | null>;
   findByClientAndCode(clientId: ClientId, code: string): Promise<Layer | null>;
   listByClient(query: ListLayersQuery): Promise<ListLayersResult>;
+  /** Total layers across all clients (dashboard). */
+  count(): Promise<number>;
   findPartitionIds(layerId: LayerId): Promise<readonly string[]>;
   setPartitionIds(layerId: LayerId, partitionIds: readonly string[]): Promise<void>;
 }

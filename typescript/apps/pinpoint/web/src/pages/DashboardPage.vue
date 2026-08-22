@@ -2,14 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { api, ok, type ApiResponse } from '@/api/client';
 
-// TODO(openapi-sync): bffDashboard only returns `totalClients` today; the other
-// three tiles render '--' until the server widens the response. Keep them
-// optional here so the template stays honest about what the API provides.
-type DashboardStats = ApiResponse<'/bff/dashboard/stats', 'get'> & {
-  totalLocations?: number;
-  totalMasterLocations?: number;
-  totalLayers?: number;
-};
+type DashboardStats = ApiResponse<'/bff/dashboard/stats', 'get'>;
 
 const stats = ref<DashboardStats | null>(null);
 const loading = ref(true);

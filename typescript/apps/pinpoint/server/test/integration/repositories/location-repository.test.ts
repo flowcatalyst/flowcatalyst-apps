@@ -79,6 +79,22 @@ describe('LocationRepository (integration)', () => {
     expect(page.locations.length).toBe(2);
   });
 
+  it('listByClient filters by free-text search over name / externalId / address', async () => {
+    await repo.persist(newLocation({ externalId: 'EXT-001', address: '12 Long Street' }));
+    await repo.persist(newLocation({ externalId: 'EXT-002', address: '99 Kloof Road' }));
+
+    const byAddress = await repo.listByClient({ clientId, search: 'long st', limit: 10, offset: 0 });
+    expect(byAddress.total).toBe(1);
+    expect(byAddress.locations[0]?.externalId).toBe('EXT-001');
+    const byExternalId = await repo.listByClient({ clientId, search: 'ext-00', limit: 10, offset: 0 });
+    expect(byExternalId.total).toBe(2);
+    const byCity = await repo.listByClient({ clientId, search: 'francisco', limit: 10, offset: 0 });
+    expect(byCity.total).toBe(2);
+    const none = await repo.listByClient({ clientId, search: 'nowhere', limit: 10, offset: 0 });
+    expect(none.total).toBe(0);
+    expect(await repo.count()).toBe(2);
+  });
+
   it('listByMaster returns only children of the given master', async () => {
     const masterId = asMasterLocationId('mlo_test_lr_listbymaster');
 

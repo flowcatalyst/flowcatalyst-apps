@@ -152,6 +152,40 @@ describe('LayerRepository (integration)', () => {
     expect(page.layers).toHaveLength(2);
   });
 
+  it('listByClient filters by free-text search over code / name / description', async () => {
+    const clientId = await persistClient(clientRepo);
+    const mk = (code: string, name: string, description: string | null) =>
+      repo.persist(
+        Layer.create({
+          id: asLayerId(`${LAYER_ID_PREFIX}_${generateTsid()}`),
+          clientId,
+          code,
+          name,
+          description,
+          layerType: 'POINT',
+          centerLat: null,
+          centerLon: null,
+          radiusMeters: null,
+          polygonGeojson: null,
+          now: new Date(),
+        }),
+      );
+    await mk('NORTH', 'Northern Suburbs', null);
+    await mk('SOUTH', 'Southern Suburbs', 'Covers False Bay');
+    await mk('CBD', 'City Bowl', null);
+
+    const byName = await repo.listByClient({ clientId, search: 'suburbs', limit: 10, offset: 0 });
+    expect(byName.total).toBe(2);
+    const byCode = await repo.listByClient({ clientId, search: 'cbd', limit: 10, offset: 0 });
+    expect(byCode.layers.map((l) => l.code)).toEqual(['CBD']);
+    const byDesc = await repo.listByClient({ clientId, search: 'false bay', limit: 10, offset: 0 });
+    expect(byDesc.layers.map((l) => l.code)).toEqual(['SOUTH']);
+    // LIKE metacharacters are matched literally, not as wildcards.
+    const literal = await repo.listByClient({ clientId, search: '%', limit: 10, offset: 0 });
+    expect(literal.total).toBe(0);
+    expect(await repo.count()).toBe(3);
+  });
+
   it('findByClientAndCode is unique per client', async () => {
     const clientId = await persistClient(clientRepo);
     const layer = Layer.create({

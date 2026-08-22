@@ -8,31 +8,9 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import { asLayerId } from '../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../app-context.js';
+import { BffLayerDetailResponseSchema } from './layer-response.schema.js';
 
-const PropertySchema = Type.Object({ key: Type.String(), value: Type.String() });
-
-const PropertySetSchema = Type.Object({
-  id: Type.String(),
-  name: Type.String(),
-  description: Type.Union([Type.String(), Type.Null()]),
-  properties: Type.Array(PropertySchema),
-});
-
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  code: Type.String(),
-  name: Type.String(),
-  description: Type.Union([Type.String(), Type.Null()]),
-  layerType: Type.Union([Type.Literal('RADIUS'), Type.Literal('POLYGON'), Type.Literal('POINT')]),
-  status: Type.String(),
-  centerLat: Type.Union([Type.Number(), Type.Null()]),
-  centerLon: Type.Union([Type.Number(), Type.Null()]),
-  radiusMeters: Type.Union([Type.Number(), Type.Null()]),
-  polygonGeojson: Type.Union([Type.String(), Type.Null()]),
-  propertySets: Type.Array(PropertySetSchema),
-  partitionIds: Type.Array(Type.String()),
-  createdAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = BffLayerDetailResponseSchema;
 
 const ErrorSchema = Type.Object({
   error: Type.String(),

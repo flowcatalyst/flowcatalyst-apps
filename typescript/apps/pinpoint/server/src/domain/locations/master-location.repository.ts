@@ -6,6 +6,8 @@ import type { MasterLocationId } from './ids.js';
 export interface ListMasterLocationsQuery {
   readonly clientId: ClientId;
   readonly status?: MasterLocationStatus | undefined;
+  /** Free-text filter: case-insensitive contains over the searchable text columns. */
+  readonly search?: string | undefined;
   readonly limit: number;
   readonly offset: number;
 }
@@ -60,6 +62,8 @@ export interface MasterLocationRepository {
     limit: number,
   ): Promise<readonly MasterLocation[]>;
   listByClient(query: ListMasterLocationsQuery): Promise<ListMasterLocationsResult>;
+  /** Total master locations across all clients (dashboard). */
+  count(): Promise<number>;
   listByStatus(status: MasterLocationStatus, limit: number): Promise<readonly MasterLocation[]>;
   findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult>;
   applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void>;

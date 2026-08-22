@@ -1,4 +1,5 @@
-import { and, asc, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, or } from 'drizzle-orm';
+import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import { asClientId, type ClientId } from '../domain/tenancy/ids.js';
@@ -92,7 +93,18 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
     },
 
     async listByClient(query: ListLayersQuery): Promise<ListLayersResult> {
-      const where = eq(layers.clientId, query.clientId);
+      const search = query.search?.trim();
+      const pattern = search ? containsPattern(search) : null;
+      const where = and(
+        eq(layers.clientId, query.clientId),
+        pattern
+          ? or(
+              ilike(layers.code, pattern),
+              ilike(layers.name, pattern),
+              ilike(layers.description, pattern),
+            )
+          : undefined,
+      );
       const [rows, totalRow] = await Promise.all([
         db
           .select()
@@ -107,6 +119,11 @@ export function createDrizzleLayerRepository(db: PostgresJsDatabase): LayerRepos
         layers: rows.map(toDomain),
         total: Number(totalRow[0]?.value ?? 0),
       };
+    },
+
+    async count(): Promise<number> {
+      const [row] = await db.select({ value: count() }).from(layers);
+      return Number(row?.value ?? 0);
     },
 
     async findPartitionIds(layerId: LayerId): Promise<readonly string[]> {

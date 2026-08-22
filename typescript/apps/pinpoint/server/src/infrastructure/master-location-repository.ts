@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import {
@@ -193,13 +194,21 @@ export function createDrizzleMasterLocationRepository(
     },
 
     async listByClient(query: ListMasterLocationsQuery): Promise<ListMasterLocationsResult> {
-      const where =
-        query.status == null
-          ? eq(masterLocations.clientId, query.clientId)
-          : and(
-              eq(masterLocations.clientId, query.clientId),
-              eq(masterLocations.status, query.status),
-            );
+      const search = query.search?.trim();
+      const pattern = search ? containsPattern(search) : null;
+      const where = and(
+        eq(masterLocations.clientId, query.clientId),
+        query.status == null ? undefined : eq(masterLocations.status, query.status),
+        pattern
+          ? or(
+              ilike(masterLocations.normalizedAddressLine, pattern),
+              ilike(masterLocations.normalizedRoad, pattern),
+              ilike(masterLocations.normalizedSuburb, pattern),
+              ilike(masterLocations.normalizedCity, pattern),
+              ilike(masterLocations.normalizedPostalCode, pattern),
+            )
+          : undefined,
+      );
       const [rows, totalRow] = await Promise.all([
         db
           .select()
@@ -214,6 +223,11 @@ export function createDrizzleMasterLocationRepository(
         masters: rows.map(toDomain),
         total: Number(totalRow[0]?.value ?? 0),
       };
+    },
+
+    async count(): Promise<number> {
+      const [row] = await db.select({ value: count() }).from(masterLocations);
+      return Number(row?.value ?? 0);
     },
 
     async listByStatus(status, limit): Promise<readonly MasterLocation[]> {

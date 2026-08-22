@@ -7,6 +7,8 @@ export interface ListByClientQuery {
   readonly clientId: ClientId;
   /** Narrow to one partition when set. */
   readonly partitionId?: PartitionId | null;
+  /** Free-text filter: case-insensitive contains over the searchable text columns. */
+  readonly search?: string | undefined;
   readonly limit: number;
   readonly offset: number;
 }
@@ -28,4 +30,6 @@ export interface LocationRepository {
   ): Promise<Location | null>;
   listByMaster(masterLocationId: MasterLocationId): Promise<readonly Location[]>;
   listByClient(query: ListByClientQuery): Promise<ListByClientResult>;
+  /** Total locations across all clients (dashboard). */
+  count(): Promise<number>;
 }

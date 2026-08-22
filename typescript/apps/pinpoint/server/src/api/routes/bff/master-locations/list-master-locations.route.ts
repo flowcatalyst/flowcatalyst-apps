@@ -51,6 +51,8 @@ const QuerySchema = Type.Object({
   page: Type.Optional(Type.Integer({ minimum: 0 })),
   pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
   status: Type.Optional(StatusEnum),
+  /** Free-text filter over the normalized address fields (case-insensitive contains). */
+  q: Type.Optional(Type.String({ maxLength: 200 })),
 });
 
 const ErrorSchema = Type.Object({
@@ -123,15 +125,18 @@ export function registerBffListMasterLocationsRoute(
         page = 0,
         pageSize = 100,
         status,
+        q,
       } = request.query as {
         page?: number;
         pageSize?: number;
         status?: MasterLocationStatus;
+        q?: string;
       };
 
       const { masters, total } = await appContext.repositories.masterLocations.listByClient({
         clientId: asClientId(clientId),
         status,
+        search: q,
         limit: pageSize,
         offset: page * pageSize,
       });

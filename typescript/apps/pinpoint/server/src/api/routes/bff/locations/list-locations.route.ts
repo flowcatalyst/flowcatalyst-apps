@@ -37,6 +37,8 @@ const QuerySchema = Type.Object({
   pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
   /** Narrow to one partition. */
   partitionId: Type.Optional(Type.String({ minLength: 1 })),
+  /** Free-text filter over name / externalId / raw address fields (case-insensitive contains). */
+  q: Type.Optional(Type.String({ maxLength: 200 })),
 });
 
 const ErrorSchema = Type.Object({
@@ -70,15 +72,18 @@ export function registerBffListLocationsRoute(
         page = 0,
         pageSize = 100,
         partitionId,
+        q,
       } = request.query as {
         page?: number;
         pageSize?: number;
         partitionId?: string;
+        q?: string;
       };
 
       const { locations, total } = await appContext.repositories.locations.listByClient({
         clientId: asClientId(clientId),
         ...(partitionId ? { partitionId: asPartitionId(partitionId) } : {}),
+        search: q,
         limit: pageSize,
         offset: page * pageSize,
       });

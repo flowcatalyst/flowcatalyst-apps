@@ -105,6 +105,27 @@ describe('MasterLocationRepository (integration)', () => {
     expect(onlyPending.masters[0]?.id).toBe(pending.id);
   });
 
+  it('listByClient filters by free-text search over the normalized address', async () => {
+    await repo.persist(pendingMaster(clientId, { city: 'Cape Town' }));
+    await repo.persist(pendingMaster(clientId, { city: 'Stellenbosch' }));
+
+    const byCity = await repo.listByClient({ clientId, search: 'stellen', limit: 10, offset: 0 });
+    expect(byCity.total).toBe(1);
+    expect(byCity.masters[0]?.normalizedCity).toBe('Stellenbosch');
+    // Also matches normalizedAddressLine ('Cape Town, South Africa' on both).
+    const byLine = await repo.listByClient({ clientId, search: 'south africa', limit: 10, offset: 0 });
+    expect(byLine.total).toBe(2);
+    const withStatus = await repo.listByClient({
+      clientId,
+      status: 'PENDING',
+      search: 'cape',
+      limit: 10,
+      offset: 0,
+    });
+    expect(withStatus.total).toBe(2);
+    expect(await repo.count()).toBe(2);
+  });
+
   it('findUnvalidated returns everything except VALIDATED', async () => {
     await repo.persist(pendingMaster(clientId));
     const validated = MasterLocation.confirmed(

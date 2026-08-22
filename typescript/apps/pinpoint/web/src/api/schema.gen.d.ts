@@ -5339,6 +5339,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         totalClients: number;
+                        totalLocations: number;
+                        totalMasterLocations: number;
+                        totalLayers: number;
                     };
                 };
             };
@@ -6311,6 +6314,7 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
                 partitionId?: string;
+                q?: string;
             };
             header?: never;
             path: {
@@ -6895,7 +6899,11 @@ export interface operations {
     };
     bffListLayers: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                pageSize?: number;
+                q?: string;
+            };
             header?: never;
             path: {
                 clientId: string;
@@ -6997,7 +7005,15 @@ export interface operations {
                         centerLon: number | null;
                         radiusMeters: number | null;
                         polygonGeojson: string | null;
-                        propertySets: unknown[];
+                        propertySets: {
+                            id: string;
+                            name: string;
+                            description: string | null;
+                            properties: {
+                                key: string;
+                                value: string;
+                            }[];
+                        }[];
                         partitionIds: string[];
                         /** Format: date-time */
                         createdAt: string;
@@ -7218,7 +7234,15 @@ export interface operations {
                         centerLon: number | null;
                         radiusMeters: number | null;
                         polygonGeojson: string | null;
-                        propertySets: unknown[];
+                        propertySets: {
+                            id: string;
+                            name: string;
+                            description: string | null;
+                            properties: {
+                                key: string;
+                                value: string;
+                            }[];
+                        }[];
                         partitionIds: string[];
                         /** Format: date-time */
                         createdAt: string;
@@ -8506,6 +8530,7 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
                 status?: "PENDING" | "GEOCODED" | "VALIDATED" | "REJECTED";
+                q?: string;
             };
             header?: never;
             path: {

@@ -148,10 +148,7 @@ async function handleSave() {
         ...suppressErrorToast,
       }),
     );
-    // TODO(openapi-sync): bffUpdateLayer's response schema types propertySets
-    // as unknown[] (bffGetLayer has the full shape) — cast until the server
-    // schema is tightened.
-    layer.value = { ...updated, propertySets: updated.propertySets as LayerDetail['propertySets'] };
+    layer.value = updated;
     toast.success('Saved', 'Layer updated.');
     editing.value = false;
   } catch (e) {

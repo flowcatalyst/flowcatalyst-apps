@@ -1,4 +1,5 @@
-import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import {
@@ -154,9 +155,22 @@ export function createDrizzleLocationRepository(db: PostgresJsDatabase): Locatio
     },
 
     async listByClient(query: ListByClientQuery): Promise<ListByClientResult> {
-      const where = query.partitionId
-        ? and(eq(locations.clientId, query.clientId), eq(locations.partitionId, query.partitionId))
-        : eq(locations.clientId, query.clientId);
+      const search = query.search?.trim();
+      const pattern = search ? containsPattern(search) : null;
+      const where = and(
+        eq(locations.clientId, query.clientId),
+        query.partitionId ? eq(locations.partitionId, query.partitionId) : undefined,
+        pattern
+          ? or(
+              ilike(locations.name, pattern),
+              ilike(locations.externalId, pattern),
+              ilike(locations.rawAddressLine1, pattern),
+              ilike(locations.rawSuburb, pattern),
+              ilike(locations.rawCity, pattern),
+              ilike(locations.rawPostalCode, pattern),
+            )
+          : undefined,
+      );
       const [rows, totalRow] = await Promise.all([
         db
           .select()
@@ -174,6 +188,11 @@ export function createDrizzleLocationRepository(db: PostgresJsDatabase): Locatio
         locations: rows.map(toDomain),
         total: Number(totalRow[0]?.value ?? 0),
       };
+    },
+
+    async count(): Promise<number> {
+      const [row] = await db.select({ value: count() }).from(locations);
+      return Number(row?.value ?? 0);
     },
   };
 }

@@ -30,10 +30,17 @@ async function loadLayers() {
   }
   loading.value = true;
   try {
-    // TODO(openapi-sync): bffListLayers accepts no query params — the server
-    // returns every layer, so page/pageSize/q were always ignored here.
     const response = await ok(
-      api.GET('/bff/clients/{clientId}/layers', { params: { path: { clientId: clientId.value } } }),
+      api.GET('/bff/clients/{clientId}/layers', {
+        params: {
+          path: { clientId: clientId.value },
+          query: {
+            page: page.value,
+            pageSize: pageSize.value,
+            ...(searchQuery.value ? { q: searchQuery.value } : {}),
+          },
+        },
+      }),
     );
     layers.value = response.items;
     totalRecords.value = response.total;
