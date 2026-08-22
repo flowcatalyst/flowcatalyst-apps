@@ -24,7 +24,14 @@ export interface PinpointDefinitionsConfig {
 export function buildPinpointDefinitions(config: PinpointDefinitionsConfig): sync.DefinitionSet {
   return {
     applicationCode: PINPOINT_APPLICATION_CODE,
-    eventTypes: [...pinpointEventTypes],
+    // The DefinitionSet API accepts only { code, name, description } — the
+    // TypeBox `payloadSchema` is pushed separately as a schema version by
+    // scripts/sync-flowcatalyst.ts (the platform rejects unknown properties).
+    eventTypes: pinpointEventTypes.map(({ code, name, description }) => ({
+      code,
+      name,
+      ...(description !== undefined ? { description } : {}),
+    })),
     subscriptions: [...buildPinpointSubscriptions(config)],
     dispatchPools: [...buildPinpointDispatchPools(config)],
     roles: [...pinpointRoles],

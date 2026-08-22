@@ -161,7 +161,10 @@ async function main(): Promise<void> {
 
   const removeUnlisted = process.env['FLOWCATALYST_REMOVE_UNLISTED'] === 'true';
 
-  await client.definitions().sync(definitions, { removeUnlisted });
+  const syncResult = await client.definitions().sync(definitions, { removeUnlisted });
+  if (syncResult.isErr()) {
+    throw new Error(`Definitions sync failed: ${JSON.stringify(syncResult.error)}`);
+  }
   console.log('Pinpoint FlowCatalyst definitions synced.');
 
   if (process.env['PINPOINT_SCHEMA_SYNC'] === 'false') {

@@ -42,6 +42,13 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: true,
       },
+      // Platform-fired scheduled-job webhooks. In dev the FlowCatalyst
+      // scheduled job's targetUrl is PINPOINT_PUBLIC_BASE_URL (this dev
+      // server), so forward them to the API like the other surfaces.
+      '/jobs': {
+        target: apiTarget,
+        changeOrigin: true,
+      },
     },
   },
 });
