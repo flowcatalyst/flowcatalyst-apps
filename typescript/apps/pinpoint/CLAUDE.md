@@ -42,6 +42,7 @@ apps/pinpoint/
 ├── Dockerfile                         # multi-stage prod image
 ├── docs/
 │   ├── architecture.md                # architecture, diagrams, process flows — start here for the big picture
+│   ├── architecture.html              # generated single-page rendering of the above (pnpm docs:architecture); published as an Artifact
 │   ├── MIGRATION_PLAN.md              # historical port plan + slice notes
 │   ├── HANDOFF.md                     # pickup state + gotchas — read after this file
 │   ├── route-triage.md                # Rust route inventory + TS port status
@@ -64,7 +65,7 @@ apps/pinpoint/
 │   │   ├── app-context.ts             # composition root (this is where wiring goes)
 │   │   └── server.ts                  # Fastify bootstrap
 │   ├── drizzle/                       # migrations
-│   ├── scripts/                       # db-init, sync-flowcatalyst, export-openapi
+│   ├── scripts/                       # db-init, sync-flowcatalyst, export-openapi, docs (mermaid check + architecture.html build)
 │   └── test/integration/              # testcontainers-backed integration suite
 └── web/                               # Vue 3 SPA
 ```

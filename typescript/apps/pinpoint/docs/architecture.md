@@ -374,6 +374,7 @@ flowchart TB
 - **Unit** (`pnpm test`, 189): matcher, hash/normaliser, verifier parsing, auth helpers, shared-schema guard.
 - **Integration** (`pnpm test:integration`, 127, Docker): testcontainers PostGIS + Redis, migrations applied from `server/drizzle`, one test per use case through the real `runWrite`, repository tests (incl. search + count), OIDC end-to-end against a fake IdP, session stores.
 - **Typecheck** `tsc -p tsconfig.test.json` covers `src`, `test`, `scripts`. **Lint/format** via Vite+ (`pnpm check` at the workspace root).
+- **Docs** `pnpm --filter @pinpoint/server docs:architecture` — parse-checks every Mermaid block in `docs/architecture.md` and regenerates `docs/architecture.html`; edit the `.md`, rebuild, commit both, republish the Artifact (same URL).
 - **Contract** `pnpm openapi:pinpoint` / `:check`; **platform** `pnpm flowcatalyst:sync`; **DB** `db:init`, `db:generate`, `db:migrate`; **dev** `pnpm dev:pinpoint` (server `:3100` + vite `:5173` proxying `/bff /api /auth /jobs`).
 
 ## 14. Known gaps and divergences

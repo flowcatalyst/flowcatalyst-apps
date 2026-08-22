@@ -1,0 +1,412 @@
+#!/usr/bin/env tsx
+/**
+ * Build docs/architecture.html — the shareable single-page rendering of
+ * docs/architecture.md (same Mermaid blocks, plus two hand-drawn SVGs for the
+ * write path and the deployment topology). Publish the HTML as an Artifact
+ * (keep the existing artifact URL) after regenerating.
+ *
+ *   pnpm docs:architecture   (runs docs:check first)
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const here = dirname(fileURLToPath(import.meta.url));
+const DOC = resolve(here, '../../docs/architecture.md');
+const OUT = resolve(here, '../../docs/architecture.html');
+const BLOCKS = [...readFileSync(DOC, 'utf8').matchAll(/```mermaid\n([\s\S]*?)```/g)].map(
+  (m) => m[1] ?? '',
+);
+const B = BLOCKS;
+const mm = (i: number, cap: string) =>
+  `<figure class="fig"><pre class="mermaid">${B[i]}</pre><figcaption>${cap}</figcaption></figure>`;
+const html = `<title>Pinpoint Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F4F6F3; --surface:#FFFFFF; --ink:#17262B; --muted:#5B6B70; --rule:#D5DDD9; --rule-soft:#E6ECE9;
+  --accent:#0E7C8B; --accent-ink:#0A5E6A; --accent-soft:#E1F0F2; --ochre:#B8801F; --ochre-soft:#F6ECD8;
+  --code:#EAF0ED; --shadow:0 1px 0 rgba(23,38,43,.06);
+  --display:'Spectral',Georgia,'Times New Roman',serif; --body:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif; --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0E1719; --surface:#152126; --ink:#E3EBE8; --muted:#98A8AC; --rule:#263539; --rule-soft:#1E2D32;
+  --accent:#56BFCC; --accent-ink:#8AD6DF; --accent-soft:#12303A; --ochre:#D9A646; --ochre-soft:#33290F;
+  --code:#1B2A30; --shadow:none; } }
+:root[data-theme="dark"]{
+  --ground:#0E1719; --surface:#152126; --ink:#E3EBE8; --muted:#98A8AC; --rule:#263539; --rule-soft:#1E2D32;
+  --accent:#56BFCC; --accent-ink:#8AD6DF; --accent-soft:#12303A; --ochre:#D9A646; --ochre-soft:#33290F;
+  --code:#1B2A30; --shadow:none; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-ink);text-decoration-color:var(--rule)}
+a:hover{text-decoration-color:currentColor}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+code,pre,.mono{font-family:var(--mono);font-size:.86em}
+code{background:var(--code);padding:.1em .35em;border-radius:3px}
+pre.mermaid{background:transparent;padding:0;font-size:14px}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 28px 96px;display:grid;grid-template-columns:minmax(0,1fr);gap:48px}
+@media (min-width:1180px){.wrap{grid-template-columns:220px minmax(0,760px);column-gap:72px}}
+nav.toc{display:none}
+@media (min-width:1180px){nav.toc{display:block;position:sticky;top:40px;align-self:start;font-size:13px;line-height:1.5}
+ nav.toc .eyebrow{margin-bottom:14px} nav.toc ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--rule)}
+ nav.toc li a{display:block;padding:4px 0 4px 14px;color:var(--muted);text-decoration:none;border-left:2px solid transparent;margin-left:-1px}
+ nav.toc li a:hover{color:var(--ink);border-left-color:var(--accent)}}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+header.hero{grid-column:1/-1;max-width:760px}
+@media (min-width:1180px){header.hero{grid-column:2}}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(34px,5vw,52px);line-height:1.05;letter-spacing:-.01em;margin:10px 0 18px;text-wrap:balance}
+.lede{font-size:19px;line-height:1.5;color:var(--ink);max-width:62ch;margin:0 0 22px}
+.meta{display:flex;flex-wrap:wrap;gap:10px 22px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.meta b{color:var(--ink);font-weight:500}
+main{min-width:0}
+section{padding:44px 0 8px;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:0;padding-top:0}
+h2{font-family:var(--display);font-weight:600;font-size:30px;line-height:1.15;margin:6px 0 16px;text-wrap:balance}
+h3{font-size:17px;font-weight:600;margin:30px 0 8px;letter-spacing:-.005em}
+p{max-width:68ch;margin:0 0 14px}
+ul,ol{max-width:68ch;padding-left:1.2em;margin:0 0 14px}
+li{margin:0 0 6px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0 6px}
+.fact{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 14px 12px;box-shadow:var(--shadow)}
+.fact .n{font-family:var(--display);font-size:30px;line-height:1;font-weight:600;font-variant-numeric:tabular-nums}
+.fact .l{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+figure.fig{margin:22px 0 26px;padding:18px 18px 12px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow-x:auto;box-shadow:var(--shadow)}
+figure.fig svg{display:block;max-width:100%;height:auto;color:var(--ink)}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:12px;max-width:75ch;line-height:1.5}
+figcaption b{color:var(--ink);font-weight:600}
+.tbl{overflow-x:auto;margin:14px 0 22px;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule-soft)}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--code)}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.state{display:inline-block;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;padding:1px 7px;border-radius:3px;background:var(--ochre-soft);color:var(--ochre);border:1px solid transparent}
+.steps{counter-reset:s;list-style:none;padding:0;max-width:72ch}
+.steps li{counter-increment:s;position:relative;padding-left:42px;margin:0 0 12px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:28px;height:28px;border-radius:50%;border:1px solid var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:12px;display:flex;align-items:center;justify-content:center}
+.note{border-left:3px solid var(--ochre);background:var(--ochre-soft);padding:12px 16px;border-radius:0 6px 6px 0;margin:18px 0;max-width:72ch}
+.note p{margin:0}
+.callout{border:1px solid var(--rule);border-left:3px solid var(--accent);background:var(--surface);padding:12px 16px;border-radius:0 6px 6px 0;margin:18px 0;max-width:72ch}
+.callout p{margin:0}
+.gaps li{margin-bottom:10px}
+footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted);border-top:1px solid var(--rule);padding-top:18px;margin-top:24px}
+@media (min-width:1180px){footer{grid-column:2}}
+@media (prefers-reduced-motion:no-preference){nav.toc li a{transition:color .15s,border-color .15s}}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">FlowCatalyst · apps/pinpoint · architecture</div>
+  <h1>Pinpoint Architecture</h1>
+  <p class="lede">Pinpoint turns raw customer addresses into canonical, geocoded <em>master locations</em>, then overlays business meaning on them through spatial <em>layers</em>. This page is the system on one screen — context, domain model, the write path, the process flows, and how it is wired into the FlowCatalyst platform and AWS.</p>
+  <div class="meta"><span>As built <b>2026-08-22</b> · commit <b>d14073e</b></span><span>Source of truth: <b>apps/pinpoint/docs/architecture.md</b></span><span>Contract: <b>openapi.gen.json</b></span></div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <div class="eyebrow">Contents</div>
+  <ol>
+    <li><a href="#overview">What pinpoint does</a></li>
+    <li><a href="#context">System context</a></li>
+    <li><a href="#structure">Code structure</a></li>
+    <li><a href="#domain">Domain model</a></li>
+    <li><a href="#write-path">The write path</a></li>
+    <li><a href="#flows">Process flows</a></li>
+    <li><a href="#api">HTTP surface & contracts</a></li>
+    <li><a href="#identity">Identity & permissions</a></li>
+    <li><a href="#platform">Platform integration</a></li>
+    <li><a href="#deploy">Deployment</a></li>
+    <li><a href="#data">Data & indexes</a></li>
+    <li><a href="#gaps">Known gaps</a></li>
+  </ol>
+</nav>
+
+<main>
+<section id="overview">
+  <div class="eyebrow">Overview</div>
+  <h2>What pinpoint does</h2>
+  <p>A customer (<code>Client</code>) creates or uploads <strong>locations</strong> — raw addresses. Pinpoint normalises each one with libpostal, deduplicates it against existing <strong>master locations</strong> (SHA-256 hash, then trigram / Jaro-Winkler fuzzy match, optionally confirmed by an LLM), geocodes the master with Photon, confirms it, and associates it with every <strong>layer feature</strong> whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.</p>
+  <div class="facts">
+    <div class="fact"><div class="n">101</div><div class="l">API operations</div></div>
+    <div class="fact"><div class="n">25</div><div class="l">use cases</div></div>
+    <div class="fact"><div class="n">27</div><div class="l">domain event types</div></div>
+    <div class="fact"><div class="n">9</div><div class="l">aggregates</div></div>
+    <div class="fact"><div class="n">34</div><div class="l">permissions · 6 roles</div></div>
+  </div>
+  <div class="tbl"><table>
+    <tr><th>Runtime</th><td>Node 24 · Fastify 5 · TypeScript 6 (strict) · Drizzle ORM 1.0 RC · PostgreSQL 18 + PostGIS + pg_trgm</td></tr>
+    <tr><th>SPA</th><td>Vue 3 + PrimeVue + Vite, served by the same server in production; talks to <code>/bff</code> through a generated, typed client</td></tr>
+    <tr><th>Surfaces</th><td>canonical API <code>/clients/…</code> + unscoped routes; BFF <code>/bff/…</code> for the SPA — one OpenAPI 3 contract (<code>openapi.gen.json</code>, 12 shared components)</td></tr>
+    <tr><th>External</th><td>libpostal sidecar (normalisation) · Photon (forward/reverse geocoding) · LLM verifier (Bedrock Gemma 4 / Ollama / none)</td></tr>
+    <tr><th>Platform</th><td>OIDC login against FlowCatalyst · events via outbox → <code>fc-outbox-processor</code> · one scheduled job (<code>pinpoint-validate-master-locations</code>, every 5 min)</td></tr>
+  </table></div>
+</section>
+
+<section id="context">
+  <div class="eyebrow">Boundaries</div>
+  <h2>System context</h2>
+  <p>The server is the only writer to the database. The SPA never talks to the platform directly — authentication is a server-side OIDC flow that ends in an HttpOnly session cookie. The platform reaches back into pinpoint in exactly one place: the HMAC-signed scheduled-job webhook.</p>
+  ${mm(0, '<b>Who talks to whom.</b> Solid arrows are synchronous HTTP; the outbox processor is the only asynchronous hop, polling <code>outbox_messages</code> and dispatching events into the platform.')}
+</section>
+
+<section id="structure">
+  <div class="eyebrow">Layering</div>
+  <h2>Code structure</h2>
+  <div class="tbl"><table>
+    <tr><th>Workspace</th><th>Role</th></tr>
+    <tr><td><code>shared/</code></td><td><code>@pinpoint/shared</code> — Zod command schemas, the <code>PinpointPermission</code> catalog</td></tr>
+    <tr><td><code>framework/</code></td><td><code>@pinpoint/framework</code> — re-exports app-framework (Scope, UoW helpers) + the SDK's non-Effect surface</td></tr>
+    <tr><td><code>server/src/domain</code></td><td>aggregates, repository interfaces, domain events, pure services (address matcher, hash)</td></tr>
+    <tr><td><code>server/src/operations</code></td><td>25 use cases — one directory each, plain <code>async</code> classes</td></tr>
+    <tr><td><code>server/src/infrastructure</code></td><td>Drizzle repositories + schema, external-service clients, migrations</td></tr>
+    <tr><td><code>server/src/api</code></td><td>routes (canonical + bff), plugins (error mapper, shared schemas, webhook auth)</td></tr>
+    <tr><td><code>server/src/auth</code> · <code>scheduling</code> · <code>flowcatalyst</code></td><td>OIDC + sessions + permissions · the validation batch · platform definitions (events, roles, pool, scheduled job)</td></tr>
+    <tr><td><code>server/src/app-context.ts</code></td><td>composition root — wires repos, services, use cases, <code>runWrite</code></td></tr>
+    <tr><td><code>web/</code></td><td><code>@pinpoint/web</code> — Vue SPA; <code>src/api/client.ts</code> + generated <code>schema.gen.d.ts</code></td></tr>
+  </table></div>
+  <p>Dependencies point inward: <code>api → operations → domain ← infrastructure</code>. Routes are thin shells (parse → <code>runWrite(() =&gt; useCase.execute(cmd))</code> → map <code>Result</code>). There is no DI container and no Effect runtime — pinpoint deliberately diverges from fulfil there. Identity travels on an <code>AsyncLocalStorage</code> <code>Scope</code>, so use cases call <code>ScopeStore.require()</code> instead of receiving a principal.</p>
+</section>
+
+<section id="domain">
+  <div class="eyebrow">Domain</div>
+  <h2>Domain model</h2>
+  <div class="tbl"><table>
+    <tr><th>Aggregate</th><th>ID</th><th>Lifecycle</th><th>Notes</th></tr>
+    <tr><td><b>Client</b></td><td><code>cli_</code></td><td><span class="state">ACTIVE</span> <span class="state">SUSPENDED</span></td><td>tenancy root; creating one seeds a <code>default</code> partition</td></tr>
+    <tr><td><b>Partition</b></td><td><code>par_</code></td><td>—</td><td>sub-tenant inside a client; layers can be scoped to partitions</td></tr>
+    <tr><td><b>Principal</b></td><td><code>prn_</code></td><td>—</td><td>upserted on login (IdP <code>sub</code>); partition grants in <code>principal_partitions</code></td></tr>
+    <tr><td><b>Layer</b></td><td><code>lyr_</code></td><td><span class="state">ACTIVE</span> <span class="state">INACTIVE</span></td><td><code>RADIUS</code> / <code>POLYGON</code> / <code>POINT</code>; PostGIS <code>boundary</code>; no <code>layer_partitions</code> rows = visible to all partitions</td></tr>
+    <tr><td><b>LayerFeature</b></td><td><code>lfe_</code></td><td><span class="state">ACTIVE</span> <span class="state">INACTIVE</span></td><td>a region inside a layer with ≤ 6 <code>propertyValues</code>; linked to locations via <code>location_feature_associations</code></td></tr>
+    <tr><td><b>PropertySet</b></td><td><code>pst_</code></td><td>—</td><td>named set of ≤ 6 key/value properties on a layer</td></tr>
+    <tr><td><b>Location</b></td><td><code>loc_</code></td><td><span class="state">PENDING</span> → <span class="state">VALIDATED</span></td><td>a customer's raw address; <code>rawAddressLine1</code> immutable, <code>matchAddress</code> editable; <code>matchMethod</code> EXACT_HASH / FUZZY</td></tr>
+    <tr><td><b>MasterLocation</b></td><td><code>mlo_</code></td><td><span class="state">PENDING</span> → <span class="state">GEOCODED</span> → <span class="state">VALIDATED</span>, any → <span class="state">REJECTED</span></td><td>canonical deduplicated address; <code>addressHash</code>, trigram-indexed <code>normalizedAddressLine</code>, <code>point</code> geometry, append-only <code>processing_log</code></td></tr>
+    <tr><td><b>MatchingConfig</b></td><td><code>mcf_</code></td><td>—</td><td>thresholds, resolved partition → client → global default</td></tr>
+  </table></div>
+  ${mm(1, '<b>Ownership and links.</b> Everything hangs off a client; partitions scope locations and masters, and act as an optional visibility filter on layers. A master location is the canonical record many locations point at.')}
+  <h3>Master location lifecycle</h3>
+  ${mm(2, '<b>Only VALIDATED masters are ever candidates for matching.</b> A child location stays PENDING until its master is confirmed; confirmation flips every child to VALIDATED and emits one <code>location:validated</code> per child. Editing a master’s address recomputes the hash and drops it back to PENDING.')}
+</section>
+
+<section id="write-path">
+  <div class="eyebrow">Mechanism</div>
+  <h2>The write path</h2>
+  <p>Every state change takes one shape. The SDK's sealed <code>Result&lt;T&gt;</code> is the type-level gate: a use case cannot construct a success without going through the unit of work, so an aggregate write can never be committed without its domain event and its audit row.</p>
+  <figure class="fig">
+  <svg viewBox="0 0 1000 250" role="img" aria-label="A request passes from the route into a runWrite transaction that holds the use case and the outbox unit of work; the unit of work writes the aggregate, an audit row and an outbox message in that one transaction; after commit, the external outbox processor polls the outbox table and dispatches the event to FlowCatalyst." xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <!-- route -->
+    <rect x="20" y="95" width="130" height="60" rx="4" fill="none" stroke="currentColor"/>
+    <text x="85" y="120" text-anchor="middle" font-weight="500">Route</text>
+    <text x="85" y="138" text-anchor="middle" fill="#0E7C8B" font-size="11">parse · scope · 401</text>
+    <!-- tx region -->
+    <rect x="185" y="30" width="545" height="190" rx="6" fill="none" stroke="currentColor" stroke-dasharray="5 4" opacity=".7"/>
+    <text x="198" y="50" font-size="11" opacity=".8">runWrite(): one Postgres transaction, bound on AsyncLocalStorage</text>
+    <rect x="205" y="95" width="130" height="60" rx="4" fill="none" stroke="currentColor"/>
+    <text x="270" y="120" text-anchor="middle" font-weight="500">Use case</text>
+    <text x="270" y="138" text-anchor="middle" font-size="11" opacity=".8">authorize · reads</text>
+    <rect x="385" y="95" width="150" height="60" rx="4" fill="none" stroke="#0E7C8B" stroke-width="1.5"/>
+    <text x="460" y="120" text-anchor="middle" font-weight="500">OutboxUnitOfWork</text>
+    <text x="460" y="138" text-anchor="middle" font-size="11" opacity=".8">commitAggregate</text>
+    <!-- writes stack -->
+    <rect x="590" y="70" width="125" height="36" rx="3" fill="none" stroke="currentColor"/>
+    <text x="652" y="93" text-anchor="middle" font-size="11.5">aggregate row</text>
+    <rect x="590" y="110" width="125" height="36" rx="3" fill="none" stroke="currentColor"/>
+    <text x="652" y="133" text-anchor="middle" font-size="11.5">audit_logs</text>
+    <rect x="590" y="150" width="125" height="36" rx="3" fill="none" stroke="#0E7C8B" stroke-width="1.5"/>
+    <text x="652" y="173" text-anchor="middle" font-size="11.5">outbox_messages</text>
+    <!-- arrows inside -->
+    <line x1="150" y1="125" x2="204" y2="125" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="177" y="117" text-anchor="middle" font-size="10">runWrite</text>
+    <line x1="335" y1="125" x2="384" y2="125" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="360" y="117" text-anchor="middle" font-size="10">commit</text>
+    <line x1="535" y1="115" x2="589" y2="88" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="535" y1="125" x2="589" y2="128" stroke="currentColor" marker-end="url(#ar)"/>
+    <line x1="535" y1="135" x2="589" y2="168" stroke="#0E7C8B" marker-end="url(#ar)"/>
+    <text x="560" y="208" text-anchor="middle" font-size="11" opacity=".85">all three writes COMMIT together — or none do</text>
+    <!-- outside -->
+    <rect x="765" y="95" width="115" height="60" rx="4" fill="none" stroke="currentColor"/>
+    <text x="822" y="120" text-anchor="middle" font-weight="500" font-size="11.5">fc-outbox-</text>
+    <text x="822" y="136" text-anchor="middle" font-weight="500" font-size="11.5">processor</text>
+    <rect x="905" y="95" width="85" height="60" rx="4" fill="none" stroke="currentColor"/>
+    <text x="947" y="120" text-anchor="middle" font-weight="500" font-size="11.5">FlowCatalyst</text>
+    <text x="947" y="136" text-anchor="middle" font-size="10.5" opacity=".8">event types</text>
+    <path d="M765 135 C 745 135, 735 168, 716 168" fill="none" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="748" y="182" text-anchor="middle" font-size="10">polls</text>
+    <line x1="880" y1="125" x2="904" y2="125" stroke="currentColor" marker-end="url(#ar)"/>
+    <text x="892" y="115" text-anchor="middle" font-size="10">dispatch</text>
+  </svg>
+  <figcaption><b>One transaction, three writes.</b> <code>runWrite</code> opens the transaction and binds it on ALS; the use case authorises and reads through repositories; <code>commitAggregate</code> persists the aggregate, the audit row and the outbox message together. Dispatch to the platform is asynchronous and external.</figcaption>
+  </figure>
+  ${mm(3, '<b>The same path as a sequence.</b> Cascades (confirming a master validates N children; deleting a client removes its partitions) are repeated <code>commitAggregate</code> calls inside the same transaction; the first failure short-circuits and rolls everything back.')}
+</section>
+
+<section id="flows">
+  <div class="eyebrow">Processes</div>
+  <h2>Process flows</h2>
+
+  <h3>Create location — the matching pipeline</h3>
+  <p><code>POST /clients/{id}/locations</code> → <code>create-location</code>. Fuzzy candidates need trigram <code>similarity ≥ 0.3</code> (≤ 50 of them); each is scored per component with Jaro-Winkler after an 80-entry substitution table (street-type abbreviations, Afrikaans → English, ZA city aliases) against the resolved <code>MatchingConfig</code> thresholds (defaults: street 0.85, house number 1.0, postal 0.95, state 0.9, address name 0.8, overall 0.85).</p>
+  ${mm(4, '<b>Decision flow.</b> An exact hash hit on a VALIDATED master short-circuits everything; otherwise the best fuzzy candidate is optionally put to the LLM verifier, whose <code>null</code> means "no opinion". A location linked to a VALIDATED master with coordinates is spatially associated and validated immediately; everything else waits for the master to be confirmed.')}
+
+  <h3>Geocode and confirm</h3>
+  <ol class="steps">
+    <li><b>validate-master-location</b> (BFF "geocode", permission <code>master_location:validate</code>) — requires <span class="state">PENDING</span>; Photon forward-geocodes the normalised address (token bucket, 5 rps default); stores lat/lon + confidence → <span class="state">GEOCODED</span>; emits <code>master_location:geocoded</code>.</li>
+    <li><b>confirm-master-location</b> (BFF "validate", permission <code>master_location:confirm</code>) — requires coordinates; spatial lookup at the master's point; replaces <code>location_feature_associations</code> for <em>every child</em>; children → <span class="state">VALIDATED</span>; master → <span class="state">VALIDATED</span> with <code>validatedAt</code>; emits <code>master_location:validated</code> + one <code>location:validated</code> (with <code>layerProperties[]</code>) per child.</li>
+    <li>Operator shortcuts: <b>reverse-geocode</b> (Photon <code>/reverse</code>, read-only suggestion) and <b>confirm-geocode</b> (operator-supplied components + coordinates written directly, logged as <code>confirm-geocode</code>, then confirm).</li>
+  </ol>
+
+  <h3>Scheduled validation batch</h3>
+  ${mm(5, '<b>Platform-driven, not in-process.</b> The job is declared in <code>flowcatalyst/scheduled-jobs.ts</code> and registered by <code>pnpm flowcatalyst:sync</code> (<code>*/5 * * * *</code> UTC, non-concurrent, target <code>&lt;PINPOINT_PUBLIC_BASE_URL&gt;/jobs/validate-master-locations</code>). Each master is its own transaction, so one failure never aborts the batch.')}
+
+  <h3>Rematch, spatial lookup, feature association</h3>
+  <p><b>Rematch</b> sets a new <code>matchAddress</code> and re-runs normalisation + matching. A VALIDATED match re-points the location and validates it; otherwise a new PENDING master is created. The previous master is deleted only if it was PENDING <em>and</em> has no other children.</p>
+  <p><b>Spatial lookup</b> (<code>POST …/spatial-lookup</code>, confirm, and "match features") is one SQL shape: <code>ST_SetSRID(ST_MakePoint(lon, lat), 4326)</code>; a layer is visible to a partition if it has no <code>layer_partitions</code> rows or one for that partition; <code>ST_Intersects(boundary, point)</code> for containment; <code>ST_Distance(geography)</code> as <code>distanceMeters</code>; ACTIVE features only, ordered per layer by distance.</p>
+
+  <h3>Login, session and per-request identity</h3>
+  ${mm(6, '<b>Server-side OIDC, cookie session.</b> Per-request identity precedence: <code>Authorization: Bearer</code> JWT → <code>pp_session</code> cookie (one in-band refresh on expiry) → <code>x-user-id</code> dev fallback (only when <code>PINPOINT_AUTH_DEV_FALLBACK=true</code>) → anonymous (401). The SPA redirects to login only on 401 — never on 403.')}
+</section>
+
+<section id="api">
+  <div class="eyebrow">Contracts</div>
+  <h2>HTTP surface &amp; contracts</h2>
+  <div class="tbl"><table>
+    <tr><th>Surface</th><th>Prefix</th><th>Consumers</th><th>Shape</th></tr>
+    <tr><td>Canonical API</td><td><code>/clients/{clientId}/…</code>; unscoped <code>/me</code>, <code>/countries</code>, <code>/geocode/*</code>, <code>/verify-match</code>, <code>/master-locations/unvalidated</code>, <code>/jobs/*</code>, <code>/health</code></td><td>integrations, scripts</td><td>mirrors the original Rust API; <code>PATCH</code> updates</td></tr>
+    <tr><td>BFF</td><td><code>/bff/…</code> (52 ops)</td><td>the Vue SPA</td><td>UI-shaped payloads; <code>q</code> search + pagination on lists; operator actions (geocode / reverse-geocode / confirm-geocode / validate / match-features / processing-log), partition principals, layer partitions, feature status, dashboard</td></tr>
+    <tr><td>Auth</td><td><code>/auth/login</code> · <code>/auth/callback</code> · <code>/auth/logout</code> · <code>/auth/me</code></td><td>browser</td><td>OIDC + session cookie</td></tr>
+  </table></div>
+  <div class="callout"><p><b>Contract pipeline.</b> Every route carries a TypeBox schema and a unique <code>operationId</code>; <code>@fastify/swagger</code> derives the document; <code>pnpm openapi:pinpoint</code> exports it to <code>openapi.gen.json</code> and regenerates the SPA's <code>schema.gen.d.ts</code>; <code>pnpm openapi:pinpoint:check</code> fails when either is stale. Shared shapes are <code>$id</code> schemas in <code>api/plugins/shared-schemas.ts</code> → <code>components.schemas</code> (ErrorResponse, BffClient, BffPartition, BffLayerDetail, BffLayerPropertySet, BffLayerFeature, BffLayerFeatureInput, BffFeatureAssociation, BffMasterLocation, MatchingConfig, RematchLocationBody, RematchLocationResponse). The SPA consumes it through <code>api</code> (openapi-fetch) + <code>ok()</code> + <code>ApiResponse&lt;&gt;</code> — there is deliberately no untyped escape hatch.</p></div>
+  <p><b>Error envelope</b> on every 4xx/5xx: <code>{ error, message?, code?, details?, issues? }</code> — <code>error</code> is the use-case error type (<code>validation</code>, <code>authorization</code>, <code>not_found</code>, <code>business_rule</code>, <code>concurrency</code>, <code>infrastructure</code>) or a route guard (<code>Unauthorized</code>, <code>NotFound</code>, <code>ValidationError</code>).</p>
+  <p><b>SPA routes:</b> <code>/dashboard</code>, <code>/clients</code> (+ new, detail), <code>/partitions</code>, <code>/locations</code> (+ new, detail), <code>/master-locations</code> (+ unvalidated, detail), <code>/layers</code> (+ map, new, detail), <code>/matching-config</code>, <code>/spatial-lookup</code>. Create pages and spatial lookup are permission-guarded client-side; the server re-checks every call.</p>
+</section>
+
+<section id="identity">
+  <div class="eyebrow">Access</div>
+  <h2>Identity &amp; permissions</h2>
+  <ul>
+    <li><b>Catalog</b> — 34 <code>pinpoint:*</code> permissions in <code>@pinpoint/shared</code>: <code>auth:principal:read</code>, <code>reference:country:read</code>, <code>tenancy:{client,partition}:{create,read,update,delete}</code>, <code>locations:location:{create,read,update,delete}</code>, <code>locations:master_location:{read,validate,confirm,update,reject,delete}</code>, <code>layers:{layer,feature,property_set}:{create,read,update,delete}</code>, <code>matching:config:{read,manage}</code>, <code>matching:spatial:lookup</code>.</li>
+    <li><b>Roles synced to the platform</b> — <code>admin</code> (all), <code>operator</code>, <code>layer-manager</code>, <code>matching-admin</code>, <code>tenancy-admin</code>, <code>viewer</code> (every <code>*:read</code> + spatial lookup). The platform expands a principal's roles into the token's <code>scope</code> claim.</li>
+    <li><b>Resolution</b> — anchors (<code>all_applications</code>, <code>tier == ANCHOR</code>, <code>clients</code> contains <code>*</code>, or a super-admin role) get the whole catalog; everyone else gets <code>scope ∩ catalog</code>. Each use case declares <code>static requiredPermission</code> and checks <code>scope.permissions.has(…)</code>.</li>
+    <li><b>Token contract</b> — access tokens carry <code>aud == iss == platform base URL</code>; pinpoint validates against the discovery issuer unless <code>OIDC_AUDIENCE</code> overrides.</li>
+  </ul>
+</section>
+
+<section id="platform">
+  <div class="eyebrow">Integration</div>
+  <h2>FlowCatalyst platform integration</h2>
+  <div class="tbl"><table>
+    <tr><th>Mechanism</th><th>Direction</th><th>Detail</th></tr>
+    <tr><td><b>Definitions sync</b></td><td>pinpoint → platform (script)</td><td><code>pnpm flowcatalyst:sync</code> (service account) pushes the DefinitionSet — application <code>pinpoint</code>, 27 event types, dispatch pool <code>pinpoint-default</code>, 6 roles, 1 scheduled job — then each event's TypeBox payload schema as a spec version (<code>1.0.0</code> first, minor-bumped on change). Idempotent.</td></tr>
+    <tr><td><b>Events</b></td><td>pinpoint → platform (runtime)</td><td>outbox rows written in the use-case transaction; <code>fc-outbox-processor</code> dispatches. Codes <code>pinpoint:&lt;subdomain&gt;:&lt;entity&gt;:&lt;verb&gt;</code> across tenancy (6), layers (10), locations (10), matching (1).</td></tr>
+    <tr><td><b>Scheduled job</b></td><td>platform → pinpoint</td><td><code>pinpoint-validate-master-locations</code>, <code>*/5 * * * *</code> UTC, HMAC with <code>FLOWCATALYST_SIGNING_SECRET</code>, non-concurrent.</td></tr>
+    <tr><td><b>Identity</b></td><td>pinpoint → platform</td><td>OIDC login + JWKS validation; roles → scope.</td></tr>
+    <tr><td><b>Subscriptions</b></td><td>—</td><td>none today — pinpoint publishes but does not consume platform events.</td></tr>
+  </table></div>
+  <div class="note"><p><b>Verified against fc-dev on 2026-08-22:</b> 27 pinpoint event types registered, each with schema version <code>1.0.0</code>; scheduled job <code>ACTIVE</code>; a second sync run reports <code>pushed=0 skipped=27</code>. (The sync had been failing silently before — the DefinitionSet carried the TypeBox schema inline and the platform rejected it; fixed in <code>2db9d8e</code>.)</p></div>
+</section>
+
+<section id="deploy">
+  <div class="eyebrow">Runtime</div>
+  <h2>Deployment</h2>
+  <p>Production runs on the inhance AWS account (Pulumi in <code>inhance/iac</code>, image build + deploy in <code>inhance/flowcatalyst-deploy</code>); this repo ships the container and the env contract.</p>
+  <figure class="fig">
+  <svg viewBox="0 0 1000 470" role="img" aria-label="An ALB routes pinpoint.inhanceapps.com to an ECS task containing the pinpoint container and a libpostal sidecar; the pinpoint container talks to a Photon service backed by EFS, a dedicated RDS Postgres database, ElastiCache Valkey for sessions, Bedrock for the LLM verifier, and the FlowCatalyst platform." xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <!-- ALB -->
+    <rect x="40" y="30" width="260" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="170" y="51" text-anchor="middle" font-weight="500">Shared ALB</text>
+    <text x="170" y="68" text-anchor="middle" font-size="10.5" opacity=".8">host rule pinpoint.inhanceapps.com</text>
+    <!-- ECS task -->
+    <rect x="40" y="120" width="420" height="190" rx="6" fill="none" stroke="currentColor" stroke-dasharray="5 4" opacity=".7"/>
+    <text x="54" y="140" font-size="11" opacity=".8">ECS task · EC2 bridge · ARM64</text>
+    <rect x="60" y="160" width="230" height="120" rx="4" fill="none" stroke="#0E7C8B" stroke-width="1.5"/>
+    <text x="175" y="185" text-anchor="middle" font-weight="500">pinpoint · container[0]</text>
+    <text x="175" y="205" text-anchor="middle" font-size="11" opacity=".85">node dist/server.js :3000</text>
+    <text x="175" y="222" text-anchor="middle" font-size="11" opacity=".85">serves SPA (PINPOINT_WEB_DIST_DIR)</text>
+    <text x="175" y="239" text-anchor="middle" font-size="11" opacity=".85">migrations on boot · advisory lock</text>
+    <text x="175" y="256" text-anchor="middle" font-size="11" opacity=".85">/health</text>
+    <rect x="310" y="190" width="130" height="60" rx="4" fill="none" stroke="currentColor"/>
+    <text x="375" y="215" text-anchor="middle" font-weight="500" font-size="11.5">libpostal sidecar</text>
+    <text x="375" y="232" text-anchor="middle" font-size="10.5" opacity=".8">:4400 · GET /parse</text>
+    <line x1="290" y1="220" x2="309" y2="220" stroke="currentColor" marker-end="url(#ar2)"/>
+    <line x1="170" y1="80" x2="170" y2="159" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="182" y="104" font-size="10">:3000</text>
+    <!-- Photon -->
+    <rect x="520" y="120" width="200" height="70" rx="4" fill="none" stroke="currentColor"/>
+    <text x="620" y="145" text-anchor="middle" font-weight="500">Photon service</text>
+    <text x="620" y="163" text-anchor="middle" font-size="10.5" opacity=".8">single replica · :2322 · Cloud Map</text>
+    <text x="620" y="178" text-anchor="middle" font-size="10.5" opacity=".8">ZA NA BW ZW MZ LS SZ index</text>
+    <rect x="520" y="205" width="200" height="34" rx="3" fill="none" stroke="currentColor" stroke-dasharray="3 3"/>
+    <text x="620" y="227" text-anchor="middle" font-size="10.5">EFS · photon_data</text>
+    <line x1="620" y1="205" x2="620" y2="191" stroke="currentColor" marker-end="url(#ar2)"/>
+    <line x1="290" y1="180" x2="519" y2="155" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="400" y="160" text-anchor="middle" font-size="10">geocode /api · /reverse</text>
+    <!-- RDS -->
+    <rect x="780" y="120" width="200" height="80" rx="4" fill="none" stroke="currentColor"/>
+    <text x="880" y="145" text-anchor="middle" font-weight="500">RDS Postgres</text>
+    <text x="880" y="163" text-anchor="middle" font-size="10.5" opacity=".8">database pinpoint · role pinpoint_server</text>
+    <text x="880" y="178" text-anchor="middle" font-size="10.5" opacity=".8">PostGIS + pg_trgm · static password</text>
+    <line x1="290" y1="200" x2="779" y2="200" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="650" y="196" font-size="10">sql · outbox · audit</text>
+    <!-- Valkey -->
+    <rect x="780" y="240" width="200" height="50" rx="4" fill="none" stroke="currentColor"/>
+    <text x="880" y="261" text-anchor="middle" font-weight="500" font-size="11.5">ElastiCache Valkey</text>
+    <text x="880" y="277" text-anchor="middle" font-size="10.5" opacity=".8">sessions · rediss://</text>
+    <path d="M290 245 C 500 245, 640 265, 779 265" fill="none" stroke="currentColor" marker-end="url(#ar2)"/>
+    <!-- Bedrock -->
+    <rect x="520" y="340" width="200" height="60" rx="4" fill="none" stroke="currentColor"/>
+    <text x="620" y="363" text-anchor="middle" font-weight="500" font-size="11.5">Bedrock mantle · Gemma 4</text>
+    <text x="620" y="381" text-anchor="middle" font-size="10.5" opacity=".8">eu-central-1 · task-role bearer token</text>
+    <path d="M175 280 C 175 370, 400 370, 519 370" fill="none" stroke="currentColor" marker-end="url(#ar2)"/>
+    <text x="330" y="362" text-anchor="middle" font-size="10">verify fuzzy match (optional)</text>
+    <!-- FlowCatalyst -->
+    <rect x="780" y="340" width="200" height="90" rx="4" fill="none" stroke="#0E7C8B" stroke-width="1.5"/>
+    <text x="880" y="363" text-anchor="middle" font-weight="500">FlowCatalyst platform</text>
+    <text x="880" y="381" text-anchor="middle" font-size="10.5" opacity=".85">OIDC · JWKS</text>
+    <text x="880" y="397" text-anchor="middle" font-size="10.5" opacity=".85">scheduled-job runner → /jobs</text>
+    <text x="880" y="413" text-anchor="middle" font-size="10.5" opacity=".85">outbox processor → event types</text>
+    <path d="M460 260 C 600 260, 700 385, 779 385" fill="none" stroke="#0E7C8B" marker-end="url(#ar2)" marker-start="url(#ar2)"/>
+    <text x="690" y="312" text-anchor="middle" font-size="10" fill="#0E7C8B">login · JWKS · HMAC webhook</text>
+  </svg>
+  <figcaption><b>Production topology.</b> The pinpoint container must stay <code>container[0]</code> — the deploy pipeline swaps that image. Photon is its own single-replica service with its index on EFS; sessions live in Valkey (<code>PINPOINT_SESSION_DRIVER=redis</code>); the database is a dedicated <code>pinpoint</code> RDS database with a static, non-rotated password. <code>compose.prod.yaml</code> in the repo is a single-host fallback stack, not this topology.</figcaption>
+  </figure>
+</section>
+
+<section id="data">
+  <div class="eyebrow">Storage</div>
+  <h2>Data &amp; indexes</h2>
+  <div class="tbl"><table>
+    <tr><th>Concern</th><th>Mechanism</th></tr>
+    <tr><td>Spatial</td><td><code>geometry</code> custom Drizzle type (<code>codec: 'text'</code>); GIST on <code>layers.boundary</code>, <code>layer_features.boundary</code>, <code>master_locations.point</code>, <code>countries.geometry</code></td></tr>
+    <tr><td>Fuzzy candidates</td><td>pg_trgm GIST on <code>master_locations.normalized_address_line</code> — <code>similarity(…) ≥ 0.3 ORDER BY similarity DESC LIMIT 50</code></td></tr>
+    <tr><td>Free-text search (<code>q</code>)</td><td>one GIN trigram <em>expression</em> index per table (<code>idx_{layers,locations,master_locations}_search_trgm</code>) over a concatenated search text; the repository filters with the identical expression so the planner uses it</td></tr>
+    <tr><td>Dedup</td><td><code>idx_locations_address_hash</code> (client, partition, hash); partial unique <code>idx_locations_external_id</code>; <code>master_locations.address_hash</code></td></tr>
+    <tr><td>Outbox / audit</td><td><code>outbox_messages</code> (SDK DDL, applied before Drizzle migrations) + <code>audit_logs</code>, written in the use-case transaction</td></tr>
+    <tr><td>Migrations</td><td><code>server/drizzle/*</code> via <code>drizzle-kit generate</code>; applied on boot when <code>PINPOINT_DB_AUTO_MIGRATE=true</code>, serialised with <code>pg_advisory_lock</code></td></tr>
+  </table></div>
+  <p><b>Testing:</b> 189 unit tests (matcher, normaliser, verifier, auth, shared-schema guard) · 127 integration tests (testcontainers PostGIS + Redis, one test per use case through the real <code>runWrite</code>, repositories, OIDC end-to-end against a fake IdP) · typecheck covers <code>src</code>, <code>test</code> and <code>scripts</code>. Full configuration reference in <code>docs/architecture.md</code> §12.</p>
+</section>
+
+<section id="gaps">
+  <div class="eyebrow">Honest list</div>
+  <h2>Known gaps &amp; divergences</h2>
+  <ul class="gaps">
+    <li><code>Location.status = MATCHED</code> and <code>matchMethod = MANUAL</code> exist in the type but are never assigned.</li>
+    <li>Several BFF operator actions write through repositories <b>without</b> a use case or domain event: match-features (single/bulk), confirm-geocode's coordinate write, set-feature-status, set-layer-partitions, partition principal grant/revoke. They are audited only by the HTTP log.</li>
+    <li>Subscriptions are empty — pinpoint publishes but never consumes platform events.</li>
+    <li><code>compose.prod.yaml</code> describes a single-host stack, not the ECS topology above; the ECS wiring lives in <code>inhance/iac</code> + <code>inhance/flowcatalyst-deploy</code>.</li>
+    <li>Where the <code>boundary</code> geometry is derived from radius / polygon on write was not located in the repository SQL during this review — pin it down before touching layer geometry.</li>
+  </ul>
+</section>
+</main>
+
+<footer>pinpoint · architecture as built 2026-08-22 · generated from the code with the repo doc <code>apps/pinpoint/docs/architecture.md</code> as source of truth</footer>
+</div>
+`;
+writeFileSync(OUT, html);
+console.log(
+  'html bytes',
+  html.length,
+  'mermaid blocks',
+  (html.match(/class="mermaid"/g) || []).length,
+);

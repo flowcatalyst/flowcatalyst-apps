@@ -20,7 +20,9 @@
     "db:studio": "drizzle-kit studio",
     "flowcatalyst:sync": "tsx --env-file-if-exists=.env scripts/sync-flowcatalyst.ts",
     "openapi:export": "tsx scripts/export-openapi.ts",
-    "openapi:check": "tsx scripts/export-openapi.ts --check"
+    "openapi:check": "tsx scripts/export-openapi.ts --check",
+    "docs:check": "tsx scripts/check-architecture-doc.mts",
+    "docs:architecture": "tsx scripts/check-architecture-doc.mts && tsx scripts/build-architecture-doc.mts"
   },
   "dependencies": {
     "@aws/bedrock-token-generator": "^1.1.0",
@@ -46,8 +48,11 @@
     "@flowcatalyst-apps/tsconfig": "workspace:*",
     "@testcontainers/postgresql": "^12.0.0",
     "@testcontainers/redis": "^12.0.0",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "catalog:",
     "drizzle-kit": "1.0.0-rc.4",
+    "jsdom": "^30.0.1",
+    "mermaid": "^11.17.0",
     "testcontainers": "^12.0.0",
     "tsx": "^4.19.0",
     "typescript": "catalog:",
