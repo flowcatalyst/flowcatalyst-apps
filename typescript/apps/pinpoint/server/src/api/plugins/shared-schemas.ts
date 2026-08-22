@@ -22,6 +22,7 @@ import {
   BffLayerFeatureSchema,
 } from '../routes/bff/layer-features/layer-feature.schema.js';
 import { BffFeatureAssociationSchema } from '../routes/bff/locations/feature-association.schema.js';
+import { BffLocationSummarySchema } from '../routes/bff/locations/location.schema.js';
 import { BffMasterLocationSchema } from '../routes/bff/master-locations/master-location.schema.js';
 import { MatchingConfigSchema } from '../routes/matching-config/matching-config.schema.js';
 import {
@@ -38,6 +39,7 @@ export const SHARED_SCHEMAS: readonly TSchema[] = [
   BffLayerFeatureSchema,
   BffLayerFeatureInputSchema,
   BffFeatureAssociationSchema,
+  BffLocationSummarySchema,
   BffMasterLocationSchema,
   MatchingConfigSchema,
   RematchLocationBodySchema,

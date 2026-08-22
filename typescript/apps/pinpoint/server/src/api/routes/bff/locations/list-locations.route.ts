@@ -12,21 +12,9 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asClientId, asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffLocationSummaryRef } from './location.schema.js';
 
-const LocationSchema = Type.Object({
-  id: Type.String(),
-  name: Type.Union([Type.String(), Type.Null()]),
-  partitionId: Type.Union([Type.String(), Type.Null()]),
-  address: Type.String(),
-  city: Type.String(),
-  country: Type.String(),
-  status: Type.String(),
-  masterLocationId: Type.Union([Type.String(), Type.Null()]),
-  matchConfidence: Type.Union([Type.Number(), Type.Null()]),
-  /** How the master was matched: EXACT_HASH | FUZZY | null (no match). */
-  matchMethod: Type.Union([Type.String(), Type.Null()]),
-  createdAt: Type.String({ format: 'date-time' }),
-});
+const LocationSchema = BffLocationSummaryRef;
 
 const ResponseSchema = Type.Object({
   items: Type.Array(LocationSchema),

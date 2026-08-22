@@ -445,6 +445,93 @@
           }
         }
       },
+      "BffLocationSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "partitionId",
+          "address",
+          "city",
+          "country",
+          "status",
+          "masterLocationId",
+          "matchConfidence",
+          "matchMethod",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partitionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "masterLocationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matchConfidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matchMethod": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
       "BffMasterLocation": {
         "type": "object",
         "required": [
@@ -9019,91 +9106,7 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "name",
-                          "partitionId",
-                          "address",
-                          "city",
-                          "country",
-                          "status",
-                          "masterLocationId",
-                          "matchConfidence",
-                          "matchMethod",
-                          "createdAt"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "partitionId": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "address": {
-                            "type": "string"
-                          },
-                          "city": {
-                            "type": "string"
-                          },
-                          "country": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "masterLocationId": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "matchConfidence": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "matchMethod": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "createdAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/BffLocationSummary"
                       }
                     },
                     "total": {
@@ -9382,95 +9385,33 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "name",
-                    "address",
-                    "receivedAddress",
-                    "matchAddress",
-                    "city",
-                    "country",
-                    "status",
-                    "masterLocationId",
-                    "matchConfidence",
-                    "matchMethod",
-                    "createdAt",
-                    "features"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BffLocationSummary"
                     },
-                    "name": {
-                      "anyOf": [
-                        {
+                    {
+                      "type": "object",
+                      "required": [
+                        "receivedAddress",
+                        "matchAddress",
+                        "features"
+                      ],
+                      "properties": {
+                        "receivedAddress": {
                           "type": "string"
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "address": {
-                      "type": "string"
-                    },
-                    "receivedAddress": {
-                      "type": "string"
-                    },
-                    "matchAddress": {
-                      "type": "string"
-                    },
-                    "city": {
-                      "type": "string"
-                    },
-                    "country": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "masterLocationId": {
-                      "anyOf": [
-                        {
+                        "matchAddress": {
                           "type": "string"
                         },
-                        {
-                          "type": "null"
+                        "features": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/BffFeatureAssociation"
+                          }
                         }
-                      ]
-                    },
-                    "matchConfidence": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "matchMethod": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "features": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/BffFeatureAssociation"
                       }
                     }
-                  }
+                  ]
                 }
               }
             }

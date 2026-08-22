@@ -11,28 +11,21 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffLocationSummaryRef } from './location.schema.js';
 import { BffFeatureAssociationRef } from './feature-association.schema.js';
 
 const FeatureSchema = BffFeatureAssociationRef;
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  name: Type.Union([Type.String(), Type.Null()]),
-  address: Type.String(),
-  /** Immutable received address (raw_address_line1). */
-  receivedAddress: Type.String(),
-  /** Editable match address that drives normalization + matching. */
-  matchAddress: Type.String(),
-  city: Type.String(),
-  country: Type.String(),
-  status: Type.String(),
-  masterLocationId: Type.Union([Type.String(), Type.Null()]),
-  matchConfidence: Type.Union([Type.Number(), Type.Null()]),
-  /** How the master was matched: EXACT_HASH | FUZZY | null (no match). */
-  matchMethod: Type.Union([Type.String(), Type.Null()]),
-  createdAt: Type.String({ format: 'date-time' }),
-  features: Type.Array(FeatureSchema),
-});
+const ResponseSchema = Type.Intersect([
+  BffLocationSummaryRef,
+  Type.Object({
+    /** Immutable received address (raw_address_line1). */
+    receivedAddress: Type.String(),
+    /** Editable match address that drives normalization + matching. */
+    matchAddress: Type.String(),
+    features: Type.Array(FeatureSchema),
+  }),
+]);
 
 export function registerBffGetLocationRoute(
   fastify: FastifyInstance,
@@ -77,6 +70,7 @@ export function registerBffGetLocationRoute(
       return reply.code(200).send({
         id: location.id,
         name: location.name,
+        partitionId: location.partitionId,
         address: location.rawAddressLine1,
         receivedAddress: location.rawAddressLine1,
         matchAddress: location.matchAddress,

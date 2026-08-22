@@ -1122,6 +1122,20 @@ export interface components {
             featureLabel: string;
             distanceMeters: number | null;
         };
+        BffLocationSummary: {
+            id: string;
+            name: string | null;
+            partitionId: string | null;
+            address: string;
+            city: string;
+            country: string;
+            status: string;
+            masterLocationId: string | null;
+            matchConfidence: number | null;
+            matchMethod: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         BffMasterLocation: {
             id: string;
             address: string;
@@ -5334,20 +5348,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: {
-                            id: string;
-                            name: string | null;
-                            partitionId: string | null;
-                            address: string;
-                            city: string;
-                            country: string;
-                            status: string;
-                            masterLocationId: string | null;
-                            matchConfidence: number | null;
-                            matchMethod: string | null;
-                            /** Format: date-time */
-                            createdAt: string;
-                        }[];
+                        items: components["schemas"]["BffLocationSummary"][];
                         total: number;
                     };
                 };
@@ -5487,20 +5488,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        name: string | null;
-                        address: string;
+                    "application/json": components["schemas"]["BffLocationSummary"] & {
                         receivedAddress: string;
                         matchAddress: string;
-                        city: string;
-                        country: string;
-                        status: string;
-                        masterLocationId: string | null;
-                        matchConfidence: number | null;
-                        matchMethod: string | null;
-                        /** Format: date-time */
-                        createdAt: string;
                         features: components["schemas"]["BffFeatureAssociation"][];
                     };
                 };
