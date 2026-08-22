@@ -1,5 +1,5 @@
 import type { sync } from '@flowcatalyst/sdk';
-import { pinpointEventTypes } from './events.js';
+import { pinpointEventTypes, type PinpointEventTypeDefinition } from './events.js';
 import { buildPinpointSubscriptions } from './subscriptions.js';
 import { buildPinpointDispatchPools } from './dispatch-pools.js';
 import { pinpointRoles } from './roles.js';
@@ -27,14 +27,19 @@ export function buildPinpointDefinitions(config: PinpointDefinitionsConfig): syn
     // The DefinitionSet API accepts only { code, name, description } — the
     // TypeBox `payloadSchema` is pushed separately as a schema version by
     // scripts/sync-flowcatalyst.ts (the platform rejects unknown properties).
-    eventTypes: pinpointEventTypes.map(({ code, name, description }) => ({
-      code,
-      name,
-      ...(description !== undefined ? { description } : {}),
-    })),
+    eventTypes: pinpointEventTypes.map(toEventTypeDefinition),
     subscriptions: [...buildPinpointSubscriptions(config)],
     dispatchPools: [...buildPinpointDispatchPools(config)],
     roles: [...pinpointRoles],
     scheduledJobs: [...buildPinpointScheduledJobs(config)],
   };
+}
+
+function toEventTypeDefinition(event: PinpointEventTypeDefinition): sync.EventTypeDefinition {
+  const def: { code: string; name: string; description?: string } = {
+    code: event.code,
+    name: event.name,
+  };
+  if (event.description !== undefined) def.description = event.description;
+  return def;
 }
