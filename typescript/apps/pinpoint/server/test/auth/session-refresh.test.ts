@@ -32,7 +32,7 @@ function buildDeps(
     oidcClient?: OidcClient | null;
     tokenValidator?: TokenValidator | null;
   } = {},
-): RefreshSessionDeps & { log: ReturnType<typeof fakeLogger> } {
+): RefreshSessionDeps & { logger: ReturnType<typeof fakeLogger> } {
   const logger = fakeLogger();
   return {
     oidcClient: overrides.oidcClient ?? null,
@@ -40,7 +40,7 @@ function buildDeps(
     sessionStore: createInMemorySessionStore(),
     log: logger.log,
     logger,
-  } as RefreshSessionDeps & { log: ReturnType<typeof fakeLogger> };
+  };
 }
 
 async function seedSession(deps: RefreshSessionDeps, init: Partial<Session>): Promise<Session> {

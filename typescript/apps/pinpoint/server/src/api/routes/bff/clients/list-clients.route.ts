@@ -10,15 +10,9 @@ import type { FastifyInstance } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffClientRef } from './client.schema.js';
 
-const ClientSchema = Type.Object({
-  id: Type.String(),
-  name: Type.String(),
-  code: Type.String(),
-  status: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ClientSchema = BffClientRef;
 
 const ResponseSchema = Type.Object({
   items: Type.Array(ClientSchema),

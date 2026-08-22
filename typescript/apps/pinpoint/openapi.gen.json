@@ -30,6 +30,79 @@
           }
         }
       },
+      "BffClient": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "code",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BffPartition": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "description",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
       "BffLayerPropertySet": {
         "type": "object",
         "required": [
@@ -191,6 +264,409 @@
           },
           "createdAt": {
             "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BffLayerFeature": {
+        "type": "object",
+        "required": [
+          "id",
+          "layerId",
+          "label",
+          "centerLat",
+          "centerLon",
+          "radiusMeters",
+          "polygonGeojson",
+          "propertyValues",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "layerId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "centerLat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "centerLon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "radiusMeters": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "polygonGeojson": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "propertyValues": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "BffLayerFeatureInput": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "properties": {
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "centerLat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "centerLon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "radiusMeters": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "polygonGeojson": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "propertyValues": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BffFeatureAssociation": {
+        "type": "object",
+        "required": [
+          "layerFeatureId",
+          "layerId",
+          "layerName",
+          "featureLabel",
+          "distanceMeters"
+        ],
+        "properties": {
+          "layerFeatureId": {
+            "type": "string"
+          },
+          "layerId": {
+            "type": "string"
+          },
+          "layerName": {
+            "type": "string"
+          },
+          "featureLabel": {
+            "type": "string"
+          },
+          "distanceMeters": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "BffMasterLocation": {
+        "type": "object",
+        "required": [
+          "id",
+          "address",
+          "houseNumber",
+          "road",
+          "suburb",
+          "city",
+          "state",
+          "postalCode",
+          "country",
+          "status",
+          "latitude",
+          "longitude",
+          "addressHash",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "houseNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "road": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "suburb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "postalCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "addressHash": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "MatchingConfig": {
+        "type": "object",
+        "required": [
+          "id",
+          "clientId",
+          "partitionId",
+          "streetThreshold",
+          "houseNumberThreshold",
+          "postalCodeThreshold",
+          "stateThreshold",
+          "addressNameThreshold",
+          "overallThreshold",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clientId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "partitionId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "streetThreshold": {
+            "type": "number"
+          },
+          "houseNumberThreshold": {
+            "type": "number"
+          },
+          "postalCodeThreshold": {
+            "type": "number"
+          },
+          "stateThreshold": {
+            "type": "number"
+          },
+          "addressNameThreshold": {
+            "type": "number"
+          },
+          "overallThreshold": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "RematchLocationBody": {
+        "type": "object",
+        "required": [
+          "matchAddress"
+        ],
+        "properties": {
+          "matchAddress": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      },
+      "RematchLocationResponse": {
+        "type": "object",
+        "required": [
+          "locationId",
+          "masterLocationId",
+          "previousMasterLocationId",
+          "previousMasterDeleted",
+          "status"
+        ],
+        "properties": {
+          "locationId": {
+            "type": "string"
+          },
+          "masterLocationId": {
+            "type": "string"
+          },
+          "previousMasterLocationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previousMasterDeleted": {
+            "type": "boolean"
+          },
+          "status": {
             "type": "string"
           }
         }
@@ -2530,16 +3006,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "matchAddress"
-                ],
-                "properties": {
-                  "matchAddress": {
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                }
+                "$ref": "#/components/schemas/RematchLocationBody"
               }
             }
           }
@@ -2570,38 +3037,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "locationId",
-                    "masterLocationId",
-                    "previousMasterLocationId",
-                    "previousMasterDeleted",
-                    "status"
-                  ],
-                  "properties": {
-                    "locationId": {
-                      "type": "string"
-                    },
-                    "masterLocationId": {
-                      "type": "string"
-                    },
-                    "previousMasterLocationId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "previousMasterDeleted": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/RematchLocationResponse"
                 }
               }
             }
@@ -4988,71 +5424,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "clientId",
-                    "partitionId",
-                    "streetThreshold",
-                    "houseNumberThreshold",
-                    "postalCodeThreshold",
-                    "stateThreshold",
-                    "addressNameThreshold",
-                    "overallThreshold",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "clientId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "partitionId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "streetThreshold": {
-                      "type": "number"
-                    },
-                    "houseNumberThreshold": {
-                      "type": "number"
-                    },
-                    "postalCodeThreshold": {
-                      "type": "number"
-                    },
-                    "stateThreshold": {
-                      "type": "number"
-                    },
-                    "addressNameThreshold": {
-                      "type": "number"
-                    },
-                    "overallThreshold": {
-                      "type": "number"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/MatchingConfig"
                 }
               }
             }
@@ -7562,37 +7934,7 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "name",
-                          "code",
-                          "status",
-                          "createdAt",
-                          "updatedAt"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "code": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "createdAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          },
-                          "updatedAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/BffClient"
                       }
                     },
                     "total": {
@@ -7748,37 +8090,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "name",
-                    "code",
-                    "status",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffClient"
                 }
               }
             }
@@ -7848,44 +8160,7 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "code",
-                          "name",
-                          "description",
-                          "createdAt",
-                          "updatedAt"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "code": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "description": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "createdAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          },
-                          "updatedAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/BffPartition"
                       }
                     },
                     "total": {
@@ -7975,44 +8250,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "code",
-                    "name",
-                    "description",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffPartition"
                 }
               }
             }
@@ -8112,44 +8350,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "code",
-                    "name",
-                    "description",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffPartition"
                 }
               }
             }
@@ -8246,44 +8447,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "code",
-                    "name",
-                    "description",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffPartition"
                 }
               }
             }
@@ -9263,38 +9427,7 @@
                     "features": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "layerFeatureId",
-                          "layerId",
-                          "layerName",
-                          "featureLabel",
-                          "distanceMeters"
-                        ],
-                        "properties": {
-                          "layerFeatureId": {
-                            "type": "string"
-                          },
-                          "layerId": {
-                            "type": "string"
-                          },
-                          "layerName": {
-                            "type": "string"
-                          },
-                          "featureLabel": {
-                            "type": "string"
-                          },
-                          "distanceMeters": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        }
+                        "$ref": "#/components/schemas/BffFeatureAssociation"
                       }
                     }
                   }
@@ -9455,16 +9588,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "matchAddress"
-                ],
-                "properties": {
-                  "matchAddress": {
-                    "minLength": 1,
-                    "type": "string"
-                  }
-                }
+                "$ref": "#/components/schemas/RematchLocationBody"
               }
             }
           }
@@ -9495,38 +9619,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "locationId",
-                    "masterLocationId",
-                    "previousMasterLocationId",
-                    "previousMasterDeleted",
-                    "status"
-                  ],
-                  "properties": {
-                    "locationId": {
-                      "type": "string"
-                    },
-                    "masterLocationId": {
-                      "type": "string"
-                    },
-                    "previousMasterLocationId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "previousMasterDeleted": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/RematchLocationResponse"
                 }
               }
             }
@@ -11286,88 +11379,7 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "layerId",
-                          "label",
-                          "centerLat",
-                          "centerLon",
-                          "radiusMeters",
-                          "polygonGeojson",
-                          "propertyValues",
-                          "status",
-                          "createdAt",
-                          "updatedAt"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "layerId": {
-                            "type": "string"
-                          },
-                          "label": {
-                            "type": "string"
-                          },
-                          "centerLat": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "centerLon": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "radiusMeters": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "polygonGeojson": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "propertyValues": {
-                            "type": "object",
-                            "additionalProperties": {
-                              "type": "string"
-                            }
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "createdAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          },
-                          "updatedAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/BffLayerFeature"
                       }
                     },
                     "total": {
@@ -11411,63 +11423,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "label"
-                ],
-                "properties": {
-                  "label": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "centerLat": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "centerLon": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "radiusMeters": {
-                    "anyOf": [
-                      {
-                        "exclusiveMinimum": 0,
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "polygonGeojson": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "propertyValues": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/BffLayerFeatureInput"
               }
             }
           }
@@ -11498,88 +11454,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "layerId",
-                    "label",
-                    "centerLat",
-                    "centerLon",
-                    "radiusMeters",
-                    "polygonGeojson",
-                    "propertyValues",
-                    "status",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "layerId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "centerLat": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "centerLon": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "radiusMeters": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "polygonGeojson": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "propertyValues": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffLayerFeature"
                 }
               }
             }
@@ -11688,88 +11563,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "layerId",
-                    "label",
-                    "centerLat",
-                    "centerLon",
-                    "radiusMeters",
-                    "polygonGeojson",
-                    "propertyValues",
-                    "status",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "layerId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "centerLat": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "centerLon": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "radiusMeters": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "polygonGeojson": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "propertyValues": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffLayerFeature"
                 }
               }
             }
@@ -11816,63 +11610,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "label"
-                ],
-                "properties": {
-                  "label": {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "centerLat": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "centerLon": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "radiusMeters": {
-                    "anyOf": [
-                      {
-                        "exclusiveMinimum": 0,
-                        "type": "number"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "polygonGeojson": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "propertyValues": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/BffLayerFeatureInput"
               }
             }
           }
@@ -11912,88 +11650,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "layerId",
-                    "label",
-                    "centerLat",
-                    "centerLon",
-                    "radiusMeters",
-                    "polygonGeojson",
-                    "propertyValues",
-                    "status",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "layerId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "centerLat": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "centerLon": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "radiusMeters": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "polygonGeojson": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "propertyValues": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffLayerFeature"
                 }
               }
             }
@@ -12221,88 +11878,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "layerId",
-                    "label",
-                    "centerLat",
-                    "centerLon",
-                    "radiusMeters",
-                    "polygonGeojson",
-                    "propertyValues",
-                    "status",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "layerId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "centerLat": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "centerLon": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "radiusMeters": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "polygonGeojson": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "propertyValues": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffLayerFeature"
                 }
               }
             }
@@ -12433,117 +12009,7 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "address",
-                          "houseNumber",
-                          "road",
-                          "suburb",
-                          "city",
-                          "state",
-                          "postalCode",
-                          "country",
-                          "status",
-                          "latitude",
-                          "longitude",
-                          "addressHash",
-                          "createdAt"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "address": {
-                            "type": "string"
-                          },
-                          "houseNumber": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "road": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "suburb": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "city": {
-                            "type": "string"
-                          },
-                          "state": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "postalCode": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "country": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "latitude": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "longitude": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "addressHash": {
-                            "type": "string"
-                          },
-                          "createdAt": {
-                            "format": "date-time",
-                            "type": "string"
-                          }
-                        }
+                        "$ref": "#/components/schemas/BffMasterLocation"
                       }
                     },
                     "total": {
@@ -12610,155 +12076,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "address",
-                    "houseNumber",
-                    "road",
-                    "suburb",
-                    "city",
-                    "state",
-                    "postalCode",
-                    "country",
-                    "status",
-                    "latitude",
-                    "longitude",
-                    "addressHash",
-                    "createdAt",
-                    "features"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/BffMasterLocation"
                     },
-                    "address": {
-                      "type": "string"
-                    },
-                    "houseNumber": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "road": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "suburb": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "city": {
-                      "type": "string"
-                    },
-                    "state": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postalCode": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "country": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "latitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "longitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "addressHash": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "features": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "layerFeatureId",
-                          "layerId",
-                          "layerName",
-                          "featureLabel",
-                          "distanceMeters"
-                        ],
-                        "properties": {
-                          "layerFeatureId": {
-                            "type": "string"
-                          },
-                          "layerId": {
-                            "type": "string"
-                          },
-                          "layerName": {
-                            "type": "string"
-                          },
-                          "featureLabel": {
-                            "type": "string"
-                          },
-                          "distanceMeters": {
-                            "anyOf": [
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                    {
+                      "type": "object",
+                      "required": [
+                        "features"
+                      ],
+                      "properties": {
+                        "features": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/BffFeatureAssociation"
                           }
                         }
                       }
                     }
-                  }
+                  ]
                 }
               }
             }
@@ -12900,117 +12236,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "address",
-                    "houseNumber",
-                    "road",
-                    "suburb",
-                    "city",
-                    "state",
-                    "postalCode",
-                    "country",
-                    "status",
-                    "latitude",
-                    "longitude",
-                    "addressHash",
-                    "createdAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "address": {
-                      "type": "string"
-                    },
-                    "houseNumber": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "road": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "suburb": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "city": {
-                      "type": "string"
-                    },
-                    "state": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postalCode": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "country": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "latitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "longitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "addressHash": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffMasterLocation"
                 }
               }
             }
@@ -13286,117 +12512,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "address",
-                    "houseNumber",
-                    "road",
-                    "suburb",
-                    "city",
-                    "state",
-                    "postalCode",
-                    "country",
-                    "status",
-                    "latitude",
-                    "longitude",
-                    "addressHash",
-                    "createdAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "address": {
-                      "type": "string"
-                    },
-                    "houseNumber": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "road": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "suburb": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "city": {
-                      "type": "string"
-                    },
-                    "state": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postalCode": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "country": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "latitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "longitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "addressHash": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffMasterLocation"
                 }
               }
             }
@@ -13486,117 +12602,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "address",
-                    "houseNumber",
-                    "road",
-                    "suburb",
-                    "city",
-                    "state",
-                    "postalCode",
-                    "country",
-                    "status",
-                    "latitude",
-                    "longitude",
-                    "addressHash",
-                    "createdAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "address": {
-                      "type": "string"
-                    },
-                    "houseNumber": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "road": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "suburb": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "city": {
-                      "type": "string"
-                    },
-                    "state": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postalCode": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "country": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "latitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "longitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "addressHash": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffMasterLocation"
                 }
               }
             }
@@ -13957,117 +12963,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "address",
-                    "houseNumber",
-                    "road",
-                    "suburb",
-                    "city",
-                    "state",
-                    "postalCode",
-                    "country",
-                    "status",
-                    "latitude",
-                    "longitude",
-                    "addressHash",
-                    "createdAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "address": {
-                      "type": "string"
-                    },
-                    "houseNumber": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "road": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "suburb": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "city": {
-                      "type": "string"
-                    },
-                    "state": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postalCode": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "country": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "latitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "longitude": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "addressHash": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/BffMasterLocation"
                 }
               }
             }
@@ -14364,71 +13260,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "clientId",
-                    "partitionId",
-                    "streetThreshold",
-                    "houseNumberThreshold",
-                    "postalCodeThreshold",
-                    "stateThreshold",
-                    "addressNameThreshold",
-                    "overallThreshold",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "clientId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "partitionId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "streetThreshold": {
-                      "type": "number"
-                    },
-                    "houseNumberThreshold": {
-                      "type": "number"
-                    },
-                    "postalCodeThreshold": {
-                      "type": "number"
-                    },
-                    "stateThreshold": {
-                      "type": "number"
-                    },
-                    "addressNameThreshold": {
-                      "type": "number"
-                    },
-                    "overallThreshold": {
-                      "type": "number"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/MatchingConfig"
                 }
               }
             }
@@ -14527,71 +13359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "clientId",
-                    "partitionId",
-                    "streetThreshold",
-                    "houseNumberThreshold",
-                    "postalCodeThreshold",
-                    "stateThreshold",
-                    "addressNameThreshold",
-                    "overallThreshold",
-                    "createdAt",
-                    "updatedAt"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "clientId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "partitionId": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "streetThreshold": {
-                      "type": "number"
-                    },
-                    "houseNumberThreshold": {
-                      "type": "number"
-                    },
-                    "postalCodeThreshold": {
-                      "type": "number"
-                    },
-                    "stateThreshold": {
-                      "type": "number"
-                    },
-                    "addressNameThreshold": {
-                      "type": "number"
-                    },
-                    "overallThreshold": {
-                      "type": "number"
-                    },
-                    "createdAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "format": "date-time",
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/MatchingConfig"
                 }
               }
             }

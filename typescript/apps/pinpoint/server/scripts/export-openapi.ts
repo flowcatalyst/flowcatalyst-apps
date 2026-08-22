@@ -50,7 +50,10 @@ try {
   } else {
     writeFileSync(OUT_FILE, next);
     const paths = Object.keys(spec.paths ?? {}).length;
-    const ops = Object.values(spec.paths ?? {}).reduce((n, p) => n + Object.keys(p ?? {}).length, 0);
+    const ops = Object.values(spec.paths ?? {}).reduce(
+      (n, p) => n + Object.keys(p ?? {}).length,
+      0,
+    );
     console.log(`wrote ${OUT_FILE} (${paths} paths, ${ops} operations)`);
   }
 } finally {

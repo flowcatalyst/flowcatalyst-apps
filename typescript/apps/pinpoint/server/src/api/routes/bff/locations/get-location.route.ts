@@ -11,14 +11,9 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffFeatureAssociationRef } from './feature-association.schema.js';
 
-const FeatureSchema = Type.Object({
-  layerFeatureId: Type.String(),
-  layerId: Type.String(),
-  layerName: Type.String(),
-  featureLabel: Type.String(),
-  distanceMeters: Type.Union([Type.Number(), Type.Null()]),
-});
+const FeatureSchema = BffFeatureAssociationRef;
 
 const ResponseSchema = Type.Object({
   id: Type.String(),

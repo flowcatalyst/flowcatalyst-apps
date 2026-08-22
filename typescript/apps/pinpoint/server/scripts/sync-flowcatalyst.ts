@@ -61,6 +61,7 @@ function stableStringify(value: unknown): string {
 }
 
 interface SpecVersionLike {
+  readonly version?: string;
   readonly schema?: unknown;
 }
 
@@ -70,6 +71,29 @@ function latestSpecVersionSchema(specVersions: readonly SpecVersionLike[] | unde
   // one is the current. Defensive against undefined `schema` fields —
   // detail views include schema, summary views may not.
   return specVersions[specVersions.length - 1]?.schema ?? null;
+}
+
+/**
+ * Version for the schema we are about to push. The platform requires an
+ * explicit semver; we bump the minor of the highest existing version
+ * (schema additions are the common case) and start at 1.0.0 when the event
+ * type has no spec versions yet.
+ */
+export function nextSpecVersion(specVersions: readonly SpecVersionLike[] | undefined): string {
+  let best: [number, number, number] | null = null;
+  for (const v of specVersions ?? []) {
+    const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v.version ?? '');
+    if (!m) continue;
+    const t: [number, number, number] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (
+      !best ||
+      t[0] > best[0] ||
+      (t[0] === best[0] && (t[1] > best[1] || (t[1] === best[1] && t[2] > best[2])))
+    ) {
+      best = t;
+    }
+  }
+  return best ? `${best[0]}.${best[1] + 1}.0` : '1.0.0';
 }
 
 async function syncEventSchemas(client: FlowCatalystClient): Promise<void> {
@@ -109,13 +133,14 @@ async function syncEventSchemas(client: FlowCatalystClient): Promise<void> {
       continue;
     }
 
+    const version = nextSpecVersion(remote.specVersions);
     const pushResult = await client
       .eventTypes()
-      .addSchemaVersion(remote.id, { schema: event.payloadSchema });
+      .addSchemaVersion(remote.id, { schema: event.payloadSchema, version });
     if (pushResult.isErr()) {
       throw new Error(`Failed to push schema for ${event.code}: ${String(pushResult.error)}`);
     }
-    console.log(`[schema-sync] ${event.code}: pushed new schema version`);
+    console.log(`[schema-sync] ${event.code}: pushed schema version ${version}`);
     pushed += 1;
   }
 

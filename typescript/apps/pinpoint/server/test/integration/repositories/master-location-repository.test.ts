@@ -113,7 +113,12 @@ describe('MasterLocationRepository (integration)', () => {
     expect(byCity.total).toBe(1);
     expect(byCity.masters[0]?.normalizedCity).toBe('Stellenbosch');
     // Also matches normalizedAddressLine ('Cape Town, South Africa' on both).
-    const byLine = await repo.listByClient({ clientId, search: 'south africa', limit: 10, offset: 0 });
+    const byLine = await repo.listByClient({
+      clientId,
+      search: 'south africa',
+      limit: 10,
+      offset: 0,
+    });
     expect(byLine.total).toBe(2);
     const withStatus = await repo.listByClient({
       clientId,

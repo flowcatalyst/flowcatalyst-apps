@@ -16,29 +16,11 @@ import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffLayerFeatureRef, BffLayerFeatureInputRef } from './layer-feature.schema.js';
 
-const BodySchema = Type.Object({
-  label: Type.String({ minLength: 1 }),
-  centerLat: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-  centerLon: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
-  radiusMeters: Type.Optional(Type.Union([Type.Number({ exclusiveMinimum: 0 }), Type.Null()])),
-  polygonGeojson: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  propertyValues: Type.Optional(Type.Record(Type.String(), Type.String())),
-});
+const BodySchema = BffLayerFeatureInputRef;
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  layerId: Type.String(),
-  label: Type.String(),
-  centerLat: Type.Union([Type.Number(), Type.Null()]),
-  centerLon: Type.Union([Type.Number(), Type.Null()]),
-  radiusMeters: Type.Union([Type.Number(), Type.Null()]),
-  polygonGeojson: Type.Union([Type.String(), Type.Null()]),
-  propertyValues: Type.Record(Type.String(), Type.String()),
-  status: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = BffLayerFeatureRef;
 
 export function registerBffCreateLayerFeatureRoute(
   fastify: FastifyInstance,

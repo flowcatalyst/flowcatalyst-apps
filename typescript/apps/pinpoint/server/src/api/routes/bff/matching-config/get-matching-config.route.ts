@@ -14,20 +14,9 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { MatchingConfigRef } from '../../matching-config/matching-config.schema.js';
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  clientId: Type.Union([Type.String(), Type.Null()]),
-  partitionId: Type.Union([Type.String(), Type.Null()]),
-  streetThreshold: Type.Number(),
-  houseNumberThreshold: Type.Number(),
-  postalCodeThreshold: Type.Number(),
-  stateThreshold: Type.Number(),
-  addressNameThreshold: Type.Number(),
-  overallThreshold: Type.Number(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = MatchingConfigRef;
 
 export function registerBffGetMatchingConfigRoute(
   fastify: FastifyInstance,

@@ -10,24 +10,13 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asLayerFeatureId } from '../../../../domain/layers/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffLayerFeatureRef } from './layer-feature.schema.js';
 
 const BodySchema = Type.Object({
   status: Type.Union([Type.Literal('ACTIVE'), Type.Literal('INACTIVE')]),
 });
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  layerId: Type.String(),
-  label: Type.String(),
-  centerLat: Type.Union([Type.Number(), Type.Null()]),
-  centerLon: Type.Union([Type.Number(), Type.Null()]),
-  radiusMeters: Type.Union([Type.Number(), Type.Null()]),
-  polygonGeojson: Type.Union([Type.String(), Type.Null()]),
-  propertyValues: Type.Record(Type.String(), Type.String()),
-  status: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = BffLayerFeatureRef;
 
 export function registerBffSetFeatureStatusRoute(
   fastify: FastifyInstance,

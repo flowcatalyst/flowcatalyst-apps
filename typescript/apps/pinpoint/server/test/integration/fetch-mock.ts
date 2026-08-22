@@ -48,7 +48,7 @@ export function installFetchMock(): FetchMock {
   const registrations: Registration[] = [];
   const calls: string[] = [];
 
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const urlStr =
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     const method = (init?.method ?? 'GET').toUpperCase();

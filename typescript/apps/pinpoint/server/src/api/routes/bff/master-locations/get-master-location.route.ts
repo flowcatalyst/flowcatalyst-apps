@@ -12,32 +12,15 @@ import { asMasterLocationId } from '../../../../domain/locations/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffFeatureAssociationRef } from '../locations/feature-association.schema.js';
+import { BffMasterLocationRef } from './master-location.schema.js';
 
-const FeatureSchema = Type.Object({
-  layerFeatureId: Type.String(),
-  layerId: Type.String(),
-  layerName: Type.String(),
-  featureLabel: Type.String(),
-  distanceMeters: Type.Union([Type.Number(), Type.Null()]),
-});
+const FeatureSchema = BffFeatureAssociationRef;
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  address: Type.String(),
-  houseNumber: Type.Union([Type.String(), Type.Null()]),
-  road: Type.Union([Type.String(), Type.Null()]),
-  suburb: Type.Union([Type.String(), Type.Null()]),
-  city: Type.String(),
-  state: Type.Union([Type.String(), Type.Null()]),
-  postalCode: Type.Union([Type.String(), Type.Null()]),
-  country: Type.String(),
-  status: Type.String(),
-  latitude: Type.Union([Type.Number(), Type.Null()]),
-  longitude: Type.Union([Type.Number(), Type.Null()]),
-  addressHash: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  features: Type.Array(FeatureSchema),
-});
+const ResponseSchema = Type.Intersect([
+  BffMasterLocationRef,
+  Type.Object({ features: Type.Array(FeatureSchema) }),
+]);
 
 export function registerBffGetMasterLocationRoute(
   fastify: FastifyInstance,

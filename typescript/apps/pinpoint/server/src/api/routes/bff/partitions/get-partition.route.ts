@@ -10,15 +10,9 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffPartitionRef } from './partition.schema.js';
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  code: Type.String(),
-  name: Type.String(),
-  description: Type.Union([Type.String(), Type.Null()]),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = BffPartitionRef;
 
 export function registerBffGetPartitionRoute(
   fastify: FastifyInstance,

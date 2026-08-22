@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "pnpm test && pnpm test:integration",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.test.json",
     "libpostal:up": "docker compose -f ../compose.yaml up -d --wait",
     "db:down": "docker compose -f ../compose.yaml down",
     "db:init": "tsx --env-file=.env scripts/db-init.ts",

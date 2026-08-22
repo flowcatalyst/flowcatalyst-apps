@@ -5,18 +5,11 @@ import { RematchLocationCommandSchema } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
+import { RematchLocationBodyRef, RematchLocationResponseRef } from './rematch-location.schema.js';
 
-const BodySchema = Type.Object({
-  matchAddress: Type.String({ minLength: 1 }),
-});
+const BodySchema = RematchLocationBodyRef;
 
-const ResponseSchema = Type.Object({
-  locationId: Type.String(),
-  masterLocationId: Type.String(),
-  previousMasterLocationId: Type.Union([Type.String(), Type.Null()]),
-  previousMasterDeleted: Type.Boolean(),
-  status: Type.String(),
-});
+const ResponseSchema = RematchLocationResponseRef;
 
 export function registerRematchLocationRoute(
   fastify: FastifyInstance,

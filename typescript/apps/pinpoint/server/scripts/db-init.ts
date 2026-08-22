@@ -50,9 +50,11 @@ async function main(): Promise<void> {
   const sql = postgres(url, { onnotice: () => {} });
 
   try {
-    const [{ current_user: role, current_database: database }] = await sql<
+    const [who] = await sql<
       { current_user: string; current_database: string }[]
     >`SELECT current_user, current_database()`;
+    if (!who) throw new Error('[db:init] could not read current_user / current_database');
+    const { current_user: role, current_database: database } = who;
 
     console.log(`[db:init] connected to ${database} as ${role}`);
 
@@ -65,15 +67,17 @@ async function main(): Promise<void> {
     // app schemas that share this database. Pinpoint's tables stay in the
     // `pinpoint` schema; postgis functions stay in `public`.
     await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public`);
-    const [{ extversion }] = await sql<{ extversion: string }[]>`
+    const [postgisRow] = await sql<{ extversion: string }[]>`
       SELECT extversion FROM pg_extension WHERE extname = 'postgis'
     `;
+    const extversion = postgisRow?.extversion ?? 'unknown';
     console.log(`[db:init] postgis extension ready (version ${extversion})`);
 
     await sql.unsafe(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`);
-    const [{ extversion: trgmVersion }] = await sql<{ extversion: string }[]>`
+    const [trgmRow] = await sql<{ extversion: string }[]>`
       SELECT extversion FROM pg_extension WHERE extname = 'pg_trgm'
     `;
+    const trgmVersion = trgmRow?.extversion ?? 'unknown';
     console.log(`[db:init] pg_trgm extension ready (version ${trgmVersion})`);
 
     // Role default — applies to every future connection this role opens.

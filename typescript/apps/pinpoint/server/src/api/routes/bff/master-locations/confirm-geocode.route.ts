@@ -26,6 +26,7 @@ import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { toBffMasterLocationResponse } from './list-master-locations.route.js';
 import { isFailure } from '@pinpoint/framework';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffMasterLocationRef } from './master-location.schema.js';
 
 const BodySchema = Type.Object({
   houseNumber: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -39,22 +40,7 @@ const BodySchema = Type.Object({
   longitude: Type.Number({ minimum: -180, maximum: 180 }),
 });
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  address: Type.String(),
-  houseNumber: Type.Union([Type.String(), Type.Null()]),
-  road: Type.Union([Type.String(), Type.Null()]),
-  suburb: Type.Union([Type.String(), Type.Null()]),
-  city: Type.String(),
-  state: Type.Union([Type.String(), Type.Null()]),
-  postalCode: Type.Union([Type.String(), Type.Null()]),
-  country: Type.String(),
-  status: Type.String(),
-  latitude: Type.Union([Type.Number(), Type.Null()]),
-  longitude: Type.Union([Type.Number(), Type.Null()]),
-  addressHash: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = BffMasterLocationRef;
 
 export function registerBffConfirmGeocodeRoute(
   fastify: FastifyInstance,

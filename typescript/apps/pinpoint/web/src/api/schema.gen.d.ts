@@ -1043,6 +1043,26 @@ export interface components {
             details?: unknown;
             issues?: unknown[];
         };
+        BffClient: {
+            id: string;
+            name: string;
+            code: string;
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BffPartition: {
+            id: string;
+            code: string;
+            name: string;
+            description: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         BffLayerPropertySet: {
             id: string;
             name: string;
@@ -1067,6 +1087,82 @@ export interface components {
             partitionIds: string[];
             /** Format: date-time */
             createdAt: string;
+        };
+        BffLayerFeature: {
+            id: string;
+            layerId: string;
+            label: string;
+            centerLat: number | null;
+            centerLon: number | null;
+            radiusMeters: number | null;
+            polygonGeojson: string | null;
+            propertyValues: {
+                [key: string]: string;
+            };
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BffLayerFeatureInput: {
+            label: string;
+            centerLat?: number | null;
+            centerLon?: number | null;
+            radiusMeters?: number | null;
+            polygonGeojson?: string | null;
+            propertyValues?: {
+                [key: string]: string;
+            };
+        };
+        BffFeatureAssociation: {
+            layerFeatureId: string;
+            layerId: string;
+            layerName: string;
+            featureLabel: string;
+            distanceMeters: number | null;
+        };
+        BffMasterLocation: {
+            id: string;
+            address: string;
+            houseNumber: string | null;
+            road: string | null;
+            suburb: string | null;
+            city: string;
+            state: string | null;
+            postalCode: string | null;
+            country: string;
+            status: string;
+            latitude: number | null;
+            longitude: number | null;
+            addressHash: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MatchingConfig: {
+            id: string;
+            clientId: string | null;
+            partitionId: string | null;
+            streetThreshold: number;
+            houseNumberThreshold: number;
+            postalCodeThreshold: number;
+            stateThreshold: number;
+            addressNameThreshold: number;
+            overallThreshold: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RematchLocationBody: {
+            matchAddress: string;
+        };
+        RematchLocationResponse: {
+            locationId: string;
+            masterLocationId: string;
+            previousMasterLocationId: string | null;
+            previousMasterDeleted: boolean;
+            status: string;
         };
     };
     responses: never;
@@ -2210,9 +2306,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    matchAddress: string;
-                };
+                "application/json": components["schemas"]["RematchLocationBody"];
             };
         };
         responses: {
@@ -2222,13 +2316,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        locationId: string;
-                        masterLocationId: string;
-                        previousMasterLocationId: string | null;
-                        previousMasterDeleted: boolean;
-                        status: string;
-                    };
+                    "application/json": components["schemas"]["RematchLocationResponse"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -3351,21 +3439,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        clientId: string | null;
-                        partitionId: string | null;
-                        streetThreshold: number;
-                        houseNumberThreshold: number;
-                        postalCodeThreshold: number;
-                        stateThreshold: number;
-                        addressNameThreshold: number;
-                        overallThreshold: number;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["MatchingConfig"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -4557,16 +4631,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: {
-                            id: string;
-                            name: string;
-                            code: string;
-                            status: string;
-                            /** Format: date-time */
-                            createdAt: string;
-                            /** Format: date-time */
-                            updatedAt: string;
-                        }[];
+                        items: components["schemas"]["BffClient"][];
                         total: number;
                     };
                 };
@@ -4682,16 +4747,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        name: string;
-                        code: string;
-                        status: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffClient"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -4741,16 +4797,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: {
-                            id: string;
-                            code: string;
-                            name: string;
-                            description: string | null;
-                            /** Format: date-time */
-                            createdAt: string;
-                            /** Format: date-time */
-                            updatedAt: string;
-                        }[];
+                        items: components["schemas"]["BffPartition"][];
                         total: number;
                     };
                 };
@@ -4800,16 +4847,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        code: string;
-                        name: string;
-                        description: string | null;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffPartition"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -4886,16 +4924,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        code: string;
-                        name: string;
-                        description: string | null;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffPartition"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -4952,16 +4981,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        code: string;
-                        name: string;
-                        description: string | null;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffPartition"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -5445,13 +5465,7 @@ export interface operations {
                         matchMethod: string | null;
                         /** Format: date-time */
                         createdAt: string;
-                        features: {
-                            layerFeatureId: string;
-                            layerId: string;
-                            layerName: string;
-                            featureLabel: string;
-                            distanceMeters: number | null;
-                        }[];
+                        features: components["schemas"]["BffFeatureAssociation"][];
                     };
                 };
             };
@@ -5576,9 +5590,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    matchAddress: string;
-                };
+                "application/json": components["schemas"]["RematchLocationBody"];
             };
         };
         responses: {
@@ -5588,13 +5600,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        locationId: string;
-                        masterLocationId: string;
-                        previousMasterLocationId: string | null;
-                        previousMasterDeleted: boolean;
-                        status: string;
-                    };
+                    "application/json": components["schemas"]["RematchLocationResponse"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -6502,23 +6508,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: {
-                            id: string;
-                            layerId: string;
-                            label: string;
-                            centerLat: number | null;
-                            centerLon: number | null;
-                            radiusMeters: number | null;
-                            polygonGeojson: string | null;
-                            propertyValues: {
-                                [key: string]: string;
-                            };
-                            status: string;
-                            /** Format: date-time */
-                            createdAt: string;
-                            /** Format: date-time */
-                            updatedAt: string;
-                        }[];
+                        items: components["schemas"]["BffLayerFeature"][];
                         total: number;
                     };
                 };
@@ -6555,16 +6545,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    label: string;
-                    centerLat?: number | null;
-                    centerLon?: number | null;
-                    radiusMeters?: number | null;
-                    polygonGeojson?: string | null;
-                    propertyValues?: {
-                        [key: string]: string;
-                    };
-                };
+                "application/json": components["schemas"]["BffLayerFeatureInput"];
             };
         };
         responses: {
@@ -6574,23 +6555,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        layerId: string;
-                        label: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertyValues: {
-                            [key: string]: string;
-                        };
-                        status: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerFeature"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -6668,23 +6633,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        layerId: string;
-                        label: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertyValues: {
-                            [key: string]: string;
-                        };
-                        status: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerFeature"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -6729,16 +6678,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    label: string;
-                    centerLat?: number | null;
-                    centerLon?: number | null;
-                    radiusMeters?: number | null;
-                    polygonGeojson?: string | null;
-                    propertyValues?: {
-                        [key: string]: string;
-                    };
-                };
+                "application/json": components["schemas"]["BffLayerFeatureInput"];
             };
         };
         responses: {
@@ -6748,23 +6688,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        layerId: string;
-                        label: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertyValues: {
-                            [key: string]: string;
-                        };
-                        status: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerFeature"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -6902,23 +6826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        layerId: string;
-                        label: string;
-                        centerLat: number | null;
-                        centerLon: number | null;
-                        radiusMeters: number | null;
-                        polygonGeojson: string | null;
-                        propertyValues: {
-                            [key: string]: string;
-                        };
-                        status: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["BffLayerFeature"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -6973,23 +6881,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items: {
-                            id: string;
-                            address: string;
-                            houseNumber: string | null;
-                            road: string | null;
-                            suburb: string | null;
-                            city: string;
-                            state: string | null;
-                            postalCode: string | null;
-                            country: string;
-                            status: string;
-                            latitude: number | null;
-                            longitude: number | null;
-                            addressHash: string;
-                            /** Format: date-time */
-                            createdAt: string;
-                        }[];
+                        items: components["schemas"]["BffMasterLocation"][];
                         total: number;
                     };
                 };
@@ -7032,29 +6924,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        address: string;
-                        houseNumber: string | null;
-                        road: string | null;
-                        suburb: string | null;
-                        city: string;
-                        state: string | null;
-                        postalCode: string | null;
-                        country: string;
-                        status: string;
-                        latitude: number | null;
-                        longitude: number | null;
-                        addressHash: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                        features: {
-                            layerFeatureId: string;
-                            layerId: string;
-                            layerName: string;
-                            featureLabel: string;
-                            distanceMeters: number | null;
-                        }[];
+                    "application/json": components["schemas"]["BffMasterLocation"] & {
+                        features: components["schemas"]["BffFeatureAssociation"][];
                     };
                 };
             };
@@ -7117,23 +6988,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        address: string;
-                        houseNumber: string | null;
-                        road: string | null;
-                        suburb: string | null;
-                        city: string;
-                        state: string | null;
-                        postalCode: string | null;
-                        country: string;
-                        status: string;
-                        latitude: number | null;
-                        longitude: number | null;
-                        addressHash: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffMasterLocation"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -7320,23 +7175,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        address: string;
-                        houseNumber: string | null;
-                        road: string | null;
-                        suburb: string | null;
-                        city: string;
-                        state: string | null;
-                        postalCode: string | null;
-                        country: string;
-                        status: string;
-                        latitude: number | null;
-                        longitude: number | null;
-                        addressHash: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffMasterLocation"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -7404,23 +7243,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        address: string;
-                        houseNumber: string | null;
-                        road: string | null;
-                        suburb: string | null;
-                        city: string;
-                        state: string | null;
-                        postalCode: string | null;
-                        country: string;
-                        status: string;
-                        latitude: number | null;
-                        longitude: number | null;
-                        addressHash: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffMasterLocation"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -7598,23 +7421,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        address: string;
-                        houseNumber: string | null;
-                        road: string | null;
-                        suburb: string | null;
-                        city: string;
-                        state: string | null;
-                        postalCode: string | null;
-                        country: string;
-                        status: string;
-                        latitude: number | null;
-                        longitude: number | null;
-                        addressHash: string;
-                        /** Format: date-time */
-                        createdAt: string;
-                    };
+                    "application/json": components["schemas"]["BffMasterLocation"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -7811,21 +7618,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        clientId: string | null;
-                        partitionId: string | null;
-                        streetThreshold: number;
-                        houseNumberThreshold: number;
-                        postalCodeThreshold: number;
-                        stateThreshold: number;
-                        addressNameThreshold: number;
-                        overallThreshold: number;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["MatchingConfig"];
                 };
             };
             /** @description Standard pinpoint error envelope. */
@@ -7876,21 +7669,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        id: string;
-                        clientId: string | null;
-                        partitionId: string | null;
-                        streetThreshold: number;
-                        houseNumberThreshold: number;
-                        postalCodeThreshold: number;
-                        stateThreshold: number;
-                        addressNameThreshold: number;
-                        overallThreshold: number;
-                        /** Format: date-time */
-                        createdAt: string;
-                        /** Format: date-time */
-                        updatedAt: string;
-                    };
+                    "application/json": components["schemas"]["MatchingConfig"];
                 };
             };
             /** @description Standard pinpoint error envelope. */

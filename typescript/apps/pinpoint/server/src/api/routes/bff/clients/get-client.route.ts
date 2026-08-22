@@ -8,15 +8,9 @@ import { ScopeStore } from '@pinpoint/framework';
 import { asClientId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffClientRef } from './client.schema.js';
 
-const ClientSchema = Type.Object({
-  id: Type.String(),
-  name: Type.String(),
-  code: Type.String(),
-  status: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ClientSchema = BffClientRef;
 
 export function registerBffGetClientRoute(fastify: FastifyInstance, appContext: AppContext): void {
   fastify.get(

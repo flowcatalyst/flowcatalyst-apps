@@ -18,6 +18,7 @@ import type {
 } from '../../../../domain/locations/master-location.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffMasterLocationRef } from './master-location.schema.js';
 
 const StatusEnum = Type.Union([
   Type.Literal('PENDING'),
@@ -26,22 +27,7 @@ const StatusEnum = Type.Union([
   Type.Literal('REJECTED'),
 ]);
 
-const ItemSchema = Type.Object({
-  id: Type.String(),
-  address: Type.String(),
-  houseNumber: Type.Union([Type.String(), Type.Null()]),
-  road: Type.Union([Type.String(), Type.Null()]),
-  suburb: Type.Union([Type.String(), Type.Null()]),
-  city: Type.String(),
-  state: Type.Union([Type.String(), Type.Null()]),
-  postalCode: Type.Union([Type.String(), Type.Null()]),
-  country: Type.String(),
-  status: Type.String(),
-  latitude: Type.Union([Type.Number(), Type.Null()]),
-  longitude: Type.Union([Type.Number(), Type.Null()]),
-  addressHash: Type.String(),
-  createdAt: Type.String({ format: 'date-time' }),
-});
+const ItemSchema = BffMasterLocationRef;
 
 const ResponseSchema = Type.Object({
   items: Type.Array(ItemSchema),

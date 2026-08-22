@@ -17,6 +17,7 @@ import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { MatchingConfigRef } from '../../matching-config/matching-config.schema.js';
 
 const Threshold = Type.Number({ minimum: 0, maximum: 1 });
 
@@ -29,19 +30,7 @@ const BodySchema = Type.Object({
   overallThreshold: Threshold,
 });
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  clientId: Type.Union([Type.String(), Type.Null()]),
-  partitionId: Type.Union([Type.String(), Type.Null()]),
-  streetThreshold: Type.Number(),
-  houseNumberThreshold: Type.Number(),
-  postalCodeThreshold: Type.Number(),
-  stateThreshold: Type.Number(),
-  addressNameThreshold: Type.Number(),
-  overallThreshold: Type.Number(),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = MatchingConfigRef;
 
 export function registerBffUpdateMatchingConfigRoute(
   fastify: FastifyInstance,

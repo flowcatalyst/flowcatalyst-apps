@@ -83,10 +83,20 @@ describe('LocationRepository (integration)', () => {
     await repo.persist(newLocation({ externalId: 'EXT-001', address: '12 Long Street' }));
     await repo.persist(newLocation({ externalId: 'EXT-002', address: '99 Kloof Road' }));
 
-    const byAddress = await repo.listByClient({ clientId, search: 'long st', limit: 10, offset: 0 });
+    const byAddress = await repo.listByClient({
+      clientId,
+      search: 'long st',
+      limit: 10,
+      offset: 0,
+    });
     expect(byAddress.total).toBe(1);
     expect(byAddress.locations[0]?.externalId).toBe('EXT-001');
-    const byExternalId = await repo.listByClient({ clientId, search: 'ext-00', limit: 10, offset: 0 });
+    const byExternalId = await repo.listByClient({
+      clientId,
+      search: 'ext-00',
+      limit: 10,
+      offset: 0,
+    });
     expect(byExternalId.total).toBe(2);
     const byCity = await repo.listByClient({ clientId, search: 'francisco', limit: 10, offset: 0 });
     expect(byCity.total).toBe(2);

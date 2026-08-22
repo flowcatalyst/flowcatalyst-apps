@@ -15,6 +15,7 @@ import type { AppContext } from '../../../../app-context.js';
 import { sendUseCaseError } from '../../../plugins/error-mapper.js';
 import { isFailure } from '@pinpoint/framework';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { BffPartitionRef } from './partition.schema.js';
 
 const BodySchema = Type.Object({
   code: Type.String({ minLength: 1 }),
@@ -22,14 +23,7 @@ const BodySchema = Type.Object({
   description: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 });
 
-const ResponseSchema = Type.Object({
-  id: Type.String(),
-  code: Type.String(),
-  name: Type.String(),
-  description: Type.Union([Type.String(), Type.Null()]),
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-});
+const ResponseSchema = BffPartitionRef;
 
 export function registerBffCreatePartitionRoute(
   fastify: FastifyInstance,
