@@ -26,7 +26,9 @@ onMounted(async () => {
   if (!clientId.value) return;
   try {
     const response = await ok(
-      api.GET('/bff/clients/{clientId}/partitions', { params: { path: { clientId: clientId.value } } }),
+      api.GET('/bff/clients/{clientId}/partitions', {
+        params: { path: { clientId: clientId.value } },
+      }),
     );
     partitions.value = response.items;
     // Partition is required — pre-select the client's 'default' partition
@@ -154,8 +156,7 @@ async function handleSubmit() {
               class="w-full"
             />
             <small style="color: #64748b">
-              Every location lives in a partition — 'Default' unless this client segments its
-              data.
+              Every location lives in a partition — 'Default' unless this client segments its data.
             </small>
           </div>
 

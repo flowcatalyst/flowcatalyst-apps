@@ -512,7 +512,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
     <tr><td>Outbox / audit</td><td><code>outbox_messages</code> (SDK DDL, applied before Drizzle migrations) + <code>audit_logs</code>, written in the use-case transaction</td></tr>
     <tr><td>Migrations</td><td><code>server/drizzle/*</code> via <code>drizzle-kit generate</code>; applied on boot when <code>PINPOINT_DB_AUTO_MIGRATE=true</code>, serialised with <code>pg_advisory_lock</code></td></tr>
   </table></div>
-  <p><b>Testing:</b> 189 unit tests (matcher, normaliser, verifier, auth, shared-schema guard) · 127 integration tests (testcontainers PostGIS + Redis, one test per use case through the real <code>runWrite</code>, repositories, OIDC end-to-end against a fake IdP) · typecheck covers <code>src</code>, <code>test</code> and <code>scripts</code>. Full configuration reference in <code>docs/architecture.md</code> §12.</p>
+  <p><b>Testing:</b> 189 unit tests (matcher, normaliser, verifier, auth, shared-schema guard) · 127 integration tests (testcontainers PostGIS + Redis, one test per use case through the real <code>runWrite</code>, repositories, OIDC end-to-end against a fake IdP) · typecheck covers <code>src</code>, <code>test</code> and <code>scripts</code>. <b>Flow walkthrough:</b> <code>pnpm flows:pinpoint</code> (<code>apps/pinpoint/flows</code>) drives a running server end to end through the typed client with a seeded Cape Town dataset — create → match → geocode → confirm → feature association → scheduled-job webhook → rematch → operator actions → outbox — narrated with assertions; <code>--seed-only</code> leaves the data for the SPA. Full configuration reference in <code>docs/architecture.md</code> §12.</p>
 </section>
 
 <section id="gaps">
@@ -523,6 +523,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
         <li>Subscriptions are empty — pinpoint publishes but never consumes platform events.</li>
     <li><code>compose.prod.yaml</code> describes a single-host stack, not the ECS topology above; the ECS wiring lives in <code>inhance/iac</code> + <code>inhance/flowcatalyst-deploy</code>.</li>
     <li><b>Resolved 2026-08-22:</b> the BFF operator actions (match-features, confirm-geocode, set-feature-status, set-layer-partitions, partition access grant/revoke) now run through use cases and emit events; and <code>boundary</code> geometry is derived on persist — the TS port had never written it, so spatial containment silently matched nothing on rows created through the API. Both came out of this review and are covered by integration tests.</li>
+    <li><b>Resolved 2026-08-22 (found by the flow walkthrough):</b> feature associations written during create-location / rematch ran outside the use-case transaction and hit the <code>locations</code> FK once boundaries worked — now on the transaction; the libpostal normaliser took a trailing postcode / “City 8001” segment as the <b>country</b> (poisoning hash and match score) and accepted libpostal’s first <code>/expand</code> option (“long st” → “long saint”) — it now rejects consumed trailing segments (so the supplied <code>countryCode</code> retry applies) and prefers expansions that agree with the substitution table / end in a street type.</li>
   </ul>
 </section>
 </main>

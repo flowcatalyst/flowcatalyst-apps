@@ -1,0 +1,24 @@
+{
+  "name": "@pinpoint/flows",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Flow walkthrough harness: seeds realistic data and drives the running pinpoint server end to end through the typed API client.",
+  "type": "module",
+  "scripts": {
+    "gen": "openapi-typescript ../openapi.gen.json -o src/schema.gen.d.ts",
+    "gen:check": "openapi-typescript ../openapi.gen.json 2>/dev/null | diff -q - src/schema.gen.d.ts >/dev/null || (echo \"flows/src/schema.gen.d.ts is stale — run pnpm gen\" && exit 1)",
+    "flows": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "@flowcatalyst-apps/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "openapi-typescript": "^7.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "catalog:"
+  }
+}

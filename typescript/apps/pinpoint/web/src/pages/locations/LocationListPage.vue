@@ -27,7 +27,9 @@ async function loadPartitions() {
   if (!clientId.value) return;
   try {
     const resp = await ok(
-      api.GET('/bff/clients/{clientId}/partitions', { params: { path: { clientId: clientId.value } } }),
+      api.GET('/bff/clients/{clientId}/partitions', {
+        params: { path: { clientId: clientId.value } },
+      }),
     );
     partitions.value = resp.items;
   } catch {

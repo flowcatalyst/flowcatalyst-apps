@@ -432,6 +432,7 @@ export class CreateLocationUseCase {
         await this.layerFeatures.replaceLocationFeatureAssociations(
           location.id,
           hits.map(hitToAssociation),
+          TransactionStore.get(),
         );
 
         const validatedEvent = new LocationValidated(scope, {

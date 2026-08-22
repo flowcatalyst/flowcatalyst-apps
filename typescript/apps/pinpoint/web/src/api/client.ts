@@ -183,19 +183,21 @@ type JsonOf<R> = R extends { content: { 'application/json': infer B } } ? B : ne
  *
  *   type Layer = ApiResponse<'/bff/clients/{clientId}/layers', 'get'>['items'][number];
  */
-export type ApiResponse<P extends keyof paths, M extends keyof paths[P]> =
-  paths[P][M] extends { responses: infer R }
-    ? R extends { 200: infer S }
+export type ApiResponse<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends {
+  responses: infer R;
+}
+  ? R extends { 200: infer S }
+    ? JsonOf<S>
+    : R extends { 201: infer S }
       ? JsonOf<S>
-      : R extends { 201: infer S }
-        ? JsonOf<S>
-        : never
-    : never;
+      : never
+  : never;
 
 /** The JSON request body of an operation (for typing form payloads). */
-export type ApiRequestBody<P extends keyof paths, M extends keyof paths[P]> =
-  paths[P][M] extends { requestBody?: infer RB }
-    ? RB extends { content: { 'application/json': infer B } }
-      ? B
-      : never
-    : never;
+export type ApiRequestBody<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends {
+  requestBody?: infer RB;
+}
+  ? RB extends { content: { 'application/json': infer B } }
+    ? B
+    : never
+  : never;

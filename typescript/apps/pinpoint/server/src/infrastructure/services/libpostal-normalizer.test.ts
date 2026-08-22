@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { createLibPostalNormalizer } from './libpostal-normalizer.js';
+import { createLibPostalNormalizer, pickRoadExpansion } from './libpostal-normalizer.js';
 
 const BASE_URL = 'http://libpostal.example';
 
@@ -171,5 +171,58 @@ describe('libpostal-normalizer', () => {
 
     const [url] = fetchSpy.mock.calls[0]!;
     expect(String(url)).toMatch(/^http:\/\/libpostal\.example\/parse\?/);
+  });
+  it('does not take a trailing postcode / city+postcode segment as the country (strict → error)', async () => {
+    const parsed = [
+      parseHit('house_number', '12'),
+      parseHit('road', 'long street'),
+      parseHit('city', 'cape town'),
+      parseHit('postcode', '8001'),
+    ];
+    const normalizer = createLibPostalNormalizer({ baseUrl: BASE_URL });
+
+    fetchSpy.mockResolvedValueOnce(jsonResponse(parsed));
+    await expect(normalizer.normalize('12 Long Street, Cape Town, 8001')).rejects.toThrow(
+      /country/,
+    );
+
+    fetchSpy.mockResolvedValueOnce(jsonResponse(parsed));
+    await expect(normalizer.normalize('12 Long Street, Cape Town 8001')).rejects.toThrow(/country/);
+
+    // best-effort mode still completes, with the country marked unresolved
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse(parsed))
+      .mockResolvedValueOnce(jsonResponse(['long street']));
+    const lenient = await normalizer.normalize('12 Long Street, Cape Town, 8001', {
+      strict: false,
+    });
+    expect(lenient.country).toBe('UNKNOWN');
+    expect(lenient.postalCode).toBe('8001');
+  });
+
+  it('prefers the road expansion that agrees with the substitution table', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(
+        jsonResponse([
+          parseHit('house_number', '12'),
+          parseHit('road', 'long st'),
+          parseHit('city', 'cape town'),
+          parseHit('postcode', '8001'),
+          parseHit('country', 'za'),
+        ]),
+      )
+      .mockResolvedValueOnce(jsonResponse(['long saint', 'long street']));
+    const normalizer = createLibPostalNormalizer({ baseUrl: BASE_URL });
+    const result = await normalizer.normalize('12 Long St, Cape Town 8001, ZA');
+    expect(result.road).toBe('long street');
+    expect(result.country).toBe('za');
+  });
+
+  it('pickRoadExpansion: table wins over libpostal ordering, then canonical, then first', () => {
+    expect(pickRoadExpansion('long st', ['long saint', 'long street'])).toBe('long street');
+    expect(pickRoadExpansion('dorp str', ['dorp straat', 'dorp strasse'])).toBe('dorp straat');
+    expect(pickRoadExpansion('main rd', ['main road'])).toBe('main road');
+    expect(pickRoadExpansion('kloof nek', ['kloof nek'])).toBe('kloof nek');
+    expect(pickRoadExpansion('unknown way', [])).toBe('unknown way');
   });
 });

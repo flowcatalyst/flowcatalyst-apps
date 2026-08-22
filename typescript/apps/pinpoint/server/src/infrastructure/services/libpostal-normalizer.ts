@@ -17,6 +17,7 @@ import type {
   NormalizeOptions,
   NormalizedAddress,
 } from '../../domain/services/address-normalizer.js';
+import { applySubstitutions } from '../../domain/services/address-matcher.js';
 
 interface ParseComponent {
   readonly label: string;
@@ -47,6 +48,88 @@ export interface LibPostalNormalizerConfig {
   readonly baseUrl: string;
   /** Request timeout in ms. Default 10s matches the Rust client. */
   readonly timeoutMs?: number;
+}
+
+const CONSUMING_LABELS: ReadonlySet<string> = new Set([
+  'postcode',
+  'city',
+  'state',
+  'suburb',
+  'city_district',
+  'state_district',
+  'road',
+  'house_number',
+]);
+
+/**
+ * The last comma-separated segment is a usable country only if libpostal did
+ * not already assign its text to another component and it is not just a
+ * number (a bare postcode). Otherwise: no country.
+ */
+function countryFromTrailingSegment(
+  address: string,
+  components: readonly ParseComponent[],
+): string | null {
+  const segment = segmentFromEnd(address, 0);
+  if (segment === null) return null;
+  const seg = segment.toLowerCase();
+  if (/^[\d\s-]+$/.test(seg)) return null;
+  const consumed = components
+    .filter((c) => CONSUMING_LABELS.has(c.label))
+    .map((c) => c.value.toLowerCase());
+  // libpostal lower-cases and strips punctuation; compare on the same footing.
+  const segTokens = seg
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const covered = segTokens.every((t) => consumed.some((v) => v.split(/\s+/).includes(t)));
+  return covered ? null : segment;
+}
+
+/**
+ * libpostal `/expand` returns every expansion of an abbreviation ("long st" →
+ * ["long saint", "long street"]). Prefer the one that agrees with the
+ * matcher's own substitution table (the authority for ZA street types and
+ * Afrikaans → English), then the canonical form itself, then the first.
+ */
+const STREET_TYPES: ReadonlySet<string> = new Set([
+  'street',
+  'road',
+  'avenue',
+  'drive',
+  'lane',
+  'boulevard',
+  'court',
+  'place',
+  'crescent',
+  'way',
+  'close',
+  'square',
+  'terrace',
+  'highway',
+  'circle',
+  'parade',
+  'grove',
+  'rise',
+  // Afrikaans forms the matcher maps to English at compare time
+  'straat',
+  'weg',
+  'laan',
+  'rylaan',
+  'singel',
+  'rif',
+]);
+const lastToken = (s: string): string => s.toLowerCase().trim().split(/\s+/).at(-1) ?? '';
+
+export function pickRoadExpansion(road: string, expansions: readonly string[]): string {
+  const canonical = applySubstitutions(road.toLowerCase());
+  const exact = expansions.find((e) => e.toLowerCase() === canonical);
+  if (exact !== undefined) return exact;
+  // "long st" → ["long saint", "long street"]: a road name ends in a street type.
+  const typed = expansions.find((e) => STREET_TYPES.has(lastToken(e)));
+  if (typed !== undefined) return typed;
+  if (canonical !== road.toLowerCase()) return canonical;
+  return expansions[0] ?? road;
 }
 
 function extract(components: readonly ParseComponent[], label: string): string | null {
@@ -107,7 +190,14 @@ export function createLibPostalNormalizer(config: LibPostalNormalizerConfig): Ad
       // Country: try the parsed label first; fall back to the last
       // comma-separated segment of the input (works for ".../South Africa"
       // style addresses where libpostal sometimes misclassifies the country).
-      let country = extract(components, 'country') ?? segmentFromEnd(address, 0);
+      // Country fallback: the trailing comma segment — but only when libpostal
+      // did not already file that text under another component. "…, Cape
+      // Town, 8001" ends in the postcode, "…, Cape Town 8001" in city+postcode;
+      // neither is a country, and treating it as one poisons the hash and the
+      // match score. Leaving it null lets the caller retry with its country
+      // code (create-location appends `, <countryCode>` on strict failure).
+      let country =
+        extract(components, 'country') ?? countryFromTrailingSegment(address, components);
       if (country === null) {
         if (strict) {
           throw new Error('libpostal could not identify a country in the address');
@@ -123,9 +213,7 @@ export function createLibPostalNormalizer(config: LibPostalNormalizerConfig): Ad
       if (road !== null) {
         try {
           const expansions = await callJson<readonly string[]>('/expand', { address: road });
-          if (expansions.length > 0 && expansions[0]) {
-            expandedRoad = expansions[0];
-          }
+          expandedRoad = pickRoadExpansion(road, expansions);
         } catch {
           // Fall through with the parsed road as-is.
         }

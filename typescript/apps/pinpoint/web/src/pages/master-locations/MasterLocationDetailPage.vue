@@ -8,10 +8,19 @@ import { useAuthStore } from '@/stores/auth';
 import { toast } from '@flowcatalyst-apps/web-kit';
 import { getErrorMessage } from '@flowcatalyst-apps/web-kit';
 
-type MasterLocation = ApiResponse<'/bff/clients/{clientId}/master-locations/{masterLocationId}', 'get'>;
+type MasterLocation = ApiResponse<
+  '/bff/clients/{clientId}/master-locations/{masterLocationId}',
+  'get'
+>;
 type FeatureAssociation = MasterLocation['features'][number];
-type ProcessingLogEntry = ApiResponse<'/bff/clients/{clientId}/master-locations/{masterLocationId}/processing-log', 'get'>[number];
-type ReverseGeocodeResult = ApiResponse<'/bff/clients/{clientId}/master-locations/{masterLocationId}/reverse-geocode', 'post'>;
+type ProcessingLogEntry = ApiResponse<
+  '/bff/clients/{clientId}/master-locations/{masterLocationId}/processing-log',
+  'get'
+>[number];
+type ReverseGeocodeResult = ApiResponse<
+  '/bff/clients/{clientId}/master-locations/{masterLocationId}/reverse-geocode',
+  'post'
+>;
 type Country = ApiResponse<'/bff/countries', 'get'>[number];
 
 const route = useRoute();

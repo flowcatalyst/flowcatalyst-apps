@@ -19,6 +19,7 @@ import { generateTsid } from '@flowcatalyst/sdk';
 import {
   Result,
   ScopeStore,
+  TransactionStore,
   UseCaseError,
   commitAggregate,
   commitDelete,
@@ -343,6 +344,7 @@ export class RematchLocationUseCase {
         await this.layerFeatures.replaceLocationFeatureAssociations(
           location.id,
           hits.map(hitToAssociation),
+          TransactionStore.get(),
         );
         const validatedEvent = new LocationValidated(scope, {
           locationId: location.id,

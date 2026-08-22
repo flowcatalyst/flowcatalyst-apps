@@ -377,7 +377,8 @@ flowchart TB
 - **Integration** (`pnpm test:integration`, 127, Docker): testcontainers PostGIS + Redis, migrations applied from `server/drizzle`, one test per use case through the real `runWrite`, repository tests (incl. search + count), OIDC end-to-end against a fake IdP, session stores.
 - **Typecheck** `tsc -p tsconfig.test.json` covers `src`, `test`, `scripts`. **Lint/format** via Vite+ (`pnpm check` at the workspace root).
 - **Docs** `pnpm --filter @pinpoint/server docs:architecture` — parse-checks every Mermaid block in `docs/architecture.md` and regenerates `docs/architecture.html`; edit the `.md`, rebuild, commit both, republish the Artifact (same URL).
-- **Contract** `pnpm openapi:pinpoint` / `:check`; **platform** `pnpm flowcatalyst:sync`; **DB** `db:init`, `db:generate`, `db:migrate`; **dev** `pnpm dev:pinpoint` (server `:3100` + vite `:5173` proxying `/bff /api /auth /jobs`).
+- **Contract** `pnpm openapi:pinpoint` / `:check` (server spec → web types → flows types); **platform** `pnpm flowcatalyst:sync`; **DB** `db:init`, `db:generate`, `db:migrate`; **dev** `pnpm dev:pinpoint` (server `:3100` + vite `:5173` proxying `/bff /api /auth /jobs`).
+- **Flow walkthrough** `pnpm flows:pinpoint` (`apps/pinpoint/flows`): drives a running server end to end through the typed client with a seeded Cape Town dataset — every flow in §6 narrated with assertions, `--seed-only` for SPA exploration, `--cleanup`, `--base-url` for any environment (smoke test). Needs `PINPOINT_AUTH_DEV_FALLBACK=true` on the server, libpostal up; Photon optional (falls back to operator confirm-geocode).
 
 ## 14. Known gaps and divergences
 
@@ -385,3 +386,4 @@ flowchart TB
 - `subscriptions` is empty — pinpoint publishes but never consumes platform events.
 - `compose.prod.yaml` describes a single-host stack, not the ECS topology in §10; the ECS wiring lives in `inhance/iac` + `inhance/flowcatalyst-deploy`.
 - Resolved 2026-08-22: the BFF operator actions (match-features, confirm-geocode, set-feature-status, set-layer-partitions, partition access grant/revoke) now run through use cases and emit events; and `boundary` geometry is derived on persist — the TS port had never written it, so spatial containment silently matched nothing on rows created through the API. Both came out of the docs review and are covered by integration tests.
+- Resolved 2026-08-22 (found by the flow walkthrough): feature associations written during create-location / rematch ran outside the use-case transaction and hit the `locations` FK (500) once boundaries worked — now on the transaction; the libpostal normaliser took a trailing postcode / "City 8001" segment as the **country** (poisoning hash + match score) and accepted libpostal's first `/expand` option ("long st" → "long saint") — it now rejects consumed trailing segments (so the supplied `countryCode` retry applies) and prefers expansions that agree with the substitution table / end in a street type.

@@ -104,7 +104,7 @@ const SUBSTITUTION_MAP: ReadonlyMap<string, string> = new Map(SUBSTITUTIONS);
  * normalize trailing punctuation, then looks up in SUBSTITUTION_MAP.
  * Mirror of Rust `apply_substitutions`.
  */
-function applySubstitutions(input: string): string {
+export function applySubstitutions(input: string): string {
   const lower = input.toLowerCase();
   return lower
     .split(/\s+/)

@@ -7,6 +7,7 @@
 import {
   Result,
   ScopeStore,
+  TransactionStore,
   UseCaseError,
   commitAggregate,
   isFailure,
@@ -145,7 +146,11 @@ export class ConfirmMasterLocationUseCase {
     const now = new Date();
     let locationsValidated = 0;
     for (const child of children) {
-      await this.layerFeatures.replaceLocationFeatureAssociations(child.id, associations);
+      await this.layerFeatures.replaceLocationFeatureAssociations(
+        child.id,
+        associations,
+        TransactionStore.get(),
+      );
 
       if (child.status === 'VALIDATED') continue;
 
