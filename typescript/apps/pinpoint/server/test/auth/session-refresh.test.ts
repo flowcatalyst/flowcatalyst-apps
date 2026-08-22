@@ -89,7 +89,11 @@ describe('tryRefreshSession', () => {
         sub: 'prn_alice',
         name: 'Alice',
         email: null,
-        roles: ['admin'],
+        roles: ['pinpoint:admin'],
+        tier: null,
+        clients: [],
+        scopes: [],
+        allApplications: false,
         raw: {},
       };
     };
@@ -102,7 +106,7 @@ describe('tryRefreshSession', () => {
     const result = await tryRefreshSession(deps, session);
 
     expect(result?.sub).toBe('prn_alice');
-    // admin role → every permission, including TenancyClientCreate
+    // pinpoint:admin is a super-admin role → every permission, including TenancyClientCreate
     expect(result?.permissions?.has('pinpoint:tenancy:client:create')).toBe(true);
 
     const stored = await deps.sessionStore.get(session.id);
@@ -122,6 +126,10 @@ describe('tryRefreshSession', () => {
       name: null,
       email: null,
       roles: [],
+      tier: null,
+      clients: [],
+      scopes: [],
+      allApplications: false,
       raw: {},
     });
     const deps = buildDeps({
@@ -149,6 +157,10 @@ describe('tryRefreshSession', () => {
         name: null,
         email: null,
         roles: ['viewer'],
+        tier: null,
+        clients: [],
+        scopes: [],
+        allApplications: false,
         raw: {},
       };
     };
