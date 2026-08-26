@@ -28,12 +28,18 @@
  *   PINPOINT_DISPATCH_POOL (default: "pinpoint-default")
  *   FLOWCATALYST_REMOVE_UNLISTED=true  — prune SDK-sourced rows missing
  *                                        from the current set
+ *   PINPOINT_DOCS_SYNC=false           — skip phase 3 (the OpenAPI spec +
+ *                                        Markdown pages)
  *   PINPOINT_SCHEMA_SYNC=false         — skip phase 2 (debug aid; the
  *                                        DefinitionSet sync still runs)
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { FlowCatalystClient } from '@flowcatalyst/sdk';
 import { buildPinpointDefinitions } from '../src/flowcatalyst/index.js';
 import { pinpointEventTypes } from '../src/flowcatalyst/events.js';
+import { buildDocPages, syncDocPages, syncOpenApiSpec } from '../src/flowcatalyst/docs.js';
 
 const PINPOINT_APPLICATION_CODE = 'pinpoint';
 
@@ -147,7 +153,43 @@ async function syncEventSchemas(client: FlowCatalystClient): Promise<void> {
   console.log(`[schema-sync] done — pushed=${pushed} skipped=${skipped} missing=${missing}`);
 }
 
+const HERE = dirname(fileURLToPath(import.meta.url));
+const OPENAPI_FILE = resolve(HERE, '../../openapi.gen.json');
+const ARCHITECTURE_DOC = resolve(HERE, '../../docs/architecture.md');
+
+/**
+ * Phase 3 — publish documentation the platform hosts for this application:
+ * the OpenAPI document (versioned, breaking-change flagged) and the Markdown
+ * pages derived from docs/architecture.md. Both files are generated and
+ * committed, so this pushes exactly what is in the repo.
+ */
+async function syncDocumentation(client: FlowCatalystClient): Promise<void> {
+  const spec: unknown = JSON.parse(readFileSync(OPENAPI_FILE, 'utf8'));
+  const result = await syncOpenApiSpec(client, PINPOINT_APPLICATION_CODE, spec);
+  if (result.unchanged) {
+    console.log(`[docs-sync] openapi: unchanged (version ${result.version}, ${result.status})`);
+  } else {
+    console.log(
+      `[docs-sync] openapi: published version ${result.version} (${result.status})` +
+        (result.archivedPriorVersion ? `, archived ${result.archivedPriorVersion}` : ''),
+    );
+  }
+  if (result.hasBreaking) {
+    console.warn(
+      `[docs-sync] openapi: ⚠ BREAKING changes vs the previous version — consumers of ` +
+        `${PINPOINT_APPLICATION_CODE} may need updating.`,
+    );
+  }
+
+  const pages = buildDocPages(readFileSync(ARCHITECTURE_DOC, 'utf8'));
+  await syncDocPages(client, PINPOINT_APPLICATION_CODE, pages);
+  console.log(
+    `[docs-sync] pages: ${pages.length} published — ${pages.map((p) => p.slug).join(', ')}`,
+  );
+}
+
 async function main(): Promise<void> {
+  const docsOnly = process.argv.includes('--docs-only');
   const client = new FlowCatalystClient({
     baseUrl: requireEnv('FLOWCATALYST_URL'),
     clientId: requireEnv('FLOWCATALYST_API_CLIENT_ID'),
@@ -161,17 +203,25 @@ async function main(): Promise<void> {
 
   const removeUnlisted = process.env['FLOWCATALYST_REMOVE_UNLISTED'] === 'true';
 
-  const syncResult = await client.definitions().sync(definitions, { removeUnlisted });
-  if (syncResult.isErr()) {
-    throw new Error(`Definitions sync failed: ${JSON.stringify(syncResult.error)}`);
-  }
-  console.log('Pinpoint FlowCatalyst definitions synced.');
+  if (!docsOnly) {
+    const syncResult = await client.definitions().sync(definitions, { removeUnlisted });
+    if (syncResult.isErr()) {
+      throw new Error(`Definitions sync failed: ${JSON.stringify(syncResult.error)}`);
+    }
+    console.log('Pinpoint FlowCatalyst definitions synced.');
 
-  if (process.env['PINPOINT_SCHEMA_SYNC'] === 'false') {
-    console.log('[schema-sync] skipped (PINPOINT_SCHEMA_SYNC=false)');
+    if (process.env['PINPOINT_SCHEMA_SYNC'] === 'false') {
+      console.log('[schema-sync] skipped (PINPOINT_SCHEMA_SYNC=false)');
+    } else {
+      await syncEventSchemas(client);
+    }
+  }
+
+  if (process.env['PINPOINT_DOCS_SYNC'] === 'false') {
+    console.log('[docs-sync] skipped (PINPOINT_DOCS_SYNC=false)');
     return;
   }
-  await syncEventSchemas(client);
+  await syncDocumentation(client);
 }
 
 main().catch((err) => {
