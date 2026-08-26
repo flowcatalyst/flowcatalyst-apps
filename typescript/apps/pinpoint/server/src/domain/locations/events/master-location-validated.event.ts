@@ -2,11 +2,15 @@ import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
+import { AddressDetailsSchema } from './address-details.js';
+
 export const MasterLocationValidatedDataSchema = Type.Object({
   masterLocationId: Type.String(),
   clientId: Type.String(),
   latitude: Type.Number(),
   longitude: Type.Number(),
+  /** Canonical normalized components of the master location's address. */
+  address: AddressDetailsSchema,
   /** Locations cascaded to VALIDATED by this confirmation. */
   locationsValidated: Type.Integer({ minimum: 0 }),
   /** Spatial feature matches found at this coordinate. */

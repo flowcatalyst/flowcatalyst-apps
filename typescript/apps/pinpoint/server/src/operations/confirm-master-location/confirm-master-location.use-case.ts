@@ -21,6 +21,7 @@ import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationValidated } from '../../domain/locations/events/master-location-validated.event.js';
+import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
 import {
   LocationValidated,
   type LayerPropertyAssignment,
@@ -142,6 +143,7 @@ export class ConfirmMasterLocationUseCase {
     const layerProperties = spatialHits.map(spatialHitToLayerProperty);
 
     const children = await this.locations.listByMaster(masterId);
+    const address = addressDetailsFromMaster(master);
 
     const now = new Date();
     let locationsValidated = 0;
@@ -161,6 +163,7 @@ export class ConfirmMasterLocationUseCase {
         masterLocationId: master.id,
         latitude,
         longitude,
+        address,
         layerProperties,
       });
       const childResult = await commitAggregate(
@@ -196,6 +199,7 @@ export class ConfirmMasterLocationUseCase {
       clientId: master.clientId,
       latitude,
       longitude,
+      address,
       locationsValidated,
       featuresMatched: associations.length,
     });

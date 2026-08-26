@@ -39,6 +39,7 @@ import {
 } from '../../domain/locations/ids.js';
 import { LocationRematched } from '../../domain/locations/events/location-rematched.event.js';
 import { LocationValidated } from '../../domain/locations/events/location-validated.event.js';
+import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
 import { MasterLocationDeleted } from '../../domain/locations/events/master-location-deleted.event.js';
 import { findMatch } from '../../domain/services/address-matcher.js';
@@ -352,6 +353,7 @@ export class RematchLocationUseCase {
           masterLocationId: newMasterId,
           latitude: matchedMaster.latitude,
           longitude: matchedMaster.longitude,
+          address: addressDetailsFromMaster(matchedMaster),
           layerProperties: hits.map(hitToProperty),
         });
         const validatedResult = await commitAggregate(

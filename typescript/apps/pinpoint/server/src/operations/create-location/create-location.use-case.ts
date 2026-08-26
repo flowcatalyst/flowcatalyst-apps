@@ -49,6 +49,7 @@ import { PartitionCreated } from '../../domain/tenancy/events/partition-created.
 import { LocationCreated } from '../../domain/locations/events/location-created.event.js';
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
 import { LocationValidated } from '../../domain/locations/events/location-validated.event.js';
+import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
 import { findMatch } from '../../domain/services/address-matcher.js';
 import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
 import {
@@ -441,6 +442,7 @@ export class CreateLocationUseCase {
           masterLocationId: matchResult.masterLocationId,
           latitude: lat,
           longitude: lon,
+          address: addressDetailsFromMaster(matchedMaster),
           layerProperties: hits.map(hitToProperty),
         });
         const validatedResult = await commitAggregate(

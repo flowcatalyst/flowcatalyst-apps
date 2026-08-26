@@ -3679,6 +3679,15 @@ export interface operations {
                         longitude: number;
                         confidence: number;
                         formattedAddress: string | null;
+                        address: {
+                            houseNumber: string | null;
+                            road: string | null;
+                            suburb: string | null;
+                            city: string;
+                            state: string | null;
+                            postalCode: string | null;
+                            country: string;
+                        };
                     };
                 };
             };

@@ -2,6 +2,8 @@ import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
+import { AddressDetailsSchema } from './address-details.js';
+
 export const MasterLocationGeocodedDataSchema = Type.Object({
   masterLocationId: Type.String(),
   clientId: Type.String(),
@@ -9,6 +11,8 @@ export const MasterLocationGeocodedDataSchema = Type.Object({
   longitude: Type.Number(),
   confidence: Type.Number({ minimum: 0, maximum: 1 }),
   formattedAddress: Type.Union([Type.String(), Type.Null()]),
+  /** Structured components of the address the geocoder matched. */
+  address: AddressDetailsSchema,
 });
 
 export type MasterLocationGeocodedData = Static<typeof MasterLocationGeocodedDataSchema>;

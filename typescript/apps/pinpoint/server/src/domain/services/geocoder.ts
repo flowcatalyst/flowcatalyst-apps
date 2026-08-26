@@ -20,6 +20,13 @@ export interface GeocodingResult {
   /** 0..1 — Photon doesn't return confidence natively; we score component completeness. */
   readonly confidence: number;
   readonly formattedAddress: string | null;
+  /**
+   * Structured components of the address the geocoder actually matched.
+   * May differ from the query address (the geocoder resolves to the nearest
+   * known feature), which is exactly why callers want it — it explains what
+   * the returned coordinate refers to.
+   */
+  readonly address: NormalizedAddress;
 }
 
 export interface ReverseGeocodingResult {

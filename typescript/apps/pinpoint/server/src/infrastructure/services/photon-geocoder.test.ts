@@ -80,6 +80,52 @@ describe('photon-geocoder', () => {
       expect(result.confidence).toBeCloseTo(1, 10);
     });
 
+    it('returns the matched address as structured components, not just coordinates', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(FULL_ADDRESS);
+
+      // Components come from what Photon matched, not from the query — note
+      // `suburb` is populated from the response `district` even though the
+      // query address had none, and country is the ISO code.
+      expect(result.address).toEqual({
+        houseNumber: '548',
+        road: 'Market Street',
+        suburb: 'South of Market',
+        city: 'San Francisco',
+        state: 'CA',
+        postalCode: '94104',
+        country: 'US',
+      });
+    });
+
+    it('falls back to `name` for city and tolerates missing components', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        jsonResponse({
+          features: [
+            {
+              geometry: { coordinates: [4.9, 52.37] as [number, number] },
+              properties: { name: 'Amsterdam', country: 'Netherlands', countrycode: 'NL' },
+            },
+          ],
+        }),
+      );
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(FULL_ADDRESS);
+
+      expect(result.address).toEqual({
+        houseNumber: null,
+        road: null,
+        suburb: null,
+        city: 'Amsterdam',
+        state: null,
+        postalCode: null,
+        country: 'NL',
+      });
+    });
+
     it('builds the `q` query string in the Rust-compatible order', async () => {
       fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
 

@@ -2,6 +2,8 @@ import { Type, type Static } from '@sinclair/typebox';
 import { BaseDomainEvent, DomainEvent } from '@pinpoint/framework';
 import type { Scope } from '@pinpoint/framework';
 
+import { AddressDetailsSchema } from './address-details.js';
+
 export const LayerPropertyValueSchema = Type.Object({
   key: Type.String(),
   value: Type.String(),
@@ -39,6 +41,11 @@ export const LocationValidatedDataSchema = Type.Object({
   masterLocationId: Type.String(),
   latitude: Type.Number(),
   longitude: Type.Number(),
+  /**
+   * Canonical normalized components of the matched master location's
+   * address — the address these coordinates resolved to.
+   */
+  address: AddressDetailsSchema,
   layerProperties: Type.Array(LayerPropertyAssignmentSchema),
 });
 

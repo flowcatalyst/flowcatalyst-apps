@@ -14,6 +14,7 @@ import { ScopeStore, UseCaseError } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import type { NormalizedAddress } from '../../../domain/services/address-normalizer.js';
+import { AddressDetailsSchema } from '../../../domain/locations/events/address-details.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
@@ -32,6 +33,12 @@ const ForwardGeocodeResponseSchema = Type.Object({
   longitude: Type.Number(),
   confidence: Type.Number(),
   formattedAddress: Type.Union([Type.String(), Type.Null()]),
+  /**
+   * Structured components of the address the geocoder matched — the same
+   * shape carried on the location events. Lets a caller see which address
+   * the returned coordinate actually resolved to, not just where it is.
+   */
+  address: AddressDetailsSchema,
 });
 
 export function registerForwardGeocodeRoute(
@@ -96,6 +103,7 @@ export function registerForwardGeocodeRoute(
           longitude: result.longitude,
           confidence: result.confidence,
           formattedAddress: result.formattedAddress,
+          address: result.address,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

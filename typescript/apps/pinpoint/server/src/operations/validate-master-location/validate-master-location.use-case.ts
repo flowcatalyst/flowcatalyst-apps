@@ -21,6 +21,7 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationGeocoded } from '../../domain/locations/events/master-location-geocoded.event.js';
+import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { GeocoderService } from '../../domain/services/geocoder.js';
 import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
@@ -68,15 +69,7 @@ export class ValidateMasterLocationUseCase {
       );
     }
 
-    const address: NormalizedAddress = {
-      houseNumber: master.normalizedHouseNumber,
-      road: master.normalizedRoad,
-      suburb: master.normalizedSuburb,
-      city: master.normalizedCity,
-      state: master.normalizedState,
-      postalCode: master.normalizedPostalCode,
-      country: master.normalizedCountry,
-    };
+    const address: NormalizedAddress = addressDetailsFromMaster(master);
 
     let geocode: Awaited<ReturnType<GeocoderService['geocode']>>;
     try {
@@ -99,6 +92,7 @@ export class ValidateMasterLocationUseCase {
       longitude: geocode.longitude,
       confidence: geocode.confidence,
       formattedAddress: geocode.formattedAddress,
+      address: geocode.address,
     });
 
     return commitAggregate(this.uow, this.registry, updated, event, command);

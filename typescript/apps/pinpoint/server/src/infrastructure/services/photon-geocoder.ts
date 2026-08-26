@@ -90,6 +90,7 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
         longitude: lon,
         confidence: computeConfidence(feature.properties),
         formattedAddress: formatAddress(feature.properties),
+        address: toNormalizedAddress(feature.properties),
       };
     },
 
@@ -110,18 +111,8 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
       if (!feature) throw new Error('No reverse geocoding results found');
 
       const props = feature.properties;
-      const city = props.city ?? props.name ?? '';
-      const address: NormalizedAddress = {
-        houseNumber: props.housenumber ?? null,
-        road: props.street ?? null,
-        suburb: props.district ?? null,
-        city,
-        state: props.state ?? null,
-        postalCode: props.postcode ?? null,
-        country: props.countrycode ?? '',
-      };
       return {
-        address,
+        address: toNormalizedAddress(props),
         formattedAddress: formatAddress(props),
         confidence: computeConfidence(props),
       };
@@ -167,6 +158,25 @@ function buildSearchQuery(addr: NormalizedAddress): string {
   if (addr.postalCode) parts.push(addr.postalCode);
   parts.push(addr.country);
   return parts.join(', ');
+}
+
+/**
+ * Map Photon feature properties onto the canonical `NormalizedAddress`
+ * shape. Photon labels a bare settlement result under `name` rather than
+ * `city`, so `name` is the city fallback; `country` carries the ISO code
+ * (`countrycode`) rather than the display name, matching what the
+ * normalizer produces for the same address.
+ */
+function toNormalizedAddress(props: PhotonFeature['properties']): NormalizedAddress {
+  return {
+    houseNumber: props.housenumber ?? null,
+    road: props.street ?? null,
+    suburb: props.district ?? null,
+    city: props.city ?? props.name ?? '',
+    state: props.state ?? null,
+    postalCode: props.postcode ?? null,
+    country: props.countrycode ?? '',
+  };
 }
 
 function formatAddress(props: PhotonFeature['properties']): string {

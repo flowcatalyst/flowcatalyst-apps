@@ -120,6 +120,26 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
     `);
     expect(events.length).toBe(1);
 
+    // The payload carries the matched address components, not just the
+    // coordinate — consumers shouldn't have to call back to learn what the
+    // point refers to. `data` is a JSON-encoded string inside the payload,
+    // hence the double extraction.
+    const [addressRow] = await db.execute(sql`
+      SELECT (payload::jsonb->>'data')::jsonb->'address' AS address
+      FROM outbox_messages
+      WHERE type = 'EVENT'
+        AND payload::jsonb->>'type' = 'pinpoint:locations:master_location:geocoded'
+    `);
+    expect(addressRow?.['address']).toEqual({
+      houseNumber: '548',
+      road: 'Market Street',
+      suburb: null,
+      city: 'San Francisco',
+      state: 'California',
+      postalCode: '94104',
+      country: 'US',
+    });
+
     // Confirm we actually called Photon.
     expect(mock.calls.some((c) => c.includes('/api?'))).toBe(true);
   });

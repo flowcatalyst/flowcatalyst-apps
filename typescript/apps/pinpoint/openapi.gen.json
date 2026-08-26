@@ -6031,7 +6031,8 @@
                     "latitude",
                     "longitude",
                     "confidence",
-                    "formattedAddress"
+                    "formattedAddress",
+                    "address"
                   ],
                   "properties": {
                     "latitude": {
@@ -6052,6 +6053,76 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "address": {
+                      "type": "object",
+                      "required": [
+                        "houseNumber",
+                        "road",
+                        "suburb",
+                        "city",
+                        "state",
+                        "postalCode",
+                        "country"
+                      ],
+                      "properties": {
+                        "houseNumber": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "road": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "suburb": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string"
+                        }
+                      }
                     }
                   }
                 }

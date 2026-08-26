@@ -32,6 +32,7 @@ const FAKE_RESULT: GeocodingResult = {
   longitude: -0.1,
   confidence: 0.9,
   formattedAddress: 'London, GB',
+  address: ADDRESS,
 };
 
 const FAKE_REVERSE: ReverseGeocodingResult = {
