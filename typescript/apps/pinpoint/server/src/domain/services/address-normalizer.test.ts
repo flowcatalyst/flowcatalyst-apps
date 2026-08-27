@@ -5,7 +5,13 @@
  * tests pin the exact Rust-compatible output shape.
  */
 import { describe, expect, it } from 'vitest';
-import { toAddressLine, type NormalizedAddress } from './address-normalizer.js';
+import {
+  normalizeWithFallback,
+  toAddressLine,
+  type AddressNormalizer,
+  type NormalizedAddress,
+  type NormalizeOptions,
+} from './address-normalizer.js';
 
 function addr(overrides: Partial<NormalizedAddress> = {}): NormalizedAddress {
   return {
@@ -51,5 +57,98 @@ describe('toAddressLine', () => {
     );
     expect(line).not.toContain('Western Cape');
     expect(line).not.toContain('8001');
+  });
+});
+
+/**
+ * The fallback ladder is shared by `create-location` (ingest) and
+ * `/geocode/address` (diagnostic). If the two ever parse the same line
+ * differently, `addressHash` stops agreeing with itself — hence one
+ * implementation with the behaviour pinned here.
+ */
+describe('normalizeWithFallback', () => {
+  const parsed = addr({ road: 'Bree St' });
+
+  function normalizer(
+    impl: (address: string, options?: NormalizeOptions) => Promise<NormalizedAddress>,
+  ): AddressNormalizer {
+    return { normalize: impl };
+  }
+
+  it('returns the strict parse when the first attempt succeeds', async () => {
+    const calls: string[] = [];
+    const result = await normalizeWithFallback(
+      normalizer(async (a) => {
+        calls.push(a);
+        return parsed;
+      }),
+      'Bree St, Cape Town',
+      'ZAF',
+    );
+
+    expect(result).toEqual({ normalized: parsed, bestEffort: false });
+    // The country hint is only for retries — an address that parses cleanly
+    // must not be mutated.
+    expect(calls).toEqual(['Bree St, Cape Town']);
+  });
+
+  it('retries the strict parse with the country code appended', async () => {
+    const calls: string[] = [];
+    const result = await normalizeWithFallback(
+      normalizer(async (a) => {
+        calls.push(a);
+        if (!a.endsWith('ZAF')) throw new Error('cannot identify country');
+        return parsed;
+      }),
+      'Bree St',
+      'ZAF',
+    );
+
+    expect(result).toEqual({ normalized: parsed, bestEffort: false });
+    expect(calls).toEqual(['Bree St', 'Bree St, ZAF']);
+  });
+
+  it('skips the hint retry and goes straight to best-effort when no country code is given', async () => {
+    const calls: { address: string; strict: boolean }[] = [];
+    const result = await normalizeWithFallback(
+      normalizer(async (a, o) => {
+        calls.push({ address: a, strict: o?.strict !== false });
+        if (o?.strict !== false) throw new Error('cannot identify city');
+        return parsed;
+      }),
+      'somewhere vague',
+      null,
+    );
+
+    expect(result).toEqual({ normalized: parsed, bestEffort: true });
+    expect(calls).toEqual([
+      { address: 'somewhere vague', strict: true },
+      { address: 'somewhere vague', strict: false },
+    ]);
+  });
+
+  it('flags a best-effort parse after both strict attempts fail', async () => {
+    const result = await normalizeWithFallback(
+      normalizer(async (_a, o) => {
+        if (o?.strict !== false) throw new Error('cannot identify city');
+        return parsed;
+      }),
+      'somewhere vague',
+      'ZAF',
+    );
+
+    expect(result.bestEffort).toBe(true);
+  });
+
+  it('propagates the failure when even best-effort fails — libpostal is down', async () => {
+    await expect(
+      normalizeWithFallback(
+        normalizer(async () => {
+          throw new Error('libpostal unreachable');
+        }),
+        'Bree St',
+        'ZAF',
+      ),
+    ).rejects.toThrow('libpostal unreachable');
   });
 });

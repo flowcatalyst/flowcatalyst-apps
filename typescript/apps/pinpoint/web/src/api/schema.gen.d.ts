@@ -374,6 +374,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/geocode/address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Geocode a raw, unparsed address line.
+         * @description Normalizes a free-text address via libpostal, then geocodes the parsed components. Read-only — nothing is persisted and no events are emitted.
+         */
+        post: operations["geocodeAddress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/geocode/forward": {
         parameters: {
             query?: never;
@@ -3638,6 +3658,102 @@ export interface operations {
             };
             /** @description Standard pinpoint error envelope. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    geocodeAddress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    countryCode?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        latitude: number;
+                        longitude: number;
+                        confidence: number;
+                        formattedAddress: string | null;
+                        normalized: {
+                            houseNumber: string | null;
+                            road: string | null;
+                            suburb: string | null;
+                            city: string;
+                            state: string | null;
+                            postalCode: string | null;
+                            country: string;
+                        };
+                        normalizationBestEffort: boolean;
+                        address: {
+                            houseNumber: string | null;
+                            road: string | null;
+                            suburb: string | null;
+                            city: string;
+                            state: string | null;
+                            postalCode: string | null;
+                            country: string;
+                        };
+                    };
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Standard pinpoint error envelope. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

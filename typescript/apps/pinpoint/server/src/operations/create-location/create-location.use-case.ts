@@ -54,6 +54,7 @@ import { findMatch } from '../../domain/services/address-matcher.js';
 import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
 import {
   addressHash as computeAddressHash,
+  normalizeWithFallback,
   toAddressLine,
   type AddressNormalizer,
   type NormalizedAddress,
@@ -220,23 +221,14 @@ export class CreateLocationUseCase {
     // libpostal outage (HTTP / timeout) still throws in best-effort mode and
     // surfaces as ADDRESS_NORMALIZATION_FAILED.
     let normalized: NormalizedAddress;
-    let normalizationBestEffort = false;
+    let normalizationBestEffort: boolean;
     try {
-      try {
-        normalized = await this.addressNormalizer.normalize(address);
-      } catch (firstErr) {
-        if (countryCode === null) throw firstErr;
-        normalized = await this.addressNormalizer.normalize(`${address}, ${countryCode}`);
-      }
-    } catch {
-      try {
-        const beInput = countryCode !== null ? `${address}, ${countryCode}` : address;
-        normalized = await this.addressNormalizer.normalize(beInput, { strict: false });
-        normalizationBestEffort = true;
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
-      }
+      const outcome = await normalizeWithFallback(this.addressNormalizer, address, countryCode);
+      normalized = outcome.normalized;
+      normalizationBestEffort = outcome.bestEffort;
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
     }
 
     const addressHash = computeAddressHash(normalized);

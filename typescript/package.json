@@ -19,9 +19,13 @@
     "clean": "pnpm -r exec rm -rf dist .turbo .vite .vite-plus",
     "openapi:pinpoint": "pnpm --filter @pinpoint/server openapi:export && pnpm --filter @pinpoint/web api:types && pnpm --filter @pinpoint/flows gen",
     "openapi:pinpoint:check": "pnpm --filter @pinpoint/server openapi:check && pnpm --filter @pinpoint/web api:types:check && pnpm --filter @pinpoint/flows gen:check",
-    "flows:pinpoint": "pnpm --filter @pinpoint/flows flows"
+    "flows:pinpoint": "pnpm --filter @pinpoint/flows flows",
+    "api:lint": "spectral lint apps/pinpoint/openapi.gen.json --ruleset ../.spectral.yaml",
+    "api:breaking": "../scripts/api-breaking.sh",
+    "api:check": "pnpm api:lint && pnpm api:breaking"
   },
   "devDependencies": {
+    "@stoplight/spectral-cli": "^6.16.3",
     "typescript": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"

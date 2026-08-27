@@ -45,6 +45,58 @@ export interface AddressNormalizer {
   normalize(address: string, options?: NormalizeOptions): Promise<NormalizedAddress>;
 }
 
+export interface NormalizeWithFallbackResult {
+  readonly normalized: NormalizedAddress;
+  /**
+   * True when both strict attempts failed and the best-effort pass produced
+   * this parse. Callers should treat the components as low-confidence.
+   */
+  readonly bestEffort: boolean;
+}
+
+/**
+ * The three-step normalization ladder used everywhere a raw address line
+ * enters the system:
+ *
+ *   1. strict parse;
+ *   2. strict parse with the country-code hint appended (skipped when there is
+ *      no hint);
+ *   3. best-effort parse, so a messy-but-real address is still usable rather
+ *      than dropped.
+ *
+ * Throws only when all three fail — which in best-effort mode means libpostal
+ * itself is unreachable, not that the address was unparseable. Callers map the
+ * throw onto their own error channel (`ADDRESS_NORMALIZATION_FAILED` for use
+ * cases, HTTP 502 for routes).
+ *
+ * Shared so that ingesting an address and geocoding the same line produce
+ * identical components; if these ladders ever diverge, `addressHash` stops
+ * agreeing with itself.
+ */
+export async function normalizeWithFallback(
+  normalizer: AddressNormalizer,
+  address: string,
+  countryCode: string | null,
+): Promise<NormalizeWithFallbackResult> {
+  try {
+    try {
+      return { normalized: await normalizer.normalize(address), bestEffort: false };
+    } catch (firstErr) {
+      if (countryCode === null) throw firstErr;
+      return {
+        normalized: await normalizer.normalize(`${address}, ${countryCode}`),
+        bestEffort: false,
+      };
+    }
+  } catch {
+    const beInput = countryCode !== null ? `${address}, ${countryCode}` : address;
+    return {
+      normalized: await normalizer.normalize(beInput, { strict: false }),
+      bestEffort: true,
+    };
+  }
+}
+
 /**
  * Build a composite address line used for trigram similarity matching.
  * Mirrors Rust `NormalizedAddress::to_address_line()`. Order matters —

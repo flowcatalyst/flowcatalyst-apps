@@ -8,6 +8,11 @@ allowBuilds:
   # cpu-features + ssh2 for Docker-over-SSH; protobufjs is also a
   # transitive dep with build scripts. None of them run at app runtime,
   # only at install time to compile native bindings.
+  # @scarf/scarf arrives transitively via @stoplight/spectral-cli. Its install
+  # script is analytics that phones home about the install; nothing needs it at
+  # build or runtime. Denied explicitly rather than left unresolved, because an
+  # undecided build script fails `pnpm install` and therefore every script.
+  '@scarf/scarf': false
   cpu-features: true
   esbuild: true
   msgpackr-extract: true

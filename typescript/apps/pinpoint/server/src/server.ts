@@ -253,6 +253,12 @@ export async function buildServer() {
         typeof json['$id'] === 'string' ? json['$id'] : `def-${i}`,
     },
     openapi: {
+      // 3.1 (not the 3.0.3 default) because our route schemas are TypeBox, and
+      // `Type.Union([Type.String(), Type.Null()])` emits `anyOf: [..., {type:
+      // 'null'}]` — JSON Schema 2020-12 syntax that is *invalid* under 3.0,
+      // where nullability must be spelled `nullable: true`. Declaring 3.1 makes
+      // the emitted document match what TypeBox actually produces.
+      openapi: '3.1.0',
       info: {
         title: 'Pinpoint API',
         version: '0.0.1',

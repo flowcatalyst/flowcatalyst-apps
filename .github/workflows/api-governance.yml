@@ -1,0 +1,72 @@
+# Guards the generated OpenAPI surface on three independent axes:
+#
+#   1. sync      — is the committed spec what the code actually produces?
+#   2. style     — does it follow our conventions? (.spectral.yaml)
+#   3. breaking  — is the change compatible for existing consumers?
+#
+# These fail differently and none subsumes the others: a spec can be perfectly
+# in sync and still break every client.
+name: API governance
+
+on:
+  pull_request:
+    paths:
+      - 'typescript/apps/*/openapi.gen.json'
+      - 'typescript/apps/*/server/src/**'
+      - 'typescript/apps/*/shared/src/**'
+      - 'typescript/apps/*/web/src/api/schema.gen.d.ts'
+      - 'typescript/apps/*/flows/src/schema.gen.d.ts'
+      - '.spectral.yaml'
+      - 'scripts/api-breaking.sh'
+      - '.github/workflows/api-governance.yml'
+  push:
+    branches: [main]
+
+jobs:
+  api:
+    name: Spec sync, lint, and compatibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # oasdiff resolves the base revision straight out of git history, so
+          # a shallow clone makes the comparison impossible.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: typescript/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: typescript
+        run: pnpm install --frozen-lockfile
+
+      # Catches "I changed a route but forgot to regenerate" — and, just as
+      # importantly, a partial regeneration that misses one of the three
+      # downstream artifacts (spec, web types, flows types).
+      - name: Spec and generated clients are in sync
+        working-directory: typescript
+        run: pnpm openapi:pinpoint:check
+
+      # Style/consistency only. Project rules start at `warn`, so this fails
+      # solely on genuine spec-validity errors until those rules are promoted.
+      - name: Lint spec conventions
+        working-directory: typescript
+        run: pnpm api:lint
+
+      # Compatibility against the branch this PR targets. Falls back to the
+      # default branch for pushes to main.
+      #
+      # Runs oasdiff via its Docker image (the script prefers a local binary if
+      # one exists). Consider pinning OASDIFF_IMAGE to a released tag or digest
+      # rather than :latest before this gate becomes load-bearing.
+      - name: No breaking API changes
+        working-directory: typescript
+        env:
+          OASDIFF_BASE_REF: origin/${{ github.base_ref || github.event.repository.default_branch }}
+        run: pnpm api:breaking

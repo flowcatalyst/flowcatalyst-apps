@@ -1,0 +1,80 @@
+# Spectral ruleset — style and consistency governance for generated OpenAPI specs.
+#
+# This is deliberately NOT a breaking-change check; see scripts/api-breaking.sh
+# (oasdiff) for that. Spectral catches the other failure mode: drift in
+# conventions across a spec with ~100 operations, where no single diff looks
+# wrong but the surface stops being coherent.
+#
+# Our specs are GENERATED (TypeBox -> openapi.gen.json), so a violation here is
+# a bug in the route definition, not in the spec file. Fix the route schema and
+# re-run `pnpm openapi:pinpoint`.
+#
+# Project-specific rules start at `warn` on purpose: they describe where we want
+# to be, and failing the build on day one would just train people to pass
+# --fail-severity. Promote them to `error` as each is driven to zero.
+extends: ['spectral:oas']
+
+rules:
+  # --- Baseline, enforced hard -------------------------------------------
+  # Every operation needs a stable, unique operationId: it is the identity
+  # client generators key off, so a rename silently renames SPA call sites.
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-operationId-valid-in-url: error
+
+  # --- Project conventions ------------------------------------------------
+  flowcatalyst-operation-id-camel-case:
+    description: >-
+      operationId must be camelCase — by convention the camelCased route file
+      stem, with BFF routes prefixed `bff`.
+    message: '{{property}} should be camelCase (e.g. `listLocations`, `bffListLocations`)'
+    given: '$.paths[*][get,put,post,delete,patch,head,options].operationId'
+    severity: warn
+    then:
+      function: pattern
+      functionOptions:
+        match: '^[a-z][a-zA-Z0-9]*$'
+
+  flowcatalyst-no-open-object-schemas:
+    description: >-
+      `additionalProperties: true` publishes an open shape, so consumers cannot
+      rely on the contract and generators emit `[key: string]: unknown`.
+      Declare the fields instead.
+    message: 'Avoid `additionalProperties: true` — declare the object shape'
+    given: '$..additionalProperties'
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          not:
+            const: true
+
+  flowcatalyst-operation-declares-error-responses:
+    description: >-
+      Fastify + TypeBox only serialises status codes declared in the route
+      schema, so an undeclared error response is silently reshaped at runtime.
+      Declare the 4xx codes the handler can actually emit.
+    message: 'Operation should declare at least one 4xx response'
+    given: '$.paths[*][get,put,post,delete,patch].responses'
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          anyOf:
+            - required: ['400']
+            - required: ['401']
+            - required: ['403']
+            - required: ['404']
+            - required: ['409']
+            - required: ['422']
+
+  flowcatalyst-operation-has-tag:
+    description: Operations need a tag so /docs groups them coherently.
+    given: '$.paths[*][get,put,post,delete,patch]'
+    severity: warn
+    then:
+      field: tags
+      function: truthy
