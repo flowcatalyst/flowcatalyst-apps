@@ -12,10 +12,11 @@
  * verbatim — including the libpostal-can't-find-country fallback that
  * pulls the last comma-separated segment of the input.
  */
-import type {
-  AddressNormalizer,
-  NormalizeOptions,
-  NormalizedAddress,
+import {
+  UNRESOLVED_COMPONENT,
+  type AddressNormalizer,
+  type NormalizeOptions,
+  type NormalizedAddress,
 } from '../../domain/services/address-normalizer.js';
 import { applySubstitutions } from '../../domain/services/address-matcher.js';
 
@@ -30,8 +31,11 @@ interface ParseComponent {
  * marker + lands PENDING, so a reviewer / the geocoder can resolve the real
  * value later. `master_locations.normalized_city` is NOT NULL, so we can't
  * store null here.
+ *
+ * Defined in the domain so consumers (notably the geocoder, which must not
+ * send it upstream as a search term) share one definition.
  */
-const UNRESOLVED = 'UNKNOWN';
+const UNRESOLVED = UNRESOLVED_COMPONENT;
 
 /** The `n`-th comma-separated segment counted from the end (0 = last). */
 function segmentFromEnd(address: string, fromEnd: number): string | null {

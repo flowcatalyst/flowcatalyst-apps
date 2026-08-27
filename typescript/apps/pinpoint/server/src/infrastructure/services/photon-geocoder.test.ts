@@ -159,6 +159,39 @@ describe('photon-geocoder', () => {
       );
     });
 
+    // UNKNOWN is the marker libpostal's best-effort pass stores for a component
+    // it could not identify. It is not data, so it must not become a search
+    // term — `…, randburg, UNKNOWN` asks Photon to find a place called UNKNOWN.
+    it('omits an unresolved country instead of querying for UNKNOWN', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      await geocoder.geocode({ ...FULL_ADDRESS, country: 'UNKNOWN' });
+
+      const parsed = new URL(fetchSpy.mock.calls[0]![0] as URL);
+      expect(parsed.searchParams.get('q')).toBe('548, Market Street, San Francisco, CA, 94104');
+    });
+
+    it('omits an unresolved city too', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      await geocoder.geocode({ ...FULL_ADDRESS, city: 'UNKNOWN' });
+
+      const parsed = new URL(fetchSpy.mock.calls[0]![0] as URL);
+      expect(parsed.searchParams.get('q')).toBe('548, Market Street, CA, 94104, USA');
+    });
+
+    it('does not consult the country resolver for an unresolved country', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+      const resolveCountryName = vi.fn().mockResolvedValue('Nowhere');
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL, resolveCountryName });
+      await geocoder.geocode({ ...FULL_ADDRESS, country: 'UNKNOWN' });
+
+      expect(resolveCountryName).not.toHaveBeenCalled();
+    });
+
     it('keeps the original country token when the resolver returns null', async () => {
       fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
 

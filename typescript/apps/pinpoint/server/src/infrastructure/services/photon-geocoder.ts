@@ -12,7 +12,10 @@
  *
  * Uses Node's global fetch (24 LTS). No `reqwest` equivalent dependency.
  */
-import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
+import {
+  isUnresolved,
+  type NormalizedAddress,
+} from '../../domain/services/address-normalizer.js';
 import type { CountryNameResolver } from './country-name-resolver.js';
 import type {
   GeocoderService,
@@ -165,13 +168,21 @@ async function buildSearchQuery(
   if (addr.houseNumber) parts.push(addr.houseNumber);
   if (addr.road) parts.push(addr.road);
   if (addr.suburb) parts.push(addr.suburb);
-  parts.push(addr.city);
+  // `city` and `country` are the two NOT NULL components, so an unparsed value
+  // arrives as the UNKNOWN marker rather than null. Sending it upstream asks
+  // Photon to find a place called UNKNOWN, which costs relevance — omit it and
+  // let the remaining components carry the search.
+  if (!isUnresolved(addr.city)) parts.push(addr.city);
   if (addr.state) parts.push(addr.state);
   if (addr.postalCode) parts.push(addr.postalCode);
-  // Widen an ISO code to the country name — self-hosted Photon indexes match
-  // names, not codes. Component order is unchanged, preserving Rust parity.
-  const country = resolveCountryName ? ((await resolveCountryName(addr.country)) ?? addr.country) : addr.country;
-  parts.push(country);
+  if (!isUnresolved(addr.country)) {
+    // Widen an ISO code to the country name — self-hosted Photon indexes match
+    // names, not codes. Component order is unchanged, preserving Rust parity.
+    const country = resolveCountryName
+      ? ((await resolveCountryName(addr.country)) ?? addr.country)
+      : addr.country;
+    parts.push(country);
+  }
   return parts.join(', ');
 }
 

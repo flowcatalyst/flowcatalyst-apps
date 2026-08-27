@@ -15,6 +15,23 @@
  */
 import { createHash } from 'node:crypto';
 
+/**
+ * Placeholder stored for `city` / `country` when a best-effort parse could not
+ * identify them. Those two columns are NOT NULL (the matching pipeline requires
+ * them), so an unresolved value needs a marker rather than null.
+ *
+ * It is a marker, NOT data: anything consuming a `NormalizedAddress` must treat
+ * it as absent. In particular it must never be sent to the geocoder as a search
+ * term — `…, randburg, UNKNOWN` asks Photon to find a place called UNKNOWN and
+ * costs relevance against a query that is already thin.
+ */
+export const UNRESOLVED_COMPONENT = 'UNKNOWN';
+
+/** True when a component is the unresolved marker rather than a real value. */
+export function isUnresolved(component: string | null): boolean {
+  return component === UNRESOLVED_COMPONENT;
+}
+
 export interface NormalizedAddress {
   readonly houseNumber: string | null;
   readonly road: string | null;
