@@ -141,6 +141,37 @@ describe('photon-geocoder', () => {
       expect(parsed.searchParams.get('limit')).toBe('1');
     });
 
+    // Self-hosted Photon indexes match country names but not ISO codes, so
+    // `…, USA` returns nothing where `…, United States` matches. The resolver
+    // widens the token at query time only.
+    it('widens the country token via the resolver, leaving component order intact', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({
+        baseUrl: BASE_URL,
+        resolveCountryName: async (c) => (c === 'USA' ? 'United States' : null),
+      });
+      await geocoder.geocode(FULL_ADDRESS);
+
+      const parsed = new URL(fetchSpy.mock.calls[0]![0] as URL);
+      expect(parsed.searchParams.get('q')).toBe(
+        '548, Market Street, San Francisco, CA, 94104, United States',
+      );
+    });
+
+    it('keeps the original country token when the resolver returns null', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({
+        baseUrl: BASE_URL,
+        resolveCountryName: async () => null,
+      });
+      await geocoder.geocode(FULL_ADDRESS);
+
+      const parsed = new URL(fetchSpy.mock.calls[0]![0] as URL);
+      expect(parsed.searchParams.get('q')).toBe('548, Market Street, San Francisco, CA, 94104, USA');
+    });
+
     it('strips trailing slashes from the configured base URL', async () => {
       fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
 

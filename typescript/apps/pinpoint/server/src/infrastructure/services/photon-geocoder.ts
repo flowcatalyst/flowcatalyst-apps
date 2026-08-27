@@ -13,6 +13,7 @@
  * Uses Node's global fetch (24 LTS). No `reqwest` equivalent dependency.
  */
 import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
+import type { CountryNameResolver } from './country-name-resolver.js';
 import type {
   GeocoderService,
   GeocodingResult,
@@ -43,6 +44,14 @@ export interface PhotonGeocoderConfig {
   readonly baseUrl: string;
   /** Optional User-Agent override. Public Photon instance requires one. */
   readonly userAgent?: string;
+  /**
+   * Optional ISO-code → country-name resolver. Self-hosted Photon indexes match
+   * country names but not ISO codes, so `…, zaf` finds nothing where
+   * `…, south africa` matches. When supplied, a 2/3-letter country token is
+   * widened to its name for the query only — stored components are untouched,
+   * because they feed `addressHash`. Returns null to leave the token as-is.
+   */
+  readonly resolveCountryName?: CountryNameResolver;
 }
 
 export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderService {
@@ -69,7 +78,7 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
 
   return {
     async geocode(address: NormalizedAddress): Promise<GeocodingResult> {
-      const query = buildSearchQuery(address);
+      const query = await buildSearchQuery(address, config.resolveCountryName);
       const url = new URL(`${baseUrl}/api`);
       url.searchParams.set('q', query);
       url.searchParams.set('limit', '1');
@@ -148,7 +157,10 @@ function networkErrorCode(err: unknown): string | undefined {
  * matches the Rust client so identical addresses produce identical
  * upstream requests across both backends.
  */
-function buildSearchQuery(addr: NormalizedAddress): string {
+async function buildSearchQuery(
+  addr: NormalizedAddress,
+  resolveCountryName?: CountryNameResolver,
+): Promise<string> {
   const parts: string[] = [];
   if (addr.houseNumber) parts.push(addr.houseNumber);
   if (addr.road) parts.push(addr.road);
@@ -156,7 +168,10 @@ function buildSearchQuery(addr: NormalizedAddress): string {
   parts.push(addr.city);
   if (addr.state) parts.push(addr.state);
   if (addr.postalCode) parts.push(addr.postalCode);
-  parts.push(addr.country);
+  // Widen an ISO code to the country name — self-hosted Photon indexes match
+  // names, not codes. Component order is unchanged, preserving Rust parity.
+  const country = resolveCountryName ? ((await resolveCountryName(addr.country)) ?? addr.country) : addr.country;
+  parts.push(country);
   return parts.join(', ');
 }
 

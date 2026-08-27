@@ -6183,7 +6183,7 @@
               }
             }
           },
-          "404": {
+          "422": {
             "description": "Standard pinpoint error envelope.",
             "content": {
               "application/json": {
@@ -6425,7 +6425,7 @@
               }
             }
           },
-          "404": {
+          "422": {
             "description": "Standard pinpoint error envelope.",
             "content": {
               "application/json": {
@@ -6596,7 +6596,7 @@
               }
             }
           },
-          "404": {
+          "422": {
             "description": "Standard pinpoint error envelope.",
             "content": {
               "application/json": {

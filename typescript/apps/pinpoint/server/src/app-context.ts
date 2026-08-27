@@ -21,6 +21,7 @@ import { createDrizzleMatchingConfigRepository } from './infrastructure/matching
 import { createDrizzleMasterLocationRepository } from './infrastructure/master-location-repository.js';
 import { createDrizzleProcessingLogRepository } from './infrastructure/processing-log-repository.js';
 import { createDrizzleLocationAttributeRepository } from './infrastructure/location-attribute-repository.js';
+import { createCountryNameResolver } from './infrastructure/services/country-name-resolver.js';
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
 import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
 import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
@@ -286,7 +287,12 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   const processingLogRepo = createDrizzleProcessingLogRepository(db);
   const locationAttributeRepo = createDrizzleLocationAttributeRepository(db);
 
-  const rawGeocoder = createPhotonGeocoder({ baseUrl: config.geocodingApiUrl });
+  const rawGeocoder = createPhotonGeocoder({
+    baseUrl: config.geocodingApiUrl,
+    // Self-hosted Photon matches country names, not ISO codes — widen the
+    // country token at query time so `zaf` / `za` still resolve.
+    resolveCountryName: createCountryNameResolver(countryRepo),
+  });
   const geocoder = createRateLimitedGeocoder(rawGeocoder, {
     requestsPerSecond: config.geocodingRateLimit,
   });

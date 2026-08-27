@@ -74,7 +74,11 @@ export function registerAddressGeocodeRoute(
           200: AddressGeocodeResponseSchema,
           401: ErrorResponseRef,
           403: ErrorResponseRef,
-          404: ErrorResponseRef,
+          // 422, not 404: the request was understood, the address simply has no
+          // match. A 404 here is indistinguishable from Fastify's own
+          // "route not found" 404, which makes a failed lookup impossible to
+          // tell from a wrong URL or an undeployed build.
+          422: ErrorResponseRef,
           500: ErrorResponseRef,
           502: ErrorResponseRef,
         },
@@ -129,10 +133,23 @@ export function registerAddressGeocodeRoute(
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const status = message.startsWith('No geocoding results') ? 404 : 502;
-        return reply.code(status).send({
-          error: status === 404 ? 'NotFound' : 'BadGateway',
+        const noMatch = message.startsWith('No geocoding results');
+
+        // Echo the parse back on failure, and log it. Without this, "no
+        // results" is a dead end: the caller cannot tell whether libpostal
+        // mis-parsed the line or the geocoder genuinely has no match for a
+        // correct parse. The query the geocoder built is these components
+        // joined in order, so they are enough to reproduce the upstream call.
+        const diagnostics = { normalized, normalizationBestEffort };
+        request.log.warn(
+          { ...diagnostics, address, countryCode, noMatch, err: message },
+          'geocode/address failed',
+        );
+
+        return reply.code(noMatch ? 422 : 502).send({
+          error: noMatch ? 'NoGeocodingMatch' : 'BadGateway',
           message,
+          details: diagnostics,
         });
       }
     },

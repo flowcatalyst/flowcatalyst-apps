@@ -42,7 +42,10 @@ export function registerReverseGeocodeRoute(
           200: ReverseGeocodeResponseSchema,
           401: ErrorResponseRef,
           403: ErrorResponseRef,
-          404: ErrorResponseRef,
+          // "no match" is 422, not 404: a 404 here is indistinguishable from
+          // Fastify's own "route not found", so a failed lookup, a typo'd URL
+          // and an undeployed build all look identical to the caller.
+          422: ErrorResponseRef,
           500: ErrorResponseRef,
           502: ErrorResponseRef,
         },
@@ -80,9 +83,10 @@ export function registerReverseGeocodeRoute(
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const status = message.startsWith('No reverse geocoding results') ? 404 : 502;
-        return reply.code(status).send({
-          error: status === 404 ? 'NotFound' : 'BadGateway',
+        // 422, not 404 — see the note on the response schema.
+        const noMatch = message.startsWith('No reverse geocoding results');
+        return reply.code(noMatch ? 422 : 502).send({
+          error: noMatch ? 'NoGeocodingMatch' : 'BadGateway',
           message,
         });
       }

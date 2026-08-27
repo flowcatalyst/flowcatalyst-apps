@@ -3735,7 +3735,7 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
-            404: {
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3826,7 +3826,7 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
-            404: {
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3908,7 +3908,7 @@ export interface operations {
                 };
             };
             /** @description Standard pinpoint error envelope. */
-            404: {
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
