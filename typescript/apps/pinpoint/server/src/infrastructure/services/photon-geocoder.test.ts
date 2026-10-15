@@ -469,6 +469,34 @@ describe('photon-geocoder', () => {
       });
     });
 
+    it('rejects a candidate with the same name but a different road type', async () => {
+      const curvyCrescent = {
+        ...CURVY_ROAD,
+        geometry: { coordinates: [28.02, -26.12] as [number, number] },
+        properties: { ...CURVY_ROAD.properties, name: 'Curvy Crescent' },
+      };
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [curvyCrescent, CURVY_ROAD] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(CURVY);
+
+      expect(result.latitude).toBe(-26.1187533);
+      expect(result.address.road).toBe('Curvy Road');
+    });
+
+    it('treats the Afrikaans road type as its English equivalent', async () => {
+      const kerkStreet = {
+        ...CURVY_ROAD,
+        properties: { ...CURVY_ROAD.properties, name: 'Kerk Street' },
+      };
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [kerkStreet] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode({ ...CURVY, road: 'Kerk Straat' });
+
+      expect(result.roadMatched).toBe(true);
+    });
+
     it.each([
       ['abbreviated type', 'Curvy Rd'],
       ['house number folded into the road, type omitted', '16 Curvy'],

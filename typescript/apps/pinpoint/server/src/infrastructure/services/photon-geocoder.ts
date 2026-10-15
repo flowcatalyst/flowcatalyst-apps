@@ -148,8 +148,8 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
   return {
     async geocode(address: NormalizedAddress): Promise<GeocodingResult> {
       const country = await resolveQueryCountry(address, config.resolveCountryName);
-      const requested = roadCore(address.road);
-      if (requested.length === 0) {
+      const requested = address.road ?? '';
+      if (roadCore(requested).length === 0) {
         return searchLadder([buildSearchQuery(address, country)], null);
       }
       // Loosen step by step: suburb + postcode are the components most likely
@@ -324,6 +324,7 @@ function dedupe(values: readonly string[]): string[] {
 
 // ── Road comparison ──────────────────────────────────────────────────────────
 
+/** Abbreviations and Afrikaans equivalents → one canonical road-type word. */
 const ROAD_ABBREVIATIONS: Readonly<Record<string, string>> = {
   rd: 'road',
   st: 'street',
@@ -340,6 +341,10 @@ const ROAD_ABBREVIATIONS: Readonly<Record<string, string>> = {
   hwy: 'highway',
   sq: 'square',
   tce: 'terrace',
+  straat: 'street',
+  weg: 'road',
+  laan: 'avenue',
+  rylaan: 'avenue',
 };
 
 const ROAD_TYPES = new Set([
@@ -349,13 +354,9 @@ const ROAD_TYPES = new Set([
   'parade',
   'grove',
   'rise',
-  'straat',
-  'weg',
-  'laan',
-  'rylaan',
 ]);
 
-/** Lowercased word tokens with common road-type abbreviations expanded. */
+/** Lowercased word tokens with road-type abbreviations and synonyms canonicalised. */
 function roadTokens(text: string): string[] {
   return text
     .toLowerCase()
@@ -374,9 +375,24 @@ function roadCore(road: string | null | undefined): string[] {
   return roadTokens(road).filter((t) => !ROAD_TYPES.has(t) && !/^\d+$/.test(t));
 }
 
-function sameRoad(requested: readonly string[], candidate: string | null): boolean {
+function roadTypes(road: string | null | undefined): string[] {
+  if (!road) return [];
+  return roadTokens(road).filter((t) => ROAD_TYPES.has(t));
+}
+
+/**
+ * Same identifying words, and — when both names carry a type — the same type:
+ * `Main Rd` = `Main Road` and `Kerk Straat` = `Kerk Street`, but `Main Road` ≠
+ * `Main Crescent`. A request with no type word (`16 Curvy`) accepts any type.
+ */
+function sameRoad(requested: string, candidate: string | null): boolean {
+  const want = roadCore(requested);
   const core = roadCore(candidate);
-  return core.length === requested.length && core.every((t, i) => t === requested[i]);
+  if (core.length !== want.length || !core.every((t, i) => t === want[i])) return false;
+  const wantTypes = roadTypes(requested);
+  const types = roadTypes(candidate);
+  if (wantTypes.length === 0 || types.length === 0) return true;
+  return wantTypes.length === types.length && wantTypes.every((t, i) => t === types[i]);
 }
 
 /**
