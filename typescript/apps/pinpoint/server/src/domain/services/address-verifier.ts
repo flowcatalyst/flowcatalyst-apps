@@ -61,6 +61,7 @@ Consider:
 - Missing components (e.g. no postal code) should not disqualify a match if other components align
 - Different house numbers almost always mean different locations
 - Different streets in the same city are different locations
+- Same street in a different suburb is a different location (a suburb missing from one side is not a mismatch)
 - Same street different city are different locations
 
 Respond with structured JSON only.`;
