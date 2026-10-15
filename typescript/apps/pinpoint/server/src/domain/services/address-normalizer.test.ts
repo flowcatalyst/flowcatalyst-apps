@@ -61,10 +61,9 @@ describe('toAddressLine', () => {
 });
 
 /**
- * The fallback ladder is shared by `create-location` (ingest) and
- * `/geocode/address` (diagnostic). If the two ever parse the same line
- * differently, `addressHash` stops agreeing with itself — hence one
- * implementation with the behaviour pinned here.
+ * The fallback ladder `create-location` uses on ingest. If the same line ever
+ * parses differently between runs, `addressHash` stops agreeing with itself —
+ * hence the behaviour pinned here.
  */
 describe('normalizeWithFallback', () => {
   const parsed = addr({ road: 'Bree St' });

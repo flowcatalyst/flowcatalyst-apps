@@ -27,6 +27,23 @@ export interface GeocodingResult {
    * the returned coordinate refers to.
    */
   readonly address: NormalizedAddress;
+  /**
+   * Whether the matched feature sits on the road the caller asked for. `null`
+   * when the request named no road (structured input with `road` unset).
+   * `false` means the geocoder found nothing on that road and fell back to
+   * its best guess — treat the coordinate as approximate at best.
+   */
+  readonly roadMatched: boolean | null;
+  /** The exact `q` string sent upstream for the returned result. */
+  readonly query: string;
+}
+
+export interface GeocodeTextOptions {
+  /**
+   * ISO country code hint. Widened to the country name and appended to the
+   * line when the line doesn't already mention it.
+   */
+  readonly countryCode?: string | null;
 }
 
 export interface ReverseGeocodingResult {
@@ -42,6 +59,12 @@ export interface GeocoderService {
    * HTTP 502/500 — see `api/routes/geocode/*`.
    */
   geocode(address: NormalizedAddress): Promise<GeocodingResult>;
+
+  /**
+   * Forward geocode a free-text address line as-is — no libpostal parse.
+   * Throws on upstream failure or no-result.
+   */
+  geocodeText(line: string, options?: GeocodeTextOptions): Promise<GeocodingResult>;
 
   /**
    * Reverse geocode coordinates to an address. Throws on upstream

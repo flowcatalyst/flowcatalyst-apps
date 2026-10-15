@@ -8,7 +8,17 @@
  *
  * Photon does not return a confidence score, so we compute one from
  * component completeness (housenumber + street + city + country +
- * postcode → 1.0). Mirrors Rust `compute_confidence`.
+ * postcode → 1.0). Mirrors Rust `compute_confidence`, except that a result
+ * on the wrong road earns no street / housenumber credit.
+ *
+ * Forward geocoding does not trust Photon's top hit. Photon ranks free text,
+ * and a suburb or postcode that disagrees with OSM (the caller says
+ * "Blairgowrie, 2194", OSM files the road under "Robin Acres, 2024") outranks
+ * the road name — the top hit lands on a different street entirely. So each
+ * search asks for several candidates and keeps the first on the requested
+ * road; when none is, it retries with the conflicting components dropped.
+ * Only if every attempt misses does it fall back to the first candidate,
+ * reported as `roadMatched: false`.
  *
  * Uses Node's global fetch (24 LTS). No `reqwest` equivalent dependency.
  */
@@ -18,10 +28,16 @@ import {
 } from '../../domain/services/address-normalizer.js';
 import type { CountryNameResolver } from './country-name-resolver.js';
 import type {
+  GeocodeTextOptions,
   GeocoderService,
   GeocodingResult,
   ReverseGeocodingResult,
 } from '../../domain/services/geocoder.js';
+
+/** Candidates requested per search — enough to find the road below a wrong top hit. */
+const CANDIDATE_LIMIT = 5;
+/** Upper bound on upstream searches per forward geocode, retries included. */
+const MAX_ATTEMPTS = 5;
 
 interface PhotonFeature {
   geometry: { coordinates: [number, number] }; // [lon, lat]
@@ -35,6 +51,9 @@ interface PhotonFeature {
     postcode?: string;
     country?: string;
     countrycode?: string;
+    /** Photon result granularity: `house`, `street`, `city`, … */
+    type?: string;
+    osm_key?: string;
   };
 }
 
@@ -79,31 +98,71 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
     }
   }
 
+  async function search(query: string): Promise<PhotonFeature[]> {
+    const url = new URL(`${baseUrl}/api`);
+    url.searchParams.set('q', query);
+    url.searchParams.set('limit', String(CANDIDATE_LIMIT));
+
+    const response = await photonFetch(url);
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`Photon search returned ${response.status}: ${body.slice(0, 200)}`);
+    }
+    return ((await response.json()) as PhotonResponse).features;
+  }
+
+  /**
+   * Run `queries` in order and return the first candidate `onRoad` accepts.
+   * With no `onRoad` (the request named no road) the first query's top hit
+   * wins. If nothing is accepted, fall back to the top hit of the first query
+   * that returned anything, flagged `roadMatched: false`.
+   */
+  async function searchLadder(
+    queries: readonly string[],
+    onRoad: ((props: PhotonFeature['properties']) => boolean) | null,
+  ): Promise<GeocodingResult> {
+    let fallback: { feature: PhotonFeature; query: string } | undefined;
+    for (const query of queries) {
+      const features = await search(query);
+      if (!onRoad) {
+        if (features[0]) return toGeocodingResult(features[0], query, null);
+        continue;
+      }
+      const hit = features.find((f) => onRoad(f.properties));
+      if (hit) return toGeocodingResult(hit, query, true);
+      if (!fallback && features[0]) fallback = { feature: features[0], query };
+    }
+    if (!fallback) throw new Error('No geocoding results found');
+    return toGeocodingResult(fallback.feature, fallback.query, false);
+  }
+
   return {
     async geocode(address: NormalizedAddress): Promise<GeocodingResult> {
-      const query = await buildSearchQuery(address, config.resolveCountryName);
-      const url = new URL(`${baseUrl}/api`);
-      url.searchParams.set('q', query);
-      url.searchParams.set('limit', '1');
-
-      const response = await photonFetch(url);
-      if (!response.ok) {
-        const body = await response.text().catch(() => '');
-        throw new Error(`Photon search returned ${response.status}: ${body.slice(0, 200)}`);
+      const country = await resolveQueryCountry(address, config.resolveCountryName);
+      const requested = roadCore(address.road);
+      if (requested.length === 0) {
+        return searchLadder([buildSearchQuery(address, country)], null);
       }
+      // Loosen step by step: suburb + postcode are the components most likely
+      // to disagree with OSM; the house number goes last because OSM often
+      // has the street but not the number.
+      const loose = { ...address, suburb: null, postalCode: null };
+      const queries = dedupe([
+        buildSearchQuery(address, country),
+        buildSearchQuery(loose, country),
+        buildSearchQuery({ ...loose, houseNumber: null }, country),
+      ]);
+      return searchLadder(queries, (props) => sameRoad(requested, roadOf(props)));
+    },
 
-      const data = (await response.json()) as PhotonResponse;
-      const feature = data.features[0];
-      if (!feature) throw new Error('No geocoding results found');
-
-      const [lon, lat] = feature.geometry.coordinates;
-      return {
-        latitude: lat,
-        longitude: lon,
-        confidence: computeConfidence(feature.properties),
-        formattedAddress: formatAddress(feature.properties),
-        address: toNormalizedAddress(feature.properties),
-      };
+    async geocodeText(line: string, options?: GeocodeTextOptions): Promise<GeocodingResult> {
+      let base = line.trim();
+      const code = options?.countryCode?.trim();
+      if (code && config.resolveCountryName) {
+        const name = await config.resolveCountryName(code);
+        if (name && !base.toLowerCase().includes(name.toLowerCase())) base = `${base}, ${name}`;
+      }
+      return searchLadder(textQueryLadder(base), (props) => roadInLine(roadOf(props), base));
     },
 
     async reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodingResult> {
@@ -156,14 +215,26 @@ function networkErrorCode(err: unknown): string | undefined {
 }
 
 /**
+ * The country token for the query, or null when the country is unresolved.
+ * Widens an ISO code to the country name — self-hosted Photon indexes match
+ * names, not codes.
+ */
+async function resolveQueryCountry(
+  addr: NormalizedAddress,
+  resolveCountryName?: CountryNameResolver,
+): Promise<string | null> {
+  if (isUnresolved(addr.country)) return null;
+  return resolveCountryName
+    ? ((await resolveCountryName(addr.country)) ?? addr.country)
+    : addr.country;
+}
+
+/**
  * Build the Photon `q` parameter from a normalized address. Order
  * matches the Rust client so identical addresses produce identical
  * upstream requests across both backends.
  */
-async function buildSearchQuery(
-  addr: NormalizedAddress,
-  resolveCountryName?: CountryNameResolver,
-): Promise<string> {
+function buildSearchQuery(addr: NormalizedAddress, country: string | null): string {
   const parts: string[] = [];
   if (addr.houseNumber) parts.push(addr.houseNumber);
   if (addr.road) parts.push(addr.road);
@@ -175,15 +246,146 @@ async function buildSearchQuery(
   if (!isUnresolved(addr.city)) parts.push(addr.city);
   if (addr.state) parts.push(addr.state);
   if (addr.postalCode) parts.push(addr.postalCode);
-  if (!isUnresolved(addr.country)) {
-    // Widen an ISO code to the country name — self-hosted Photon indexes match
-    // names, not codes. Component order is unchanged, preserving Rust parity.
-    const country = resolveCountryName
-      ? ((await resolveCountryName(addr.country)) ?? addr.country)
-      : addr.country;
-    parts.push(country);
-  }
+  if (country) parts.push(country);
   return parts.join(', ');
+}
+
+/**
+ * Successively looser variants of a free-text line, most specific first:
+ * the line as given; postcodes removed; then each middle segment dropped in
+ * turn (the first segment usually carries the street and the last the
+ * country, so both stay). Mirrors the structured ladder without a parse —
+ * the suburb is whichever middle segment OSM disagrees with.
+ */
+function textQueryLadder(line: string): string[] {
+  const segments = line
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const queries = [segments.join(', ')];
+
+  const stripped = segments
+    .map((s, i) => (i === 0 ? s : s.replace(/\s+\d{4,6}$/, '')))
+    .filter((s) => !/^\d{3,6}$/.test(s));
+  queries.push(stripped.join(', '));
+
+  if (stripped.length >= 4) {
+    for (let i = 1; i < stripped.length - 1; i++) {
+      queries.push(stripped.filter((_, j) => j !== i).join(', '));
+    }
+  }
+  return dedupe(queries).slice(0, MAX_ATTEMPTS);
+}
+
+function dedupe(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+// ── Road comparison ──────────────────────────────────────────────────────────
+
+const ROAD_ABBREVIATIONS: Readonly<Record<string, string>> = {
+  rd: 'road',
+  st: 'street',
+  str: 'street',
+  ave: 'avenue',
+  av: 'avenue',
+  dr: 'drive',
+  ln: 'lane',
+  cres: 'crescent',
+  cl: 'close',
+  pl: 'place',
+  blvd: 'boulevard',
+  ct: 'court',
+  hwy: 'highway',
+  sq: 'square',
+  tce: 'terrace',
+};
+
+const ROAD_TYPES = new Set([
+  ...Object.values(ROAD_ABBREVIATIONS),
+  'way',
+  'circle',
+  'parade',
+  'grove',
+  'rise',
+  'straat',
+  'weg',
+  'laan',
+  'rylaan',
+]);
+
+/** Lowercased word tokens with common road-type abbreviations expanded. */
+function roadTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map((t) => ROAD_ABBREVIATIONS[t] ?? t);
+}
+
+/**
+ * The identifying words of a road name: type words ("Road", "Ave") and bare
+ * numbers dropped, so `Curvy Rd`, `Curvy Road` and `16 Curvy` all reduce to
+ * `curvy`.
+ */
+function roadCore(road: string | null | undefined): string[] {
+  if (!road) return [];
+  return roadTokens(road).filter((t) => !ROAD_TYPES.has(t) && !/^\d+$/.test(t));
+}
+
+function sameRoad(requested: readonly string[], candidate: string | null): boolean {
+  const core = roadCore(candidate);
+  return core.length === requested.length && core.every((t, i) => t === requested[i]);
+}
+
+/**
+ * Whether a candidate's road name appears, as a contiguous phrase, inside one
+ * comma segment of the free-text line. Type words are kept here (unlike
+ * `sameRoad`): with no parse to say which segment is the road, `Blairgowrie
+ * Drive` must not match a line that only names the suburb Blairgowrie.
+ */
+function roadInLine(road: string | null, line: string): boolean {
+  if (!road) return false;
+  const needle = roadTokens(road);
+  if (needle.length === 0) return false;
+  return line.split(',').some((segment) => {
+    const hay = roadTokens(segment);
+    for (let i = 0; i + needle.length <= hay.length; i++) {
+      if (needle.every((t, j) => hay[i + j] === t)) return true;
+    }
+    return false;
+  });
+}
+
+/** A street-granularity result carries the road in `name`, not `street`. */
+function isStreetFeature(props: PhotonFeature['properties']): boolean {
+  return props.type === 'street' || props.osm_key === 'highway';
+}
+
+function roadOf(props: PhotonFeature['properties']): string | null {
+  return props.street ?? (isStreetFeature(props) ? props.name : undefined) ?? null;
+}
+
+/** `name` is a settlement only for non-street results; on a street it is the road. */
+function cityOf(props: PhotonFeature['properties']): string | undefined {
+  return props.city ?? (isStreetFeature(props) ? undefined : props.name);
+}
+
+function toGeocodingResult(
+  feature: PhotonFeature,
+  query: string,
+  roadMatched: boolean | null,
+): GeocodingResult {
+  const [lon, lat] = feature.geometry.coordinates;
+  return {
+    latitude: lat,
+    longitude: lon,
+    confidence: computeConfidence(feature.properties, roadMatched),
+    formattedAddress: formatAddress(feature.properties),
+    address: toNormalizedAddress(feature.properties),
+    roadMatched,
+    query,
+  };
 }
 
 /**
@@ -196,9 +398,9 @@ async function buildSearchQuery(
 function toNormalizedAddress(props: PhotonFeature['properties']): NormalizedAddress {
   return {
     houseNumber: props.housenumber ?? null,
-    road: props.street ?? null,
+    road: roadOf(props),
     suburb: props.district ?? null,
-    city: props.city ?? props.name ?? '',
+    city: cityOf(props) ?? '',
     state: props.state ?? null,
     postalCode: props.postcode ?? null,
     country: props.countrycode ?? '',
@@ -207,16 +409,17 @@ function toNormalizedAddress(props: PhotonFeature['properties']): NormalizedAddr
 
 function formatAddress(props: PhotonFeature['properties']): string {
   const parts: string[] = [];
-  if (props.housenumber && props.street) {
-    parts.push(`${props.housenumber} ${props.street}`);
+  const road = roadOf(props);
+  const city = cityOf(props);
+  if (props.housenumber && road) {
+    parts.push(`${props.housenumber} ${road}`);
   } else if (props.housenumber) {
     parts.push(props.housenumber);
-  } else if (props.street) {
-    parts.push(props.street);
+  } else if (road) {
+    parts.push(road);
   }
   if (props.district) parts.push(props.district);
-  if (props.city) parts.push(props.city);
-  else if (props.name) parts.push(props.name);
+  if (city) parts.push(city);
   if (props.state) parts.push(props.state);
   if (props.postcode) parts.push(props.postcode);
   if (props.country) parts.push(props.country);
@@ -226,13 +429,19 @@ function formatAddress(props: PhotonFeature['properties']): string {
 /**
  * Component-completeness confidence score, 0..1. Photon doesn't return
  * a confidence value, so we synthesize one from which fields landed
- * in the result. Weights mirror Rust `compute_confidence`.
+ * in the result. Weights mirror Rust `compute_confidence`. A result on the
+ * wrong road (`roadMatched === false`) gets no street or housenumber credit —
+ * a house number on some other street is not evidence of a match.
  */
-function computeConfidence(props: PhotonFeature['properties']): number {
+function computeConfidence(
+  props: PhotonFeature['properties'],
+  roadMatched: boolean | null = null,
+): number {
   let score = 0;
-  if (props.housenumber) score += 0.2;
-  if (props.street) score += 0.25;
-  if (props.city || props.name) score += 0.25;
+  const onRoad = roadMatched !== false;
+  if (props.housenumber && onRoad) score += 0.2;
+  if (roadOf(props) && onRoad) score += 0.25;
+  if (cityOf(props)) score += 0.25;
   if (props.countrycode || props.country) score += 0.2;
   if (props.postcode) score += 0.1;
   return score;

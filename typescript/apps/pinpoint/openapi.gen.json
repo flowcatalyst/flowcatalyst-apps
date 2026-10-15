@@ -5947,7 +5947,7 @@
         "tags": [
           "Geocode"
         ],
-        "description": "Normalizes a free-text address via libpostal, then geocodes the parsed components. Read-only — nothing is persisted and no events are emitted.",
+        "description": "Geocodes a free-text address line as-is (no libpostal parse), loosening the line when no candidate sits on a road it names. Read-only — nothing is persisted and no events are emitted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5991,9 +5991,9 @@
                     "longitude",
                     "confidence",
                     "formattedAddress",
-                    "normalized",
-                    "normalizationBestEffort",
-                    "address"
+                    "address",
+                    "roadMatched",
+                    "query"
                   ],
                   "properties": {
                     "latitude": {
@@ -6014,79 +6014,6 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "normalized": {
-                      "type": "object",
-                      "required": [
-                        "houseNumber",
-                        "road",
-                        "suburb",
-                        "city",
-                        "state",
-                        "postalCode",
-                        "country"
-                      ],
-                      "properties": {
-                        "houseNumber": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "road": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "suburb": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "city": {
-                          "type": "string"
-                        },
-                        "state": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "postalCode": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "country": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "normalizationBestEffort": {
-                      "type": "boolean"
                     },
                     "address": {
                       "type": "object",
@@ -6157,6 +6084,19 @@
                           "type": "string"
                         }
                       }
+                    },
+                    "roadMatched": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "query": {
+                      "type": "string"
                     }
                   }
                 }
@@ -6308,7 +6248,9 @@
                     "longitude",
                     "confidence",
                     "formattedAddress",
-                    "address"
+                    "address",
+                    "roadMatched",
+                    "query"
                   ],
                   "properties": {
                     "latitude": {
@@ -6399,6 +6341,19 @@
                           "type": "string"
                         }
                       }
+                    },
+                    "roadMatched": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "query": {
+                      "type": "string"
                     }
                   }
                 }

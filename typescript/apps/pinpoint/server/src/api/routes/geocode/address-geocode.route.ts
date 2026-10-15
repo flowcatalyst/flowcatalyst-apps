@@ -3,17 +3,16 @@
  *
  * The sibling `/geocode/forward` requires pre-parsed components (city and
  * country are mandatory). This route accepts the free-text line you actually
- * have, runs it through the libpostal normalizer first, and then geocodes the
- * parsed result — the same two steps `create-location` performs, minus the
- * persistence, matching, and event emission.
+ * have and sends it to the geocoder as-is — no libpostal parse. Photon is a
+ * free-text search engine; parsing the line into components only to join them
+ * back into a string added a failure mode (mis-parses) without adding signal.
  *
- * Nothing is written: no location, no master location, no outbox event. This is
- * a read-only diagnostic surface for answering "what would pinpoint make of
- * this address?" before committing it.
+ * Nothing is written: no location, no master location, no outbox event.
  *
- * The response deliberately returns BOTH parses — what libpostal extracted from
- * the raw line (`normalized`) and what the geocoder matched (`address`) —
- * because the gap between them is the signal when an address resolves oddly.
+ * The response returns the components the geocoder matched (`address`), the
+ * exact upstream query that produced them (`query` — the geocoder may have
+ * loosened the line), and whether the match sits on a road named in the line
+ * (`roadMatched`).
  */
 import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
@@ -21,10 +20,6 @@ import { ScopeStore, UseCaseError } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { AddressDetailsSchema } from '../../../domain/locations/events/address-details.js';
-import {
-  normalizeWithFallback,
-  type NormalizedAddress,
-} from '../../../domain/services/address-normalizer.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
@@ -32,8 +27,8 @@ const AddressGeocodeBodySchema = Type.Object({
   /** Free-text address line, e.g. `548 Market Street, San Francisco, CA 94104`. */
   address: Type.String({ minLength: 1 }),
   /**
-   * Optional ISO country code hint. When the strict libpostal parse fails, the
-   * line is retried with this appended — same fallback `create-location` uses.
+   * Optional ISO country code hint. Widened to the country name and appended to
+   * the line when the line doesn't already mention it.
    */
   countryCode: Type.Optional(Type.Union([Type.String({ minLength: 2, maxLength: 3 }), Type.Null()])),
 });
@@ -43,16 +38,15 @@ const AddressGeocodeResponseSchema = Type.Object({
   longitude: Type.Number(),
   confidence: Type.Number(),
   formattedAddress: Type.Union([Type.String(), Type.Null()]),
-  /** Components libpostal parsed out of the raw line — the geocoder's input. */
-  normalized: AddressDetailsSchema,
-  /**
-   * True when the strict parse failed and a best-effort pass was used. The
-   * result is still usable but libpostal could not confidently identify the
-   * city or country, so treat the coordinate with suspicion.
-   */
-  normalizationBestEffort: Type.Boolean(),
   /** Components of the address the geocoder actually matched. */
   address: AddressDetailsSchema,
+  /**
+   * Whether the matched road appears in the line. False means the geocoder
+   * found nothing on a road the line names and returned its best guess.
+   */
+  roadMatched: Type.Union([Type.Boolean(), Type.Null()]),
+  /** The upstream query that produced this result — may be a loosened line. */
+  query: Type.String(),
 });
 
 export function registerAddressGeocodeRoute(
@@ -67,8 +61,9 @@ export function registerAddressGeocodeRoute(
         tags: ['Geocode'],
         summary: 'Geocode a raw, unparsed address line.',
         description:
-          'Normalizes a free-text address via libpostal, then geocodes the parsed ' +
-          'components. Read-only — nothing is persisted and no events are emitted.',
+          'Geocodes a free-text address line as-is (no libpostal parse), loosening ' +
+          'the line when no candidate sits on a road it names. Read-only — nothing ' +
+          'is persisted and no events are emitted.',
         body: AddressGeocodeBodySchema,
         response: {
           200: AddressGeocodeResponseSchema,
@@ -103,53 +98,24 @@ export function registerAddressGeocodeRoute(
       const address = body.address.trim();
       const countryCode = body.countryCode?.trim() || null;
 
-      // Same ladder create-location uses on ingest, so a line geocoded here
-      // parses exactly as it would when persisted.
-      let normalized: NormalizedAddress;
-      let normalizationBestEffort: boolean;
       try {
-        const outcome = await normalizeWithFallback(
-          appContext.services.addressNormalizer,
-          address,
-          countryCode,
-        );
-        normalized = outcome.normalized;
-        normalizationBestEffort = outcome.bestEffort;
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        return reply.code(502).send({ error: 'BadGateway', message });
-      }
-
-      try {
-        const result = await appContext.services.geocoder.geocode(normalized);
+        const result = await appContext.services.geocoder.geocodeText(address, { countryCode });
         return reply.code(200).send({
           latitude: result.latitude,
           longitude: result.longitude,
           confidence: result.confidence,
           formattedAddress: result.formattedAddress,
-          normalized,
-          normalizationBestEffort,
           address: result.address,
+          roadMatched: result.roadMatched,
+          query: result.query,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const noMatch = message.startsWith('No geocoding results');
-
-        // Echo the parse back on failure, and log it. Without this, "no
-        // results" is a dead end: the caller cannot tell whether libpostal
-        // mis-parsed the line or the geocoder genuinely has no match for a
-        // correct parse. The query the geocoder built is these components
-        // joined in order, so they are enough to reproduce the upstream call.
-        const diagnostics = { normalized, normalizationBestEffort };
-        request.log.warn(
-          { ...diagnostics, address, countryCode, noMatch, err: message },
-          'geocode/address failed',
-        );
-
+        request.log.warn({ address, countryCode, noMatch, err: message }, 'geocode/address failed');
         return reply.code(noMatch ? 422 : 502).send({
           error: noMatch ? 'NoGeocodingMatch' : 'BadGateway',
           message,
-          details: diagnostics,
         });
       }
     },

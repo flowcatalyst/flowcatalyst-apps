@@ -385,7 +385,7 @@ export interface paths {
         put?: never;
         /**
          * Geocode a raw, unparsed address line.
-         * @description Normalizes a free-text address via libpostal, then geocodes the parsed components. Read-only — nothing is persisted and no events are emitted.
+         * @description Geocodes a free-text address line as-is (no libpostal parse), loosening the line when no candidate sits on a road it names. Read-only — nothing is persisted and no events are emitted.
          */
         post: operations["geocodeAddress"];
         delete?: never;
@@ -3694,16 +3694,6 @@ export interface operations {
                         longitude: number;
                         confidence: number;
                         formattedAddress: string | null;
-                        normalized: {
-                            houseNumber: string | null;
-                            road: string | null;
-                            suburb: string | null;
-                            city: string;
-                            state: string | null;
-                            postalCode: string | null;
-                            country: string;
-                        };
-                        normalizationBestEffort: boolean;
                         address: {
                             houseNumber: string | null;
                             road: string | null;
@@ -3713,6 +3703,8 @@ export interface operations {
                             postalCode: string | null;
                             country: string;
                         };
+                        roadMatched: boolean | null;
+                        query: string;
                     };
                 };
             };
@@ -3804,6 +3796,8 @@ export interface operations {
                             postalCode: string | null;
                             country: string;
                         };
+                        roadMatched: boolean | null;
+                        query: string;
                     };
                 };
             };

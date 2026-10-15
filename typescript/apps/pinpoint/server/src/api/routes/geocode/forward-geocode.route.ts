@@ -39,6 +39,14 @@ const ForwardGeocodeResponseSchema = Type.Object({
    * the returned coordinate actually resolved to, not just where it is.
    */
   address: AddressDetailsSchema,
+  /**
+   * Whether the match sits on the requested `road` (null when no road was
+   * given). False means nothing on that road was found — even after dropping
+   * suburb, postcode and house number — and the coordinate is a best guess.
+   */
+  roadMatched: Type.Union([Type.Boolean(), Type.Null()]),
+  /** The upstream query that produced this result — may be a loosened one. */
+  query: Type.String(),
 });
 
 export function registerForwardGeocodeRoute(
@@ -107,6 +115,8 @@ export function registerForwardGeocodeRoute(
           confidence: result.confidence,
           formattedAddress: result.formattedAddress,
           address: result.address,
+          roadMatched: result.roadMatched,
+          query: result.query,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

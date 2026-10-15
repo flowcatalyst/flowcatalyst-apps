@@ -33,6 +33,8 @@ const FAKE_RESULT: GeocodingResult = {
   confidence: 0.9,
   formattedAddress: 'London, GB',
   address: ADDRESS,
+  roadMatched: null,
+  query: 'London, GB',
 };
 
 const FAKE_REVERSE: ReverseGeocodingResult = {
@@ -44,6 +46,7 @@ const FAKE_REVERSE: ReverseGeocodingResult = {
 function fakeInner(overrides: Partial<GeocoderService> = {}): GeocoderService {
   return {
     geocode: vi.fn().mockResolvedValue(FAKE_RESULT),
+    geocodeText: vi.fn().mockResolvedValue(FAKE_RESULT),
     reverseGeocode: vi.fn().mockResolvedValue(FAKE_REVERSE),
     ...overrides,
   };
@@ -59,6 +62,16 @@ describe('rate-limited geocoder', () => {
 
       expect(result).toEqual(FAKE_RESULT);
       expect(inner.geocode).toHaveBeenCalledExactlyOnceWith(ADDRESS);
+    });
+
+    it('forwards text-geocode args and result to the inner service', async () => {
+      const inner = fakeInner();
+      const geocoder = createRateLimitedGeocoder(inner, { requestsPerSecond: 100 });
+
+      const result = await geocoder.geocodeText('London', { countryCode: 'GB' });
+
+      expect(result).toEqual(FAKE_RESULT);
+      expect(inner.geocodeText).toHaveBeenCalledExactlyOnceWith('London', { countryCode: 'GB' });
     });
 
     it('forwards reverse-geocode args and result to the inner service', async () => {

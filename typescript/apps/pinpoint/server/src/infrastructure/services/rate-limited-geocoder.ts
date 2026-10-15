@@ -11,11 +11,16 @@
  * always a configuration bug (two writers with different opinions about
  * the upstream's quota), and silently picking one would mask it.
  *
+ * One token per geocoder call, not per upstream request: a forward geocode
+ * that retries a looser query (see `photon-geocoder.ts`) spends up to a few
+ * upstream requests under a single token.
+ *
  * The decorator exposes Promises so call sites stay plain async/await —
  * consistent with the rest of the post-Effect pinpoint server.
  */
 import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
 import type {
+  GeocodeTextOptions,
   GeocoderService,
   GeocodingResult,
   ReverseGeocodingResult,
@@ -119,6 +124,10 @@ export function createRateLimitedGeocoder(
     async geocode(address: NormalizedAddress): Promise<GeocodingResult> {
       await acquire(bucket);
       return inner.geocode(address);
+    },
+    async geocodeText(line: string, options?: GeocodeTextOptions): Promise<GeocodingResult> {
+      await acquire(bucket);
+      return inner.geocodeText(line, options);
     },
     async reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodingResult> {
       await acquire(bucket);

@@ -77,7 +77,7 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
   it('geocodes a PENDING master and emits MasterLocationGeocoded', async () => {
     const masterLocationId = await seedPendingMaster();
 
-    // Photon `/api?q=...&limit=1` → one feature with lon/lat coords.
+    // Photon `/api?q=...&limit=5` → one feature with lon/lat coords.
     mock.handle('GET', /\/api\b/, () =>
       jsonResponse({
         features: [

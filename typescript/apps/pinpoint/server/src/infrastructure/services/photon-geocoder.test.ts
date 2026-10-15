@@ -55,7 +55,9 @@ describe('photon-geocoder', () => {
   let fetchSpy: MockInstance<typeof fetch>;
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(globalThis, 'fetch');
+    // Retries make extra calls; an un-queued call must fail loudly rather than
+    // fall through to the real network.
+    fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('unexpected fetch'));
   });
 
   afterEach(() => {
@@ -113,7 +115,7 @@ describe('photon-geocoder', () => {
       );
 
       const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
-      const result = await geocoder.geocode(FULL_ADDRESS);
+      const result = await geocoder.geocode({ ...FULL_ADDRESS, houseNumber: null, road: null });
 
       expect(result.address).toEqual({
         houseNumber: null,
@@ -138,7 +140,7 @@ describe('photon-geocoder', () => {
       expect(parsed.searchParams.get('q')).toBe(
         '548, Market Street, San Francisco, CA, 94104, USA',
       );
-      expect(parsed.searchParams.get('limit')).toBe('1');
+      expect(parsed.searchParams.get('limit')).toBe('5');
     });
 
     // Self-hosted Photon indexes match country names but not ISO codes, so
@@ -237,11 +239,12 @@ describe('photon-geocoder', () => {
       expect(headers['user-agent']).toBe('my-app/1.2.3');
     });
 
-    it('throws "No geocoding results found" on an empty feature list', async () => {
-      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [] }));
+    it('throws "No geocoding results found" when every attempt comes back empty', async () => {
+      fetchSpy.mockImplementation(async () => jsonResponse({ features: [] }));
 
       const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
       await expect(geocoder.geocode(FULL_ADDRESS)).rejects.toThrow('No geocoding results found');
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
     });
 
     it('throws "Photon search returned <status>" on non-2xx upstream', async () => {
@@ -262,9 +265,233 @@ describe('photon-geocoder', () => {
       fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [partial] }));
 
       const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
-      const result = await geocoder.geocode(FULL_ADDRESS);
+      const result = await geocoder.geocode({ ...FULL_ADDRESS, road: null });
 
       expect(result.confidence).toBeCloseTo(0.45, 5);
+    });
+
+    it('reports roadMatched null and searches once when no road was requested', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode({ ...FULL_ADDRESS, road: null });
+
+      expect(result.roadMatched).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports the query that produced the result', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(FULL_ADDRESS);
+
+      expect(result.roadMatched).toBe(true);
+      expect(result.query).toBe('548, Market Street, San Francisco, CA, 94104, USA');
+    });
+  });
+
+  // Real-world failure (2026-10-15): the caller says "Blairgowrie, 2194"; OSM
+  // files Curvy Road under Robin Acres, 2024. Photon ranks the suburb above
+  // the road, so the top hit is a different street (or a school) in
+  // Blairgowrie — ~1.2 km off.
+  describe('wrong-road protection', () => {
+    const CURVY: NormalizedAddress = {
+      houseNumber: '16',
+      road: 'Curvy Road',
+      suburb: 'Blairgowrie',
+      city: 'Randburg',
+      state: 'Gauteng',
+      postalCode: '2194',
+      country: 'South Africa',
+    };
+    const CONDON_ROAD = {
+      geometry: { coordinates: [28.0085371, -26.1081621] as [number, number] },
+      properties: {
+        type: 'street',
+        osm_key: 'highway',
+        name: 'Condon Road',
+        district: 'Blairgowrie',
+        city: 'Randburg',
+        postcode: '1865',
+        countrycode: 'ZA',
+      },
+    };
+    const BLAIRGOWRIE_DRIVE = {
+      geometry: { coordinates: [28.01, -26.11] as [number, number] },
+      properties: {
+        type: 'street',
+        osm_key: 'highway',
+        name: 'Blairgowrie Drive',
+        city: 'Randburg',
+        countrycode: 'ZA',
+      },
+    };
+    const CURVY_ROAD = {
+      geometry: { coordinates: [28.0122491, -26.1187533] as [number, number] },
+      properties: {
+        type: 'street',
+        osm_key: 'highway',
+        name: 'Curvy Road',
+        district: 'Robin Acres',
+        city: 'Randburg',
+        postcode: '2024',
+        countrycode: 'ZA',
+      },
+    };
+
+    function queries(): string[] {
+      return fetchSpy.mock.calls.map(([url]) => new URL(url as URL).searchParams.get('q')!);
+    }
+
+    it('skips a wrong-road top hit when a later candidate is on the requested road', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD, CURVY_ROAD] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(CURVY);
+
+      expect(result.latitude).toBe(-26.1187533);
+      expect(result.roadMatched).toBe(true);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries without suburb and postcode when no candidate is on the road', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD] }))
+        .mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(CURVY);
+
+      expect(queries()).toEqual([
+        '16, Curvy Road, Blairgowrie, Randburg, Gauteng, 2194, South Africa',
+        '16, Curvy Road, Randburg, Gauteng, South Africa',
+      ]);
+      expect(result.roadMatched).toBe(true);
+      expect(result.query).toBe('16, Curvy Road, Randburg, Gauteng, South Africa');
+      // A street-level result carries the road in `name` — it is the road,
+      // not the city.
+      expect(result.address.road).toBe('Curvy Road');
+      expect(result.address.city).toBe('Randburg');
+      expect(result.formattedAddress).toBe('Curvy Road, Robin Acres, Randburg, 2024');
+    });
+
+    it('drops the house number last', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD] }))
+        .mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD] }))
+        .mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(CURVY);
+
+      expect(queries()[2]).toBe('Curvy Road, Randburg, Gauteng, South Africa');
+      expect(result.roadMatched).toBe(true);
+    });
+
+    it('falls back to the first top hit, flagged and without street credit, when every attempt misses', async () => {
+      fetchSpy.mockImplementation(async () => jsonResponse({ features: [CONDON_ROAD] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode(CURVY);
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      expect(result.latitude).toBe(-26.1081621);
+      expect(result.roadMatched).toBe(false);
+      expect(result.query).toBe(
+        '16, Curvy Road, Blairgowrie, Randburg, Gauteng, 2194, South Africa',
+      );
+      // city 0.25 + country 0.20 + postcode 0.10 — no street credit for Condon Road.
+      expect(result.confidence).toBeCloseTo(0.55, 5);
+    });
+
+    it.each([
+      ['abbreviated type', 'Curvy Rd'],
+      ['house number folded into the road, type omitted', '16 Curvy'],
+    ])('accepts the road when the request uses %s', async (_label, road) => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+      const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+      const result = await geocoder.geocode({ ...CURVY, houseNumber: null, road });
+
+      expect(result.roadMatched).toBe(true);
+    });
+
+    describe('free text', () => {
+      const LINE = '16 Curvy Road, Blairgowrie, Randburg, 2194, South Africa';
+
+      it('loosens the line — postcode first, then each middle segment — until a candidate is on a named road', async () => {
+        fetchSpy
+          .mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        const result = await geocoder.geocodeText(LINE);
+
+        expect(queries()).toEqual([
+          '16 Curvy Road, Blairgowrie, Randburg, 2194, South Africa',
+          '16 Curvy Road, Blairgowrie, Randburg, South Africa',
+          '16 Curvy Road, Randburg, South Africa',
+        ]);
+        expect(result.roadMatched).toBe(true);
+        expect(result.latitude).toBe(-26.1187533);
+      });
+
+      it('strips a postcode trailing a segment', async () => {
+        fetchSpy
+          .mockResolvedValueOnce(jsonResponse({ features: [CONDON_ROAD] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        await geocoder.geocodeText('16 Curvy Road, Randburg 2194, South Africa');
+
+        expect(queries()[1]).toBe('16 Curvy Road, Randburg, South Africa');
+      });
+
+      it('does not mistake a road named after the suburb for the requested road', async () => {
+        fetchSpy.mockImplementation(async () =>
+          jsonResponse({ features: [BLAIRGOWRIE_DRIVE] }),
+        );
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        const result = await geocoder.geocodeText(LINE);
+
+        expect(result.roadMatched).toBe(false);
+      });
+
+      it('caps the number of upstream searches', async () => {
+        fetchSpy.mockImplementation(async () => jsonResponse({ features: [CONDON_ROAD] }));
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        await geocoder.geocodeText('1 A Road, B, C, D, E, F, G, Country');
+
+        expect(fetchSpy).toHaveBeenCalledTimes(5);
+      });
+
+      it('appends the country name from the hint when the line lacks it', async () => {
+        fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+        const geocoder = createPhotonGeocoder({
+          baseUrl: BASE_URL,
+          resolveCountryName: async (c) => (c === 'ZA' ? 'South Africa' : null),
+        });
+        await geocoder.geocodeText('16 Curvy Road, Randburg', { countryCode: 'ZA' });
+
+        expect(queries()[0]).toBe('16 Curvy Road, Randburg, South Africa');
+      });
+
+      it('leaves the line alone when it already names the hinted country', async () => {
+        fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+        const geocoder = createPhotonGeocoder({
+          baseUrl: BASE_URL,
+          resolveCountryName: async () => 'South Africa',
+        });
+        await geocoder.geocodeText('16 Curvy Road, Randburg, south africa', { countryCode: 'ZA' });
+
+        expect(queries()[0]).toBe('16 Curvy Road, Randburg, south africa');
+      });
     });
   });
 
