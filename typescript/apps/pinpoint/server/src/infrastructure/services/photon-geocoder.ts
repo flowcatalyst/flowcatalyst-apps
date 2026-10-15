@@ -16,16 +16,14 @@
  * "Blairgowrie, 2194", OSM files the road under "Robin Acres, 2024") outranks
  * the road name — the top hit lands on a different street entirely. So each
  * search asks for several candidates and keeps the first on the requested
- * road; when none is, it retries with the conflicting components dropped.
- * Only if every attempt misses does it fall back to the first candidate,
+ * road; when none is, it retries with the conflicting components dropped —
+ * suburb + postcode, then house number, and finally the city (accepted only
+ * near the best guess so far). Only if every attempt misses does it fall back to the first candidate,
  * reported as `roadMatched: false`.
  *
  * Uses Node's global fetch (24 LTS). No `reqwest` equivalent dependency.
  */
-import {
-  isUnresolved,
-  type NormalizedAddress,
-} from '../../domain/services/address-normalizer.js';
+import { isUnresolved, type NormalizedAddress } from '../../domain/services/address-normalizer.js';
 import type { CountryNameResolver } from './country-name-resolver.js';
 import type {
   GeocodeTextOptions,
@@ -38,6 +36,13 @@ import type {
 const CANDIDATE_LIMIT = 5;
 /** Upper bound on upstream searches per forward geocode, retries included. */
 const MAX_ATTEMPTS = 5;
+/**
+ * How far the city-less last resort may land from the earlier best guess.
+ * Covers OSM placing a road in a neighbouring "city" (Curvy Road: caller says
+ * Randburg, OSM says Rosebank, ~4 km apart) without accepting a same-named
+ * road in another town.
+ */
+const CITYLESS_RADIUS_KM = 15;
 
 interface PhotonFeature {
   geometry: { coordinates: [number, number] }; // [lon, lat]
@@ -98,10 +103,14 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
     }
   }
 
-  async function search(query: string): Promise<PhotonFeature[]> {
+  async function search(query: string, near?: LatLon): Promise<PhotonFeature[]> {
     const url = new URL(`${baseUrl}/api`);
     url.searchParams.set('q', query);
     url.searchParams.set('limit', String(CANDIDATE_LIMIT));
+    if (near) {
+      url.searchParams.set('lat', String(near.lat));
+      url.searchParams.set('lon', String(near.lon));
+    }
 
     const response = await photonFetch(url);
     if (!response.ok) {
@@ -152,7 +161,23 @@ export function createPhotonGeocoder(config: PhotonGeocoderConfig): GeocoderServ
         buildSearchQuery(loose, country),
         buildSearchQuery({ ...loose, houseNumber: null }, country),
       ]);
-      return searchLadder(queries, (props) => sameRoad(requested, roadOf(props)));
+      const onRoad = (props: PhotonFeature['properties']) => sameRoad(requested, roadOf(props));
+      const best = await searchLadder(queries, onRoad);
+      if (best.roadMatched) return best;
+
+      // Last resort: drop the city too. OSM's city for a road can disagree
+      // with the caller's (Curvy Road is "Rosebank" in OSM, "Randburg" to the
+      // caller), and without a road-type word the city outranks the road name.
+      // Without a city a same-named road anywhere in the province would match,
+      // so bias towards the best guess so far and only accept a hit near it.
+      if (!address.state && !country) return best;
+      const regional = [address.road, address.state, country].filter(Boolean).join(', ');
+      if (isUnresolved(address.city) || queries.includes(regional)) return best;
+      const anchor = { lat: best.latitude, lon: best.longitude };
+      const hit = (await search(regional, anchor)).find(
+        (f) => onRoad(f.properties) && distanceKm(anchor, f) <= CITYLESS_RADIUS_KM,
+      );
+      return hit ? toGeocodingResult(hit, regional, true) : best;
     },
 
     async geocodeText(line: string, options?: GeocodeTextOptions): Promise<GeocodingResult> {
@@ -275,6 +300,22 @@ function textQueryLadder(line: string): string[] {
     }
   }
   return dedupe(queries).slice(0, MAX_ATTEMPTS);
+}
+
+interface LatLon {
+  readonly lat: number;
+  readonly lon: number;
+}
+
+/** Great-circle distance from `a` to a feature, in km (haversine). */
+function distanceKm(a: LatLon, feature: PhotonFeature): number {
+  const [lon, lat] = feature.geometry.coordinates;
+  const rad = Math.PI / 180;
+  const dLat = (lat - a.lat) * rad;
+  const dLon = (lon - a.lon) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
 }
 
 function dedupe(values: readonly string[]): string[] {

@@ -204,7 +204,9 @@ describe('photon-geocoder', () => {
       await geocoder.geocode(FULL_ADDRESS);
 
       const parsed = new URL(fetchSpy.mock.calls[0]![0] as URL);
-      expect(parsed.searchParams.get('q')).toBe('548, Market Street, San Francisco, CA, 94104, USA');
+      expect(parsed.searchParams.get('q')).toBe(
+        '548, Market Street, San Francisco, CA, 94104, USA',
+      );
     });
 
     it('strips trailing slashes from the configured base URL', async () => {
@@ -395,7 +397,8 @@ describe('photon-geocoder', () => {
       const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
       const result = await geocoder.geocode(CURVY);
 
-      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      // suburb+postcode, house number, then city dropped.
+      expect(fetchSpy).toHaveBeenCalledTimes(4);
       expect(result.latitude).toBe(-26.1081621);
       expect(result.roadMatched).toBe(false);
       expect(result.query).toBe(
@@ -403,6 +406,67 @@ describe('photon-geocoder', () => {
       );
       // city 0.25 + country 0.20 + postcode 0.10 — no street credit for Condon Road.
       expect(result.confidence).toBeCloseTo(0.55, 5);
+    });
+
+    // Prod (self-hosted Photon, 2026-10-15): OSM files Curvy Road under city
+    // "Rosebank". With `road: "16 Curvy"` (no type word) every query that
+    // keeps "Randburg" ranks other Randburg streets above it.
+    describe('city-less last resort', () => {
+      const SIXTEEN_CURVY = { ...CURVY, houseNumber: null, road: '16 Curvy' };
+      const JAN_K_MARAIS = {
+        geometry: { coordinates: [27.9804979, -26.0971599] as [number, number] },
+        properties: {
+          housenumber: '16',
+          street: 'Jan K. Marais Avenue',
+          city: 'Randburg',
+          postcode: '2194',
+          countrycode: 'ZA',
+        },
+      };
+
+      it('drops the city, biased to and bounded by the best guess so far', async () => {
+        fetchSpy
+          .mockResolvedValueOnce(jsonResponse({ features: [JAN_K_MARAIS] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [JAN_K_MARAIS] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [CURVY_ROAD] }));
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        const result = await geocoder.geocode(SIXTEEN_CURVY);
+
+        const last = new URL(fetchSpy.mock.calls[2]![0] as URL);
+        expect(last.searchParams.get('q')).toBe('16 Curvy, Gauteng, South Africa');
+        expect(last.searchParams.get('lat')).toBe('-26.0971599');
+        expect(last.searchParams.get('lon')).toBe('27.9804979');
+        expect(result.roadMatched).toBe(true);
+        expect(result.latitude).toBe(-26.1187533);
+        expect(result.query).toBe('16 Curvy, Gauteng, South Africa');
+      });
+
+      it('rejects a same-named road far from the best guess', async () => {
+        const farCurvy = {
+          ...CURVY_ROAD,
+          geometry: { coordinates: [28.19, -25.75] as [number, number] }, // Pretoria, ~40 km
+        };
+        fetchSpy
+          .mockResolvedValueOnce(jsonResponse({ features: [JAN_K_MARAIS] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [JAN_K_MARAIS] }))
+          .mockResolvedValueOnce(jsonResponse({ features: [farCurvy] }));
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        const result = await geocoder.geocode(SIXTEEN_CURVY);
+
+        expect(result.roadMatched).toBe(false);
+        expect(result.latitude).toBe(-26.0971599);
+      });
+
+      it('is skipped when the city is unresolved — the ladder already ran without it', async () => {
+        fetchSpy.mockImplementation(async () => jsonResponse({ features: [JAN_K_MARAIS] }));
+
+        const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
+        await geocoder.geocode({ ...SIXTEEN_CURVY, city: 'UNKNOWN' });
+
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+      });
     });
 
     it.each([
@@ -450,9 +514,7 @@ describe('photon-geocoder', () => {
       });
 
       it('does not mistake a road named after the suburb for the requested road', async () => {
-        fetchSpy.mockImplementation(async () =>
-          jsonResponse({ features: [BLAIRGOWRIE_DRIVE] }),
-        );
+        fetchSpy.mockImplementation(async () => jsonResponse({ features: [BLAIRGOWRIE_DRIVE] }));
 
         const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL });
         const result = await geocoder.geocodeText(LINE);
