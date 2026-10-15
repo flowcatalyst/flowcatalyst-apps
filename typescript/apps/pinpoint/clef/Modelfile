@@ -1,0 +1,11 @@
+# Local Clef-flash for pinpoint's address verifier (PINPOINT_LLM_PROVIDER=clef).
+#
+#   ollama pull clef-flash
+#   ollama create pinpoint-clef -f clef/Modelfile
+#
+# Why a derived model: Ollama runs Clef with n_batch = n_ubatch = num_ctx, and
+# the shipped num_ctx 16384 needs a ~3.5 GB compute buffer that fails to load
+# on many machines (ollama/ollama#18865). Verifier requests are two address
+# lines plus rules — a few hundred tokens — so 4096 is plenty.
+FROM clef-flash
+PARAMETER num_ctx 4096

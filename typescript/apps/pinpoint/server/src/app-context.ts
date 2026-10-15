@@ -27,6 +27,8 @@ import { createRateLimitedGeocoder } from './infrastructure/services/rate-limite
 import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
 import { createBedrockVerifier } from './infrastructure/services/bedrock-verifier.js';
 import { createOllamaVerifier } from './infrastructure/services/ollama-verifier.js';
+import { createClefVerifier } from './infrastructure/services/clef-verifier.js';
+import { createSystemOneClient } from './infrastructure/services/systemone-client.js';
 import { createLibPostalNormalizer } from './infrastructure/services/libpostal-normalizer.js';
 import { createOidcClient, type OidcClient } from './auth/oidc-client.js';
 import { createTokenValidator, type TokenValidator } from './auth/token-validator.js';
@@ -173,6 +175,19 @@ export type AddressVerifierConfig =
       readonly baseUrl: string;
       /** Model tag, e.g. `gemma4` (Rust default). */
       readonly model: string;
+    }
+  | {
+      /**
+       * Clef decision model over the SystemOne API — a local Ollama in dev,
+       * OpenRouter in production. Same wire format; only these three differ.
+       */
+      readonly provider: 'clef';
+      /** `http://localhost:11434` (Ollama) or `https://openrouter.ai/api`. */
+      readonly baseUrl: string;
+      /** `clef-flash` (Ollama) or `cloudflare/clef-flash` (OpenRouter). */
+      readonly model: string;
+      /** OpenRouter key; unset for a local Ollama. */
+      readonly apiKey?: string;
     };
 
 export interface AppContextUseCases {
@@ -546,6 +561,18 @@ function buildAddressVerifier(config: AddressVerifierConfig): AddressVerifier {
       return createOllamaVerifier({
         baseUrl: config.baseUrl,
         model: config.model,
+        onError: logAddressVerifierError,
+      });
+    case 'clef':
+      console.info(
+        `[address-verifier] provider=clef model=${config.model} baseUrl=${config.baseUrl}${config.apiKey ? ' (keyed)' : ''}`,
+      );
+      return createClefVerifier({
+        client: createSystemOneClient({
+          baseUrl: config.baseUrl,
+          model: config.model,
+          ...(config.apiKey ? { apiKey: config.apiKey } : {}),
+        }),
         onError: logAddressVerifierError,
       });
     case 'none':

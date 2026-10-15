@@ -13786,7 +13786,7 @@
     },
     {
       "name": "Verify",
-      "description": "LLM-backed address-match verification (Bedrock / Ollama / Noop)"
+      "description": "Address-match verification (Clef decision model / Bedrock / Ollama / Noop)"
     },
     {
       "name": "MasterLocations",
