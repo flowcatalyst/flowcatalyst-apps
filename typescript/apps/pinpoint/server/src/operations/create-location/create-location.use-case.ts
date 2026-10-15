@@ -279,7 +279,13 @@ export class CreateLocationUseCase {
                 postalCode: candidate.normalizedPostalCode,
                 country: candidate.normalizedCountry,
               });
-        const verdict = await this.addressVerifier.verify(addressLine, candidateLine);
+        const candidateNames = (await this.locations.listByMaster(candidate.id))
+          .map((l) => l.name)
+          .filter((n): n is string => n !== null);
+        const verdict = await this.addressVerifier.verify(addressLine, candidateLine, {
+          inputName: name,
+          candidateNames,
+        });
         try {
           await this.processingLog.append(candidate.id, ProcessingStep.LlmVerified, {
             input_address: addressLine,

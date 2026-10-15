@@ -30,7 +30,9 @@ const AddressGeocodeBodySchema = Type.Object({
    * Optional ISO country code hint. Widened to the country name and appended to
    * the line when the line doesn't already mention it.
    */
-  countryCode: Type.Optional(Type.Union([Type.String({ minLength: 2, maxLength: 3 }), Type.Null()])),
+  countryCode: Type.Optional(
+    Type.Union([Type.String({ minLength: 2, maxLength: 3 }), Type.Null()]),
+  ),
 });
 
 const AddressGeocodeResponseSchema = Type.Object({

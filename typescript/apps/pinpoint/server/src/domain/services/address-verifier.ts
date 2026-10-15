@@ -32,6 +32,16 @@ export const VerificationResultSchema = z.object({
 
 export type VerificationResult = z.infer<typeof VerificationResultSchema>;
 
+/**
+ * Optional extra evidence. A location is created with a name ("Clicks
+ * Rosebank"); a candidate master's names are those of its linked locations.
+ * Verifiers that can't use names ignore this.
+ */
+export interface VerificationContext {
+  readonly inputName?: string | null;
+  readonly candidateNames?: readonly string[];
+}
+
 export interface AddressVerifier {
   /**
    * Verify whether two normalized address lines refer to the same
@@ -40,7 +50,11 @@ export interface AddressVerifier {
    * pattern: log + return None, never throw, so the matching pipeline
    * stays available even when the LLM is down).
    */
-  verify(inputAddress: string, candidateAddress: string): Promise<VerificationResult | null>;
+  verify(
+    inputAddress: string,
+    candidateAddress: string,
+    context?: VerificationContext,
+  ): Promise<VerificationResult | null>;
 }
 
 /**
