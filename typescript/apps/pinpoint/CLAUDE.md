@@ -4,7 +4,7 @@
 
 ## Project overview
 
-TypeScript port of the Rust `pinpoint` service. Address normalization (libpostal), fuzzy candidate search (pg_trgm + Jaro-Winkler), LLM-backed verification (Vercel AI SDK + Bedrock / Ollama / Noop), Photon geocoding, master-location aggregation with PENDING/GEOCODED/VALIDATED/REJECTED lifecycle, spatial feature lookup via PostGIS. SPA frontend in `apps/pinpoint/web/` (Vue 3 + Vite). Two HTTP surfaces: the canonical `/clients/:clientId/...` API and the BFF surface under `/bff/clients/:cid/...` for the SPA.
+TypeScript port of the Rust `pinpoint` service. Address matching without parsing — the tidied address line is hashed for exact duplicates, else the closest pg_trgm candidates are checked field by field by the Clef decision model with the match rule in code (`location-matching.ts`, `address-match-policy.ts`) — Photon geocoding, master-location aggregation with PENDING/GEOCODED/VALIDATED/REJECTED lifecycle, spatial feature lookup via PostGIS. SPA frontend in `apps/pinpoint/web/` (Vue 3 + Vite). Two HTTP surfaces: the canonical `/clients/:clientId/...` API and the BFF surface under `/bff/clients/:cid/...` for the SPA.
 
 ## Technology stack
 
@@ -20,7 +20,7 @@ TypeScript port of the Rust `pinpoint` service. Address normalization (libpostal
 - **Outbox**: `@flowcatalyst/sdk` `OutboxManager` + `DrizzleOutboxDriver` (ALS-aware; reads tx from `TransactionStore`)
 - **Identity**: `Scope` + `ScopeStore` (AsyncLocalStorage)
 - **Auth**: OIDC (`openid-client` v6) + cookie sessions + `x-user-id` dev fallback
-- **External services**: Photon geocoder (HTTP), pelias/libpostal-service sidecar (HTTP), Vercel AI SDK + Amazon Bedrock / Ollama / Noop for address verification
+- **External services**: Photon geocoder (HTTP), address verifier — Clef decision model over SystemOne (Ollama locally, OpenRouter in prod), or Vercel AI SDK + Amazon Bedrock / Ollama / Noop
 - **Scheduling**: FlowCatalyst platform scheduled jobs → HMAC-verified webhook handlers (not in-process croner)
 - **Logging**: Pino via Fastify
 - **Testing**: Vitest — unit tests use fakes; integration tests use real `runWrite` + `@testcontainers/postgresql` + `@testcontainers/redis`. `pnpm typecheck` runs `tsc -p tsconfig.test.json`, which covers `src/`, `test/` and `scripts/` — stale test fakes fail the typecheck, not the test run.
@@ -37,7 +37,6 @@ Vue 3 + PrimeVue + Vite. Lives at `apps/pinpoint/web/`. Dev proxy fronts `/bff` 
 apps/pinpoint/
 ├── CLAUDE.md                          # this file
 ├── openapi.gen.json                   # exported OpenAPI 3 spec — generated, never hand-edited
-├── compose.yaml                       # dev: Postgres + libpostal sidecar
 ├── compose.prod.yaml                  # prod: full stack
 ├── Dockerfile                         # multi-stage prod image
 ├── docs/
@@ -394,13 +393,12 @@ UoW + outbox + audit semantics are **identical** — same `OutboxManager`, same 
 
 ## External services
 
-Pinpoint integrates with three external HTTP services. Each one is a plain async interface in `domain/services/` with a Drizzle-style impl in `infrastructure/services/`:
+Pinpoint integrates with two external HTTP services. Each one is a plain async interface in `domain/services/` with a Drizzle-style impl in `infrastructure/services/`:
 
 - **Photon geocoder** — `GeocoderService` (`infrastructure/services/photon-geocoder.ts`). Configurable via `PINPOINT_GEOCODING_API_URL` (defaults to `https://photon.komoot.io`). Wrapped by `createRateLimitedGeocoder` — plain in-process token-bucket, burst capacity = `PINPOINT_GEOCODING_RATE_LIMIT` (rps), defaults to 5.
-- **libpostal sidecar** — `AddressNormalizer` (`infrastructure/services/libpostal-normalizer.ts`). HTTP client for `pelias/libpostal-service`. Configurable via `PINPOINT_LIBPOSTAL_URL` (defaults to `http://localhost:4400`). The Docker compose stack runs it as a sidecar.
 - **Address verifier** — `AddressVerifier`. Four impls: `ClefVerifier` (Cloudflare's Clef decision model over the SystemOne API — `infrastructure/services/systemone-client.ts`; local Ollama ≥ 0.35.1 in dev via `clef/Modelfile`, OpenRouter `https://openrouter.ai/api` + `cloudflare/clef-flash` + `PINPOINT_CLEF_API_KEY` in prod; answers one `noul` question, so the verdict is a probability with no free-text reasoning), `BedrockVerifier` (Vercel AI SDK + `@ai-sdk/amazon-bedrock`), `OllamaVerifier` (native `/api/chat` to avoid the `ollama-ai-provider-v2` zod-4 peer), `NoopVerifier` (default). Selected via `PINPOINT_LLM_PROVIDER=none|bedrock|ollama|clef`. Returns `null` on any failure — the matching pipeline treats `null` as "no verification opinion" and falls back to the algorithmic verdict.
 
-All three are constructor-injected into the use cases that need them. No service is wrapped in Effect or in a SDK Tag.
+Both are constructor-injected into the use cases that need them. No service is wrapped in Effect or in a SDK Tag.
 
 ## Scheduling
 

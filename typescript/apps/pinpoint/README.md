@@ -36,11 +36,11 @@ how to deploy it. For design choices and slice history see `docs/`.
    └───────────────────────────────────────────────────┘
         │                  │                  │
         ▼                  ▼                  ▼
-  ┌───────────┐     ┌─────────────┐     ┌──────────────┐
-  │ Postgres  │     │  libpostal  │     │  FlowCatalyst│
-  │ + PostGIS │     │   sidecar   │     │  platform    │
-  │ + pg_trgm │     │ (HTTP /parse)│    │  (events,    │
-  └───────────┘     └─────────────┘     │  dispatch,   │
+  ┌───────────┐     ┌──────────────┐    ┌──────────────┐
+  │ Postgres  │     │ Clef decision│    │  FlowCatalyst│
+  │ + PostGIS │     │ model (Ollama│    │  platform    │
+  │ + pg_trgm │     │ / OpenRouter)│    │  (events,    │
+  └───────────┘     └──────────────┘    │  dispatch,   │
                                         │  scheduling) │
                                         └──────────────┘
 ```
@@ -58,10 +58,13 @@ runs its own Postgres container. Make sure fc-dev is running, then:
 
 ```sh
 # In apps/pinpoint/server/
-pnpm libpostal:up # docker compose up the libpostal sidecar
 pnpm db:init      # creates the `pinpoint` database + extensions + search_path
 pnpm db:migrate   # applies drizzle migrations
 ```
+
+For address matching, run Clef locally in Ollama (≥ 0.35.1) once:
+`ollama pull clef-flash && ollama create pinpoint-clef -f ../clef/Modelfile`
+(`server/.env.example` points `PINPOINT_LLM_PROVIDER=clef` at it).
 
 `DATABASE_URL` in `server/.env` points at the embedded instance
 (`postgresql://postgres:postgres@localhost:15432/pinpoint`).
@@ -94,7 +97,7 @@ Useful scripts (in `apps/pinpoint/server/`):
 ## Production deploy
 
 The repo ships a multi-stage `Dockerfile` and a `compose.prod.yaml` that
-brings up postgres + libpostal + the pinpoint server (which itself serves
+brings up postgres + the pinpoint server (which itself serves
 the SPA as static files).
 
 From the **monorepo root**:
@@ -112,11 +115,10 @@ via shell exports — compose auto-loads `.env` and substitutes
 
 Default ports:
 
-| Container   | Internal | Host                                                         |
-| ----------- | -------- | ------------------------------------------------------------ |
-| `pinpoint`  | 3000     | `${PINPOINT_HTTP_PORT:-3000}`                                |
-| `postgres`  | 5432     | not exposed (override the YAML if you need direct DB access) |
-| `libpostal` | 4400     | not exposed                                                  |
+| Container  | Internal | Host                                                         |
+| ---------- | -------- | ------------------------------------------------------------ |
+| `pinpoint` | 3000     | `${PINPOINT_HTTP_PORT:-3000}`                                |
+| `postgres` | 5432     | not exposed (override the YAML if you need direct DB access) |
 
 Visit http://localhost:3000 (or whatever `PINPOINT_HTTP_PORT` you set).
 
@@ -135,8 +137,7 @@ Server (`apps/pinpoint/server/src/server.ts`):
 | `PINPOINT_DISPATCH_POOL`            | `pinpoint-default`                    | FlowCatalyst dispatch-pool code for outbound dispatch jobs.                                                                                                                                                                                                             |
 | `PINPOINT_GEOCODING_API_URL`        | `https://photon.komoot.io`            | Photon-compatible geocoder.                                                                                                                                                                                                                                             |
 | `PINPOINT_GEOCODING_RATE_LIMIT`     | `5`                                   | Sustained geocoder requests/second.                                                                                                                                                                                                                                     |
-| `PINPOINT_LIBPOSTAL_URL`            | `http://localhost:4400`               | libpostal sidecar (`pelias/libpostal-service`).                                                                                                                                                                                                                         |
-| `PINPOINT_LLM_PROVIDER`             | `none`                                | `none` / `bedrock` / `ollama`. LLM-backed address-match verifier. Default `none` = matching pipeline runs without LLM creds.                                                                                                                                            |
+| `PINPOINT_LLM_PROVIDER`             | `none`                                | `none` / `bedrock` / `ollama` / `clef`. Address-match verifier. `clef` = Clef decision model (`PINPOINT_CLEF_URL`, `PINPOINT_CLEF_API_KEY`). Default `none` = only exact duplicates match.                                                                              |
 | `PINPOINT_LLM_MODEL`                | provider default                      | Model id. `anthropic.claude-3-haiku-20240307-v1:0` for Bedrock, `gemma3` for Ollama.                                                                                                                                                                                    |
 | `PINPOINT_OLLAMA_URL`               | `http://localhost:11434`              | Only used when `PINPOINT_LLM_PROVIDER=ollama`.                                                                                                                                                                                                                          |
 | `AWS_REGION`                        | `us-east-1`                           | Only used when `PINPOINT_LLM_PROVIDER=bedrock`.                                                                                                                                                                                                                         |

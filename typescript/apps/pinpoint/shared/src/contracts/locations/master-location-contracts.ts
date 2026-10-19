@@ -25,7 +25,7 @@ export type ConfirmMasterLocationCommand = z.infer<typeof ConfirmMasterLocationC
 
 /**
  * Manually edit a master location's normalized components. Used by the
- * BFF "edit master" form when a human spotted a libpostal misparse.
+ * BFF "edit master" form when a human fixes what the geocoder resolved.
  * Recomputes `addressHash` + `normalizedAddressLine` from the new
  * components so future matches dedupe correctly.
  *

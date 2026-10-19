@@ -125,7 +125,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
 <section id="overview">
   <div class="eyebrow">Overview</div>
   <h2>What pinpoint does</h2>
-  <p>A customer (<code>Client</code>) creates or uploads <strong>locations</strong> — raw addresses. Pinpoint normalises each one with libpostal, deduplicates it against existing <strong>master locations</strong> (SHA-256 hash, then trigram / Jaro-Winkler fuzzy match, optionally confirmed by an LLM), geocodes the master with Photon, confirms it, and associates it with every <strong>layer feature</strong> whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.</p>
+  <p>A customer (<code>Client</code>) creates or uploads <strong>locations</strong> — raw addresses. Pinpoint deduplicates each one against existing <strong>master locations</strong> without parsing it (SHA-256 of the tidied address line, else the closest trigram candidates checked field by field by the Clef decision model, with the match rule in code), geocodes the master with Photon, confirms it, and associates it with every <strong>layer feature</strong> whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.</p>
   <div class="facts">
     <div class="fact"><div class="n">101</div><div class="l">API operations</div></div>
     <div class="fact"><div class="n">31</div><div class="l">use cases</div></div>
@@ -137,7 +137,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
     <tr><th>Runtime</th><td>Node 24 · Fastify 5 · TypeScript 6 (strict) · Drizzle ORM 1.0 RC · PostgreSQL 18 + PostGIS + pg_trgm</td></tr>
     <tr><th>SPA</th><td>Vue 3 + PrimeVue + Vite, served by the same server in production; talks to <code>/bff</code> through a generated, typed client</td></tr>
     <tr><th>Surfaces</th><td>canonical API <code>/clients/…</code> + unscoped routes; BFF <code>/bff/…</code> for the SPA — one OpenAPI 3 contract (<code>openapi.gen.json</code>, 12 shared components)</td></tr>
-    <tr><th>External</th><td>libpostal sidecar (normalisation) · Photon (forward/reverse geocoding) · LLM verifier (Bedrock Gemma 4 / Ollama / none)</td></tr>
+    <tr><th>External</th><td>Photon (forward/reverse geocoding) · address verifier (Clef decision model via Ollama / OpenRouter; Bedrock Gemma 4 / Ollama chat / none)</td></tr>
     <tr><th>Platform</th><td>OIDC login against FlowCatalyst · events via outbox → <code>fc-outbox-processor</code> · one scheduled job (<code>pinpoint-validate-master-locations</code>, every 5 min)</td></tr>
   </table></div>
 </section>
@@ -245,8 +245,8 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
   <h2>Process flows</h2>
 
   <h3>Create location — the matching pipeline</h3>
-  <p><code>POST /clients/{id}/locations</code> → <code>create-location</code>. Fuzzy candidates need trigram <code>similarity ≥ 0.3</code> (≤ 50 of them); each is scored per component with Jaro-Winkler after an 80-entry substitution table (street-type abbreviations, Afrikaans → English, ZA city aliases) against the resolved <code>MatchingConfig</code> thresholds (defaults: street 0.85, house number 1.0, postal 0.95, state 0.9, address name 0.8, overall 0.85).</p>
-  ${mm(4, '<b>Decision flow.</b> An exact hash hit on a VALIDATED master short-circuits everything; otherwise the best fuzzy candidate is optionally put to the LLM verifier, whose <code>null</code> means "no opinion". A location linked to a VALIDATED master with coordinates is spatially associated and validated immediately; everything else waits for the master to be confirmed.')}
+  <p><code>POST /clients/{id}/locations</code> → <code>create-location</code>. The address is not parsed: it is tidied into the matching line and hashed. Candidates need trigram <code>similarity ≥ 0.3</code>; the closest five VALIDATED masters are checked by the Clef decision model field by field (house number, street, suburb, postal code, city, name), and <code>decideAddressMatch</code> applies the rule — names match, or house number + street + (postal code or suburb) match with no conflict. The win threshold is <code>MatchingConfig.overallThreshold</code> (default 0.6).</p>
+  ${mm(4, '<b>Decision flow.</b> An exact hash hit on a VALIDATED master short-circuits everything; otherwise the closest five candidates are each checked by the verifier, and the best confirmed one at or above the threshold wins. With the verifier off or down nothing but exact duplicates match — the location gets a new master, is geocoded, and an operator fixes it if needed.')}
 
   <h3>Geocode and confirm</h3>
   <ol class="steps">
@@ -312,7 +312,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
   <h2>Deployment</h2>
   <p>Production runs on the inhance AWS account (Pulumi in <code>inhance/iac</code>, image build + deploy in <code>inhance/flowcatalyst-deploy</code>); this repo ships the container and the env contract.</p>
   <figure class="fig">
-  <svg viewBox="0 0 1000 470" role="img" aria-label="An ALB routes pinpoint.inhanceapps.com to an ECS task containing the pinpoint container and a libpostal sidecar; the pinpoint container talks to a Photon service backed by EFS, a dedicated RDS Postgres database, ElastiCache Valkey for sessions, Bedrock for the LLM verifier, and the FlowCatalyst platform." xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12">
+  <svg viewBox="0 0 1000 470" role="img" aria-label="An ALB routes pinpoint.inhanceapps.com to an ECS task containing the pinpoint container; it talks to a Photon service backed by EFS, a dedicated RDS Postgres database, ElastiCache Valkey for sessions, OpenRouter for the Clef decision model, and the FlowCatalyst platform." xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12">
     <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
     <!-- ALB -->
     <rect x="40" y="30" width="260" height="50" rx="4" fill="none" stroke="currentColor"/>
@@ -327,10 +327,6 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
     <text x="175" y="222" text-anchor="middle" font-size="11" opacity=".85">serves SPA (PINPOINT_WEB_DIST_DIR)</text>
     <text x="175" y="239" text-anchor="middle" font-size="11" opacity=".85">migrations on boot · advisory lock</text>
     <text x="175" y="256" text-anchor="middle" font-size="11" opacity=".85">/health</text>
-    <rect x="310" y="190" width="130" height="60" rx="4" fill="none" stroke="currentColor"/>
-    <text x="375" y="215" text-anchor="middle" font-weight="500" font-size="11.5">libpostal sidecar</text>
-    <text x="375" y="232" text-anchor="middle" font-size="10.5" opacity=".8">:4400 · GET /parse</text>
-    <line x1="290" y1="220" x2="309" y2="220" stroke="currentColor" marker-end="url(#ar2)"/>
     <line x1="170" y1="80" x2="170" y2="159" stroke="currentColor" marker-end="url(#ar2)"/>
     <text x="182" y="104" font-size="10">:3000</text>
     <!-- Photon -->
@@ -355,12 +351,12 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
     <text x="880" y="261" text-anchor="middle" font-weight="500" font-size="11.5">ElastiCache Valkey</text>
     <text x="880" y="277" text-anchor="middle" font-size="10.5" opacity=".8">sessions · rediss://</text>
     <path d="M290 245 C 500 245, 640 265, 779 265" fill="none" stroke="currentColor" marker-end="url(#ar2)"/>
-    <!-- Bedrock -->
+    <!-- OpenRouter / Clef -->
     <rect x="520" y="340" width="200" height="60" rx="4" fill="none" stroke="currentColor"/>
-    <text x="620" y="363" text-anchor="middle" font-weight="500" font-size="11.5">Bedrock mantle · Gemma 4</text>
-    <text x="620" y="381" text-anchor="middle" font-size="10.5" opacity=".8">eu-central-1 · task-role bearer token</text>
+    <text x="620" y="363" text-anchor="middle" font-weight="500" font-size="11.5">OpenRouter · Clef</text>
+    <text x="620" y="381" text-anchor="middle" font-size="10.5" opacity=".8">POST /v1/systemone · API key</text>
     <path d="M175 280 C 175 370, 400 370, 519 370" fill="none" stroke="currentColor" marker-end="url(#ar2)"/>
-    <text x="330" y="362" text-anchor="middle" font-size="10">verify fuzzy match (optional)</text>
+    <text x="330" y="362" text-anchor="middle" font-size="10">check match candidates</text>
     <!-- FlowCatalyst -->
     <rect x="780" y="340" width="200" height="90" rx="4" fill="none" stroke="#0E7C8B" stroke-width="1.5"/>
     <text x="880" y="363" text-anchor="middle" font-weight="500">FlowCatalyst platform</text>

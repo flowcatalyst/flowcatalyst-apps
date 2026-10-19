@@ -16,8 +16,8 @@ pnpm flows:pinpoint -- --base-url http://localhost:3197 --principal prn_me
 pnpm flows:pinpoint -- --no-db            # skip the outbox_messages observation
 ```
 
-Needs: libpostal sidecar (`pnpm --filter @pinpoint/server libpostal:up`),
-network for Photon (falls back to operator confirm-geocode when unavailable),
+Needs: a verifier for the fuzzy-match step (`PINPOINT_LLM_PROVIDER=clef` — with
+the Noop verifier only exact duplicates match), network for Photon (falls back to operator confirm-geocode when unavailable),
 `DATABASE_URL` (defaults to fc-dev's pinpoint DB) for the outbox observation,
 and `FLOWCATALYST_SIGNING_SECRET` matching the server's if it enforces HMAC
 (unset = the server's dev bypass). Exit code 1 if any assertion failed.

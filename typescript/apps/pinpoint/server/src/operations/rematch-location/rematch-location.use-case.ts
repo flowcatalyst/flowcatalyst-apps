@@ -2,9 +2,10 @@
  * Rematch a location against an edited "match address".
  *
  * The location's received address (raw_address_line1) is immutable; its
- * match_address is editable. This use case sets the new match_address,
- * re-normalizes it, and re-runs the same matching pipeline create-location uses
- * (exact-hash + fuzzy + optional LLM verify against VALIDATED masters):
+ * match_address is editable. This use case sets the new match_address, tidies
+ * it into the matching line, and re-runs the matching create-location uses
+ * (`matchLocation`: exact hash, else verifier-checked candidates, against
+ * VALIDATED masters):
  *   - resolves to a VALIDATED master → re-point the location + validate it
  *     (spatial lookup → feature associations), status VALIDATED.
  *   - no match → create a fresh PENDING master + point the location at it.
@@ -42,14 +43,10 @@ import { LocationValidated } from '../../domain/locations/events/location-valida
 import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
 import { MasterLocationDeleted } from '../../domain/locations/events/master-location-deleted.event.js';
-import { findMatch } from '../../domain/services/address-matcher.js';
 import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
-import {
-  addressHash as computeAddressHash,
-  toAddressLine,
-  type AddressNormalizer,
-  type NormalizedAddress,
-} from '../../domain/services/address-normalizer.js';
+import { isUnresolved, UNRESOLVED_COMPONENT } from '../../domain/services/address-normalizer.js';
+import { addressLineHash, tidyAddressLine } from '../../domain/services/address-line.js';
+import { matchLocation } from '../../domain/services/location-matching.js';
 import type { Location } from '../../domain/locations/location.js';
 import type { AddressVerifier } from '../../domain/services/address-verifier.js';
 import type { LocationRepository } from '../../domain/locations/location.repository.js';
@@ -62,9 +59,6 @@ import {
 } from '../../domain/locations/processing-log.repository.js';
 import type { RematchLocationCommand } from './rematch-location.command.js';
 
-const FUZZY_THRESHOLD = 0.3;
-const FUZZY_LIMIT = 50;
-
 export class RematchLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsLocationUpdate;
 
@@ -76,7 +70,6 @@ export class RematchLocationUseCase {
     private readonly matchingConfigs: MatchingConfigRepository,
     private readonly layerFeatures: LayerFeatureRepository,
     private readonly processingLog: ProcessingLogRepository,
-    private readonly addressNormalizer: AddressNormalizer,
     private readonly addressVerifier: AddressVerifier,
   ) {}
 
@@ -120,98 +113,38 @@ export class RematchLocationUseCase {
     const previousMasterId = location.masterLocationId;
     const now = new Date();
 
-    // Normalize the new match address: strict, then best-effort so an
-    // unparseable address still resolves (lands PENDING) rather than blocking.
-    let normalized: NormalizedAddress;
-    let normalizationBestEffort = false;
-    try {
-      normalized = await this.addressNormalizer.normalize(matchAddress);
-    } catch {
-      try {
-        normalized = await this.addressNormalizer.normalize(matchAddress, { strict: false });
-        normalizationBestEffort = true;
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
-      }
-    }
-
-    const addressHash = computeAddressHash(normalized);
-    const addressLine = toAddressLine(normalized);
+    // The tidied match address is the matching key. Keep the country the
+    // location already resolved; the city stays unknown until geocoded.
+    const addressLine = tidyAddressLine(matchAddress);
+    const addressHash = addressLineHash(addressLine);
+    const country = location.rawCountry || UNRESOLVED_COMPONENT;
 
     const config = await this.matchingConfigs.resolve(clientId, partitionId);
-    const hashHit = await this.masters.findByHash(clientId, partitionId, addressHash);
-    const validatedHashHit = hashHit && hashHit.status === 'VALIDATED' ? hashHit : null;
-    const fuzzyCandidates = await this.masters.findFuzzyCandidates(
-      clientId,
-      partitionId,
-      addressLine,
-      FUZZY_THRESHOLD,
-      FUZZY_LIMIT,
+    const outcome = await matchLocation(
+      {
+        masters: this.masters,
+        locations: this.locations,
+        verifier: this.addressVerifier,
+        processingLog: this.processingLog,
+      },
+      {
+        clientId,
+        partitionId,
+        addressLine,
+        addressHash,
+        name: location.name,
+        locationId,
+        threshold: config.overallThreshold,
+        trail: { trigger: 'rematch' },
+      },
     );
-    const candidates = [
-      ...(validatedHashHit ? [validatedHashHit] : []),
-      ...fuzzyCandidates.filter(
-        (c) => c.status === 'VALIDATED' && (!validatedHashHit || c.id !== validatedHashHit.id),
-      ),
-    ];
-
-    let matchResult = findMatch(normalized, addressHash, candidates, config);
-
-    // Optional LLM verifier for fuzzy matches — the verdict lands on the
-    // candidate master's processing log (step `llm_verified`) whether it
-    // confirms, rejects, or abstains, same as create-location.
-    let llmRejectedMasterId: string | null = null;
-    if (matchResult !== null && matchResult.method === 'FUZZY') {
-      const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
-      if (candidate) {
-        const candidateLine =
-          candidate.normalizedAddressLine ??
-          toAddressLine({
-            houseNumber: candidate.normalizedHouseNumber,
-            road: candidate.normalizedRoad,
-            suburb: candidate.normalizedSuburb,
-            city: candidate.normalizedCity,
-            state: candidate.normalizedState,
-            postalCode: candidate.normalizedPostalCode,
-            country: candidate.normalizedCountry,
-          });
-        const candidateNames = (await this.locations.listByMaster(candidate.id))
-          .filter((l) => l.id !== location.id)
-          .map((l) => l.name)
-          .filter((n): n is string => n !== null);
-        const verdict = await this.addressVerifier.verify(addressLine, candidateLine, {
-          inputName: location.name,
-          candidateNames,
-        });
-        try {
-          await this.processingLog.append(candidate.id, ProcessingStep.LlmVerified, {
-            input_address: addressLine,
-            candidate_address: candidateLine,
-            location_id: locationId,
-            trigger: 'rematch',
-            algorithmic_confidence: matchResult.confidence,
-            outcome:
-              verdict === null ? 'no_opinion' : verdict.match_confirmed ? 'confirmed' : 'rejected',
-            match_confirmed: verdict?.match_confirmed ?? null,
-            confidence: verdict?.confidence ?? null,
-            reasoning: verdict?.reasoning ?? null,
-          });
-        } catch {
-          // swallow
-        }
-        if (verdict && !verdict.match_confirmed) {
-          llmRejectedMasterId = candidate.id;
-          matchResult = null;
-        }
-      }
-    }
+    const matchResult = outcome.match;
 
     // Resolve the new master: a matched VALIDATED master, or a fresh PENDING one.
     let newMasterId: string;
     let matchedValidated = false;
     if (matchResult !== null) {
-      newMasterId = matchResult.masterLocationId;
+      newMasterId = matchResult.master.id;
       matchedValidated = true; // candidates are VALIDATED-only
       try {
         await this.processingLog.append(asMasterLocationId(newMasterId), ProcessingStep.Matched, {
@@ -229,13 +162,13 @@ export class RematchLocationUseCase {
         id: created,
         clientId,
         partitionId,
-        normalizedHouseNumber: normalized.houseNumber,
-        normalizedRoad: normalized.road,
-        normalizedSuburb: normalized.suburb,
-        normalizedCity: normalized.city,
-        normalizedState: normalized.state,
-        normalizedPostalCode: normalized.postalCode,
-        normalizedCountry: normalized.country,
+        normalizedHouseNumber: null,
+        normalizedRoad: null,
+        normalizedSuburb: null,
+        normalizedCity: UNRESOLVED_COMPONENT,
+        normalizedState: null,
+        normalizedPostalCode: null,
+        normalizedCountry: country,
         addressHash,
         normalizedAddressLine: addressLine,
         now,
@@ -245,8 +178,8 @@ export class RematchLocationUseCase {
         clientId,
         partitionId,
         addressHash,
-        normalizedCity: normalized.city,
-        normalizedCountry: normalized.country,
+        normalizedCity: UNRESOLVED_COMPONENT,
+        normalizedCountry: country,
       });
       const masterCommit = await commitAggregate(
         this.uow,
@@ -263,15 +196,8 @@ export class RematchLocationUseCase {
       try {
         await this.processingLog.append(created, ProcessingStep.Normalized, {
           input: matchAddress,
-          house_number: normalized.houseNumber,
-          road: normalized.road,
-          suburb: normalized.suburb,
-          city: normalized.city,
-          state: normalized.state,
-          postal_code: normalized.postalCode,
-          country: normalized.country,
+          address_line: addressLine,
           address_hash: addressHash,
-          best_effort: normalizationBestEffort,
           trigger: 'rematch',
         });
       } catch {
@@ -279,31 +205,30 @@ export class RematchLocationUseCase {
       }
       try {
         await this.processingLog.append(created, ProcessingStep.Created, {
-          reason: llmRejectedMasterId !== null ? 'llm_rejected' : 'no_match',
-          candidates_checked: candidates.length,
+          reason: outcome.rejectedMasterIds.length > 0 ? 'verifier_rejected' : 'no_match',
+          candidates_checked: outcome.candidatesChecked,
+          rejected_master_location_ids: outcome.rejectedMasterIds,
           location_id: locationId,
           trigger: 'rematch',
-          ...(llmRejectedMasterId !== null
-            ? { rejected_master_location_id: llmRejectedMasterId }
-            : {}),
         });
       } catch {
         // swallow
       }
     }
 
-    // Re-point + re-normalize the location.
+    // Re-point the location. The match address replaces whatever components
+    // it had; they come back from the geocoder.
     const updated: Location = {
       ...location,
       masterLocationId: asMasterLocationId(newMasterId),
       matchAddress,
-      normalizedHouseNumber: normalized.houseNumber,
-      normalizedRoad: normalized.road,
-      normalizedSuburb: normalized.suburb,
-      normalizedCity: normalized.city,
-      normalizedState: normalized.state,
-      normalizedPostalCode: normalized.postalCode,
-      normalizedCountry: normalized.country,
+      normalizedHouseNumber: null,
+      normalizedRoad: null,
+      normalizedSuburb: null,
+      normalizedCity: null,
+      normalizedState: null,
+      normalizedPostalCode: null,
+      normalizedCountry: isUnresolved(country) ? null : country,
       addressHash,
       matchConfidence: matchResult?.confidence ?? null,
       matchMethod: matchResult?.method ?? null,
@@ -340,7 +265,7 @@ export class RematchLocationUseCase {
 
     // Validated match → refresh feature associations + emit LocationValidated.
     if (matchedValidated) {
-      const matchedMaster = candidates.find((c) => c.id === newMasterId);
+      const matchedMaster = matchResult?.master;
       if (matchedMaster && matchedMaster.latitude !== null && matchedMaster.longitude !== null) {
         const hits = await this.layerFeatures.spatialLookup({
           clientId,

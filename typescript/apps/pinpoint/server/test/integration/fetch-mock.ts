@@ -1,6 +1,6 @@
 /**
- * Minimal fetch-mock for integration tests against the libpostal +
- * Photon HTTP services. Both are called via Node's global `fetch`; we
+ * Minimal fetch-mock for integration tests against the Photon and SystemOne
+ * (decision model) HTTP services. Both are called via Node's global `fetch`; we
  * replace `globalThis.fetch` with a router that matches by URL prefix
  * and dispatches to registered handlers, falling back to a 404 with
  * a clear message so unhandled calls surface loudly.
@@ -15,8 +15,8 @@
  *   afterAll(() => mock.restore());
  *   beforeEach(() => mock.reset());
  *
- *   mock.handle('GET', /\/parse\b/, () => libpostalParseResponse(...));
  *   mock.handle('GET', /\/api\b/, () => photonResponse(...));
+ *   mock.handle('POST', /\/v1\/systemone/, () => decisionResponse(...));
  */
 type Handler = (url: URL, init: RequestInit | undefined) => Response | Promise<Response>;
 

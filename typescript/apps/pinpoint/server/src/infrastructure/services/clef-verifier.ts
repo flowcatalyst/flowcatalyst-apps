@@ -135,8 +135,7 @@ export function createClefVerifier(config: ClefVerifierConfig): AddressVerifier 
           .join(' ');
         return {
           match_confirmed: decision.same,
-          // The least certain field verdict bounds how sure the decision can be.
-          confidence: Math.min(...Object.values(fields).map((f) => f.p)),
+          confidence: decisionConfidence(decision.rule, fields),
           reasoning: `${config.client.model}: ${summary} → ${decision.rule}`,
         };
       } catch (err) {
@@ -145,6 +144,31 @@ export function createClefVerifier(config: ClefVerifierConfig): AddressVerifier 
       }
     },
   };
+}
+
+type ReadField = { readonly verdict: FieldVerdict; readonly p: number };
+
+/**
+ * How sure the decision is: the least certain of the field verdicts the rule
+ * actually rested on. A shaky verdict on a field the rule ignored (the city,
+ * for an address corroborated by its postal code) doesn't weaken it. For a
+ * rejection, the most certain verdict that blocks the match.
+ */
+function decisionConfidence(
+  rule: 'name_match' | 'address_corroborated' | 'not_corroborated',
+  f: Record<'house_number' | 'street' | 'suburb' | 'postal_code' | 'city', ReadField> & {
+    name?: ReadField;
+  },
+): number {
+  if (rule === 'name_match') return f.name!.p;
+  if (rule === 'address_corroborated') {
+    const corroboration = Math.max(
+      ...[f.postal_code, f.suburb].filter((x) => x.verdict === 'match').map((x) => x.p),
+    );
+    return Math.min(f.house_number.p, f.street.p, corroboration);
+  }
+  const blockers = Object.values(f).filter((x) => x.verdict !== 'match');
+  return blockers.length > 0 ? Math.max(...blockers.map((x) => x.p)) : 0.5;
 }
 
 function readChoice(

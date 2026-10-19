@@ -14,11 +14,9 @@ export const AttributeInputSchema = z.object({
 export type AttributeInput = z.infer<typeof AttributeInputSchema>;
 
 /**
- * Slice 8 rewrites the command shape to match the Rust pipeline: a single
- * free-form `address` string + an optional `countryCode` retry hint. The
- * libpostal normalizer parses it on the way in; `raw_*` columns are
- * filled from the parsed components, not from caller-supplied structured
- * fields. The Slice 3 minimal-create shape is gone.
+ * A single free-form `address` string + an optional `countryCode` hint. The
+ * address is matched as a tidied line, not parsed; structured components come
+ * later from the geocoder.
  *
  * Slice 10b.3 adds optional `attributes` (per-key/value rows persisted in
  * `location_attributes`). Mirrors the Rust create-location request.
@@ -30,9 +28,8 @@ export const CreateLocationCommandSchema = z.object({
   name: z.string().trim().min(1).optional().nullable(),
   address: z.string().trim().min(1),
   /**
-   * Optional ISO-A3 country code (e.g. "ZAF"). If libpostal fails to
-   * normalize the address, the matching pipeline retries with the
-   * country code appended before giving up.
+   * Optional ISO country code (e.g. "ZA" / "ZAF"). Stored as the location's
+   * country and used to steer geocoding.
    */
   countryCode: z.string().trim().min(2).max(3).optional().nullable(),
   attributes: z.array(AttributeInputSchema).optional(),

@@ -49,7 +49,6 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
-const LIBPOSTAL_URL = process.env['PINPOINT_LIBPOSTAL_URL'] ?? 'http://localhost:4400';
 /**
  * Absolute (or server-relative) path to the built Vue SPA's `dist/`
  * directory. When set, the server serves that directory at `/` with a
@@ -321,7 +320,6 @@ export async function buildServer() {
     geocodingRateLimit: GEOCODING_RATE_LIMIT,
     addressVerifier: buildAddressVerifierConfig(),
     auth: loadAuthConfig(),
-    libpostalUrl: LIBPOSTAL_URL,
   });
 
   // Smoke endpoint — confirms the server boots and reaches steady state.

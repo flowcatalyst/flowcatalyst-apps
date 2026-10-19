@@ -161,8 +161,8 @@ describe('photon-geocoder', () => {
       );
     });
 
-    // UNKNOWN is the marker libpostal's best-effort pass stores for a component
-    // it could not identify. It is not data, so it must not become a search
+    // UNKNOWN is the marker stored for a component nothing has resolved yet.
+    // It is not data, so it must not become a search
     // term — `…, randburg, UNKNOWN` asks Photon to find a place called UNKNOWN.
     it('omits an unresolved country instead of querying for UNKNOWN', async () => {
       fetchSpy.mockResolvedValueOnce(jsonResponse({ features: [FULL_FEATURE] }));

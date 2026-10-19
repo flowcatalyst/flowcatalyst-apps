@@ -144,6 +144,70 @@ describe('ValidateMasterLocationUseCase (integration)', () => {
     expect(mock.calls.some((c) => c.includes('/api?'))).toBe(true);
   });
 
+  it('geocodes a master that has only its address line, and stores what the geocoder resolved', async () => {
+    const created = await runInScope({ sub: 'prn_test' }, async () => {
+      const c = await appContext.runWrite(() =>
+        appContext.useCases.createClient.execute({ name: 'Acme', code: 'ACME' }),
+      );
+      if (!isSuccess(c)) throw new Error('client setup failed');
+      return appContext.runWrite(() =>
+        appContext.useCases.createLocation.execute({
+          clientId: c.value.getData().clientId,
+          address: '16 Curvy Road, Randburg',
+          countryCode: 'ZA',
+        }),
+      );
+    });
+    if (!isSuccess(created)) throw new Error('create-location failed');
+    const masterLocationId = created.value.getData().masterLocationId;
+    const before = await appContext.repositories.masterLocations.findById(
+      masterLocationId as never,
+    );
+
+    mock.handle('GET', /\/api\b/, () =>
+      jsonResponse({
+        features: [
+          {
+            geometry: { coordinates: [28.0122491, -26.1187533] },
+            properties: {
+              type: 'street',
+              osm_key: 'highway',
+              name: 'Curvy Road',
+              district: 'Robin Acres',
+              city: 'Randburg',
+              state: 'Gauteng',
+              postcode: '2024',
+              country: 'South Africa',
+              countrycode: 'ZA',
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await runInScope({ sub: 'prn_test' }, () =>
+      appContext.runWrite(() =>
+        appContext.useCases.validateMasterLocation.execute({ masterLocationId }),
+      ),
+    );
+    expect(isSuccess(result)).toBe(true);
+
+    // Free-text search of the stored line (no components to search with),
+    // with the stored ZA hint widened to the country name.
+    const q = new URL(mock.calls[0]!.split(' ')[1]!).searchParams.get('q');
+    expect(q).toBe('16 curvy road, randburg, South Africa');
+
+    const after = await appContext.repositories.masterLocations.findById(masterLocationId as never);
+    expect(after?.status).toBe('GEOCODED');
+    expect(after?.normalizedRoad).toBe('Curvy Road');
+    expect(after?.normalizedSuburb).toBe('Robin Acres');
+    expect(after?.normalizedCity).toBe('Randburg');
+    expect(after?.normalizedCountry).toBe('ZA');
+    // The line + hash stay the matching key for future identical lines.
+    expect(after?.normalizedAddressLine).toBe(before?.normalizedAddressLine);
+    expect(after?.addressHash).toBe(before?.addressHash);
+  });
+
   it('rejects re-validating an already-GEOCODED master', async () => {
     // Seed straight to GEOCODED status via the domain helper.
     const c = await runInScope({ sub: 'prn_test' }, () =>

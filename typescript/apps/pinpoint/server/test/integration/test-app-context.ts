@@ -7,9 +7,6 @@
  *     (the use cases that hit it skip via the matching pipeline's
  *     existing branches).
  *   - LLM verifier: `none` (Noop) — keeps creation cred-free.
- *   - libpostal: a fake URL — only invoked by create-location, and
- *     those tests inject their own normalized input via the command.
- *     If a future use-case test needs libpostal, mock the fetch.
  *   - OIDC: unset → auth surface stays inert, dev fallback off; the
  *     tests bind their own ScopeStore via `runInScope` below.
  */
@@ -32,7 +29,6 @@ export async function getTestAppContext(): Promise<AppContext> {
         geocodingApiUrl: 'http://geocoder.invalid',
         geocodingRateLimit: 5,
         addressVerifier: { provider: 'none' },
-        libpostalUrl: 'http://libpostal.invalid',
         auth: {
           oidc: null,
           devFallback: false,

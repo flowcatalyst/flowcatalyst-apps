@@ -1,6 +1,6 @@
 /**
  * Manually edit a master_location's normalized components — used by the
- * BFF "edit master" form when a human spots a libpostal misparse.
+ * BFF "edit master" form when a human fixes what the geocoder resolved.
  * Recomputes `addressHash` + `normalizedAddressLine` from the new
  * components so future matches dedupe correctly.
  *
@@ -24,10 +24,8 @@ import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationUpdated } from '../../domain/locations/events/master-location-updated.event.js';
-import {
-  addressHash as computeAddressHash,
-  toAddressLine,
-} from '../../domain/services/address-normalizer.js';
+import { toAddressLine } from '../../domain/services/address-normalizer.js';
+import { addressLineHash } from '../../domain/services/address-line.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { LocationRepository } from '../../domain/locations/location.repository.js';
 import type { UpdateMasterLocationCommand } from './update-master-location.command.js';
@@ -84,8 +82,8 @@ export class UpdateMasterLocationUseCase {
       postalCode: command.normalizedPostalCode?.trim() || null,
       country: command.normalizedCountry.trim(),
     };
-    const newHash = computeAddressHash(normalized);
     const newAddressLine = toAddressLine(normalized);
+    const newHash = addressLineHash(newAddressLine);
 
     // Editing a master is "fixing" it → reset to PENDING so it flows back
     // through geocode/validate.

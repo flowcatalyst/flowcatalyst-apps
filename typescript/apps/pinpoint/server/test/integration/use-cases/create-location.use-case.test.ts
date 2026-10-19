@@ -1,12 +1,10 @@
 /**
  * Integration test for CreateLocationUseCase — the matching pipeline
- * end-to-end. The use case calls libpostal via HTTP (the only external
- * service it touches in the unverified-LLM path), so we install the
- * global-fetch shim and return canned libpostal responses.
- *
- * The LLM verifier is `provider: 'none'` (Noop) in `test-app-context.ts`,
- * so no fetch is issued for verification. Photon is also unused on the
- * create-location path (that's `validate-master-location`'s job).
+ * end-to-end. Nothing is parsed: the raw address is tidied into the matching
+ * line. The verifier is `provider: 'none'` (Noop) in `test-app-context.ts`, so
+ * only exact duplicates match here (verifier-backed matching is covered by
+ * `create-location-llm-verify`). The fetch shim is installed with no handlers,
+ * so any external call fails the test.
  *
  * Covers:
  *   - no-match path → creates a fresh master + location, emits
@@ -22,26 +20,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
-import { installFetchMock, jsonResponse, type FetchMock } from '../fetch-mock.js';
+import { installFetchMock, type FetchMock } from '../fetch-mock.js';
 import type { AppContext } from '../../../src/app-context.js';
 import { isSuccess } from '@pinpoint/framework';
 import { ProcessingStep } from '../../../src/domain/locations/processing-log.repository.js';
-
-// Stub libpostal responses for a Market Street, San Francisco address.
-const PARSE_RESPONSE = [
-  { label: 'house_number', value: '548' },
-  { label: 'road', value: 'market street' },
-  { label: 'city', value: 'san francisco' },
-  { label: 'state', value: 'ca' },
-  { label: 'postcode', value: '94104' },
-  { label: 'country', value: 'usa' },
-];
-const EXPAND_RESPONSE = ['market street'];
-
-function installLibpostalMock(mock: FetchMock): void {
-  mock.handle('GET', /\/parse\b/, () => jsonResponse(PARSE_RESPONSE));
-  mock.handle('GET', /\/expand\b/, () => jsonResponse(EXPAND_RESPONSE));
-}
 
 describe('CreateLocationUseCase (integration)', () => {
   let appContext: AppContext;
@@ -62,7 +44,6 @@ describe('CreateLocationUseCase (integration)', () => {
   beforeEach(async () => {
     await cleanDb();
     mock.reset();
-    installLibpostalMock(mock);
   });
 
   async function setupClient(): Promise<string> {
@@ -104,7 +85,12 @@ describe('CreateLocationUseCase (integration)', () => {
       data.masterLocationId as never,
     );
     expect(master?.status).toBe('PENDING');
-    expect(master?.normalizedCity).toBe('san francisco');
+    // The tidied line is the matching key; components wait for the geocoder.
+    expect(master?.normalizedAddressLine).toBe('548 market street, san francisco');
+    expect(master?.normalizedCity).toBe('UNKNOWN');
+    expect(master?.normalizedCountry).toBe('UNKNOWN');
+    expect(location?.rawCity).toBe('UNKNOWN');
+    expect(mock.calls).toHaveLength(0);
 
     // Trail entries for the fresh master land now that `append` rides the
     // use-case tx (previously the FK to the uncommitted master row failed
@@ -157,13 +143,13 @@ describe('CreateLocationUseCase (integration)', () => {
     const validated = MasterLocation.confirmed(geocoded, new Date());
     await appContext.repositories.masterLocations.persist(validated);
 
-    // Second create of the same address — should hash-match the
-    // VALIDATED master and reuse it instead of creating a new one.
+    // Second create of the same address, formatted differently — the tidied
+    // line hashes alike, so it reuses the VALIDATED master.
     const second = await runInScope({ sub: 'prn_test' }, () =>
       appContext.runWrite(() =>
         appContext.useCases.createLocation.execute({
           clientId,
-          address: '548 Market Street, San Francisco',
+          address: '  548 MARKET STREET ,San Francisco ',
         }),
       ),
     );
@@ -189,6 +175,26 @@ describe('CreateLocationUseCase (integration)', () => {
         AND payload::jsonb->>'type' = 'pinpoint:locations:location:validated'
     `);
     expect(validatedEvents.length).toBe(1);
+  });
+
+  it('stores the country hint and matches nothing but exact duplicates without a verifier', async () => {
+    const clientId = await setupClient();
+
+    const result = await runInScope({ sub: 'prn_test' }, () =>
+      appContext.runWrite(() =>
+        appContext.useCases.createLocation.execute({
+          clientId,
+          address: '16 Curvy Road, Blairgowrie, Randburg',
+          countryCode: 'za',
+        }),
+      ),
+    );
+    if (!isSuccess(result)) throw new Error('create failed');
+    const master = await appContext.repositories.masterLocations.findById(
+      result.value.getData().masterLocationId as never,
+    );
+    expect(master?.normalizedCountry).toBe('ZA');
+    expect(master?.normalizedCity).toBe('UNKNOWN');
   });
 
   it('external_id idempotency: second create reuses the first row', async () => {

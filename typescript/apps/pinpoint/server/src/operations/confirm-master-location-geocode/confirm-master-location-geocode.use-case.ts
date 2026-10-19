@@ -11,11 +11,8 @@ import { PinpointPermission } from '@pinpoint/shared';
 import { MasterLocation } from '../../domain/locations/master-location.js';
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
-import {
-  addressHash as computeAddressHash,
-  toAddressLine,
-  type NormalizedAddress,
-} from '../../domain/services/address-normalizer.js';
+import { toAddressLine, type NormalizedAddress } from '../../domain/services/address-normalizer.js';
+import { addressLineHash } from '../../domain/services/address-line.js';
 import { ProcessingStep } from '../../domain/locations/processing-log.repository.js';
 import { MasterLocationGeocodeConfirmed } from '../../domain/locations/events/master-location-geocode-confirmed.event.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
@@ -72,8 +69,8 @@ export class ConfirmMasterLocationGeocodeUseCase {
       postalCode: command.postalCode ?? null,
       country: command.country,
     };
-    const addressHash = computeAddressHash(normalized);
     const normalizedAddressLine = toAddressLine(normalized);
+    const addressHash = addressLineHash(normalizedAddressLine);
     const now = new Date();
     const updated = MasterLocation.geocoded(
       MasterLocation.updated(existing, {

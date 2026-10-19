@@ -4,6 +4,12 @@
  * geocoder service. The semantic "validate" step (mark canonical +
  * cascade child locations) is `confirm-master-location`.
  *
+ * A master created from a raw line has no components yet (city UNRESOLVED):
+ * it is geocoded from its address line as free text, and the components the
+ * geocoder resolved are stored on it. Its address line and hash stay as they
+ * were — they are the matching key for future identical lines. A master whose
+ * components an operator set is geocoded from those components.
+ *
  * Geocoder is a non-repo external service; surfaced via constructor along
  * with the UoW, registry, and master-location repo.
  */
@@ -24,7 +30,11 @@ import { MasterLocationGeocoded } from '../../domain/locations/events/master-loc
 import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { GeocoderService } from '../../domain/services/geocoder.js';
-import type { NormalizedAddress } from '../../domain/services/address-normalizer.js';
+import {
+  isUnresolved,
+  UNRESOLVED_COMPONENT,
+  type NormalizedAddress,
+} from '../../domain/services/address-normalizer.js';
 import type { ValidateMasterLocationCommand } from './validate-master-location.command.js';
 
 export class ValidateMasterLocationUseCase {
@@ -69,20 +79,34 @@ export class ValidateMasterLocationUseCase {
       );
     }
 
-    const address: NormalizedAddress = addressDetailsFromMaster(master);
+    const unparsed = isUnresolved(master.normalizedCity) && master.normalizedAddressLine !== null;
+    const now = new Date();
 
     let geocode: Awaited<ReturnType<GeocoderService['geocode']>>;
     try {
-      geocode = await this.geocoder.geocode(address);
+      if (unparsed) {
+        geocode = await this.geocoder.geocodeText(master.normalizedAddressLine!, {
+          countryCode: isUnresolved(master.normalizedCountry) ? null : master.normalizedCountry,
+        });
+      } else {
+        const address: NormalizedAddress = addressDetailsFromMaster(master);
+        geocode = await this.geocoder.geocode(address);
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       return Result.failure(UseCaseError.infrastructure('GEOCODER_FAILED', message));
     }
 
+    // A best guess on some other road (roadMatched false) gets coordinates but
+    // not that road's components — an operator fixes it from the review queue.
+    const resolved =
+      unparsed && geocode.roadMatched !== false
+        ? withResolvedComponents(master, geocode.address, now)
+        : master;
     const updated = MasterLocation.geocoded(
-      master,
+      resolved,
       { latitude: geocode.latitude, longitude: geocode.longitude },
-      new Date(),
+      now,
     );
 
     const event = new MasterLocationGeocoded(scope, {
@@ -101,4 +125,27 @@ export class ValidateMasterLocationUseCase {
   private authorize(scope: Scope): boolean {
     return scope.permissions.has(ValidateMasterLocationUseCase.requiredPermission);
   }
+}
+
+/**
+ * Store the components the geocoder resolved, keeping the master's address
+ * line + hash. Blank values stay unresolved rather than becoming ''.
+ */
+function withResolvedComponents(
+  master: MasterLocation,
+  resolved: NormalizedAddress,
+  now: Date,
+): MasterLocation {
+  return MasterLocation.updated(master, {
+    normalizedHouseNumber: resolved.houseNumber,
+    normalizedRoad: resolved.road,
+    normalizedSuburb: resolved.suburb,
+    normalizedCity: resolved.city || UNRESOLVED_COMPONENT,
+    normalizedState: resolved.state,
+    normalizedPostalCode: resolved.postalCode,
+    normalizedCountry: resolved.country || master.normalizedCountry,
+    addressHash: master.addressHash,
+    normalizedAddressLine: master.normalizedAddressLine ?? '',
+    now,
+  });
 }

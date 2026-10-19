@@ -14,10 +14,9 @@ const CreateLocationParamsSchema = Type.Object({
 });
 
 /**
- * Slice 8 shape: free-form `address` plus an optional ISO-A3 `countryCode`
- * retry hint. The libpostal sidecar (see compose.yaml) parses the address
- * inside the use case; `raw_*` columns get filled from the parsed
- * components, not from caller-structured fields. The Slice 3 shape is gone.
+ * Free-form `address` plus an optional ISO `countryCode` hint. The address is
+ * not parsed: it is tidied into the matching line, and the structured
+ * components are filled in later from the geocoder.
  */
 const AttributeValueSchema = Type.Union([Type.String(), Type.Array(Type.String())]);
 

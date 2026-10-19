@@ -1,11 +1,9 @@
 # Production-ish compose. Brings up the full pinpoint stack on one host:
 #   - postgres + PostGIS
-#   - libpostal sidecar
 #   - pinpoint server (built from ../../Dockerfile, serves the Vue SPA)
 #
-# `compose.yaml` (peer file) is the dev-mode subset: just postgres + libpostal,
-# and the server runs natively via `pnpm dev`. Use that during day-to-day work
-# and reach for this file when you need an integration test that includes the
+# Day-to-day dev needs no compose: the server runs natively via `pnpm dev`
+# against the fc-dev embedded Postgres. Reach for this file when you need the
 # real built server image (smoke before cutover, demos, etc.).
 #
 # Run from the TS workspace root (flowcatalyst-apps/typescript/) so the
@@ -39,18 +37,6 @@ services:
       timeout: 3s
       retries: 20
 
-  libpostal:
-    image: pelias/libpostal-service:latest
-    container_name: pinpoint-prod-libpostal
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:4400/parse?address=test']
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      # First boot loads ~1.7 GB of libpostal model data — give it room.
-      start_period: 60s
-
   pinpoint:
     container_name: pinpoint-prod-server
     restart: unless-stopped
@@ -62,13 +48,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      libpostal:
-        condition: service_healthy
     environment:
       PORT: '3000'
       HOST: '0.0.0.0'
       DATABASE_URL: postgres://pinpoint:${POSTGRES_PASSWORD:-pinpoint}@postgres:5432/pinpoint
-      PINPOINT_LIBPOSTAL_URL: http://libpostal:4400
       PINPOINT_PUBLIC_BASE_URL: ${PINPOINT_PUBLIC_BASE_URL:-http://localhost:3000}
       FLOWCATALYST_CLIENT_ID: ${FLOWCATALYST_CLIENT_ID:-pinpoint}
       FLOWCATALYST_SIGNING_SECRET: ${FLOWCATALYST_SIGNING_SECRET:-}
@@ -82,8 +65,11 @@ services:
       # PINPOINT_BEDROCK_REGION to the region that hosts Gemma (eu-central-1 is
       # closest to southern Africa; us-east-1/2, us-west-2 also work). Override
       # the endpoint with PINPOINT_BEDROCK_BASE_URL only if AWS changes the host.
-      # provider=ollama keeps the local gemma3 path.
+      # provider=ollama keeps the local gemma3 path. provider=clef is the
+      # Clef decision model over SystemOne (Ollama locally, OpenRouter in prod).
       PINPOINT_LLM_PROVIDER: ${PINPOINT_LLM_PROVIDER:-none}
+      PINPOINT_CLEF_URL: ${PINPOINT_CLEF_URL:-}
+      PINPOINT_CLEF_API_KEY: ${PINPOINT_CLEF_API_KEY:-}
       PINPOINT_LLM_MODEL: ${PINPOINT_LLM_MODEL:-}
       PINPOINT_OLLAMA_URL: ${PINPOINT_OLLAMA_URL:-}
       AWS_REGION: ${AWS_REGION:-}

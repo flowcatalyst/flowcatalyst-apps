@@ -8,7 +8,7 @@
 
 ## 1. What pinpoint does
 
-Pinpoint turns raw customer addresses into **canonical, geocoded master locations** and overlays business meaning on them through **layers** (sales territories, delivery zones, geofences). A customer (`Client`) uploads or creates locations; pinpoint normalises the address (libpostal), deduplicates it against existing master locations (hash + trigram/Jaro-Winkler fuzzy match, optionally LLM-verified), geocodes the master (Photon), confirms it, and associates it with every layer feature whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.
+Pinpoint turns raw customer addresses into **canonical, geocoded master locations** and overlays business meaning on them through **layers** (sales territories, delivery zones, geofences). A customer (`Client`) uploads or creates locations; pinpoint deduplicates the address against existing master locations (exact hash of the tidied line, else the closest candidates checked field by field by the Clef decision model), geocodes the master (Photon), confirms it, and associates it with every layer feature whose boundary contains the point (PostGIS). Every state change is a domain event published to FlowCatalyst through the transactional outbox.
 
 | Fact              | Value                                                                                                                                             |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -17,7 +17,7 @@ Pinpoint turns raw customer addresses into **canonical, geocoded master location
 | Surfaces          | canonical API `/clients/…` + unscoped; BFF `/bff/…` for the SPA — **101 operations**, one OpenAPI 3 contract (`openapi.gen.json`)                 |
 | Domain            | 9 aggregates, **31 use cases**, **33 domain event types**, 34 permissions, 6 platform roles                                                       |
 | Platform          | OIDC login against FlowCatalyst; events via outbox → `fc-outbox-processor`; one scheduled job (`pinpoint-validate-master-locations`, every 5 min) |
-| External services | libpostal sidecar (normalisation), Photon (forward/reverse geocoding), LLM verifier (Bedrock Gemma / Ollama / none)                               |
+| External services | Photon (forward/reverse geocoding), address verifier (Clef decision model via Ollama / OpenRouter; Bedrock Gemma / Ollama chat; none)             |
 
 ## 2. System context
 
@@ -33,9 +33,8 @@ flowchart LR
   end
   pg[(PostgreSQL 18<br/>PostGIS · pg_trgm<br/>outbox_messages · audit_logs)]
   valkey[(Valkey / Redis<br/>sessions)]
-  lp["libpostal sidecar<br/>GET /parse"]
   photon["Photon geocoder<br/>/api · /reverse"]
-  llm[LLM verifier<br/>Bedrock Gemma · Ollama · none]
+  llm[Address verifier<br/>Clef decision model · Bedrock Gemma · Ollama · none]
   subgraph fc[FlowCatalyst platform]
     idp[OIDC issuer · JWKS]
     sched[Scheduled-job runner]
@@ -48,9 +47,8 @@ flowchart LR
   api --> uc
   bff --> uc
   uc -- "aggregate + event + audit<br/>one tx" --> pg
-  uc -- normalise --> lp
   uc -- geocode --> photon
-  uc -- "verify fuzzy match" --> llm
+  uc -- "check candidates" --> llm
   pinpoint -- "validate JWT (JWKS)<br/>login / refresh" --> idp
   pinpoint -- sessions --> valkey
   sched -- "POST every 5 min<br/>HMAC-signed" --> jobs
@@ -68,7 +66,7 @@ apps/pinpoint/
 ├── framework/   @pinpoint/framework  re-exports app-framework + the SDK's non-Effect UoW surface
 ├── server/      @pinpoint/server
 │   └── src/
-│       ├── domain/          aggregates, repository interfaces, domain events, pure services (matcher, hash)
+│       ├── domain/          aggregates, repository interfaces, domain events, pure services (address line + hash, match policy, location matching)
 │       ├── operations/      31 use cases — one directory each
 │       ├── infrastructure/  Drizzle repositories, schema, external-service clients, migrations
 │       ├── api/             routes (canonical + bff), plugins (error mapper, shared schemas, webhook auth)
@@ -173,42 +171,38 @@ Cascades (e.g. `confirm-master-location` validating N children, `delete-client` 
 
 ### 6.1 Create location — the matching pipeline
 
-`POST /clients/{id}/locations` (or `/bff/…`) → `create-location` use case. Constants: fuzzy candidate threshold `similarity ≥ 0.3`, at most 50 candidates; Jaro-Winkler per component after an 80-entry substitution table (street-type abbreviations, Afrikaans → English, ZA city aliases); thresholds from the resolved `MatchingConfig` (defaults: street 0.85, house number 1.0, postal 0.95, state 0.9, address name 0.8, overall 0.85).
+`POST /clients/{id}/locations` (or `/bff/…`) → `create-location` use case. The address is **not parsed**: it is tidied into the matching line (`domain/services/address-line.ts` — lowercase, collapse whitespace, normalise comma segments) and hashed. Matching is `matchLocation` (`domain/services/location-matching.ts`), shared with rematch. Constants: candidates need trigram `similarity ≥ 0.3`; the closest 5 VALIDATED ones are checked. The win threshold is the resolved `MatchingConfig.overallThreshold` (default 0.6); the config's per-field thresholds belonged to the retired component scorer and are ignored.
+
+The verifier (`PINPOINT_LLM_PROVIDER=clef`) asks the Clef decision model to compare house number, street, suburb, postal code, city — and the location names when both sides have one — as match / mismatch / missing, in one SystemOne request; a field verdict below 0.6 counts as missing. `decideAddressMatch` (`domain/services/address-match-policy.ts`) then applies the rule: names match → same; house number + street match **and** postal code or suburb matches **and** no suburb / postal / city conflict → same; otherwise different. A city alone never corroborates (Johannesburg has 18 separate "1st Avenue"s).
 
 ```mermaid
 flowchart TD
   A[Validate client + partition<br/>seed default partition if missing] --> B{externalId already<br/>exists in partition?}
   B -- yes --> B1[Re-emit location:created<br/>no new write]
-  B -- no --> C[libpostal normalise<br/>strict → retry with country → best-effort]
-  C --> D[addressHash = SHA-256 of 7 components<br/>addressLine = house road, suburb, city, country]
-  D --> E[Resolve MatchingConfig<br/>partition → client → global]
+  B -- no --> C[Tidy raw address → address line<br/>addressHash = SHA-256 of the line]
+  C --> E[Resolve MatchingConfig<br/>partition → client → global]
   E --> F{findByHash<br/>VALIDATED master?}
   F -- yes --> M[EXACT_HASH · confidence 1.0]
-  F -- no --> G[findFuzzyCandidates<br/>trigram similarity ≥ 0.3, ≤ 50, VALIDATED only]
-  G --> H{Jaro-Winkler per component<br/>overall ≥ threshold?}
-  H -- no --> N[New MasterLocation PENDING<br/>master_location:created<br/>log created reason=no_match]
-  H -- best candidate --> I{LLM verifier<br/>configured?}
-  I -- "none / null opinion" --> M2[FUZZY · confidence = overall]
-  I -- match_confirmed --> M2
-  I -- rejected --> N2[New MasterLocation PENDING<br/>log created reason=llm_rejected]
+  F -- no --> G[findFuzzyCandidates<br/>trigram ≥ 0.3 · closest 5 VALIDATED]
+  G --> H[Verifier checks each candidate in parallel<br/>per-field verdicts → decideAddressMatch<br/>log llm_verified per candidate]
+  H --> I{best confirmed candidate<br/>confidence ≥ overallThreshold?}
+  I -- yes --> M2[FUZZY · confidence = verifier confidence]
+  I -- "no / verifier off or down" --> N[New MasterLocation PENDING<br/>city UNKNOWN until geocoded<br/>log created reason=no_match / verifier_rejected]
   M --> L
   M2 --> L
-  L[Link location to master<br/>status = VALIDATED if master VALIDATED else PENDING]
-  L --> S{master VALIDATED<br/>with coords?}
-  S -- yes --> T[spatialLookup at master point<br/>replace feature associations<br/>emit location:validated]
-  S -- no --> U[done — emit location:created]
-  N --> U
-  N2 --> U
+  L[Link location to master<br/>status = VALIDATED]
+  L --> T[spatialLookup at master point<br/>replace feature associations<br/>emit location:validated]
+  N --> U[done — emit location:created]
   T --> U
 ```
 
-Every step appends to the master's `processing_log` (`normalized`, `matched` / `created`, `llm_verified`, …). Attributes on the command are inserted on the same transaction.
+With no verifier configured only exact duplicates match; everything else becomes a new master, is geocoded, and an operator fixes it if needed. Every step appends to the master's `processing_log` (`normalized`, `matched` / `created`, `llm_verified`, …). Attributes on the command are inserted on the same transaction.
 
 ### 6.2 Geocode and confirm — the master-location lifecycle
 
 Two use cases move a master forward; the second can run from the UI or from the scheduled batch.
 
-1. **validate-master-location** (permission `master_location:validate`, BFF "geocode"): requires `PENDING`; Photon forward geocode of the normalised address line (rate-limited token bucket, default 5 rps); stores lat/lon + confidence → `GEOCODED`; emits `master_location:geocoded`.
+1. **validate-master-location** (permission `master_location:validate`, BFF "geocode"): requires `PENDING`; Photon forward geocode (rate-limited token bucket, default 5 rps). A master that has only its address line (city `UNKNOWN`) is geocoded from the line as free text, and the components Photon resolved are stored on it — unless Photon only found a best guess on a different road (`roadMatched: false`); the line + hash are kept as the matching key. A master with operator-set components is geocoded from them. Stores lat/lon + confidence → `GEOCODED`; emits `master_location:geocoded`. The geocoder never trusts Photon's top hit blindly: it asks for 5 candidates, keeps the first on the requested road, and retries looser queries (suburb + postal dropped, then house number, then city — near the best guess) before falling back.
 2. **confirm-master-location** (permission `master_location:confirm`, BFF "validate"): requires coordinates; runs `spatialLookup` at the master's point, replaces `location_feature_associations` for **every child location**, flips children to `VALIDATED`, master → `VALIDATED` with `validatedAt`; emits `master_location:validated` + one `location:validated` (with `layerProperties[]`) per child; logs `validated`.
 
 Operator shortcuts in the BFF: **reverse-geocode** (Photon `/reverse`, read-only suggestion) and **confirm-geocode** (`confirm-master-location-geocode` use case: operator-supplied components + coordinates applied in one step — hash and address line recomputed, status → `GEOCODED`, `master_location:geocode-confirmed` emitted — then `confirm-master-location`).
@@ -243,7 +237,7 @@ The job is declared in `server/src/flowcatalyst/scheduled-jobs.ts` and registere
 
 ### 6.4 Rematch
 
-`rematch-location` sets a new `matchAddress` and re-runs normalisation + matching. A `VALIDATED` match re-points the location and validates it (spatial associations, `location:validated`); otherwise a new `PENDING` master is created. The previous master is deleted only if it was `PENDING` **and** has no other children. Emits `location:rematched { previousMasterLocationId, masterLocationId, … }`.
+`rematch-location` sets a new `matchAddress` and re-runs matching (`matchLocation`, as in §6.1). A `VALIDATED` match re-points the location and validates it (spatial associations, `location:validated`); otherwise a new `PENDING` master is created. The previous master is deleted only if it was `PENDING` **and** has no other children. Emits `location:rematched { previousMasterLocationId, masterLocationId, … }`.
 
 ### 6.5 Spatial lookup and feature association
 
@@ -325,8 +319,6 @@ flowchart TB
   alb["Shared ALB<br/>host rule pinpoint.inhanceapps.com"] --> task
   subgraph task[ECS task — EC2 bridge, ARM64]
     pp["pinpoint container 0<br/>node dist/server.js :3000<br/>serves SPA from PINPOINT_WEB_DIST_DIR"]
-    lp["libpostal sidecar :4400"]
-    pp -- "GET /parse" --> lp
   end
   subgraph photon[Photon service — single replica]
     ph["Photon :2322<br/>southern-Africa index on EFS"]
@@ -334,13 +326,13 @@ flowchart TB
   pp -- "Cloud Map DNS" --> ph
   pp --> rds[("RDS Postgres<br/>database pinpoint · role pinpoint_server<br/>PostGIS + pg_trgm in public")]
   pp --> vk[("ElastiCache Valkey<br/>PINPOINT_SESSION_DRIVER=redis · rediss://")]
-  pp -- "task-role bearer token" --> br["Bedrock mantle<br/>Gemma 4 (eu-central-1)"]
+  pp -- "POST /v1/systemone<br/>PINPOINT_CLEF_API_KEY" --> or["OpenRouter<br/>cloudflare/clef-flash"]
   pp <--> fc[FlowCatalyst platform<br/>OIDC · scheduled jobs · outbox processor]
 ```
 
 - **Image**: multi-stage `node:24-alpine`; builds SPA + server workspaces; runtime `node --conditions=compiled dist/server.js`; `/health` for the ALB.
 - **Migrations on boot** when `PINPOINT_DB_AUTO_MIGRATE=true`: the SDK's `outbox_messages` DDL, then Drizzle migrations, serialised across replicas with `pg_advisory_lock`.
-- **Local / compose**: `compose.yaml` runs only the libpostal sidecar (DB = fc-dev's embedded Postgres on `:15432`); `compose.prod.yaml` is a self-contained single-host stack (PostGIS container + libpostal + pinpoint, public Photon, memory sessions) — a fallback topology, not the ECS one. `photon/` holds the Nominatim → Photon index build for ZA/NA/BW/ZW/MZ/LS/SZ.
+- **Local**: no compose needed — DB = fc-dev's embedded Postgres on `:15432`, the verifier is a local Ollama running Clef (`clef/Modelfile`); `compose.prod.yaml` is a self-contained single-host stack (PostGIS container + pinpoint, public Photon, memory sessions) — a fallback topology, not the ECS one. `photon/` holds the Nominatim → Photon index build for ZA/NA/BW/ZW/MZ/LS/SZ.
 
 ## 11. Data, indexes and migrations
 
@@ -352,34 +344,33 @@ flowchart TB
 | Dedup                  | `idx_locations_address_hash` (client, partition, hash), partial unique `idx_locations_external_id`; `master_locations.address_hash`                                                                                                                                                     |
 | Outbox / audit         | `outbox_messages` (SDK DDL) + `audit_logs` (app-framework), written in the use-case tx                                                                                                                                                                                                  |
 | Sessions               | `sessions` table when `PINPOINT_SESSION_DRIVER=postgres`                                                                                                                                                                                                                                |
-| Migrations             | `server/drizzle/*` (6 folders); `pnpm db:generate` from the Drizzle schema; seed migrations via `drizzle-kit generate --custom`                                                                                                                                                         |
+| Migrations             | `server/drizzle/*` (8 folders; `…_address_line_hash` rehashed rows when matching left libpostal); `pnpm db:generate` from the Drizzle schema; seed migrations via `drizzle-kit generate --custom`                                                                                       |
 
 ## 12. Configuration reference
 
-| Variable                                                                                                                                               | Purpose                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `PORT`, `HOST`, `LOG_LEVEL`                                                                                                                            | Fastify listen + Pino level                                                      |
-| `PINPOINT_PUBLIC_BASE_URL`                                                                                                                             | browser-facing base; OIDC redirect base; scheduled-job `targetUrl` base          |
-| `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (+ `PINPOINT_DB_SSL=require\|no-verify`)                                           | Postgres connection (prod: dedicated `pinpoint` DB, static non-rotated password) |
-| `PINPOINT_DB_SCHEMA` (`public`), `PINPOINT_DB_AUTO_MIGRATE`                                                                                            | search_path pin; run migrations on boot                                          |
-| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SCOPES`, `OIDC_AUDIENCE`                                         | OIDC (unset issuer = OIDC off)                                                   |
-| `PINPOINT_AUTH_DEV_FALLBACK`, `PINPOINT_AUTH_POST_LOGIN_REDIRECT`                                                                                      | `x-user-id` dev identity (never in prod); post-login path                        |
-| `PINPOINT_SESSION_DRIVER` (`memory\|redis\|postgres`), `PINPOINT_SESSION_REDIS_URL`                                                                    | session store                                                                    |
-| `PINPOINT_LIBPOSTAL_URL`                                                                                                                               | libpostal sidecar (`http://localhost:4400`)                                      |
-| `PINPOINT_GEOCODING_API_URL`, `PINPOINT_GEOCODING_RATE_LIMIT`                                                                                          | Photon base URL; token-bucket rps (5)                                            |
+| Variable                                                                                                                                                                                                   | Purpose                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `PORT`, `HOST`, `LOG_LEVEL`                                                                                                                                                                                | Fastify listen + Pino level                                                      |
+| `PINPOINT_PUBLIC_BASE_URL`                                                                                                                                                                                 | browser-facing base; OIDC redirect base; scheduled-job `targetUrl` base          |
+| `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (+ `PINPOINT_DB_SSL=require\|no-verify`)                                                                                               | Postgres connection (prod: dedicated `pinpoint` DB, static non-rotated password) |
+| `PINPOINT_DB_SCHEMA` (`public`), `PINPOINT_DB_AUTO_MIGRATE`                                                                                                                                                | search_path pin; run migrations on boot                                          |
+| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SCOPES`, `OIDC_AUDIENCE`                                                                                             | OIDC (unset issuer = OIDC off)                                                   |
+| `PINPOINT_AUTH_DEV_FALLBACK`, `PINPOINT_AUTH_POST_LOGIN_REDIRECT`                                                                                                                                          | `x-user-id` dev identity (never in prod); post-login path                        |
+| `PINPOINT_SESSION_DRIVER` (`memory\|redis\|postgres`), `PINPOINT_SESSION_REDIS_URL`                                                                                                                        | session store                                                                    |
+| `PINPOINT_GEOCODING_API_URL`, `PINPOINT_GEOCODING_RATE_LIMIT`                                                                                                                                              | Photon base URL; token-bucket rps (5)                                            |
 | `PINPOINT_LLM_PROVIDER` (`none\|bedrock\|ollama\|clef`), `PINPOINT_LLM_MODEL`, `PINPOINT_BEDROCK_REGION`, `PINPOINT_BEDROCK_BASE_URL`, `PINPOINT_OLLAMA_URL`, `PINPOINT_CLEF_URL`, `PINPOINT_CLEF_API_KEY` | address-match verifier (`clef`: Ollama locally, OpenRouter in prod)              |
-| `FLOWCATALYST_APPLICATION_CODE` (`pinpoint`), `FLOWCATALYST_SIGNING_SECRET`, `PINPOINT_DISPATCH_POOL`                                                  | outbox tenant; webhook HMAC; dispatch pool code                                  |
-| `FLOWCATALYST_URL`, `FLOWCATALYST_API_CLIENT_ID`, `FLOWCATALYST_API_CLIENT_SECRET`, `FLOWCATALYST_REMOVE_UNLISTED`, `PINPOINT_SCHEMA_SYNC`             | `flowcatalyst:sync` script only                                                  |
-| `PINPOINT_WEB_DIST_DIR`                                                                                                                                | serve the built SPA from the server (prod image sets it)                         |
+| `FLOWCATALYST_APPLICATION_CODE` (`pinpoint`), `FLOWCATALYST_SIGNING_SECRET`, `PINPOINT_DISPATCH_POOL`                                                                                                      | outbox tenant; webhook HMAC; dispatch pool code                                  |
+| `FLOWCATALYST_URL`, `FLOWCATALYST_API_CLIENT_ID`, `FLOWCATALYST_API_CLIENT_SECRET`, `FLOWCATALYST_REMOVE_UNLISTED`, `PINPOINT_SCHEMA_SYNC`                                                                 | `flowcatalyst:sync` script only                                                  |
+| `PINPOINT_WEB_DIST_DIR`                                                                                                                                                                                    | serve the built SPA from the server (prod image sets it)                         |
 
 ## 13. Testing and tooling
 
-- **Unit** (`pnpm test`, 189): matcher, hash/normaliser, verifier parsing, auth helpers, shared-schema guard.
-- **Integration** (`pnpm test:integration`, 127, Docker): testcontainers PostGIS + Redis, migrations applied from `server/drizzle`, one test per use case through the real `runWrite`, repository tests (incl. search + count), OIDC end-to-end against a fake IdP, session stores.
+- **Unit** (`pnpm test`, 232): geocoder ladder, address line + hash, match policy, verifiers (Clef, Ollama, Bedrock), auth helpers, shared-schema guard.
+- **Integration** (`pnpm test:integration`, 152, Docker): testcontainers PostGIS + Redis, migrations applied from `server/drizzle`, one test per use case through the real `runWrite`, repository tests (incl. search + count), OIDC end-to-end against a fake IdP, session stores.
 - **Typecheck** `tsc -p tsconfig.test.json` covers `src`, `test`, `scripts`. **Lint/format** via Vite+ (`pnpm check` at the workspace root).
 - **Docs** `pnpm --filter @pinpoint/server docs:architecture` — parse-checks every Mermaid block in `docs/architecture.md` and regenerates `docs/architecture.html`; edit the `.md`, rebuild, commit both, republish the Artifact (same URL).
 - **Contract** `pnpm openapi:pinpoint` / `:check` (server spec → web types → flows types); **platform** `pnpm flowcatalyst:sync` (definitions + event schemas + the OpenAPI spec + these docs pages; `-- --docs-only` for the last two); **DB** `db:init`, `db:generate`, `db:migrate`; **dev** `pnpm dev:pinpoint` (server `:3100` + vite `:5173` proxying `/bff /api /auth /jobs`).
-- **Flow walkthrough** `pnpm flows:pinpoint` (`apps/pinpoint/flows`): drives a running server end to end through the typed client with a seeded Cape Town dataset — every flow in §6 narrated with assertions, `--seed-only` for SPA exploration, `--cleanup`, `--base-url` for any environment (smoke test). Needs `PINPOINT_AUTH_DEV_FALLBACK=true` on the server, libpostal up; Photon optional (falls back to operator confirm-geocode).
+- **Flow walkthrough** `pnpm flows:pinpoint` (`apps/pinpoint/flows`): drives a running server end to end through the typed client with a seeded Cape Town dataset — every flow in §6 narrated with assertions, `--seed-only` for SPA exploration, `--cleanup`, `--base-url` for any environment (smoke test). Needs `PINPOINT_AUTH_DEV_FALLBACK=true` on the server and `PINPOINT_LLM_PROVIDER=clef` for the fuzzy step; Photon optional (falls back to operator confirm-geocode).
 
 ## 14. Known gaps and divergences
 

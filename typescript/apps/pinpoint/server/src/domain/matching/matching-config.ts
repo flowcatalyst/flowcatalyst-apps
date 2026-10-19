@@ -5,8 +5,13 @@ import type { MatchingConfigId } from './ids.js';
 export const MATCHING_CONFIG_TYPE = 'MatchingConfig' as const;
 
 /**
- * Per-scope fuzzy / spatial / textual thresholds. Mirror of the Rust
- * `MatchingConfig` entity (pinpoint-domain/entities/matching_config.rs).
+ * Per-scope matching thresholds. Mirror of the Rust `MatchingConfig` entity
+ * (pinpoint-domain/entities/matching_config.rs).
+ *
+ * Since matching moved to the decision model (`location-matching.ts`), only
+ * `overallThreshold` is read: the minimum verifier confidence for a confirmed
+ * candidate to win. The per-field thresholds belonged to the retired component
+ * scorer; they are kept for API compatibility and are ignored.
  *
  * Resolution precedence: (client, partition) → (client, NULL) →
  * (NULL, NULL = global default). The global default is seeded with
@@ -32,7 +37,7 @@ export const MATCHING_CONFIG_DEFAULTS = {
   postalCodeThreshold: 0.95,
   stateThreshold: 0.9,
   addressNameThreshold: 0.8,
-  overallThreshold: 0.85,
+  overallThreshold: 0.6,
 } as const;
 
 export interface MatchingConfigThresholdUpdate {

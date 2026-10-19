@@ -1,23 +1,21 @@
 /**
- * Full create-location pipeline — port of Rust `create_location.rs`.
+ * Full create-location pipeline.
  *
- * Steps (unchanged from the slice-8 rewrite):
+ * Steps:
  *   1. Validate client (+ partition if provided).
  *   2. Idempotent external_id dedup.
- *   3. Normalize via libpostal; retry with country_code on failure.
- *   4. Resolve matching config for (client, partition).
- *   5. Exact hash match against VALIDATED masters.
- *   6. Fuzzy candidates via pg_trgm.
- *   7. Algorithmic matcher.
- *   8. Optional LLM verifier on fuzzy matches.
- *   9a. Match → create Location pointing at matched master (+ optional
- *       LocationValidated if master is VALIDATED).
- *   9b. No match → create new MasterLocation (PENDING) + Location.
- *  10. processing_log rows throughout (fire-and-forget).
- *  11. Persist attributes if the command carried any.
+ *   3. Tidy the raw address into the matching line + hash. No parse: the
+ *      structured components arrive later, from the geocoder.
+ *   4. Match against VALIDATED masters (`matchLocation`): exact hash, else the
+ *      closest candidates checked by the address verifier, best confirmed
+ *      match at or above the config's `overallThreshold`.
+ *   5a. Match → create Location pointing at the matched master + LocationValidated.
+ *   5b. No match → create new MasterLocation (PENDING, geocoded later) + Location.
+ *   6. processing_log rows throughout (fire-and-forget).
+ *   7. Persist attributes if the command carried any.
  *
- * Repo deps + UoW + registry come via constructor; the two non-repo
- * service deps (AddressNormalizer, AddressVerifier) sit alongside them.
+ * Repo deps + UoW + registry come via constructor; the address verifier sits
+ * alongside them.
  */
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
@@ -50,15 +48,10 @@ import { LocationCreated } from '../../domain/locations/events/location-created.
 import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
 import { LocationValidated } from '../../domain/locations/events/location-validated.event.js';
 import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
-import { findMatch } from '../../domain/services/address-matcher.js';
 import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
-import {
-  addressHash as computeAddressHash,
-  normalizeWithFallback,
-  toAddressLine,
-  type AddressNormalizer,
-  type NormalizedAddress,
-} from '../../domain/services/address-normalizer.js';
+import { UNRESOLVED_COMPONENT } from '../../domain/services/address-normalizer.js';
+import { addressLineHash, tidyAddressLine } from '../../domain/services/address-line.js';
+import { matchLocation } from '../../domain/services/location-matching.js';
 import type { Location } from '../../domain/locations/location.js';
 import type { AddressVerifier } from '../../domain/services/address-verifier.js';
 import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
@@ -74,9 +67,6 @@ import {
 } from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
-const FUZZY_THRESHOLD = 0.3;
-const FUZZY_LIMIT = 50;
-
 export class CreateLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsLocationCreate;
 
@@ -91,7 +81,6 @@ export class CreateLocationUseCase {
     private readonly layerFeatures: LayerFeatureRepository,
     private readonly locationAttributes: LocationAttributeRepository,
     private readonly processingLog: ProcessingLogRepository,
-    private readonly addressNormalizer: AddressNormalizer,
     private readonly addressVerifier: AddressVerifier,
   ) {}
 
@@ -123,8 +112,7 @@ export class CreateLocationUseCase {
       );
     }
 
-    // Validate attributes early so a bad payload fails before we hit
-    // libpostal / fuzzy matching.
+    // Validate attributes early so a bad payload fails before matching.
     const attributeInputs = command.attributes ?? [];
     const seenAttrKeys = new Set<string>();
     for (const a of attributeInputs) {
@@ -214,163 +202,82 @@ export class CreateLocationUseCase {
       }
     }
 
-    // Step 3: normalize. Strict passes first (best-quality parse, using the
-    // country-code hint as a retry). If libpostal can't identify the city /
-    // country, fall back to a best-effort pass so the address is still INGESTED
-    // (it lands PENDING for geocoding/review) rather than dropped. A genuine
-    // libpostal outage (HTTP / timeout) still throws in best-effort mode and
-    // surfaces as ADDRESS_NORMALIZATION_FAILED.
-    let normalized: NormalizedAddress;
-    let normalizationBestEffort: boolean;
-    try {
-      const outcome = await normalizeWithFallback(this.addressNormalizer, address, countryCode);
-      normalized = outcome.normalized;
-      normalizationBestEffort = outcome.bestEffort;
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
-      return Result.failure(UseCaseError.infrastructure('ADDRESS_NORMALIZATION_FAILED', message));
-    }
-
-    const addressHash = computeAddressHash(normalized);
-    const addressLine = toAddressLine(normalized);
+    // Step 3: the tidied line is the matching key. City is unknown until the
+    // geocoder resolves it; the country comes from the hint when there is one.
+    const addressLine = tidyAddressLine(address);
+    const addressHash = addressLineHash(addressLine);
+    const country = countryCode ? countryCode.toUpperCase() : UNRESOLVED_COMPONENT;
 
     const config = await this.matchingConfigs.resolve(clientId, partitionId);
-
-    const hashHit = await this.masters.findByHash(clientId, partitionId, addressHash);
-    const validatedHashHit = hashHit && hashHit.status === 'VALIDATED' ? hashHit : null;
-
-    const fuzzyCandidates = await this.masters.findFuzzyCandidates(
-      clientId,
-      partitionId,
-      addressLine,
-      FUZZY_THRESHOLD,
-      FUZZY_LIMIT,
-    );
-
-    const candidates = [
-      ...(validatedHashHit ? [validatedHashHit] : []),
-      ...fuzzyCandidates.filter(
-        (c) => c.status === 'VALIDATED' && (!validatedHashHit || c.id !== validatedHashHit.id),
-      ),
-    ];
-
-    let matchResult = findMatch(normalized, addressHash, candidates, config);
 
     const now = new Date();
     const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
 
-    // Step 8: optional LLM verifier for fuzzy matches. The verdict is
-    // recorded on the candidate master's processing log (step
-    // `llm_verified`) whether it confirms, rejects, or abstains — the
-    // trail is the only place the LLM's reasoning survives.
-    let llmRejectedMasterId: string | null = null;
-    if (matchResult !== null && matchResult.method === 'FUZZY') {
-      const candidate = candidates.find((c) => c.id === matchResult!.masterLocationId);
-      if (candidate) {
-        const candidateLine =
-          candidate.normalizedAddressLine !== null
-            ? candidate.normalizedAddressLine
-            : toAddressLine({
-                houseNumber: candidate.normalizedHouseNumber,
-                road: candidate.normalizedRoad,
-                suburb: candidate.normalizedSuburb,
-                city: candidate.normalizedCity,
-                state: candidate.normalizedState,
-                postalCode: candidate.normalizedPostalCode,
-                country: candidate.normalizedCountry,
-              });
-        const candidateNames = (await this.locations.listByMaster(candidate.id))
-          .map((l) => l.name)
-          .filter((n): n is string => n !== null);
-        const verdict = await this.addressVerifier.verify(addressLine, candidateLine, {
-          inputName: name,
-          candidateNames,
-        });
-        try {
-          await this.processingLog.append(candidate.id, ProcessingStep.LlmVerified, {
-            input_address: addressLine,
-            candidate_address: candidateLine,
-            location_id: locationId,
-            algorithmic_confidence: matchResult.confidence,
-            outcome:
-              verdict === null ? 'no_opinion' : verdict.match_confirmed ? 'confirmed' : 'rejected',
-            match_confirmed: verdict?.match_confirmed ?? null,
-            confidence: verdict?.confidence ?? null,
-            reasoning: verdict?.reasoning ?? null,
-          });
-        } catch {
-          // swallow
-        }
-        if (verdict && !verdict.match_confirmed) {
-          llmRejectedMasterId = candidate.id;
-          matchResult = null;
-        }
-      }
-    }
+    // Step 4: match.
+    const outcome = await matchLocation(
+      {
+        masters: this.masters,
+        locations: this.locations,
+        verifier: this.addressVerifier,
+        processingLog: this.processingLog,
+      },
+      {
+        clientId,
+        partitionId,
+        addressLine,
+        addressHash,
+        name,
+        locationId,
+        threshold: config.overallThreshold,
+      },
+    );
+    const matchResult = outcome.match;
+
+    const unparsed = {
+      rawSuburb: null,
+      rawCity: UNRESOLVED_COMPONENT,
+      rawState: null,
+      rawPostalCode: null,
+      rawCountry: country,
+      normalizedHouseNumber: null,
+      normalizedRoad: null,
+      normalizedSuburb: null,
+      normalizedCity: null,
+      normalizedState: null,
+      normalizedPostalCode: null,
+      normalizedCountry: countryCode ? country : null,
+    } as const;
 
     if (matchResult !== null) {
-      const matchedMaster = candidates.find((c) => c.id === matchResult!.masterLocationId);
+      const matchedMaster = matchResult.master;
 
       // processing_log writes are fire-and-forget — log failures must
       // not block the pipeline.
       try {
-        await this.processingLog.append(
-          asMasterLocationId(matchResult.masterLocationId),
-          ProcessingStep.Normalized,
-          {
-            input: address,
-            house_number: normalized.houseNumber,
-            road: normalized.road,
-            suburb: normalized.suburb,
-            city: normalized.city,
-            state: normalized.state,
-            postal_code: normalized.postalCode,
-            country: normalized.country,
-            address_hash: addressHash,
-            best_effort: normalizationBestEffort,
-          },
-        );
-      } catch {
-        // swallow
-      }
-      try {
-        await this.processingLog.append(
-          asMasterLocationId(matchResult.masterLocationId),
-          ProcessingStep.Matched,
-          {
-            method: matchResult.method,
-            confidence: matchResult.confidence,
-            location_id: locationId,
-          },
-        );
+        await this.processingLog.append(matchedMaster.id, ProcessingStep.Matched, {
+          method: matchResult.method,
+          confidence: matchResult.confidence,
+          location_id: locationId,
+          address_line: addressLine,
+        });
       } catch {
         // swallow
       }
 
-      const masterValidated = matchedMaster !== undefined && matchedMaster.status === 'VALIDATED';
+      // Candidates are VALIDATED-only (see matchLocation).
+      const masterValidated = matchedMaster.status === 'VALIDATED';
 
       const location: Location = {
         id: locationId,
         clientId,
         partitionId,
-        masterLocationId: asMasterLocationId(matchResult.masterLocationId),
+        masterLocationId: matchedMaster.id,
         externalId,
         name,
         rawAddressLine1: address,
         matchAddress: address,
         rawAddressLine2: null,
-        rawSuburb: normalized.suburb,
-        rawCity: normalized.city,
-        rawState: normalized.state,
-        rawPostalCode: normalized.postalCode,
-        rawCountry: normalized.country,
-        normalizedHouseNumber: normalized.houseNumber,
-        normalizedRoad: normalized.road,
-        normalizedSuburb: normalized.suburb,
-        normalizedCity: normalized.city,
-        normalizedState: normalized.state,
-        normalizedPostalCode: normalized.postalCode,
-        normalizedCountry: normalized.country,
+        ...unparsed,
         addressHash,
         matchConfidence: matchResult.confidence,
         matchMethod: matchResult.method,
@@ -383,7 +290,7 @@ export class CreateLocationUseCase {
         locationId: location.id,
         clientId: location.clientId,
         partitionId: location.partitionId,
-        masterLocationId: matchResult.masterLocationId,
+        masterLocationId: matchedMaster.id,
         externalId: location.externalId,
         rawCity: location.rawCity,
         rawCountry: location.rawCountry,
@@ -413,12 +320,7 @@ export class CreateLocationUseCase {
         await this.locationAttributes.insertMany(attrs, tx);
       }
 
-      if (
-        masterValidated &&
-        matchedMaster &&
-        matchedMaster.latitude !== null &&
-        matchedMaster.longitude !== null
-      ) {
+      if (masterValidated && matchedMaster.latitude !== null && matchedMaster.longitude !== null) {
         const lat = matchedMaster.latitude;
         const lon = matchedMaster.longitude;
         const hits = await this.layerFeatures.spatialLookup({
@@ -437,7 +339,7 @@ export class CreateLocationUseCase {
         const validatedEvent = new LocationValidated(scope, {
           locationId: location.id,
           clientId: location.clientId,
-          masterLocationId: matchResult.masterLocationId,
+          masterLocationId: matchedMaster.id,
           latitude: lat,
           longitude: lon,
           address: addressDetailsFromMaster(matchedMaster),
@@ -464,13 +366,13 @@ export class CreateLocationUseCase {
       id: masterId,
       clientId,
       partitionId,
-      normalizedHouseNumber: normalized.houseNumber,
-      normalizedRoad: normalized.road,
-      normalizedSuburb: normalized.suburb,
-      normalizedCity: normalized.city,
-      normalizedState: normalized.state,
-      normalizedPostalCode: normalized.postalCode,
-      normalizedCountry: normalized.country,
+      normalizedHouseNumber: null,
+      normalizedRoad: null,
+      normalizedSuburb: null,
+      normalizedCity: UNRESOLVED_COMPONENT,
+      normalizedState: null,
+      normalizedPostalCode: null,
+      normalizedCountry: country,
       addressHash,
       normalizedAddressLine: addressLine,
       now,
@@ -481,8 +383,8 @@ export class CreateLocationUseCase {
       clientId,
       partitionId,
       addressHash,
-      normalizedCity: normalized.city,
-      normalizedCountry: normalized.country,
+      normalizedCity: UNRESOLVED_COMPONENT,
+      normalizedCountry: country,
     });
     const masterCommit = await commitAggregate(
       this.uow,
@@ -500,26 +402,18 @@ export class CreateLocationUseCase {
     try {
       await this.processingLog.append(masterId, ProcessingStep.Normalized, {
         input: address,
-        house_number: normalized.houseNumber,
-        road: normalized.road,
-        suburb: normalized.suburb,
-        city: normalized.city,
-        state: normalized.state,
-        postal_code: normalized.postalCode,
-        country: normalized.country,
+        address_line: addressLine,
         address_hash: addressHash,
-        best_effort: normalizationBestEffort,
+        country_hint: countryCode,
       });
     } catch {
       // swallow
     }
     try {
       await this.processingLog.append(masterId, ProcessingStep.Created, {
-        reason: llmRejectedMasterId !== null ? 'llm_rejected' : 'no_match',
-        candidates_checked: candidates.length,
-        ...(llmRejectedMasterId !== null
-          ? { rejected_master_location_id: llmRejectedMasterId }
-          : {}),
+        reason: outcome.rejectedMasterIds.length > 0 ? 'verifier_rejected' : 'no_match',
+        candidates_checked: outcome.candidatesChecked,
+        rejected_master_location_ids: outcome.rejectedMasterIds,
       });
     } catch {
       // swallow
@@ -535,18 +429,7 @@ export class CreateLocationUseCase {
       rawAddressLine1: address,
       matchAddress: address,
       rawAddressLine2: null,
-      rawSuburb: normalized.suburb,
-      rawCity: normalized.city,
-      rawState: normalized.state,
-      rawPostalCode: normalized.postalCode,
-      rawCountry: normalized.country,
-      normalizedHouseNumber: normalized.houseNumber,
-      normalizedRoad: normalized.road,
-      normalizedSuburb: normalized.suburb,
-      normalizedCity: normalized.city,
-      normalizedState: normalized.state,
-      normalizedPostalCode: normalized.postalCode,
-      normalizedCountry: normalized.country,
+      ...unparsed,
       addressHash,
       matchConfidence: null,
       matchMethod: null,

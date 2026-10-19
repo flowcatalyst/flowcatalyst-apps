@@ -8,15 +8,11 @@
  * happily matches all three, so this only bites against self-hosted indexes —
  * which made it an unpleasant one to track down.
  *
- * libpostal echoes back whatever country token it was given, so an address
- * ingested with `countryCode: "ZAF"` stores `normalizedCountry = "zaf"` and
- * would otherwise never geocode.
+ * A location ingested with `countryCode: "ZAF"` stores `normalizedCountry =
+ * "ZAF"` and would otherwise never geocode.
  *
- * This deliberately converts at QUERY time only. `normalizedCountry` is part of
- * `addressHash`, which must stay byte-compatible with the Rust pinpoint, so
- * rewriting stored components would break exact-match dedup across both
- * implementations. The stored value keeps libpostal's output; only the string
- * handed to the geocoder is widened.
+ * This deliberately converts at QUERY time only: the stored value keeps the
+ * code the caller sent; only the string handed to the geocoder is widened.
  *
  * The table is read once and memoized — 177 static rows that never change
  * within a process lifetime.

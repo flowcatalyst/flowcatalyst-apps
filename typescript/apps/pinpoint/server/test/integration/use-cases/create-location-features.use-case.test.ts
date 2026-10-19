@@ -13,34 +13,15 @@ import {
   MASTER_LOCATION_ID_PREFIX,
 } from '../../../src/domain/locations/ids.js';
 import { asPartitionId } from '../../../src/domain/tenancy/ids.js';
-import {
-  addressHash as computeAddressHash,
-  toAddressLine,
-  type NormalizedAddress,
-} from '../../../src/domain/services/address-normalizer.js';
+import { addressLineHash } from '../../../src/domain/services/address-line.js';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
-import { installFetchMock, jsonResponse, type FetchMock } from '../fetch-mock.js';
+import { installFetchMock, type FetchMock } from '../fetch-mock.js';
 import type { AppContext } from '../../../src/app-context.js';
 import { seedClient, seedLayerWithRadiusFeature } from './_operator-seeds.js';
 
 const CBD = { lat: -33.9249, lon: 18.4241 };
-const PARSE = [
-  { label: 'house_number', value: '12' },
-  { label: 'road', value: 'long street' },
-  { label: 'city', value: 'cape town' },
-  { label: 'postcode', value: '8001' },
-  { label: 'country', value: 'south africa' },
-];
-const NORMALIZED: NormalizedAddress = {
-  houseNumber: '12',
-  road: 'long street',
-  suburb: null,
-  city: 'cape town',
-  state: null,
-  postalCode: '8001',
-  country: 'south africa',
-};
+const ADDRESS_LINE = '12 long street, cape town, 8001';
 
 describe('CreateLocationUseCase — validated master with features (integration)', () => {
   let appContext: AppContext;
@@ -54,8 +35,6 @@ describe('CreateLocationUseCase — validated master with features (integration)
   beforeEach(async () => {
     await cleanDb();
     mock.reset();
-    mock.handle('GET', /\/parse\b/, () => jsonResponse(PARSE));
-    mock.handle('GET', /\/expand\b/, () => jsonResponse(['long street']));
   });
 
   it('EXACT_HASH onto a VALIDATED master → location VALIDATED with feature associations', async () => {
@@ -67,15 +46,15 @@ describe('CreateLocationUseCase — validated master with features (integration)
       id: masterId,
       clientId,
       partitionId: asPartitionId(defaultPartitionId),
-      normalizedHouseNumber: NORMALIZED.houseNumber,
-      normalizedRoad: NORMALIZED.road,
+      normalizedHouseNumber: '12',
+      normalizedRoad: 'long street',
       normalizedSuburb: null,
-      normalizedCity: NORMALIZED.city,
+      normalizedCity: 'cape town',
       normalizedState: null,
-      normalizedPostalCode: NORMALIZED.postalCode,
-      normalizedCountry: NORMALIZED.country,
-      addressHash: computeAddressHash(NORMALIZED),
-      normalizedAddressLine: toAddressLine(NORMALIZED),
+      normalizedPostalCode: '8001',
+      normalizedCountry: 'ZA',
+      addressHash: addressLineHash(ADDRESS_LINE),
+      normalizedAddressLine: ADDRESS_LINE,
       now,
     });
     const validated = MasterLocation.confirmed(

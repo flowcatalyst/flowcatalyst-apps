@@ -1,8 +1,9 @@
 /**
  * Integration test for RematchLocationUseCase — the edit-match-address +
- * re-run-matching flow. Uses the libpostal fetch shim (returning a different
- * parse per address) to drive matching, and seeds a VALIDATED master directly
- * (skipping the Photon geocode step, as create-location's test does).
+ * re-run-matching flow. The stock context's verifier is Noop, so matching here
+ * is exact-hash only (verifier-backed rematch is in create-location-llm-verify).
+ * Seeds a VALIDATED master directly (skipping the Photon geocode step, as
+ * create-location's test does).
  *
  * Covers the three branches + the orphan-cleanup rule:
  *   - rematch to an address that hash-matches a VALIDATED master → re-point +
@@ -17,7 +18,7 @@ import { sql } from 'drizzle-orm';
 import { generateTsid } from '@flowcatalyst/sdk';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
 import { getTestAppContext, runInScope } from '../test-app-context.js';
-import { installFetchMock, jsonResponse, type FetchMock } from '../fetch-mock.js';
+import { installFetchMock, type FetchMock } from '../fetch-mock.js';
 import type { AppContext } from '../../../src/app-context.js';
 import { isSuccess } from '@pinpoint/framework';
 import { MasterLocation } from '../../../src/domain/locations/master-location.js';
@@ -31,33 +32,6 @@ import { asClientId } from '../../../src/domain/tenancy/ids.js';
 
 const ADDR_SF = '548 Market Street, San Francisco';
 const ADDR_CT = '1 Ocean Avenue, Cape Town';
-
-// Distinct parses so the two addresses produce different hashes AND lines with
-// near-zero trigram similarity (so ADDR_CT never fuzzy-matches an SF master).
-function parseFor(address: string): Array<{ label: string; value: string }> {
-  if (/market/i.test(address)) {
-    return [
-      { label: 'house_number', value: '548' },
-      { label: 'road', value: 'market street' },
-      { label: 'city', value: 'san francisco' },
-      { label: 'state', value: 'ca' },
-      { label: 'country', value: 'usa' },
-    ];
-  }
-  return [
-    { label: 'house_number', value: '1' },
-    { label: 'road', value: 'ocean avenue' },
-    { label: 'city', value: 'cape town' },
-    { label: 'country', value: 'south africa' },
-  ];
-}
-
-function installLibpostalMock(mock: FetchMock): void {
-  mock.handle('GET', /\/parse\b/, (url) =>
-    jsonResponse(parseFor(url.searchParams.get('address') ?? '')),
-  );
-  mock.handle('GET', /\/expand\b/, (url) => jsonResponse([url.searchParams.get('address') ?? '']));
-}
 
 describe('RematchLocationUseCase (integration)', () => {
   let appContext: AppContext;
@@ -76,7 +50,6 @@ describe('RematchLocationUseCase (integration)', () => {
   beforeEach(async () => {
     await cleanDb();
     mock.reset();
-    installLibpostalMock(mock);
   });
 
   async function setupClient(): Promise<string> {

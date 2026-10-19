@@ -1,26 +1,20 @@
 /**
- * Integration tests for the LLM-verification leg of the matching pipeline —
- * the `llm_verified` processing-log step added so the verifier's verdict
- * (including its reasoning) survives into the master's trail.
+ * Integration tests for verifier-backed matching (`matchLocation`) through
+ * create-location and rematch-location, with the Clef verifier pointed at a
+ * fetch-mocked SystemOne host. Each test decides the per-field verdicts the
+ * "model" returns; the match rule itself (`decideAddressMatch`) is real.
  *
- * The stock test app context wires the Noop verifier, so this file builds its
- * own AppContext with the Ollama provider pointed at a fetch-mocked
- * `http://ollama.invalid` — the verdict per test is whatever the mock returns.
- *
- * The fuzzy setup: ADDR_A parses WITH a postcode, ADDR_B parses identically
- * but WITHOUT one. Different address hashes (no exact-hash short-circuit),
- * but every compared component scores 1.0 (missing postcode is neutral), so
- * findMatch returns a FUZZY hit and the verifier fires.
+ * Setup: a VALIDATED master is seeded from ADDR_A. ADDR_B is the same place
+ * written differently (different hash → no exact-match shortcut, high trigram
+ * similarity → it is a candidate), so the verifier is consulted.
  *
  * Covers:
- *   - confirmed  → match stands; `llm_verified` (outcome=confirmed) with the
- *     full verdict lands on the matched master's trail.
- *   - rejected   → match dropped; `llm_verified` (outcome=rejected) on the
- *     candidate; fresh master's `created` step says `llm_rejected` and points
- *     back at the rejected candidate.
- *   - provider failure → `llm_verified` (outcome=no_opinion) recorded; the
- *     algorithmic match stands.
- *   - rematch flow → same verdict trail, entries tagged `trigger: 'rematch'`.
+ *   - confirmed  → FUZZY match; `llm_verified` (confirmed) on the master's trail.
+ *   - rejected   → fresh master, `created` reason `verifier_rejected`.
+ *   - provider failure → `no_opinion`; no fallback scorer, so a fresh master.
+ *   - threshold  → a confirmed verdict below the client's threshold doesn't win.
+ *   - best of several → the highest-confidence confirmed candidate wins.
+ *   - rematch    → same trail, entries tagged `trigger: 'rematch'`.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { cleanDb, getDbFixture } from '../db-fixture.js';
@@ -32,60 +26,46 @@ import { MasterLocation } from '../../../src/domain/locations/master-location.js
 import { asMasterLocationId } from '../../../src/domain/locations/ids.js';
 import { ProcessingStep } from '../../../src/domain/locations/processing-log.repository.js';
 
-const ADDR_A = '548 Market Street, San Francisco 94104';
-const ADDR_B = '548 Market Street, San Francisco';
+const ADDR_A = '548 Market Street, South of Market, San Francisco, 94104';
+const ADDR_B = '548 Market St, South of Market, San Francisco';
+const SYSTEMONE = /clef\.invalid\/v1\/systemone/;
 
-const PARSE_A = [
-  { label: 'house_number', value: '548' },
-  { label: 'road', value: 'market street' },
-  { label: 'city', value: 'san francisco' },
-  { label: 'state', value: 'ca' },
-  { label: 'postcode', value: '94104' },
-  { label: 'country', value: 'usa' },
-];
-// Same parse minus the postcode: different hash, fuzzy-identical otherwise.
-const PARSE_B = PARSE_A.filter((c) => c.label !== 'postcode');
+type Verdict = 'match' | 'mismatch' | 'missing';
+const CORROBORATED: Record<string, Verdict> = {
+  house_number: 'match',
+  street: 'match',
+  suburb: 'match',
+  postal_code: 'missing',
+  city: 'match',
+};
+const DIFFERENT_NUMBER: Record<string, Verdict> = { ...CORROBORATED, house_number: 'mismatch' };
 
-// Unrelated address (near-zero trigram similarity to the SF masters).
-const PARSE_CT = [
-  { label: 'house_number', value: '1' },
-  { label: 'road', value: 'ocean avenue' },
-  { label: 'city', value: 'cape town' },
-  { label: 'country', value: 'south africa' },
-];
-
-function parseFor(address: string): Array<{ label: string; value: string }> {
-  if (/ocean/i.test(address)) return PARSE_CT;
-  return address === ADDR_B ? PARSE_B : PARSE_A;
-}
-
-function installLibpostalMock(mock: FetchMock): void {
-  mock.handle('GET', /\/parse\b/, (url) =>
-    jsonResponse(parseFor(url.searchParams.get('address') ?? '')),
+/** A SystemOne response answering every field with `fields[id]` at probability `p`. */
+function systemOne(fields: Record<string, Verdict>, p = 0.9): Response {
+  const answers = Object.fromEntries(
+    Object.entries(fields).map(([id, verdict]) => {
+      const rest = (1 - p) / 2;
+      const probabilities = { match: rest, mismatch: rest, missing: rest, [verdict]: p };
+      return [id, { type: 'choice', choice: verdict, probabilities, confidence: p }];
+    }),
   );
-  mock.handle('GET', /\/expand\b/, (url) => jsonResponse([url.searchParams.get('address') ?? '']));
+  return jsonResponse({ model: 'clef-test', answers });
 }
 
-/** Canned Ollama /api/chat response wrapping a verifier verdict. */
-function ollamaVerdict(verdict: {
-  match_confirmed: boolean;
-  confidence: number;
-  reasoning: string;
-}): Response {
-  return jsonResponse({
-    message: { role: 'assistant', content: JSON.stringify(verdict) },
-    done: true,
-  });
+/** The candidate address a SystemOne request is asking about. */
+function candidateOf(init?: RequestInit): string {
+  const body = JSON.parse(String(init?.body)) as { state: { candidate: { address: string } } };
+  return body.state.candidate.address;
 }
 
-describe('CreateLocationUseCase — LLM verification trail (integration)', () => {
+describe('matchLocation — verifier-backed matching (integration)', () => {
   let appContext: AppContext;
   let mock: FetchMock;
 
   beforeAll(async () => {
     const { db } = await getDbFixture();
-    // Dedicated context: same wiring as test-app-context, but with the Ollama
-    // verifier so the pipeline actually calls the (mocked) LLM.
+    // Same wiring as test-app-context, but with the Clef verifier so matching
+    // actually consults the (mocked) decision model.
     appContext = await createAppContext({
       db,
       clientId: 'test',
@@ -93,12 +73,7 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
       dispatchPoolCode: 'test-pool',
       geocodingApiUrl: 'http://geocoder.invalid',
       geocodingRateLimit: 5,
-      addressVerifier: {
-        provider: 'ollama',
-        baseUrl: 'http://ollama.invalid',
-        model: 'test-model',
-      },
-      libpostalUrl: 'http://libpostal.invalid',
+      addressVerifier: { provider: 'clef', baseUrl: 'http://clef.invalid', model: 'clef-test' },
       auth: {
         oidc: null,
         devFallback: false,
@@ -114,7 +89,6 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
   beforeEach(async () => {
     await cleanDb();
     mock.reset();
-    installLibpostalMock(mock);
   });
 
   async function setupClient(): Promise<string> {
@@ -153,9 +127,9 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
     return appContext.repositories.processingLog.listByMaster(asMasterLocationId(masterId));
   }
 
-  /** Seed a VALIDATED master via ADDR_A, ready to fuzzy-match ADDR_B. */
-  async function seedValidatedMaster(clientId: string): Promise<string> {
-    const a = await createLocation(clientId, ADDR_A);
+  /** Seed a VALIDATED master. No candidates exist yet, so no model call. */
+  async function seedValidatedMaster(clientId: string, address = ADDR_A): Promise<string> {
+    const a = await createLocation(clientId, address);
     await validateMaster(a.masterLocationId);
     return a.masterLocationId;
   }
@@ -163,105 +137,106 @@ describe('CreateLocationUseCase — LLM verification trail (integration)', () =>
   it('records a confirmed verdict on the matched master and keeps the match', async () => {
     const clientId = await setupClient();
     const masterId = await seedValidatedMaster(clientId);
-
-    // Trail rows for the fresh master now land inside the tx (FK fix).
-    const seedTrail = await trailOf(masterId);
-    expect(seedTrail.map((e) => e.step)).toEqual([
-      ProcessingStep.Normalized,
-      ProcessingStep.Created,
-    ]);
-    expect(seedTrail[1]?.data['reason']).toBe('no_match');
-
-    mock.handle('POST', /ollama\.invalid\/api\/chat/, () =>
-      ollamaVerdict({
-        match_confirmed: true,
-        confidence: 0.95,
-        reasoning: 'Same street, number and city; only the postal code is missing.',
-      }),
-    );
+    mock.handle('POST', SYSTEMONE, () => systemOne(CORROBORATED, 0.93));
 
     const b = await createLocation(clientId, ADDR_B);
     expect(b.masterLocationId).toBe(masterId);
 
     const location = await appContext.repositories.locations.findById(b.locationId as never);
     expect(location?.matchMethod).toBe('FUZZY');
+    expect(location?.matchConfidence).toBeCloseTo(0.93, 10);
 
     const trail = await trailOf(masterId);
     const verified = trail.find((e) => e.step === ProcessingStep.LlmVerified);
-    expect(verified).toBeDefined();
     expect(verified?.data['outcome']).toBe('confirmed');
-    expect(verified?.data['match_confirmed']).toBe(true);
-    expect(verified?.data['confidence']).toBe(0.95);
-    expect(verified?.data['reasoning']).toContain('postal code');
+    expect(verified?.data['input_address']).toBe('548 market st, south of market, san francisco');
+    expect(verified?.data['reasoning']).toContain('→ address_corroborated');
     expect(verified?.data['location_id']).toBe(b.locationId);
-    // The verdict precedes the matched entry for the same location.
     expect(trail.map((e) => e.step)).toContain(ProcessingStep.Matched);
   });
 
-  it('records a rejected verdict and creates a fresh master marked llm_rejected', async () => {
+  it('records a rejected verdict and creates a fresh master marked verifier_rejected', async () => {
     const clientId = await setupClient();
     const masterId = await seedValidatedMaster(clientId);
-
-    mock.handle('POST', /ollama\.invalid\/api\/chat/, () =>
-      ollamaVerdict({
-        match_confirmed: false,
-        confidence: 0.85,
-        reasoning: 'The postal codes disagree, so these are different premises.',
-      }),
-    );
+    mock.handle('POST', SYSTEMONE, () => systemOne(DIFFERENT_NUMBER));
 
     const b = await createLocation(clientId, ADDR_B);
     expect(b.masterLocationId).not.toBe(masterId);
 
-    // Verdict lives on the candidate the LLM vetoed.
-    const candidateTrail = await trailOf(masterId);
-    const verified = candidateTrail.find((e) => e.step === ProcessingStep.LlmVerified);
+    const verified = (await trailOf(masterId)).find((e) => e.step === ProcessingStep.LlmVerified);
     expect(verified?.data['outcome']).toBe('rejected');
-    expect(verified?.data['reasoning']).toContain('different premises');
+    expect(verified?.data['reasoning']).toContain('house_number=mismatch');
 
-    // The fresh master's created step says why it exists.
-    const newTrail = await trailOf(b.masterLocationId);
-    expect(newTrail.map((e) => e.step)).toEqual([
-      ProcessingStep.Normalized,
-      ProcessingStep.Created,
-    ]);
-    const created = newTrail.find((e) => e.step === ProcessingStep.Created);
-    expect(created?.data['reason']).toBe('llm_rejected');
-    expect(created?.data['rejected_master_location_id']).toBe(masterId);
+    const created = (await trailOf(b.masterLocationId)).find(
+      (e) => e.step === ProcessingStep.Created,
+    );
+    expect(created?.data['reason']).toBe('verifier_rejected');
+    expect(created?.data['rejected_master_location_ids']).toEqual([masterId]);
   });
 
-  it('records no_opinion on provider failure and lets the algorithmic match stand', async () => {
+  it('records no_opinion on provider failure and does not match — there is no fallback scorer', async () => {
     const clientId = await setupClient();
     const masterId = await seedValidatedMaster(clientId);
-
-    mock.handle('POST', /ollama\.invalid\/api\/chat/, () =>
-      Promise.resolve(new Response('boom', { status: 500 })),
-    );
+    mock.handle('POST', SYSTEMONE, () => Promise.resolve(new Response('boom', { status: 500 })));
 
     const b = await createLocation(clientId, ADDR_B);
-    expect(b.masterLocationId).toBe(masterId);
+    expect(b.masterLocationId).not.toBe(masterId);
 
-    const trail = await trailOf(masterId);
-    const verified = trail.find((e) => e.step === ProcessingStep.LlmVerified);
+    const verified = (await trailOf(masterId)).find((e) => e.step === ProcessingStep.LlmVerified);
     expect(verified?.data['outcome']).toBe('no_opinion');
-    expect(verified?.data['match_confirmed']).toBeNull();
-    expect(verified?.data['reasoning']).toBeNull();
+    const created = (await trailOf(b.masterLocationId)).find(
+      (e) => e.step === ProcessingStep.Created,
+    );
+    expect(created?.data['reason']).toBe('no_match');
+  });
+
+  it("does not match a confirmed verdict below the client's threshold", async () => {
+    const clientId = await setupClient();
+    const masterId = await seedValidatedMaster(clientId);
+    const raised = await runInScope({ sub: 'prn_test' }, () =>
+      appContext.runWrite(() =>
+        appContext.useCases.updateMatchingConfig.execute({ clientId, overallThreshold: 0.95 }),
+      ),
+    );
+    expect(isSuccess(raised)).toBe(true);
+    mock.handle('POST', SYSTEMONE, () => systemOne(CORROBORATED, 0.9));
+
+    const b = await createLocation(clientId, ADDR_B);
+    expect(b.masterLocationId).not.toBe(masterId);
+    const verified = (await trailOf(masterId)).find((e) => e.step === ProcessingStep.LlmVerified);
+    expect(verified?.data['outcome']).toBe('confirmed');
+    expect(verified?.data['threshold']).toBe(0.95);
+  });
+
+  it('picks the highest-confidence confirmed candidate', async () => {
+    const clientId = await setupClient();
+    const weaker = await seedValidatedMaster(clientId, '548 Market Street, San Francisco, 94104');
+    const stronger = await seedValidatedMaster(clientId, ADDR_A);
+    mock.handle('POST', SYSTEMONE, (_url, init) =>
+      systemOne(CORROBORATED, candidateOf(init).includes('south of market') ? 0.95 : 0.7),
+    );
+
+    // Seeding the second master already consulted the verifier once (unmocked
+    // then → no opinion → its own master); count only the calls for ADDR_B.
+    const before = mock.calls.length;
+    const b = await createLocation(clientId, ADDR_B);
+    expect(b.masterLocationId).toBe(stronger);
+    expect(mock.calls.slice(before).filter((c) => SYSTEMONE.test(c))).toHaveLength(2);
+
+    // The weaker candidate was confirmed too — it just lost on confidence.
+    const weakerVerdict = (await trailOf(weaker)).findLast(
+      (e) => e.step === ProcessingStep.LlmVerified,
+    );
+    expect(weakerVerdict?.data['outcome']).toBe('confirmed');
+    expect(weakerVerdict?.data['confidence']).toBeCloseTo(0.7, 10);
   });
 
   it('rematch records the verdict and matched entries tagged trigger=rematch', async () => {
     const clientId = await setupClient();
     const masterId = await seedValidatedMaster(clientId);
-
-    // A location somewhere unrelated (its own PENDING master).
+    // A location somewhere unrelated (its own PENDING master, no candidates).
     const c = await createLocation(clientId, '1 Ocean Avenue, Cape Town');
-
-    mock.handle('POST', /ollama\.invalid\/api\/chat/, () =>
-      ollamaVerdict({
-        match_confirmed: true,
-        confidence: 0.9,
-        reasoning: 'Identical street address; postal code absent but consistent.',
-      }),
-    );
+    mock.handle('POST', SYSTEMONE, () => systemOne(CORROBORATED, 0.9));
 
     const r = await runInScope({ sub: 'prn_test' }, () =>
       appContext.runWrite(() =>

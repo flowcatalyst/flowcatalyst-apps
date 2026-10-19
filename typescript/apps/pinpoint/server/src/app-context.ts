@@ -29,7 +29,6 @@ import { createBedrockVerifier } from './infrastructure/services/bedrock-verifie
 import { createOllamaVerifier } from './infrastructure/services/ollama-verifier.js';
 import { createClefVerifier } from './infrastructure/services/clef-verifier.js';
 import { createSystemOneClient } from './infrastructure/services/systemone-client.js';
-import { createLibPostalNormalizer } from './infrastructure/services/libpostal-normalizer.js';
 import { createOidcClient, type OidcClient } from './auth/oidc-client.js';
 import { createTokenValidator, type TokenValidator } from './auth/token-validator.js';
 import { createInMemorySessionStore, type SessionStore } from './auth/session-store.js';
@@ -74,7 +73,6 @@ import type { ProcessingLogRepository } from './domain/locations/processing-log.
 import type { LocationAttributeRepository } from './domain/locations/location-attribute.repository.js';
 import type { GeocoderService } from './domain/services/geocoder.js';
 import type { AddressVerifier } from './domain/services/address-verifier.js';
-import type { AddressNormalizer } from './domain/services/address-normalizer.js';
 import { CreateClientUseCase } from './operations/create-client/create-client.use-case.js';
 import { UpdateClientUseCase } from './operations/update-client/update-client.use-case.js';
 import { DeleteClientUseCase } from './operations/delete-client/delete-client.use-case.js';
@@ -137,7 +135,6 @@ export interface AppContextRepositories {
 export interface AppContextServices {
   readonly geocoder: GeocoderService;
   readonly addressVerifier: AddressVerifier;
-  readonly addressNormalizer: AddressNormalizer;
 }
 
 /**
@@ -259,8 +256,6 @@ export interface AppContextConfig {
   readonly geocodingRateLimit: number;
   /** LLM-backed address-verifier configuration. Default Noop keeps the matching pipeline cred-free. */
   readonly addressVerifier: AddressVerifierConfig;
-  /** Base URL of the libpostal sidecar (`pelias/libpostal-service`). Default `http://localhost:4400`. */
-  readonly libpostalUrl: string;
   /**
    * Auth wiring. When `oidc` is set, the auth routes go live and the
    * request-token extractor validates JWTs / session cookies. The
@@ -312,8 +307,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     requestsPerSecond: config.geocodingRateLimit,
   });
   const addressVerifier = buildAddressVerifier(config.addressVerifier);
-  const addressNormalizer = createLibPostalNormalizer({ baseUrl: config.libpostalUrl });
-  console.info(`[address-normalizer] provider=libpostal baseUrl=${config.libpostalUrl}`);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
   registerLocation(aggregateRegistry, locationRepo);
@@ -360,7 +353,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     services: {
       geocoder,
       addressVerifier,
-      addressNormalizer,
     },
     useCases: {
       createClient: new CreateClientUseCase(uow, aggregateRegistry, clientRepo),
@@ -385,7 +377,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         layerFeatureRepo,
         locationAttributeRepo,
         processingLogRepo,
-        addressNormalizer,
         addressVerifier,
       ),
       deleteLocation: new DeleteLocationUseCase(uow, aggregateRegistry, locationRepo),
@@ -397,7 +388,6 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         matchingConfigRepo,
         layerFeatureRepo,
         processingLogRepo,
-        addressNormalizer,
         addressVerifier,
       ),
       createLayer: new CreateLayerUseCase(uow, aggregateRegistry, clientRepo, layerRepo),
