@@ -265,6 +265,10 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
 
   <h3>Login, session and per-request identity</h3>
   ${mm(6, '<b>Server-side OIDC, cookie session.</b> Per-request identity precedence: <code>Authorization: Bearer</code> JWT → <code>pp_session</code> cookie (one in-band refresh on expiry) → <code>x-user-id</code> dev fallback (only when <code>PINPOINT_AUTH_DEV_FALLBACK=true</code>) → anonymous (401). The SPA redirects to login only on 401 — never on 403.')}
+
+  <h3>Request log and usage reports</h3>
+  <p>Every canonical-API request (not the BFF, auth, docs, health, job webhooks or the reporting routes) is written to <code>request_logs</code> after the reply is sent: operation, client, partition (from the response first — create-location reports the default partition it resolved), principal, status, duration, and the request + response bodies (64 KiB cap each). Written outside any transaction, so failed requests are logged too and a failed log write never reaches the caller.</p>
+  <p><code>GET /reports/usage</code> counts requests and errors per month (default), ISO week or day × client × partition × operation, cut in any IANA timezone; <code>GET /request-logs</code> and <code>/request-logs/{id}</code> show individual requests with their input and output. A daily scheduled job prunes rows older than <code>PINPOINT_REQUEST_LOG_RETENTION_DAYS</code> (400).</p>
 </section>
 
 <section id="api">

@@ -26,6 +26,8 @@ import { registerPropertySetRoutes } from './api/routes/property-sets/index.js';
 import { registerMatchingConfigRoutes } from './api/routes/matching-config/index.js';
 import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
 import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
+import { registerReportingRoutes } from './api/routes/reporting/index.js';
+import { registerRequestLog } from './api/plugins/request-log.js';
 import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
 import { registerMasterLocationRoutes } from './api/routes/master-locations/index.js';
 import { registerJobsRoutes } from './api/routes/jobs/index.js';
@@ -49,6 +51,12 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
+/** Log every API request's input + output to `request_logs` (default on). */
+const REQUEST_LOG_ENABLED = process.env['PINPOINT_REQUEST_LOG_ENABLED'] !== 'false';
+/** Days of request logs the daily prune job keeps. */
+const REQUEST_LOG_RETENTION_DAYS = Number(
+  process.env['PINPOINT_REQUEST_LOG_RETENTION_DAYS'] ?? 400,
+);
 const LIBPOSTAL_URL = process.env['PINPOINT_LIBPOSTAL_URL'] ?? 'http://localhost:4400';
 /**
  * Absolute (or server-relative) path to the built Vue SPA's `dist/`
@@ -316,7 +324,16 @@ export async function buildServer() {
     service: 'pinpoint',
   }));
 
+  // Before any route registers, so its hooks cover every route.
+  if (REQUEST_LOG_ENABLED) {
+    registerRequestLog(server, {
+      repository: appContext.repositories.requestLogs,
+      onError: (err) => server.log.warn({ err }, 'request log write failed'),
+    });
+  }
+
   registerAuthRoutes(server, appContext);
+  registerReportingRoutes(server, appContext);
   registerCountriesRoute(server, appContext);
   registerClientRoutes(server, appContext);
   registerPartitionRoutes(server, appContext);
@@ -331,6 +348,7 @@ export async function buildServer() {
   registerMasterLocationRoutes(server, appContext);
   registerJobsRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
+    requestLogRetentionDays: REQUEST_LOG_RETENTION_DAYS,
   });
   registerBffRoutes(server, appContext);
 

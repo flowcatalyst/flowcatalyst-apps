@@ -40,6 +40,8 @@ const CreateLocationBodySchema = Type.Object({
 const CreateLocationResponseSchema = Type.Object({
   locationId: Type.String(),
   masterLocationId: Type.String(),
+  /** The partition the location landed in — the client's default one when none was sent. */
+  partitionId: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String({ format: 'date-time' }),
 });
 
@@ -94,6 +96,7 @@ export function registerCreateLocationRoute(
       return reply.code(201).send({
         locationId: data.locationId,
         masterLocationId: data.masterLocationId ?? '',
+        partitionId: data.partitionId ?? null,
         createdAt: event.time.toISOString(),
       });
     },

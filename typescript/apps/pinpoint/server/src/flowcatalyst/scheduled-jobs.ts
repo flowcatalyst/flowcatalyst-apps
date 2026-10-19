@@ -18,6 +18,8 @@ export interface BuildPinpointScheduledJobsConfig {
 
 export const VALIDATE_MASTER_LOCATIONS_JOB_CODE = 'pinpoint-validate-master-locations' as const;
 export const VALIDATE_MASTER_LOCATIONS_JOB_PATH = '/jobs/validate-master-locations' as const;
+export const PRUNE_REQUEST_LOGS_JOB_CODE = 'pinpoint-prune-request-logs' as const;
+export const PRUNE_REQUEST_LOGS_JOB_PATH = '/jobs/prune-request-logs' as const;
 
 export function buildPinpointScheduledJobs(
   config: BuildPinpointScheduledJobsConfig,
@@ -41,6 +43,20 @@ export function buildPinpointScheduledJobs(
       timeoutSeconds: 300,
       deliveryMaxAttempts: 1,
       targetUrl: `${base}${VALIDATE_MASTER_LOCATIONS_JOB_PATH}`,
+    },
+    {
+      code: PRUNE_REQUEST_LOGS_JOB_CODE,
+      name: 'Prune request logs',
+      description:
+        'Daily at 02:30 UTC: delete request_logs rows older than ' +
+        'PINPOINT_REQUEST_LOG_RETENTION_DAYS (default 400).',
+      crons: ['30 2 * * *'],
+      timezone: 'UTC',
+      concurrent: false,
+      tracksCompletion: false,
+      timeoutSeconds: 300,
+      deliveryMaxAttempts: 1,
+      targetUrl: `${base}${PRUNE_REQUEST_LOGS_JOB_PATH}`,
     },
   ];
 }
