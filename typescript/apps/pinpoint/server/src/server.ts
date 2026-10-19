@@ -12,7 +12,11 @@ import { db } from './infrastructure/db.js';
 import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
-import { ALL_PERMISSIONS_SET, resolvePermissions } from './auth/role-permissions.js';
+import {
+  ALL_ACCESS_ATTRIBUTES,
+  ALL_PERMISSIONS_SET,
+  requestTokenFromClaims,
+} from './auth/role-permissions.js';
 import { SESSION_COOKIE_NAME } from './auth/session-cookie.js';
 import { tryRefreshSession } from './auth/session-refresh.js';
 import { registerAuthRoutes } from './api/routes/auth/index.js';
@@ -144,10 +148,7 @@ async function extractRequestToken(
     if (token.length > 0 && tokenValidator) {
       try {
         const claims = await tokenValidator.validate(token);
-        return {
-          sub: claims.sub,
-          permissions: resolvePermissions(claims),
-        };
+        return requestTokenFromClaims(claims);
       } catch (err) {
         req.log.warn({ err }, 'JWT validation failed');
       }
@@ -161,10 +162,7 @@ async function extractRequestToken(
       if (tokenValidator) {
         try {
           const claims = await tokenValidator.validate(session.accessToken);
-          return {
-            sub: claims.sub,
-            permissions: resolvePermissions(claims),
-          };
+          return requestTokenFromClaims(claims);
         } catch (err) {
           // Access token failed to validate — typically expired. If
           // the session carries a refresh token and OIDC is configured,
@@ -180,7 +178,11 @@ async function extractRequestToken(
         // Trust the stored sub — used only in test setups. Grant the
         // full permission set since this code path is gated on the
         // OIDC issuer being unconfigured (only happens in test rigs).
-        return { sub: session.sub, permissions: ALL_PERMISSIONS_SET };
+        return {
+          sub: session.sub,
+          permissions: ALL_PERMISSIONS_SET,
+          attributes: ALL_ACCESS_ATTRIBUTES,
+        };
       }
     }
   }
@@ -190,7 +192,7 @@ async function extractRequestToken(
     if (typeof sub === 'string' && sub.length > 0) {
       // Dev fallback grants everything — matches the Rust pinpoint
       // dev path. NEVER enable in production.
-      return { sub, permissions: ALL_PERMISSIONS_SET };
+      return { sub, permissions: ALL_PERMISSIONS_SET, attributes: ALL_ACCESS_ATTRIBUTES };
     }
   }
   return null;

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lt, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
@@ -8,6 +8,7 @@ import {
   type RequestLogFilter,
   type RequestLogPage,
   type RequestLogRepository,
+  type RequestLogVisibility,
   type UsageQuery,
   type UsageReport,
 } from '../domain/reporting/request-log.repository.js';
@@ -17,8 +18,19 @@ import { requestLogs, type RequestLogRow } from './schema/request-logs.js';
 
 const REQUEST_LOG_ID_PREFIX = 'rql';
 
+function visible(to: RequestLogVisibility): SQL | undefined {
+  return or(
+    to.partitionIds.length > 0 ? inArray(requestLogs.partitionId, [...to.partitionIds]) : undefined,
+    to.clientIds.length > 0
+      ? and(isNull(requestLogs.partitionId), inArray(requestLogs.clientId, [...to.clientIds]))
+      : undefined,
+    eq(requestLogs.principalId, to.principalId),
+  );
+}
+
 function where(filter: RequestLogFilter): SQL | undefined {
   return and(
+    filter.visibleTo ? visible(filter.visibleTo) : undefined,
     gte(requestLogs.createdAt, filter.from),
     filter.to ? lt(requestLogs.createdAt, filter.to) : undefined,
     filter.clientId ? eq(requestLogs.clientId, filter.clientId) : undefined,

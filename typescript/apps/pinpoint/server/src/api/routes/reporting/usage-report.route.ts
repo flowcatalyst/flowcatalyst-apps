@@ -13,7 +13,13 @@ import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import type { UsagePeriod } from '../../../domain/reporting/request-log.repository.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
-import { authorizeReporting, isValidTimezone } from './access.js';
+import {
+  CANONICAL_SURFACE,
+  type ReportingSurface,
+  authorizeReporting,
+  isValidTimezone,
+  visibilityOf,
+} from './access.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 
@@ -55,12 +61,16 @@ const UsageReportSchema = Type.Object({
   ),
 });
 
-export function registerUsageReportRoute(fastify: FastifyInstance, appContext: AppContext): void {
+export function registerUsageReportRoute(
+  fastify: FastifyInstance,
+  appContext: AppContext,
+  surface: ReportingSurface = CANONICAL_SURFACE,
+): void {
   fastify.get(
-    '/reports/usage',
+    `${surface.basePath}/reports/usage`,
     {
       schema: {
-        operationId: 'getUsageReport',
+        operationId: surface.operationId('getUsageReport'),
         tags: ['Reporting'],
         summary: 'Request counts per client / partition / operation / period.',
         querystring: UsageQuerySchema,
@@ -73,7 +83,6 @@ export function registerUsageReportRoute(fastify: FastifyInstance, appContext: A
       },
     },
     async (request, reply) => {
-      if (!authorizeReporting(reply, PinpointPermission.ReportingUsageRead)) return reply;
       const q = request.query as {
         period?: UsagePeriod;
         from?: string;
@@ -83,6 +92,13 @@ export function registerUsageReportRoute(fastify: FastifyInstance, appContext: A
         partitionId?: string;
         operation?: string;
       };
+      const access = await authorizeReporting(
+        reply,
+        appContext,
+        PinpointPermission.ReportingUsageRead,
+        q,
+      );
+      if (!access) return reply;
       const period = q.period ?? 'month';
       const timezone = q.timezone ?? 'UTC';
       if (!isValidTimezone(timezone)) {
@@ -92,6 +108,7 @@ export function registerUsageReportRoute(fastify: FastifyInstance, appContext: A
       }
 
       const report = await appContext.repositories.requestLogs.usage({
+        visibleTo: visibilityOf(access),
         period,
         timezone,
         from: q.from ? new Date(q.from) : undefined,

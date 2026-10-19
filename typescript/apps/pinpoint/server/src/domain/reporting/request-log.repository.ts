@@ -29,7 +29,19 @@ export interface RequestLogEntry extends NewRequestLogEntry {
 
 export type UsagePeriod = 'month' | 'week' | 'day';
 
+/**
+ * Rows a non-admin principal may see: requests in their granted partitions,
+ * partition-less requests for clients those partitions belong to, and their
+ * own requests. Absent = everything (anchors / admins).
+ */
+export interface RequestLogVisibility {
+  readonly principalId: string;
+  readonly partitionIds: readonly string[];
+  readonly clientIds: readonly string[];
+}
+
 export interface RequestLogFilter {
+  readonly visibleTo?: RequestLogVisibility | undefined;
   readonly from: Date;
   /**
    * Exclusive end. Omit for "up to now" — left unbounded rather than set from

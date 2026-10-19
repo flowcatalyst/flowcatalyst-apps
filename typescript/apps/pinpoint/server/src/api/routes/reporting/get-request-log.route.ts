@@ -4,7 +4,12 @@ import type { FastifyInstance } from 'fastify';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
-import { authorizeReporting } from './access.js';
+import {
+  CANONICAL_SURFACE,
+  type ReportingSurface,
+  authorizeReporting,
+  isVisible,
+} from './access.js';
 import { RequestLogSummarySchema, toSummary } from './request-log.schema.js';
 
 const RequestLogDetailSchema = Type.Intersect([
@@ -17,12 +22,16 @@ const RequestLogDetailSchema = Type.Intersect([
   }),
 ]);
 
-export function registerGetRequestLogRoute(fastify: FastifyInstance, appContext: AppContext): void {
+export function registerGetRequestLogRoute(
+  fastify: FastifyInstance,
+  appContext: AppContext,
+  surface: ReportingSurface = CANONICAL_SURFACE,
+): void {
   fastify.get(
-    '/request-logs/:id',
+    `${surface.basePath}/request-logs/:id`,
     {
       schema: {
-        operationId: 'getRequestLog',
+        operationId: surface.operationId('getRequestLog'),
         tags: ['Reporting'],
         summary: 'One logged request with its input and output.',
         params: Type.Object({ id: Type.String({ minLength: 1 }) }),
@@ -35,10 +44,16 @@ export function registerGetRequestLogRoute(fastify: FastifyInstance, appContext:
       },
     },
     async (request, reply) => {
-      if (!authorizeReporting(reply, PinpointPermission.ReportingRequestLogRead)) return reply;
+      const access = await authorizeReporting(
+        reply,
+        appContext,
+        PinpointPermission.ReportingRequestLogRead,
+      );
+      if (!access) return reply;
       const { id } = request.params as { id: string };
       const entry = await appContext.repositories.requestLogs.findById(id);
-      if (!entry) {
+      // An invisible row is reported as missing — don't confirm it exists.
+      if (!entry || !isVisible(access, entry)) {
         return reply
           .code(404)
           .send({ error: 'NotFound', message: `Request log '${id}' not found.` });

@@ -7,7 +7,12 @@ import type { FastifyInstance } from 'fastify';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
-import { authorizeReporting } from './access.js';
+import {
+  CANONICAL_SURFACE,
+  type ReportingSurface,
+  authorizeReporting,
+  visibilityOf,
+} from './access.js';
 import { RequestLogSummarySchema, toSummary } from './request-log.schema.js';
 
 const DEFAULT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -32,12 +37,13 @@ const ListResponseSchema = Type.Object({
 export function registerListRequestLogsRoute(
   fastify: FastifyInstance,
   appContext: AppContext,
+  surface: ReportingSurface = CANONICAL_SURFACE,
 ): void {
   fastify.get(
-    '/request-logs',
+    `${surface.basePath}/request-logs`,
     {
       schema: {
-        operationId: 'listRequestLogs',
+        operationId: surface.operationId('listRequestLogs'),
         tags: ['Reporting'],
         summary: 'Logged API requests, newest first (bodies omitted).',
         querystring: ListQuerySchema,
@@ -45,7 +51,6 @@ export function registerListRequestLogsRoute(
       },
     },
     async (request, reply) => {
-      if (!authorizeReporting(reply, PinpointPermission.ReportingRequestLogRead)) return reply;
       const q = request.query as {
         from?: string;
         to?: string;
@@ -55,6 +60,13 @@ export function registerListRequestLogsRoute(
         limit?: number;
         offset?: number;
       };
+      const access = await authorizeReporting(
+        reply,
+        appContext,
+        PinpointPermission.ReportingRequestLogRead,
+        q,
+      );
+      if (!access) return reply;
       const to = q.to ? new Date(q.to) : undefined;
       const from = q.from
         ? new Date(q.from)
@@ -62,6 +74,7 @@ export function registerListRequestLogsRoute(
       const limit = q.limit ?? 50;
       const offset = q.offset ?? 0;
       const page = await appContext.repositories.requestLogs.list({
+        visibleTo: visibilityOf(access),
         from,
         to,
         clientId: q.clientId,

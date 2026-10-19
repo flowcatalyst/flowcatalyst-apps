@@ -63,6 +63,12 @@ const router = createRouter({
           name: 'unvalidated-master-locations',
           component: () => import('@/pages/master-locations/UnvalidatedMasterLocationsPage.vue'),
         },
+        // Reporting
+        {
+          path: 'reports/usage',
+          name: 'usage-report',
+          component: () => import('@/pages/reports/UsageReportPage.vue'),
+        },
         {
           path: 'master-locations/:id',
           name: 'master-location-detail',

@@ -68,4 +68,14 @@ export const NAVIGATION_CONFIG: NavGroup[] = [
       },
     ],
   },
+  {
+    label: 'Reporting',
+    items: [
+      {
+        label: 'Usage',
+        icon: 'pi pi-chart-bar',
+        route: '/reports/usage',
+      },
+    ],
+  },
 ];
