@@ -27,8 +27,6 @@ import { createCountryNameResolver } from './infrastructure/services/country-nam
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
 import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
 import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
-import { createBedrockVerifier } from './infrastructure/services/bedrock-verifier.js';
-import { createOllamaVerifier } from './infrastructure/services/ollama-verifier.js';
 import { createClefVerifier } from './infrastructure/services/clef-verifier.js';
 import { createSystemOneClient } from './infrastructure/services/systemone-client.js';
 import { createOidcClient, type OidcClient } from './auth/oidc-client.js';
@@ -153,29 +151,12 @@ export interface AppContextAuth {
 }
 
 /**
- * LLM provider config for the address verifier. Mirrors the Rust
- * `llm_provider`/`ollama_url`/`llm_model` env vars; defaults to `'none'`
- * (Noop) so the matching pipeline runs without Bedrock creds or a local
- * Ollama instance.
+ * Address-verifier config. `clef` is the Clef decision model over the
+ * SystemOne API; `none` (Noop) turns fuzzy matching off — only exact
+ * address-line duplicates match.
  */
 export type AddressVerifierConfig =
   | { readonly provider: 'none' }
-  | {
-      readonly provider: 'bedrock';
-      /** Gemma 4 model id on Bedrock, e.g. `google.gemma-4-26b-a4b`. */
-      readonly model: string;
-      /** Region that hosts Gemma / the mantle endpoint (e.g. eu-central-1) — drives the URL + token signing. */
-      readonly region: string;
-      /** Optional full override of the OpenAI-compatible base URL. */
-      readonly baseUrl?: string;
-    }
-  | {
-      readonly provider: 'ollama';
-      /** Base URL of the Ollama server, e.g. `http://localhost:11434`. */
-      readonly baseUrl: string;
-      /** Model tag, e.g. `gemma4` (Rust default). */
-      readonly model: string;
-    }
   | {
       /**
        * Clef decision model over the SystemOne API — a local Ollama in dev,
@@ -537,26 +518,6 @@ function logAddressVerifierError(err: unknown): void {
  */
 function buildAddressVerifier(config: AddressVerifierConfig): AddressVerifier {
   switch (config.provider) {
-    case 'bedrock': {
-      console.info(
-        `[address-verifier] provider=bedrock(gemma) model=${config.model} region=${config.region} (bearer token minted from the task role)`,
-      );
-      return createBedrockVerifier({
-        model: config.model,
-        region: config.region,
-        ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
-        onError: logAddressVerifierError,
-      });
-    }
-    case 'ollama':
-      console.info(
-        `[address-verifier] provider=ollama model=${config.model} baseUrl=${config.baseUrl}`,
-      );
-      return createOllamaVerifier({
-        baseUrl: config.baseUrl,
-        model: config.model,
-        onError: logAddressVerifierError,
-      });
     case 'clef':
       console.info(
         `[address-verifier] provider=clef model=${config.model} baseUrl=${config.baseUrl}${config.apiKey ? ' (keyed)' : ''}`,
@@ -570,8 +531,7 @@ function buildAddressVerifier(config: AddressVerifierConfig): AddressVerifier {
         onError: logAddressVerifierError,
       });
     case 'none':
-    default:
-      console.info('[address-verifier] provider=none (verification disabled)');
+      console.info('[address-verifier] provider=none (fuzzy matching disabled)');
       return createNoopVerifier();
   }
 }

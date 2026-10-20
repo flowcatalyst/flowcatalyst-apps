@@ -17,7 +17,7 @@ Pinpoint turns raw customer addresses into **canonical, geocoded master location
 | Surfaces          | canonical API `/clients/…` + unscoped; BFF `/bff/…` for the SPA — **101 operations**, one OpenAPI 3 contract (`openapi.gen.json`)                 |
 | Domain            | 9 aggregates, **31 use cases**, **33 domain event types**, 34 permissions, 6 platform roles                                                       |
 | Platform          | OIDC login against FlowCatalyst; events via outbox → `fc-outbox-processor`; one scheduled job (`pinpoint-validate-master-locations`, every 5 min) |
-| External services | Photon (forward/reverse geocoding), address verifier (Clef decision model via Ollama / OpenRouter; Bedrock Gemma / Ollama chat; none)             |
+| External services | Photon (forward/reverse geocoding), address verifier (Clef decision model via Ollama locally / OpenRouter in prod; none)                          |
 
 ## 2. System context
 
@@ -34,7 +34,7 @@ flowchart LR
   pg[(PostgreSQL 18<br/>PostGIS · pg_trgm<br/>outbox_messages · audit_logs)]
   valkey[(Valkey / Redis<br/>sessions)]
   photon["Photon geocoder<br/>/api · /reverse"]
-  llm[Address verifier<br/>Clef decision model · Bedrock Gemma · Ollama · none]
+  llm[Address verifier<br/>Clef decision model · none]
   subgraph fc[FlowCatalyst platform]
     idp[OIDC issuer · JWKS]
     sched[Scheduled-job runner]
@@ -365,25 +365,25 @@ flowchart TB
 
 ## 12. Configuration reference
 
-| Variable                                                                                                                                                                                                   | Purpose                                                                          |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `PORT`, `HOST`, `LOG_LEVEL`                                                                                                                                                                                | Fastify listen + Pino level                                                      |
-| `PINPOINT_PUBLIC_BASE_URL`                                                                                                                                                                                 | browser-facing base; OIDC redirect base; scheduled-job `targetUrl` base          |
-| `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (+ `PINPOINT_DB_SSL=require\|no-verify`)                                                                                               | Postgres connection (prod: dedicated `pinpoint` DB, static non-rotated password) |
-| `PINPOINT_DB_SCHEMA` (`public`), `PINPOINT_DB_AUTO_MIGRATE`                                                                                                                                                | search_path pin; run migrations on boot                                          |
-| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SCOPES`, `OIDC_AUDIENCE`                                                                                             | OIDC (unset issuer = OIDC off)                                                   |
-| `PINPOINT_AUTH_DEV_FALLBACK`, `PINPOINT_AUTH_POST_LOGIN_REDIRECT`                                                                                                                                          | `x-user-id` dev identity (never in prod); post-login path                        |
-| `PINPOINT_SESSION_DRIVER` (`memory\|redis\|postgres`), `PINPOINT_SESSION_REDIS_URL`                                                                                                                        | session store                                                                    |
-| `PINPOINT_GEOCODING_API_URL`, `PINPOINT_GEOCODING_RATE_LIMIT`                                                                                                                                              | Photon base URL; token-bucket rps (5)                                            |
-| `PINPOINT_LLM_PROVIDER` (`none\|bedrock\|ollama\|clef`), `PINPOINT_LLM_MODEL`, `PINPOINT_BEDROCK_REGION`, `PINPOINT_BEDROCK_BASE_URL`, `PINPOINT_OLLAMA_URL`, `PINPOINT_CLEF_URL`, `PINPOINT_CLEF_API_KEY` | address-match verifier (`clef`: Ollama locally, OpenRouter in prod)              |
-| `FLOWCATALYST_APPLICATION_CODE` (`pinpoint`), `FLOWCATALYST_SIGNING_SECRET`, `PINPOINT_DISPATCH_POOL`                                                                                                      | outbox tenant; webhook HMAC; dispatch pool code                                  |
-| `FLOWCATALYST_URL`, `FLOWCATALYST_API_CLIENT_ID`, `FLOWCATALYST_API_CLIENT_SECRET`, `FLOWCATALYST_REMOVE_UNLISTED`, `PINPOINT_SCHEMA_SYNC`                                                                 | `flowcatalyst:sync` script only                                                  |
-| `PINPOINT_REQUEST_LOG_ENABLED` (default `true`), `PINPOINT_REQUEST_LOG_RETENTION_DAYS` (default 400)                                                                                                       | request log capture; prune-job retention                                         |
-| `PINPOINT_WEB_DIST_DIR`                                                                                                                                                                                    | serve the built SPA from the server (prod image sets it)                         |
+| Variable                                                                                                                                   | Purpose                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `PORT`, `HOST`, `LOG_LEVEL`                                                                                                                | Fastify listen + Pino level                                                      |
+| `PINPOINT_PUBLIC_BASE_URL`                                                                                                                 | browser-facing base; OIDC redirect base; scheduled-job `targetUrl` base          |
+| `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (+ `PINPOINT_DB_SSL=require\|no-verify`)                               | Postgres connection (prod: dedicated `pinpoint` DB, static non-rotated password) |
+| `PINPOINT_DB_SCHEMA` (`public`), `PINPOINT_DB_AUTO_MIGRATE`                                                                                | search_path pin; run migrations on boot                                          |
+| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_SCOPES`, `OIDC_AUDIENCE`                             | OIDC (unset issuer = OIDC off)                                                   |
+| `PINPOINT_AUTH_DEV_FALLBACK`, `PINPOINT_AUTH_POST_LOGIN_REDIRECT`                                                                          | `x-user-id` dev identity (never in prod); post-login path                        |
+| `PINPOINT_SESSION_DRIVER` (`memory\|redis\|postgres`), `PINPOINT_SESSION_REDIS_URL`                                                        | session store                                                                    |
+| `PINPOINT_GEOCODING_API_URL`, `PINPOINT_GEOCODING_RATE_LIMIT`                                                                              | Photon base URL; token-bucket rps (5)                                            |
+| `PINPOINT_LLM_PROVIDER` (`clef\|none`), `PINPOINT_LLM_MODEL`, `PINPOINT_CLEF_URL`, `PINPOINT_CLEF_API_KEY`                                 | address-match verifier (`clef`: Ollama locally, OpenRouter in prod)              |
+| `FLOWCATALYST_APPLICATION_CODE` (`pinpoint`), `FLOWCATALYST_SIGNING_SECRET`, `PINPOINT_DISPATCH_POOL`                                      | outbox tenant; webhook HMAC; dispatch pool code                                  |
+| `FLOWCATALYST_URL`, `FLOWCATALYST_API_CLIENT_ID`, `FLOWCATALYST_API_CLIENT_SECRET`, `FLOWCATALYST_REMOVE_UNLISTED`, `PINPOINT_SCHEMA_SYNC` | `flowcatalyst:sync` script only                                                  |
+| `PINPOINT_REQUEST_LOG_ENABLED` (default `true`), `PINPOINT_REQUEST_LOG_RETENTION_DAYS` (default 400)                                       | request log capture; prune-job retention                                         |
+| `PINPOINT_WEB_DIST_DIR`                                                                                                                    | serve the built SPA from the server (prod image sets it)                         |
 
 ## 13. Testing and tooling
 
-- **Unit** (`pnpm test`, 232): geocoder ladder, address line + hash, match policy, verifiers (Clef, Ollama, Bedrock), auth helpers, shared-schema guard.
+- **Unit** (`pnpm test`, 232): geocoder ladder, address line + hash, match policy, Clef verifier, auth helpers, shared-schema guard.
 - **Integration** (`pnpm test:integration`, 152, Docker): testcontainers PostGIS + Redis, migrations applied from `server/drizzle`, one test per use case through the real `runWrite`, repository tests (incl. search + count), OIDC end-to-end against a fake IdP, session stores.
 - **Typecheck** `tsc -p tsconfig.test.json` covers `src`, `test`, `scripts`. **Lint/format** via Vite+ (`pnpm check` at the workspace root).
 - **Docs** `pnpm --filter @pinpoint/server docs:architecture` — parse-checks every Mermaid block in `docs/architecture.md` and regenerates `docs/architecture.html`; edit the `.md`, rebuild, commit both, republish the Artifact (same URL).

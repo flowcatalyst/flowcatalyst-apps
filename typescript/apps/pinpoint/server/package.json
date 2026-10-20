@@ -23,7 +23,6 @@
     "docs:architecture": "tsx scripts/check-architecture-doc.mts && tsx scripts/build-architecture-doc.mts"
   },
   "dependencies": {
-    "@aws/bedrock-token-generator": "^1.1.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/static": "^8.0.0",
     "@fastify/swagger": "^9.4.0",

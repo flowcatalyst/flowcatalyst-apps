@@ -1,36 +1,26 @@
 /**
- * AddressVerifier service interface — port of Rust
+ * AddressVerifier — judges whether a candidate master location is the same
+ * physical place as an incoming address. Port of Rust
  * `pinpoint-domain/src/services/address_verifier.rs::AddressVerifier`.
  *
- * Called by the matching pipeline (Slice 8) after the algorithmic
- * `AddressMatcher` finds a candidate: the LLM receives the normalized
- * input address line and the candidate master location address line,
- * and returns a structured verdict on whether they refer to the same
- * physical location.
+ * Matching (`location-matching.ts`) selects the closest VALIDATED masters by
+ * trigram similarity and asks the verifier about each; the Clef decision
+ * model is the only real impl (`infrastructure/services/clef-verifier.ts`),
+ * Noop turns fuzzy matching off.
  *
- * Plain async interface (not an Effect Tag) — matches the
- * `GeocoderService` pattern from Slice 6. Composition root picks an
- * impl based on `PINPOINT_LLM_PROVIDER` (none / bedrock / ollama).
- *
- * The "verification disabled" path returns `null` rather than throwing
- * — matches Rust's `Ok(None)` semantics. Routes and callers must
- * treat null as "no verification opinion", not "verification failed".
+ * Returns `null` rather than throwing when verification is disabled or the
+ * provider failed — callers treat null as "no opinion", never as a match.
  */
-import { z } from 'zod';
 
-/**
- * Structured verifier verdict. Schema is what the LLM emits; the
- * runtime parser validates it. Mirror of Rust `VerificationResult`.
- */
-export const VerificationResultSchema = z.object({
-  match_confirmed: z
-    .boolean()
-    .describe('Whether the two addresses refer to the same physical location.'),
-  confidence: z.number().min(0).max(1).describe('Confidence in the assessment from 0.0 to 1.0.'),
-  reasoning: z.string().describe('Brief explanation of why the addresses do or do not match.'),
-});
-
-export type VerificationResult = z.infer<typeof VerificationResultSchema>;
+/** A verifier verdict. */
+export interface VerificationResult {
+  /** Whether the two addresses refer to the same physical location. */
+  readonly match_confirmed: boolean;
+  /** Confidence in the assessment, 0.0–1.0. */
+  readonly confidence: number;
+  /** Short explanation (Clef: the per-field verdicts and the rule applied). */
+  readonly reasoning: string;
+}
 
 /**
  * Optional extra evidence. A location is created with a name ("Clicks
@@ -55,35 +45,4 @@ export interface AddressVerifier {
     candidateAddress: string,
     context?: VerificationContext,
   ): Promise<VerificationResult | null>;
-}
-
-/**
- * System prompt — verbatim port of Rust
- * `llm_address_verifier.rs::SYSTEM_PROMPT`. The trigram + algorithmic
- * matcher already filters obvious mismatches; this prompt's job is the
- * borderline cases.
- *
- * Kept here in the domain layer (not in the Bedrock/Ollama impls) so
- * a provider swap can't quietly change the prompt and invalidate any
- * prior verification quality work.
- */
-export const VERIFIER_SYSTEM_PROMPT = `You are an address matching expert. You will be given two normalized addresses and must determine if they refer to the same physical location.
-
-Consider:
-- Minor spelling variations (e.g. "St" vs "Street", "Rd" vs "Road") are acceptable
-- Abbreviations and expansions of the same word are the same
-- Missing components (e.g. no postal code) should not disqualify a match if other components align
-- Different house numbers almost always mean different locations
-- Different streets in the same city are different locations
-- Same street in a different suburb is a different location
-- A suburb given on only one side is not a mismatch when both sides name the same city (e.g. "12 Main Rd, Rondebosch, Cape Town" and "12 Main Rd, Cape Town" are the same location)
-- Same street different city are different locations
-
-Respond with structured JSON only.`;
-
-export function buildVerifierPrompt(inputAddress: string, candidateAddress: string): string {
-  // Same shape as Rust `build_prompt` — prompts ride into the LLM in the
-  // same format across both backends so prompt-quality comparisons stay
-  // apples-to-apples.
-  return `Input address: "${inputAddress}"\nCandidate address: "${candidateAddress}"\n\nAre these the same physical location?`;
 }

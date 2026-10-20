@@ -15103,7 +15103,7 @@
     },
     {
       "name": "Verify",
-      "description": "Address-match verification (Clef decision model / Bedrock / Ollama / Noop)"
+      "description": "Address-match verification (Clef decision model)"
     },
     {
       "name": "MasterLocations",

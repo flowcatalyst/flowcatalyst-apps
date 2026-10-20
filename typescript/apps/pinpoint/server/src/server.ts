@@ -77,50 +77,23 @@ const WEB_DIST_DIR = process.env['PINPOINT_WEB_DIST_DIR'];
 const FLOWCATALYST_SIGNING_SECRET = process.env['FLOWCATALYST_SIGNING_SECRET'];
 
 /**
- * LLM provider selection. Env shape:
+ * Address-verifier selection. Env shape:
  *
- *   PINPOINT_LLM_PROVIDER=none|bedrock|ollama|clef   (default: none)
- *   PINPOINT_LLM_MODEL=<model-id>               (provider-specific default)
- *   PINPOINT_OLLAMA_URL=http://...              (ollama only, default localhost)
- *   PINPOINT_CLEF_URL=...                       (clef only — default http://localhost:11434;
- *                                                prod: https://openrouter.ai/api)
- *   PINPOINT_CLEF_API_KEY=...                   (clef only — OpenRouter key; unset for Ollama)
- *   PINPOINT_BEDROCK_REGION=...                 (bedrock only — region hosting Gemma, default us-east-1)
- *   PINPOINT_BEDROCK_BASE_URL=...               (bedrock only — overrides the mantle URL)
+ *   PINPOINT_LLM_PROVIDER=clef|none     (default: none)
+ *   PINPOINT_LLM_MODEL=<model-id>       (default clef-flash; prod: cloudflare/clef-flash)
+ *   PINPOINT_CLEF_URL=...               (default http://localhost:11434 = Ollama ≥ 0.35.1;
+ *                                        prod: https://openrouter.ai/api)
+ *   PINPOINT_CLEF_API_KEY=...           (OpenRouter key; unset for Ollama)
  *
- * `bedrock` targets Gemma 4 over the bedrock-mantle OpenAI-compatible endpoint
- * (NOT the native Converse API / Claude — that path was dropped). It mints a
- * short-term bearer token from the ambient AWS credentials (the ECS task role)
- * — no API key env. PINPOINT_BEDROCK_REGION must be the region that hosts Gemma
- * (it drives the endpoint URL + token signing), independent of the task's
- * AWS_REGION. Default model is google.gemma-4-26b-a4b (MoE); `ollama` defaults
- * to gemma4. `clef` speaks the SystemOne decision API (Ollama ≥ 0.35.1 locally,
- * OpenRouter in prod) and defaults to clef-flash — set PINPOINT_LLM_MODEL to
- * `cloudflare/clef-flash` for OpenRouter. Bumping a default risks invalidating prior matching-quality
- * tuning, so keep changes deliberate.
+ * `clef` speaks the SystemOne decision API — same wire format locally and in
+ * prod. Any other provider value (e.g. the retired `bedrock` / `ollama` chat
+ * verifiers) is logged and treated as `none`: fuzzy matching is off and only
+ * exact address-line duplicates match, so a stale config never merges wrongly.
  */
-function buildAddressVerifierConfig(): AddressVerifierConfig {
+function buildAddressVerifierConfig(warn: (message: string) => void): AddressVerifierConfig {
   const provider = (process.env['PINPOINT_LLM_PROVIDER'] ?? 'none').toLowerCase();
-  const model = process.env['PINPOINT_LLM_MODEL'];
-
-  if (provider === 'bedrock') {
-    return {
-      provider: 'bedrock',
-      model: model && model.length > 0 ? model : 'google.gemma-4-26b-a4b',
-      region: process.env['PINPOINT_BEDROCK_REGION'] ?? process.env['AWS_REGION'] ?? 'us-east-1',
-      ...(process.env['PINPOINT_BEDROCK_BASE_URL']
-        ? { baseUrl: process.env['PINPOINT_BEDROCK_BASE_URL'] }
-        : {}),
-    };
-  }
-  if (provider === 'ollama') {
-    return {
-      provider: 'ollama',
-      baseUrl: process.env['PINPOINT_OLLAMA_URL'] ?? 'http://localhost:11434',
-      model: model && model.length > 0 ? model : 'gemma4',
-    };
-  }
   if (provider === 'clef') {
+    const model = process.env['PINPOINT_LLM_MODEL'];
     const apiKey = process.env['PINPOINT_CLEF_API_KEY'];
     return {
       provider: 'clef',
@@ -128,6 +101,11 @@ function buildAddressVerifierConfig(): AddressVerifierConfig {
       model: model && model.length > 0 ? model : 'clef-flash',
       ...(apiKey ? { apiKey } : {}),
     };
+  }
+  if (provider !== 'none') {
+    warn(
+      `[address-verifier] unsupported PINPOINT_LLM_PROVIDER=${provider} (only clef | none) — fuzzy matching disabled`,
+    );
   }
   return { provider: 'none' };
 }
@@ -303,7 +281,7 @@ export async function buildServer() {
         },
         {
           name: 'Verify',
-          description: 'Address-match verification (Clef decision model / Bedrock / Ollama / Noop)',
+          description: 'Address-match verification (Clef decision model)',
         },
         {
           name: 'MasterLocations',
@@ -328,7 +306,7 @@ export async function buildServer() {
     dispatchPoolCode: DISPATCH_POOL_CODE,
     geocodingApiUrl: GEOCODING_API_URL,
     geocodingRateLimit: GEOCODING_RATE_LIMIT,
-    addressVerifier: buildAddressVerifierConfig(),
+    addressVerifier: buildAddressVerifierConfig((message) => server.log.error(message)),
     auth: loadAuthConfig(),
   });
 

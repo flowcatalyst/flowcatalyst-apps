@@ -20,7 +20,7 @@ TypeScript port of the Rust `pinpoint` service. Address matching without parsing
 - **Outbox**: `@flowcatalyst/sdk` `OutboxManager` + `DrizzleOutboxDriver` (ALS-aware; reads tx from `TransactionStore`)
 - **Identity**: `Scope` + `ScopeStore` (AsyncLocalStorage)
 - **Auth**: OIDC (`openid-client` v6) + cookie sessions + `x-user-id` dev fallback
-- **External services**: Photon geocoder (HTTP), address verifier — Clef decision model over SystemOne (Ollama locally, OpenRouter in prod), or Vercel AI SDK + Amazon Bedrock / Ollama / Noop
+- **External services**: Photon geocoder (HTTP), address verifier — Clef decision model over SystemOne (Ollama locally, OpenRouter in prod), or Noop
 - **Scheduling**: FlowCatalyst platform scheduled jobs → HMAC-verified webhook handlers (not in-process croner)
 - **Logging**: Pino via Fastify
 - **Testing**: Vitest — unit tests use fakes; integration tests use real `runWrite` + `@testcontainers/postgresql` + `@testcontainers/redis`. `pnpm typecheck` runs `tsc -p tsconfig.test.json`, which covers `src/`, `test/` and `scripts/` — stale test fakes fail the typecheck, not the test run.
@@ -396,7 +396,7 @@ UoW + outbox + audit semantics are **identical** — same `OutboxManager`, same 
 Pinpoint integrates with two external HTTP services. Each one is a plain async interface in `domain/services/` with a Drizzle-style impl in `infrastructure/services/`:
 
 - **Photon geocoder** — `GeocoderService` (`infrastructure/services/photon-geocoder.ts`). Configurable via `PINPOINT_GEOCODING_API_URL` (defaults to `https://photon.komoot.io`). Wrapped by `createRateLimitedGeocoder` — plain in-process token-bucket, burst capacity = `PINPOINT_GEOCODING_RATE_LIMIT` (rps), defaults to 5.
-- **Address verifier** — `AddressVerifier`. Four impls: `ClefVerifier` (Cloudflare's Clef decision model over the SystemOne API — `infrastructure/services/systemone-client.ts`; local Ollama ≥ 0.35.1 in dev via `clef/Modelfile`, OpenRouter `https://openrouter.ai/api` + `cloudflare/clef-flash` + `PINPOINT_CLEF_API_KEY` in prod; answers one `noul` question, so the verdict is a probability with no free-text reasoning), `BedrockVerifier` (Vercel AI SDK + `@ai-sdk/amazon-bedrock`), `OllamaVerifier` (native `/api/chat` to avoid the `ollama-ai-provider-v2` zod-4 peer), `NoopVerifier` (default). Selected via `PINPOINT_LLM_PROVIDER=none|bedrock|ollama|clef`. Returns `null` on any failure — the matching pipeline treats `null` as "no verification opinion" and falls back to the algorithmic verdict.
+- **Address verifier** — `AddressVerifier`. Two impls: `ClefVerifier` (Cloudflare's Clef decision model over the SystemOne API — `infrastructure/services/systemone-client.ts`; local Ollama ≥ 0.35.1 in dev via `clef/Modelfile`, OpenRouter `https://openrouter.ai/api` + `cloudflare/clef-flash` + `PINPOINT_CLEF_API_KEY` in prod; asks one choice question per address field and applies the match rule in code, `address-match-policy.ts`) and `NoopVerifier` (default). Selected via `PINPOINT_LLM_PROVIDER=clef|none`; any other value logs an error and means `none`. Returns `null` on any failure — matching treats `null` as "no opinion", so the location is created new rather than merged. The Bedrock (Gemma) and Ollama chat verifiers were removed.
 
 Both are constructor-injected into the use cases that need them. No service is wrapped in Effect or in a SDK Tag.
 
