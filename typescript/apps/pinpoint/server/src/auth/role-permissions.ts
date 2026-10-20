@@ -18,7 +18,9 @@
  * The use-case `authorize(scope)` check then stays a simple
  * `scope.permissions.has(PinpointPermission.X)`.
  */
+import type { RequestToken } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
+import { ALL_CLIENTS_ATTRIBUTE } from '../domain/auth/partition-access.js';
 
 type PermissionCode = (typeof PinpointPermission)[keyof typeof PinpointPermission];
 
@@ -86,3 +88,23 @@ export function resolvePermissions(claims: PrincipalClaims): ReadonlySet<string>
  * to grant everything without role wiring.
  */
 export const ALL_PERMISSIONS_SET: ReadonlySet<string> = new Set(ALL_PERMISSIONS);
+
+/** Scope attributes for a principal that may see every client and partition. */
+export const ALL_ACCESS_ATTRIBUTES: Readonly<Record<string, string>> = {
+  [ALL_CLIENTS_ATTRIBUTE]: 'true',
+};
+
+/**
+ * The request token for validated claims: permissions, plus the all-clients
+ * attribute for anchors (see `domain/auth/partition-access.ts`). Everyone else
+ * is limited to their partition grants.
+ */
+export function requestTokenFromClaims(
+  claims: PrincipalClaims & { readonly sub: string },
+): RequestToken {
+  return {
+    sub: claims.sub,
+    permissions: resolvePermissions(claims),
+    ...(isAnchor(claims) ? { attributes: ALL_ACCESS_ATTRIBUTES } : {}),
+  };
+}

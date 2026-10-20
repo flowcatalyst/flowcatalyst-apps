@@ -8,8 +8,15 @@ export interface PrincipalWithGrant {
   readonly grantedAt: Date;
 }
 
+export interface PartitionGrant {
+  readonly partitionId: string;
+  readonly clientId: string;
+}
+
 export interface PrincipalRepository {
   findById(id: PrincipalId): Promise<Principal | null>;
+  /** Partitions granted to the principal, with the client each belongs to. */
+  listPartitionGrants(principalId: PrincipalId): Promise<readonly PartitionGrant[]>;
   upsert(draft: PrincipalDraft): Promise<Principal>;
   findPrincipalsForPartition(partitionId: PartitionId): Promise<readonly PrincipalWithGrant[]>;
   grantPartitionAccess(

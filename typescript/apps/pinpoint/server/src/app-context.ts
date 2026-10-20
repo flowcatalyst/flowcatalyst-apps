@@ -20,6 +20,8 @@ import { createDrizzlePropertySetRepository } from './infrastructure/property-se
 import { createDrizzleMatchingConfigRepository } from './infrastructure/matching-config-repository.js';
 import { createDrizzleMasterLocationRepository } from './infrastructure/master-location-repository.js';
 import { createDrizzleProcessingLogRepository } from './infrastructure/processing-log-repository.js';
+import { createDrizzleRequestLogRepository } from './infrastructure/request-log-repository.js';
+import type { RequestLogRepository } from './domain/reporting/request-log.repository.js';
 import { createDrizzleLocationAttributeRepository } from './infrastructure/location-attribute-repository.js';
 import { createCountryNameResolver } from './infrastructure/services/country-name-resolver.js';
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
@@ -130,6 +132,7 @@ export interface AppContextRepositories {
   readonly masterLocations: MasterLocationRepository;
   readonly processingLog: ProcessingLogRepository;
   readonly locationAttributes: LocationAttributeRepository;
+  readonly requestLogs: RequestLogRepository;
 }
 
 export interface AppContextServices {
@@ -348,6 +351,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       matchingConfigs: matchingConfigRepo,
       masterLocations: masterLocationRepo,
       processingLog: processingLogRepo,
+      requestLogs: createDrizzleRequestLogRepository(db),
       locationAttributes: locationAttributeRepo,
     },
     services: {

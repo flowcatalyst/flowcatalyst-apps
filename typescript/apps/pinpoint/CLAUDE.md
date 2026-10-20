@@ -400,6 +400,10 @@ Pinpoint integrates with two external HTTP services. Each one is a plain async i
 
 Both are constructor-injected into the use cases that need them. No service is wrapped in Effect or in a SDK Tag.
 
+## Request log and usage reports
+
+`api/plugins/request-log.ts` records every canonical-API request (not `/bff`, `/auth`, `/docs`, `/health`, `/jobs`, `/reports`, `/request-logs`) into `request_logs` after the response is sent: operationId, attribution (client from path/body/query; partition from the response first), principal, status, duration, request + response bodies (64 KiB cap each). It is infrastructure telemetry — written straight to `RequestLogRepository`, outside any UnitOfWork, never failing the request. Reports: `GET /reports/usage` (month/week/day × client × partition × operation, `pinpoint:reporting:usage:read`), `GET /request-logs` + `/request-logs/:id` (`pinpoint:reporting:request_log:read`). Reports enforce partition access (`domain/auth/partition-access.ts`): anchors/admins see all; others see their `principal_partitions` grants, those partitions' clients' partition-less requests, and their own. The same handlers are mounted under `/bff` (`ReportingSurface`) for the SPA's Usage page (`web/src/pages/reports/UsageReportPage.vue`). Other read routes do **not** enforce partition access yet — `authorizeReporting` + `resolvePartitionAccess` are the pattern to roll out. Pruned daily by the `pinpoint-prune-request-logs` scheduled job (`PINPOINT_REQUEST_LOG_RETENTION_DAYS`, default 400). A new route under an excluded prefix isn't logged — add operational routes elsewhere if they should count.
+
 ## Scheduling
 
 Platform-driven, not in-process. `scheduling/validate-master-locations.ts` exports `runValidateMasterLocationsBatch(appContext, config?)` — a plain async batch handler that drains GEOCODED master_locations and calls `confirm-master-location` on each. The FlowCatalyst platform fires `pinpoint-validate-master-locations` every 5 min via HMAC-signed POST to `/jobs/validate-master-locations` (definition in `flowcatalyst/scheduled-jobs.ts`, synced via `pnpm flowcatalyst:sync`).

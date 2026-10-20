@@ -19,7 +19,7 @@
  */
 import type { RequestToken } from '@pinpoint/framework';
 import type { OidcClient } from './oidc-client.js';
-import { resolvePermissions } from './role-permissions.js';
+import { requestTokenFromClaims } from './role-permissions.js';
 import type { Session, SessionStore } from './session-store.js';
 import type { TokenValidator } from './token-validator.js';
 
@@ -49,10 +49,7 @@ export async function tryRefreshSession(
   if (latest.accessToken.length > 0 && latest.accessToken !== originalSession.accessToken) {
     try {
       const claims = await tokenValidator.validate(latest.accessToken);
-      return {
-        sub: claims.sub,
-        permissions: resolvePermissions(claims),
-      };
+      return requestTokenFromClaims(claims);
     } catch {
       // The other refresh also produced a stale-on-arrival token.
       // Fall through to attempt our own refresh.
@@ -71,10 +68,7 @@ export async function tryRefreshSession(
       refreshToken: tokens.refreshToken ?? latest.refreshToken,
     });
     const claims = await tokenValidator.validate(tokens.accessToken);
-    return {
-      sub: claims.sub,
-      permissions: resolvePermissions(claims),
-    };
+    return requestTokenFromClaims(claims);
   } catch (err) {
     log.warn({ err, sessionId: latest.id }, 'OIDC token refresh failed');
     return null;

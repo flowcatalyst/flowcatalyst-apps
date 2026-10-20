@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
 import type { Principal, PrincipalDraft, PrincipalType } from '../domain/auth/principal.js';
 import type {
+  PartitionGrant,
   PrincipalRepository,
   PrincipalWithGrant,
 } from '../domain/auth/principal.repository.js';
@@ -10,6 +11,7 @@ import { asPrincipalId, type PrincipalId } from '../domain/auth/ids.js';
 import type { PartitionId } from '../domain/tenancy/ids.js';
 import { principals, type PrincipalRow } from './schema/principals.js';
 import { principalPartitions } from './schema/principal-partitions.js';
+import { partitions } from './schema/partitions.js';
 
 function toDomain(row: PrincipalRow): Principal {
   return {
@@ -56,6 +58,14 @@ export function createDrizzlePrincipalRepository(db: PostgresJsDatabase): Princi
         throw new Error(`Principal upsert returned no row for id=${draft.id}`);
       }
       return toDomain(row);
+    },
+
+    async listPartitionGrants(principalId: PrincipalId): Promise<readonly PartitionGrant[]> {
+      return db
+        .select({ partitionId: principalPartitions.partitionId, clientId: partitions.clientId })
+        .from(principalPartitions)
+        .innerJoin(partitions, eq(partitions.id, principalPartitions.partitionId))
+        .where(eq(principalPartitions.principalId, principalId));
     },
 
     async findPrincipalsForPartition(

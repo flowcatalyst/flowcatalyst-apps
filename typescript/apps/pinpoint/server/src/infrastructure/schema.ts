@@ -80,3 +80,6 @@ export type { NewProcessingLogEntry, ProcessingLogRow } from './schema/processin
 
 export { sessions } from './schema/sessions.js';
 export type { NewSession, SessionRow } from './schema/sessions.js';
+
+export { requestLogs } from './schema/request-logs.js';
+export type { NewRequestLog, RequestLogRow } from './schema/request-logs.js';

@@ -12,7 +12,11 @@ import { db } from './infrastructure/db.js';
 import { runStartupMigrations } from './infrastructure/migrate.js';
 import { createAppContext, type AppContext } from './app-context.js';
 import { loadAuthConfig } from './auth/auth-config.js';
-import { ALL_PERMISSIONS_SET, resolvePermissions } from './auth/role-permissions.js';
+import {
+  ALL_ACCESS_ATTRIBUTES,
+  ALL_PERMISSIONS_SET,
+  requestTokenFromClaims,
+} from './auth/role-permissions.js';
 import { SESSION_COOKIE_NAME } from './auth/session-cookie.js';
 import { tryRefreshSession } from './auth/session-refresh.js';
 import { registerAuthRoutes } from './api/routes/auth/index.js';
@@ -26,6 +30,8 @@ import { registerPropertySetRoutes } from './api/routes/property-sets/index.js';
 import { registerMatchingConfigRoutes } from './api/routes/matching-config/index.js';
 import { registerSpatialLookupRoutes } from './api/routes/spatial-lookup/index.js';
 import { registerGeocodeRoutes } from './api/routes/geocode/index.js';
+import { registerReportingRoutes } from './api/routes/reporting/index.js';
+import { registerRequestLog } from './api/plugins/request-log.js';
 import { registerVerifyMatchRoutes } from './api/routes/verify-match/index.js';
 import { registerMasterLocationRoutes } from './api/routes/master-locations/index.js';
 import { registerJobsRoutes } from './api/routes/jobs/index.js';
@@ -49,6 +55,12 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
+/** Log every API request's input + output to `request_logs` (default on). */
+const REQUEST_LOG_ENABLED = process.env['PINPOINT_REQUEST_LOG_ENABLED'] !== 'false';
+/** Days of request logs the daily prune job keeps. */
+const REQUEST_LOG_RETENTION_DAYS = Number(
+  process.env['PINPOINT_REQUEST_LOG_RETENTION_DAYS'] ?? 400,
+);
 /**
  * Absolute (or server-relative) path to the built Vue SPA's `dist/`
  * directory. When set, the server serves that directory at `/` with a
@@ -149,10 +161,7 @@ async function extractRequestToken(
     if (token.length > 0 && tokenValidator) {
       try {
         const claims = await tokenValidator.validate(token);
-        return {
-          sub: claims.sub,
-          permissions: resolvePermissions(claims),
-        };
+        return requestTokenFromClaims(claims);
       } catch (err) {
         req.log.warn({ err }, 'JWT validation failed');
       }
@@ -166,10 +175,7 @@ async function extractRequestToken(
       if (tokenValidator) {
         try {
           const claims = await tokenValidator.validate(session.accessToken);
-          return {
-            sub: claims.sub,
-            permissions: resolvePermissions(claims),
-          };
+          return requestTokenFromClaims(claims);
         } catch (err) {
           // Access token failed to validate — typically expired. If
           // the session carries a refresh token and OIDC is configured,
@@ -185,7 +191,11 @@ async function extractRequestToken(
         // Trust the stored sub — used only in test setups. Grant the
         // full permission set since this code path is gated on the
         // OIDC issuer being unconfigured (only happens in test rigs).
-        return { sub: session.sub, permissions: ALL_PERMISSIONS_SET };
+        return {
+          sub: session.sub,
+          permissions: ALL_PERMISSIONS_SET,
+          attributes: ALL_ACCESS_ATTRIBUTES,
+        };
       }
     }
   }
@@ -195,7 +205,7 @@ async function extractRequestToken(
     if (typeof sub === 'string' && sub.length > 0) {
       // Dev fallback grants everything — matches the Rust pinpoint
       // dev path. NEVER enable in production.
-      return { sub, permissions: ALL_PERMISSIONS_SET };
+      return { sub, permissions: ALL_PERMISSIONS_SET, attributes: ALL_ACCESS_ATTRIBUTES };
     }
   }
   return null;
@@ -328,7 +338,16 @@ export async function buildServer() {
     service: 'pinpoint',
   }));
 
+  // Before any route registers, so its hooks cover every route.
+  if (REQUEST_LOG_ENABLED) {
+    registerRequestLog(server, {
+      repository: appContext.repositories.requestLogs,
+      onError: (err) => server.log.warn({ err }, 'request log write failed'),
+    });
+  }
+
   registerAuthRoutes(server, appContext);
+  registerReportingRoutes(server, appContext);
   registerCountriesRoute(server, appContext);
   registerClientRoutes(server, appContext);
   registerPartitionRoutes(server, appContext);
@@ -343,6 +362,7 @@ export async function buildServer() {
   registerMasterLocationRoutes(server, appContext);
   registerJobsRoutes(server, appContext, {
     webhookAuth: { signingSecret: FLOWCATALYST_SIGNING_SECRET },
+    requestLogRetentionDays: REQUEST_LOG_RETENTION_DAYS,
   });
   registerBffRoutes(server, appContext);
 

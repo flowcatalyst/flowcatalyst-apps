@@ -53,6 +53,10 @@ export const PinpointPermission = {
   LocationsMasterLocationReject: 'pinpoint:locations:master_location:reject',
   /** Delete a master location. Cascades to its child locations + processing log. */
   LocationsMasterLocationDelete: 'pinpoint:locations:master_location:delete',
+  /** Request counts per client / partition / operation / period. */
+  ReportingUsageRead: 'pinpoint:reporting:usage:read',
+  /** Individual logged requests, including their request + response bodies. */
+  ReportingRequestLogRead: 'pinpoint:reporting:request_log:read',
 } as const;
 
 export type PinpointPermission = (typeof PinpointPermission)[keyof typeof PinpointPermission];
