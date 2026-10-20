@@ -8,7 +8,12 @@
  * failed and its transaction rolled back.
  */
 
+/** Which HTTP surface a request came through: the canonical API or the SPA's BFF. */
+export const REQUEST_SURFACES = ['API', 'UI'] as const;
+export type RequestSurface = (typeof REQUEST_SURFACES)[number];
+
 export interface NewRequestLogEntry {
+  readonly surface: RequestSurface;
   readonly clientId: string | null;
   readonly partitionId: string | null;
   readonly principalId: string | null;
@@ -51,6 +56,7 @@ export interface RequestLogFilter {
   readonly clientId?: string | undefined;
   readonly partitionId?: string | undefined;
   readonly operation?: string | undefined;
+  readonly surface?: RequestSurface | undefined;
 }
 
 export interface UsageQuery extends Omit<RequestLogFilter, 'from'> {
@@ -87,6 +93,7 @@ export interface UsageRow {
   readonly partitionId: string | null;
   readonly partitionCode: string | null;
   readonly operation: string;
+  readonly surface: RequestSurface;
   readonly requests: number;
   /** Requests answered with a 4xx or 5xx. */
   readonly errors: number;

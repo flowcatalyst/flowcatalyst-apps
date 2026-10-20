@@ -65,6 +65,10 @@ export const masterLocations = pgTable(
      * `docs/spatial-queries.md` for the established pattern.
      */
     point: geometry('point'),
+    /** PHOTON | GOOGLE_MAPS | OPERATOR — who produced the coordinates. */
+    geocodeSource: varchar('geocode_source', { length: 20 }),
+    /** Cached third-party coordinates must be refreshed or dropped by then. */
+    geocodeExpiresAt: timestampColumn('geocode_expires_at'),
 
     status: varchar('status', { length: 20 }).notNull().default('PENDING'),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),

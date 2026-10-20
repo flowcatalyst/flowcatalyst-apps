@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Usage — API requests per client / partition / operation by month, week or
+ * Usage — requests (API and UI) per client / partition / operation by month, week or
  * day, from the request log. Headline tiles, requests-per-period chart, a
  * breakdown table (CSV export), and the individual requests behind it with
  * their input and output. The server limits everything to the clients and
@@ -48,6 +48,13 @@ const range = ref<(Date | null)[] | null>(null);
 const clientId = ref<string | null>(null);
 const partitionId = ref<string | null>(null);
 const operation = ref<string | null>(null);
+/** API = the canonical API; UI = actions taken in this app. */
+const surface = ref<'API' | 'UI' | null>(null);
+const surfaceOptions = [
+  { label: 'All', value: null },
+  { label: 'API', value: 'API' },
+  { label: 'UI', value: 'UI' },
+];
 const partitions = ref<Partition[]>([]);
 
 const ymd = (d: Date) =>
@@ -67,6 +74,7 @@ const filters = computed(() => ({
   ...(clientId.value ? { clientId: clientId.value } : {}),
   ...(partitionId.value ? { partitionId: partitionId.value } : {}),
   ...(operation.value ? { operation: operation.value } : {}),
+  ...(surface.value ? { surface: surface.value } : {}),
 }));
 
 // ── Usage report ────────────────────────────────────────────────────────────
@@ -177,6 +185,7 @@ function exportCsv(): void {
     'partition_code',
     'partition_id',
     'operation',
+    'surface',
     'requests',
     'errors',
   ];
@@ -188,6 +197,7 @@ function exportCsv(): void {
       r.partitionCode,
       r.partitionId,
       r.operation,
+      r.surface,
       r.requests,
       r.errors,
     ]
@@ -216,6 +226,7 @@ const drill = ref<{
   clientId?: string;
   partitionId?: string;
   operation?: string;
+  surface?: 'API' | 'UI';
   label: string;
 } | null>(null);
 
@@ -266,7 +277,8 @@ function drillIntoRow(row: UsageRow): void {
     ...(row.clientId ? { clientId: row.clientId } : {}),
     ...(row.partitionId ? { partitionId: row.partitionId } : {}),
     operation: row.operation,
-    label: `${periodTitle(row.periodStart, period.value)} · ${clientName(row.clientId, row.clientCode)} · ${row.operation}`,
+    surface: row.surface,
+    label: `${periodTitle(row.periodStart, period.value)} · ${clientName(row.clientId, row.clientCode)} · ${row.operation} (${row.surface})`,
   };
   showRequests();
 }
@@ -327,7 +339,7 @@ watch(clientId, () => {
   partitionId.value = null;
   void loadPartitions();
 });
-watch([period, timezone, range, clientId, partitionId, operation], reload);
+watch([period, timezone, range, clientId, partitionId, operation, surface], reload);
 watch(tab, (t) => {
   if (t === 'requests' && requests.value.length === 0) void loadRequests();
 });
@@ -338,7 +350,9 @@ watch(tab, (t) => {
     <div class="page-header">
       <div>
         <h1 class="page-title">Usage</h1>
-        <p class="page-subtitle">API requests per client, partition and operation</p>
+        <p class="page-subtitle">
+          Requests per client, partition and operation — from the API and from this app (UI)
+        </p>
       </div>
     </div>
 
@@ -388,6 +402,14 @@ watch(tab, (t) => {
         option-value="value"
         placeholder="All operations"
         style="width: 200px"
+      />
+      <SelectButton
+        v-model="surface"
+        :options="surfaceOptions"
+        option-label="label"
+        option-value="value"
+        :allow-empty="false"
+        aria-label="Source"
       />
       <Select v-model="timezone" :options="timezones" style="width: 190px" />
     </div>
@@ -468,6 +490,7 @@ watch(tab, (t) => {
                 <template #body="{ data }">{{ (data as UsageRow).partitionCode ?? '—' }}</template>
               </Column>
               <Column field="operation" header="Operation" sortable />
+              <Column field="surface" header="Source" sortable />
               <Column field="requests" header="Requests" sortable class="num">
                 <template #body="{ data }">{{ fmt.format((data as UsageRow).requests) }}</template>
               </Column>
@@ -505,6 +528,7 @@ watch(tab, (t) => {
                 }}</template>
               </Column>
               <Column field="operation" header="Operation" />
+              <Column field="surface" header="Source" />
               <Column header="Client">
                 <template #body="{ data }">{{
                   clientName((data as RequestLogSummary).clientId)
@@ -545,6 +569,8 @@ watch(tab, (t) => {
           <dd>{{ when(detail.createdAt) }}</dd>
           <dt>Operation</dt>
           <dd>{{ detail.operation }}</dd>
+          <dt>Source</dt>
+          <dd>{{ detail.surface === 'UI' ? 'UI (this app)' : 'API' }}</dd>
           <dt>Request</dt>
           <dd>
             <code>{{ detail.method }} {{ detail.url }}</code>

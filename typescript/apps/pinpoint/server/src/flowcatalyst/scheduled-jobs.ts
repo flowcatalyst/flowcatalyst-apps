@@ -20,6 +20,8 @@ export const VALIDATE_MASTER_LOCATIONS_JOB_CODE = 'pinpoint-validate-master-loca
 export const VALIDATE_MASTER_LOCATIONS_JOB_PATH = '/jobs/validate-master-locations' as const;
 export const PRUNE_REQUEST_LOGS_JOB_CODE = 'pinpoint-prune-request-logs' as const;
 export const PRUNE_REQUEST_LOGS_JOB_PATH = '/jobs/prune-request-logs' as const;
+export const REFRESH_CACHED_GEOCODES_JOB_CODE = 'pinpoint-refresh-cached-geocodes' as const;
+export const REFRESH_CACHED_GEOCODES_JOB_PATH = '/jobs/refresh-cached-geocodes' as const;
 
 export function buildPinpointScheduledJobs(
   config: BuildPinpointScheduledJobsConfig,
@@ -57,6 +59,20 @@ export function buildPinpointScheduledJobs(
       timeoutSeconds: 300,
       deliveryMaxAttempts: 1,
       targetUrl: `${base}${PRUNE_REQUEST_LOGS_JOB_PATH}`,
+    },
+    {
+      code: REFRESH_CACHED_GEOCODES_JOB_CODE,
+      name: 'Refresh cached geocodes',
+      description:
+        'Daily at 03:00 UTC: renew master locations\' cached Google Maps geocodes before their ' +
+        '30 days (Google\'s caching limit) run out; delete any that expired without a renewal.',
+      crons: ['0 3 * * *'],
+      timezone: 'UTC',
+      concurrent: false,
+      tracksCompletion: false,
+      timeoutSeconds: 600,
+      deliveryMaxAttempts: 1,
+      targetUrl: `${base}${REFRESH_CACHED_GEOCODES_JOB_PATH}`,
     },
   ];
 }

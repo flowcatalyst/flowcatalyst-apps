@@ -38,6 +38,8 @@ describe('shared schemas', () => {
       status: 'VALIDATED',
       latitude: -33.92,
       longitude: 18.42,
+      geocodeSource: 'PHOTON',
+      geocodeExpiresAt: null,
       addressHash: 'h1',
       createdAt: '2026-08-22T10:00:00.000Z',
       features: [

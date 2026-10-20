@@ -22,6 +22,12 @@ import type { AppContext } from '../../../app-context.js';
 import { AddressDetailsSchema } from '../../../domain/locations/events/address-details.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
+import {
+  answerFromMasters,
+  fromGeocoder,
+  GeocodeSourceFields,
+  MasterFirstFields,
+} from './master-first.js';
 
 const AddressGeocodeBodySchema = Type.Object({
   /** Free-text address line, e.g. `548 Market Street, San Francisco, CA 94104`. */
@@ -33,6 +39,7 @@ const AddressGeocodeBodySchema = Type.Object({
   countryCode: Type.Optional(
     Type.Union([Type.String({ minLength: 2, maxLength: 3 }), Type.Null()]),
   ),
+  ...MasterFirstFields,
 });
 
 const AddressGeocodeResponseSchema = Type.Object({
@@ -49,6 +56,7 @@ const AddressGeocodeResponseSchema = Type.Object({
   roadMatched: Type.Union([Type.Boolean(), Type.Null()]),
   /** The upstream query that produced this result — may be a loosened line. */
   query: Type.String(),
+  ...GeocodeSourceFields,
 });
 
 export function registerAddressGeocodeRoute(
@@ -96,21 +104,23 @@ export function registerAddressGeocodeRoute(
         );
       }
 
-      const body = request.body as { address: string; countryCode?: string | null };
+      const body = request.body as {
+        address: string;
+        countryCode?: string | null;
+        forceGeocode?: boolean;
+        clientId?: string;
+        partitionId?: string;
+      };
       const address = body.address.trim();
       const countryCode = body.countryCode?.trim() || null;
 
+      const fromMasters = await answerFromMasters(reply, appContext, body, address);
+      if (fromMasters === 'denied') return reply;
+      if (fromMasters) return reply.code(200).send(fromMasters);
+
       try {
         const result = await appContext.services.geocoder.geocodeText(address, { countryCode });
-        return reply.code(200).send({
-          latitude: result.latitude,
-          longitude: result.longitude,
-          confidence: result.confidence,
-          formattedAddress: result.formattedAddress,
-          address: result.address,
-          roadMatched: result.roadMatched,
-          query: result.query,
-        });
+        return reply.code(200).send(fromGeocoder(result));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const noMatch = message.startsWith('No geocoding results');

@@ -35,6 +35,7 @@ const FAKE_RESULT: GeocodingResult = {
   address: ADDRESS,
   roadMatched: null,
   query: 'London, GB',
+  source: 'PHOTON',
 };
 
 const FAKE_REVERSE: ReverseGeocodingResult = {

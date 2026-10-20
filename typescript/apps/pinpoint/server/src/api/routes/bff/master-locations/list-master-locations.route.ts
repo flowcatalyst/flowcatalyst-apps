@@ -55,6 +55,8 @@ export function toBffMasterLocationResponse(ml: MasterLocation): {
   status: string;
   latitude: number | null;
   longitude: number | null;
+  geocodeSource: MasterLocation['geocodeSource'];
+  geocodeExpiresAt: string | null;
   addressHash: string;
   createdAt: string;
 } {
@@ -76,6 +78,8 @@ export function toBffMasterLocationResponse(ml: MasterLocation): {
     status: ml.status,
     latitude: ml.latitude,
     longitude: ml.longitude,
+    geocodeSource: ml.geocodeSource,
+    geocodeExpiresAt: ml.geocodeExpiresAt?.toISOString() ?? null,
     addressHash: ml.addressHash,
     createdAt: ml.createdAt.toISOString(),
   };

@@ -547,6 +547,8 @@
           "status",
           "latitude",
           "longitude",
+          "geocodeSource",
+          "geocodeExpiresAt",
           "addressHash",
           "createdAt"
         ],
@@ -630,6 +632,42 @@
             "anyOf": [
               {
                 "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geocodeSource": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PHOTON"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "GOOGLE_MAPS"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "OPERATOR"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geocodeExpiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
               },
               {
                 "type": "null"
@@ -1180,6 +1218,27 @@
             "in": "query",
             "name": "operation",
             "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "API"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "UI"
+                  ]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "surface",
+            "required": false
           }
         ],
         "responses": {
@@ -1222,6 +1281,7 @@
                           "partitionId",
                           "partitionCode",
                           "operation",
+                          "surface",
                           "requests",
                           "errors"
                         ],
@@ -1271,6 +1331,22 @@
                           },
                           "operation": {
                             "type": "string"
+                          },
+                          "surface": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "API"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "UI"
+                                ]
+                              }
+                            ]
                           },
                           "requests": {
                             "type": "integer"
@@ -1374,6 +1450,27 @@
           },
           {
             "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "API"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "UI"
+                  ]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "surface",
+            "required": false
+          },
+          {
+            "schema": {
               "minimum": 1,
               "maximum": 200,
               "default": 50,
@@ -1418,6 +1515,7 @@
                           "clientId",
                           "partitionId",
                           "principalId",
+                          "surface",
                           "operation",
                           "method",
                           "route",
@@ -1460,6 +1558,22 @@
                               },
                               {
                                 "type": "null"
+                              }
+                            ]
+                          },
+                          "surface": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "API"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "UI"
+                                ]
                               }
                             ]
                           },
@@ -1555,6 +1669,7 @@
                         "clientId",
                         "partitionId",
                         "principalId",
+                        "surface",
                         "operation",
                         "method",
                         "route",
@@ -1597,6 +1712,22 @@
                             },
                             {
                               "type": "null"
+                            }
+                          ]
+                        },
+                        "surface": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "API"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "UI"
+                              ]
                             }
                           ]
                         },
@@ -1759,6 +1890,27 @@
             "in": "query",
             "name": "operation",
             "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "API"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "UI"
+                  ]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "surface",
+            "required": false
           }
         ],
         "responses": {
@@ -1801,6 +1953,7 @@
                           "partitionId",
                           "partitionCode",
                           "operation",
+                          "surface",
                           "requests",
                           "errors"
                         ],
@@ -1850,6 +2003,22 @@
                           },
                           "operation": {
                             "type": "string"
+                          },
+                          "surface": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "API"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "UI"
+                                ]
+                              }
+                            ]
                           },
                           "requests": {
                             "type": "integer"
@@ -1953,6 +2122,27 @@
           },
           {
             "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "API"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "UI"
+                  ]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "surface",
+            "required": false
+          },
+          {
+            "schema": {
               "minimum": 1,
               "maximum": 200,
               "default": 50,
@@ -1997,6 +2187,7 @@
                           "clientId",
                           "partitionId",
                           "principalId",
+                          "surface",
                           "operation",
                           "method",
                           "route",
@@ -2039,6 +2230,22 @@
                               },
                               {
                                 "type": "null"
+                              }
+                            ]
+                          },
+                          "surface": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "API"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "UI"
+                                ]
                               }
                             ]
                           },
@@ -2134,6 +2341,7 @@
                         "clientId",
                         "partitionId",
                         "principalId",
+                        "surface",
                         "operation",
                         "method",
                         "route",
@@ -2176,6 +2384,22 @@
                             },
                             {
                               "type": "null"
+                            }
+                          ]
+                        },
+                        "surface": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "API"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "UI"
+                              ]
                             }
                           ]
                         },
@@ -7142,6 +7366,18 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "forceGeocode": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "clientId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "partitionId": {
+                    "minLength": 1,
+                    "type": "string"
                   }
                 }
               }
@@ -7162,7 +7398,11 @@
                     "formattedAddress",
                     "address",
                     "roadMatched",
-                    "query"
+                    "query",
+                    "source",
+                    "masterLocationId",
+                    "matchMethod",
+                    "geocodeSource"
                   ],
                   "properties": {
                     "latitude": {
@@ -7266,6 +7506,82 @@
                     },
                     "query": {
                       "type": "string"
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "MASTER_LOCATIONS"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "PHOTON"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "GOOGLE_MAPS"
+                          ]
+                        }
+                      ]
+                    },
+                    "masterLocationId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "matchMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "EXACT_HASH"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "FUZZY"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "geocodeSource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "PHOTON"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "GOOGLE_MAPS"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "OPERATOR"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   }
                 }
@@ -7399,6 +7715,18 @@
                   "country": {
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "forceGeocode": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "clientId": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "partitionId": {
+                    "minLength": 1,
+                    "type": "string"
                   }
                 }
               }
@@ -7419,7 +7747,11 @@
                     "formattedAddress",
                     "address",
                     "roadMatched",
-                    "query"
+                    "query",
+                    "source",
+                    "masterLocationId",
+                    "matchMethod",
+                    "geocodeSource"
                   ],
                   "properties": {
                     "latitude": {
@@ -7523,6 +7855,82 @@
                     },
                     "query": {
                       "type": "string"
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "MASTER_LOCATIONS"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "PHOTON"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "GOOGLE_MAPS"
+                          ]
+                        }
+                      ]
+                    },
+                    "masterLocationId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "matchMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "EXACT_HASH"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "FUZZY"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "geocodeSource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "PHOTON"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "GOOGLE_MAPS"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "OPERATOR"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   }
                 }
@@ -8173,6 +8581,8 @@
                     "normalizedAddressLine",
                     "latitude",
                     "longitude",
+                    "geocodeSource",
+                    "geocodeExpiresAt",
                     "status",
                     "createdAt",
                     "updatedAt",
@@ -8278,6 +8688,42 @@
                       "anyOf": [
                         {
                           "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "geocodeSource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "PHOTON"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "GOOGLE_MAPS"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "OPERATOR"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "geocodeExpiresAt": {
+                      "anyOf": [
+                        {
+                          "format": "date-time",
+                          "type": "string"
                         },
                         {
                           "type": "null"
@@ -8701,6 +9147,8 @@
                           "normalizedAddressLine",
                           "latitude",
                           "longitude",
+                          "geocodeSource",
+                          "geocodeExpiresAt",
                           "status",
                           "createdAt",
                           "updatedAt",
@@ -8806,6 +9254,42 @@
                             "anyOf": [
                               {
                                 "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "geocodeSource": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "PHOTON"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "GOOGLE_MAPS"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "OPERATOR"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "geocodeExpiresAt": {
+                            "anyOf": [
+                              {
+                                "format": "date-time",
+                                "type": "string"
                               },
                               {
                                 "type": "null"
@@ -9385,6 +9869,183 @@
                     "deleted": {
                       "minimum": 0,
                       "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "code",
+                        "message"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/refresh-cached-geocodes": {
+      "post": {
+        "operationId": "refreshCachedGeocodes",
+        "tags": [
+          "Jobs"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "attempted",
+                    "refreshed",
+                    "expired",
+                    "failed",
+                    "failures"
+                  ],
+                  "properties": {
+                    "attempted": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "refreshed": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "expired": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failures": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "masterLocationId",
+                          "error"
+                        ],
+                        "properties": {
+                          "masterLocationId": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }

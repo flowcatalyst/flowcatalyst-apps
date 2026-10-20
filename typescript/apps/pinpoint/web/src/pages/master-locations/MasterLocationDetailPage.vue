@@ -239,6 +239,20 @@ async function handleSaveEdit() {
   }
 }
 
+/** Who produced the coordinates, for display. */
+function geocodeSourceLabel(source: string | null | undefined): string {
+  switch (source) {
+    case 'PHOTON':
+      return 'OpenStreetMap (Photon)';
+    case 'GOOGLE_MAPS':
+      return 'Google Maps';
+    case 'OPERATOR':
+      return 'an operator';
+    default:
+      return 'unknown source';
+  }
+}
+
 async function handleGeocode() {
   if (!masterLocation.value || !clientId) return;
   geocoding.value = true;
@@ -251,7 +265,7 @@ async function handleGeocode() {
     );
     masterLocation.value = { ...masterLocation.value, ...updated };
     processingLog.value = [];
-    toast.success('Geocoded', 'Master location has been forward geocoded.');
+    toast.success('Geocoded', `Coordinates from ${geocodeSourceLabel(updated.geocodeSource)}.`);
   } catch (e) {
     toast.error('Geocoding failed', getErrorMessage(e, 'Unknown error'));
   } finally {
@@ -732,6 +746,16 @@ function dismissResult() {
               }}
             </span>
           </div>
+          <div v-if="masterLocation.latitude != null" class="detail-item">
+            <span class="detail-label">Geocode source</span>
+            <span class="detail-value">
+              {{ geocodeSourceLabel(masterLocation.geocodeSource) }}
+              <span v-if="masterLocation.geocodeExpiresAt" class="geocode-expiry">
+                · cached until {{ new Date(masterLocation.geocodeExpiresAt).toLocaleDateString() }}
+                (Google's terms allow 30 days; refreshed automatically)
+              </span>
+            </span>
+          </div>
           <div class="detail-item">
             <span class="detail-label">Address Hash</span>
             <span
@@ -931,5 +955,9 @@ function dismissResult() {
   color: #334e68;
   white-space: pre-wrap;
   word-break: break-all;
+}
+.geocode-expiry {
+  color: var(--p-text-muted-color, #64748b);
+  font-size: 13px;
 }
 </style>

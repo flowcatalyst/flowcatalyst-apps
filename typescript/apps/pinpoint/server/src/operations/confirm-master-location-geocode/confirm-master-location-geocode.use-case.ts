@@ -85,7 +85,7 @@ export class ConfirmMasterLocationGeocodeUseCase {
         normalizedAddressLine,
         now,
       }),
-      { latitude: command.latitude, longitude: command.longitude },
+      { latitude: command.latitude, longitude: command.longitude, source: 'OPERATOR' },
       now,
     );
 

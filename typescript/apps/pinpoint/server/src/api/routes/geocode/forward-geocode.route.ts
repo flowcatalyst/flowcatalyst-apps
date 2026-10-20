@@ -17,6 +17,12 @@ import type { NormalizedAddress } from '../../../domain/services/address-normali
 import { AddressDetailsSchema } from '../../../domain/locations/events/address-details.js';
 import { sendUseCaseError } from '../../plugins/error-mapper.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
+import {
+  answerFromMasters,
+  fromGeocoder,
+  GeocodeSourceFields,
+  MasterFirstFields,
+} from './master-first.js';
 
 const ForwardGeocodeBodySchema = Type.Object({
   houseNumber: Type.Optional(Type.Union([Type.String(), Type.Null()])),
@@ -26,6 +32,7 @@ const ForwardGeocodeBodySchema = Type.Object({
   state: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   postalCode: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   country: Type.String({ minLength: 1 }),
+  ...MasterFirstFields,
 });
 
 const ForwardGeocodeResponseSchema = Type.Object({
@@ -47,6 +54,7 @@ const ForwardGeocodeResponseSchema = Type.Object({
   roadMatched: Type.Union([Type.Boolean(), Type.Null()]),
   /** The upstream query that produced this result — may be a loosened one. */
   query: Type.String(),
+  ...GeocodeSourceFields,
 });
 
 export function registerForwardGeocodeRoute(
@@ -96,6 +104,9 @@ export function registerForwardGeocodeRoute(
         state?: string | null;
         postalCode?: string | null;
         country: string;
+        forceGeocode?: boolean;
+        clientId?: string;
+        partitionId?: string;
       };
       const address: NormalizedAddress = {
         houseNumber: body.houseNumber ?? null,
@@ -107,17 +118,13 @@ export function registerForwardGeocodeRoute(
         country: body.country,
       };
 
+      const fromMasters = await answerFromMasters(reply, appContext, body, lookupLine(address));
+      if (fromMasters === 'denied') return reply;
+      if (fromMasters) return reply.code(200).send(fromMasters);
+
       try {
         const result = await appContext.services.geocoder.geocode(address);
-        return reply.code(200).send({
-          latitude: result.latitude,
-          longitude: result.longitude,
-          confidence: result.confidence,
-          formattedAddress: result.formattedAddress,
-          address: result.address,
-          roadMatched: result.roadMatched,
-          query: result.query,
-        });
+        return reply.code(200).send(fromGeocoder(result));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         // 422, not 404 — see the note on the response schema.
@@ -129,4 +136,12 @@ export function registerForwardGeocodeRoute(
       }
     },
   );
+}
+
+/** The structured address as one line, for the master-location check. */
+function lookupLine(address: NormalizedAddress): string {
+  const street = [address.houseNumber, address.road].filter(Boolean).join(' ');
+  return [street, address.suburb, address.city, address.state, address.postalCode, address.country]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join(', ');
 }

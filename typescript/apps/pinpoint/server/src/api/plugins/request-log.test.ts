@@ -13,9 +13,12 @@ import type {
 import {
   attributeRequest,
   boundedBody,
+  canonicalOperation,
   isLoggedRoute,
   parsePayload,
   registerRequestLog,
+  surfaceOf,
+  withoutThirdPartyCoordinates,
 } from './request-log.js';
 
 describe('isLoggedRoute', () => {
@@ -25,7 +28,6 @@ describe('isLoggedRoute', () => {
   );
 
   it.each([
-    '/bff/clients/:cid/locations',
     '/auth/login',
     '/docs',
     '/docs/json',
@@ -36,6 +38,59 @@ describe('isLoggedRoute', () => {
     '/*',
     undefined,
   ])('does not log %s', (route) => expect(isLoggedRoute(route)).toBe(false));
+
+  it('logs BFF actions but not BFF reads', () => {
+    expect(isLoggedRoute('/bff/clients/:clientId/locations', 'POST')).toBe(true);
+    expect(isLoggedRoute('/bff/clients/:clientId/locations/:locationId', 'DELETE')).toBe(true);
+    expect(isLoggedRoute('/bff/clients/:clientId/locations', 'GET')).toBe(false);
+    expect(isLoggedRoute('/bff/reports/usage', 'POST')).toBe(false);
+  });
+
+  it('tags the surface', () => {
+    expect(surfaceOf('/bff/clients/:clientId/locations')).toBe('UI');
+    expect(surfaceOf('/clients/:clientId/locations')).toBe('API');
+  });
+});
+
+describe('canonicalOperation', () => {
+  it.each([
+    ['bffCreateLocation', 'createLocation'],
+    ['bffValidateMasterLocation', 'confirmMasterLocation'],
+    ['bffGeocodeMasterLocation', 'validateMasterLocation'],
+    ['createLocation', 'createLocation'],
+    ['bff', 'bff'],
+  ])('%s → %s', (input, expected) => expect(canonicalOperation(input)).toBe(expected));
+});
+
+describe('withoutThirdPartyCoordinates', () => {
+  it('blanks Google coordinates, nested too, and keeps our own', () => {
+    expect(
+      withoutThirdPartyCoordinates({
+        latitude: -26.1,
+        longitude: 28.0,
+        source: 'GOOGLE_MAPS',
+        address: { city: 'Randburg' },
+        others: [{ latitude: 1, longitude: 2, geocodeSource: 'GOOGLE_MAPS' }],
+        mine: { latitude: 3, longitude: 4, source: 'PHOTON' },
+      }),
+    ).toEqual({
+      latitude: null,
+      longitude: null,
+      source: 'GOOGLE_MAPS',
+      _coordinatesRedacted: 'GOOGLE_MAPS',
+      address: { city: 'Randburg' },
+      others: [
+        {
+          latitude: null,
+          longitude: null,
+          geocodeSource: 'GOOGLE_MAPS',
+          _coordinatesRedacted: 'GOOGLE_MAPS',
+        },
+      ],
+      mine: { latitude: 3, longitude: 4, source: 'PHOTON' },
+    });
+    expect(withoutThirdPartyCoordinates('text')).toBe('text');
+  });
 });
 
 describe('attributeRequest', () => {
@@ -112,7 +167,12 @@ describe('registerRequestLog hooks', () => {
       async (_req, reply) =>
         reply.code(201).send({ locationId: 'loc_1', partitionId: 'par_default' }),
     );
-    server.post('/bff/clients/:cid/locations', async () => ({ ok: true }));
+    server.post(
+      '/bff/clients/:clientId/locations',
+      { schema: { operationId: 'bffCreateLocation' } },
+      async () => ({ ok: true }),
+    );
+    server.get('/bff/clients/:clientId/locations', async () => ({ locations: [] }));
     server.get(
       '/geocode/forward',
       { schema: { operationId: 'forwardGeocode' } },
@@ -142,6 +202,7 @@ describe('registerRequestLog hooks', () => {
     expect(record).toHaveBeenCalledOnce();
     const entry = record.mock.calls[0]![0] as NewRequestLogEntry;
     expect(entry).toMatchObject({
+      surface: 'API',
       clientId: 'cli_1',
       partitionId: 'par_default',
       principalId: 'prn_caller',
@@ -171,14 +232,20 @@ describe('registerRequestLog hooks', () => {
     });
   });
 
-  it('skips the BFF', async () => {
+  it('records a BFF action as the canonical operation from the UI, and skips BFF reads', async () => {
     const record = vi.fn<RequestLogRepository['record']>().mockResolvedValue();
     await build(record);
 
     await server.inject({ method: 'POST', url: '/bff/clients/cli_1/locations', payload: {} });
+    await server.inject({ method: 'GET', url: '/bff/clients/cli_1/locations' });
     await settle();
 
-    expect(record).not.toHaveBeenCalled();
+    expect(record).toHaveBeenCalledOnce();
+    expect(record.mock.calls[0]![0]).toMatchObject({
+      surface: 'UI',
+      operation: 'createLocation',
+      clientId: 'cli_1',
+    });
   });
 
   it('a failed write is reported, never surfaced to the caller', async () => {

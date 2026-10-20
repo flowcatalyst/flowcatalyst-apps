@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../../../app-context.js';
 import type { WebhookAuthHookOptions } from '../../plugins/flowcatalyst-webhook-auth.js';
 import { registerPruneRequestLogsRoute } from './prune-request-logs.route.js';
+import { registerRefreshCachedGeocodesRoute } from './refresh-cached-geocodes.route.js';
 import { registerValidateMasterLocationsRoute } from './validate-master-locations.route.js';
 
 export interface RegisterJobsRoutesOptions {
@@ -20,4 +21,5 @@ export function registerJobsRoutes(
     webhookAuth: options.webhookAuth,
     retentionDays: options.requestLogRetentionDays,
   });
+  registerRefreshCachedGeocodesRoute(fastify, appContext, { webhookAuth: options.webhookAuth });
 }

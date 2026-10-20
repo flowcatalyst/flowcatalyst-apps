@@ -14,6 +14,10 @@
  */
 import type { NormalizedAddress } from './address-normalizer.js';
 
+/** Which upstream produced a geocode. */
+export const GEOCODE_SOURCES = ['PHOTON', 'GOOGLE_MAPS'] as const;
+export type GeocodeSource = (typeof GEOCODE_SOURCES)[number];
+
 export interface GeocodingResult {
   readonly latitude: number;
   readonly longitude: number;
@@ -34,8 +38,10 @@ export interface GeocodingResult {
    * its best guess — treat the coordinate as approximate at best.
    */
   readonly roadMatched: boolean | null;
-  /** The exact `q` string sent upstream for the returned result. */
+  /** The exact query string sent upstream for the returned result. */
   readonly query: string;
+  /** Which upstream produced this result. */
+  readonly source: GeocodeSource;
 }
 
 export interface GeocodeTextOptions {

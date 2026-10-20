@@ -19,8 +19,13 @@ export const requestLogs = pgTable(
     clientId: text('client_id'),
     partitionId: text('partition_id'),
     principalId: text('principal_id'),
-    /** The route's OpenAPI operationId, e.g. `createLocation`. */
+    /**
+     * The operation, e.g. `createLocation` — the canonical route's operationId,
+     * so the same action counts once whether the API or the UI called it.
+     */
     operation: text('operation').notNull(),
+    /** `API` (the canonical API) or `UI` (the SPA, via the BFF). */
+    surface: text('surface').notNull().default('API'),
     method: text('method').notNull(),
     /** Route pattern, e.g. `/clients/:clientId/locations`. */
     route: text('route').notNull(),

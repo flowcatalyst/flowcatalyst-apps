@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from 'drizzle-orm';
 import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
@@ -9,7 +9,11 @@ import {
   type PartitionId,
 } from '../domain/tenancy/ids.js';
 import { asMasterLocationId, type MasterLocationId } from '../domain/locations/ids.js';
-import type { MasterLocation, MasterLocationStatus } from '../domain/locations/master-location.js';
+import type {
+  MasterGeocodeSource,
+  MasterLocation,
+  MasterLocationStatus,
+} from '../domain/locations/master-location.js';
 import type {
   ApplyConfirmedGeocodeInput,
   FindUnvalidatedQuery,
@@ -17,6 +21,7 @@ import type {
   ListMasterLocationsQuery,
   ListMasterLocationsResult,
   MasterLocationRepository,
+  MasterLookupScope,
 } from '../domain/locations/master-location.repository.js';
 import {
   masterLocations,
@@ -40,6 +45,8 @@ function toDomain(row: MasterLocationRow): MasterLocation {
     normalizedAddressLine: row.normalizedAddressLine,
     latitude: row.latitude,
     longitude: row.longitude,
+    geocodeSource: row.geocodeSource as MasterGeocodeSource | null,
+    geocodeExpiresAt: row.geocodeExpiresAt,
     status: row.status as MasterLocationStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -94,6 +101,8 @@ export function createDrizzleMasterLocationRepository(
           latitude: aggregate.latitude,
           longitude: aggregate.longitude,
           point: pointExpr as never,
+          geocodeSource: aggregate.geocodeSource,
+          geocodeExpiresAt: aggregate.geocodeExpiresAt,
           status: aggregate.status,
           createdAt: aggregate.createdAt,
           updatedAt: aggregate.updatedAt,
@@ -114,6 +123,8 @@ export function createDrizzleMasterLocationRepository(
             latitude: aggregate.latitude,
             longitude: aggregate.longitude,
             point: pointExpr as never,
+            geocodeSource: aggregate.geocodeSource,
+            geocodeExpiresAt: aggregate.geocodeExpiresAt,
             status: aggregate.status,
             updatedAt: aggregate.updatedAt,
             validatedAt: aggregate.validatedAt,
@@ -254,9 +265,65 @@ export function createDrizzleMasterLocationRepository(
           latitude: input.latitude,
           longitude: input.longitude,
           point: point as never,
+          geocodeSource: 'OPERATOR',
+          geocodeExpiresAt: null,
           updatedAt: new Date(),
         })
         .where(eq(masterLocations.id, input.masterLocationId));
+    },
+
+    async findValidatedByHashIn(scope, addressHash): Promise<MasterLocation | null> {
+      const [row] = await db
+        .select()
+        .from(masterLocations)
+        .where(
+          and(
+            eq(masterLocations.status, 'VALIDATED'),
+            eq(masterLocations.addressHash, addressHash),
+            ...lookupScope(scope),
+          ),
+        )
+        .orderBy(asc(masterLocations.createdAt))
+        .limit(1);
+      return row ? toDomain(row) : null;
+    },
+
+    async findValidatedCandidatesIn(
+      scope,
+      addressLine,
+      threshold,
+      limit,
+    ): Promise<readonly MasterLocation[]> {
+      const similarity = sql`similarity(${masterLocations.normalizedAddressLine}, ${addressLine})`;
+      const rows = await db
+        .select()
+        .from(masterLocations)
+        .where(
+          and(
+            eq(masterLocations.status, 'VALIDATED'),
+            isNotNull(masterLocations.normalizedAddressLine),
+            sql`${similarity} >= ${threshold}`,
+            ...lookupScope(scope),
+          ),
+        )
+        .orderBy(desc(similarity))
+        .limit(limit);
+      return rows.map(toDomain);
+    },
+
+    async listGeocodesExpiringBefore(cutoff, limit): Promise<readonly MasterLocation[]> {
+      const rows = await db
+        .select()
+        .from(masterLocations)
+        .where(
+          and(
+            isNotNull(masterLocations.geocodeExpiresAt),
+            lt(masterLocations.geocodeExpiresAt, cutoff),
+          ),
+        )
+        .orderBy(asc(masterLocations.geocodeExpiresAt))
+        .limit(limit);
+      return rows.map(toDomain);
     },
 
     async findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult> {
@@ -298,4 +365,26 @@ export function createDrizzleMasterLocationRepository(
       };
     },
   };
+}
+
+/** WHERE conditions for a cross-client master lookup (see `MasterLookupScope`). */
+function lookupScope(scope: MasterLookupScope): SQL[] {
+  const conds: SQL[] = [];
+  if (scope.clientId) conds.push(eq(masterLocations.clientId, scope.clientId));
+  if (scope.partitionId) conds.push(eq(masterLocations.partitionId, scope.partitionId));
+  if (scope.visibleTo) {
+    const { partitionIds, clientIds } = scope.visibleTo;
+    const visible: SQL[] = [];
+    if (partitionIds.length > 0) {
+      visible.push(inArray(masterLocations.partitionId, [...partitionIds]));
+    }
+    if (clientIds.length > 0) {
+      visible.push(
+        and(isNull(masterLocations.partitionId), inArray(masterLocations.clientId, [...clientIds]))!,
+      );
+    }
+    // Nothing granted → nothing visible.
+    conds.push(visible.length > 0 ? or(...visible)! : sql`false`);
+  }
+  return conds;
 }

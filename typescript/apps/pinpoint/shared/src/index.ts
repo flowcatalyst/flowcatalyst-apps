@@ -30,11 +30,13 @@ export {
 } from './contracts/locations/location-contracts.js';
 export {
   ValidateMasterLocationCommandSchema,
+  RefreshMasterLocationGeocodeCommandSchema,
   ConfirmMasterLocationCommandSchema,
   UpdateMasterLocationCommandSchema,
   RejectMasterLocationCommandSchema,
   DeleteMasterLocationCommandSchema,
   type ValidateMasterLocationCommand,
+  type RefreshMasterLocationGeocodeCommand,
   type ConfirmMasterLocationCommand,
   type UpdateMasterLocationCommand,
   type RejectMasterLocationCommand,

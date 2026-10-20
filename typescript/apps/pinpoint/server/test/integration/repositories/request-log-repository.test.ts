@@ -31,6 +31,7 @@ describe('RequestLogRepository (integration)', () => {
       clientId?: string | null;
       partitionId?: string | null;
       operation?: string;
+      surface?: 'API' | 'UI';
       status?: number;
     } = {},
   ): Promise<void> {
@@ -41,6 +42,7 @@ describe('RequestLogRepository (integration)', () => {
       partitionId: fields.partitionId ?? null,
       principalId: 'prn_test',
       operation: fields.operation ?? 'createLocation',
+      surface: fields.surface ?? 'API',
       method: 'POST',
       route: '/clients/:clientId/locations',
       url: '/clients/x/locations',
@@ -82,6 +84,7 @@ describe('RequestLogRepository (integration)', () => {
         partitionId: acme.defaultPartitionId,
         partitionCode: 'default',
         operation: 'createLocation',
+        surface: 'API',
         requests: 2,
         errors: 1,
       },
@@ -92,6 +95,7 @@ describe('RequestLogRepository (integration)', () => {
         partitionId: null,
         partitionCode: null,
         operation: 'forwardGeocode',
+        surface: 'API',
         requests: 1,
         errors: 0,
       },
@@ -102,10 +106,28 @@ describe('RequestLogRepository (integration)', () => {
         partitionId: acme.defaultPartitionId,
         partitionCode: 'default',
         operation: 'createLocation',
+        surface: 'API',
         requests: 1,
         errors: 0,
       },
     ]);
+  });
+
+  it('splits API and UI requests and filters by surface', async () => {
+    await log('2026-03-02T10:00:00Z');
+    await log('2026-03-02T11:00:00Z', { surface: 'UI' });
+    await log('2026-03-02T12:00:00Z', { surface: 'UI' });
+
+    const all = await repo.usage({ period: 'month', timezone: 'UTC', ...WINDOW });
+    expect(all.rows.map((r) => [r.operation, r.surface, r.requests])).toEqual([
+      ['createLocation', 'API', 1],
+      ['createLocation', 'UI', 2],
+    ]);
+    const ui = await repo.usage({ period: 'month', timezone: 'UTC', ...WINDOW, surface: 'UI' });
+    expect(ui.rows.map((r) => r.requests)).toEqual([2]);
+    const page = await repo.list({ ...WINDOW, surface: 'UI', limit: 10, offset: 0 });
+    expect(page.total).toBe(2);
+    expect(page.entries.every((e) => e.surface === 'UI')).toBe(true);
   });
 
   it('buckets by ISO week (Monday start) and by day', async () => {

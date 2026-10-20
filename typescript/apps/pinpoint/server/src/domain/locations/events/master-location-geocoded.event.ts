@@ -13,6 +13,8 @@ export const MasterLocationGeocodedDataSchema = Type.Object({
   formattedAddress: Type.Union([Type.String(), Type.Null()]),
   /** Structured components of the address the geocoder matched. */
   address: AddressDetailsSchema,
+  /** Which geocoder produced the coordinates. */
+  source: Type.Union([Type.Literal('PHOTON'), Type.Literal('GOOGLE_MAPS')]),
 });
 
 export type MasterLocationGeocodedData = Static<typeof MasterLocationGeocodedDataSchema>;

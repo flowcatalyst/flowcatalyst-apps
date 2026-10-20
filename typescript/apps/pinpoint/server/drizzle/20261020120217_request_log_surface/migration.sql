@@ -1,0 +1,1 @@
+ALTER TABLE "request_logs" ADD COLUMN "surface" text DEFAULT 'API' NOT NULL;

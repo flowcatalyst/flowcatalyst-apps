@@ -137,7 +137,7 @@ footer{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--muted
     <tr><th>Runtime</th><td>Node 24 · Fastify 5 · TypeScript 6 (strict) · Drizzle ORM 1.0 RC · PostgreSQL 18 + PostGIS + pg_trgm</td></tr>
     <tr><th>SPA</th><td>Vue 3 + PrimeVue + Vite, served by the same server in production; talks to <code>/bff</code> through a generated, typed client</td></tr>
     <tr><th>Surfaces</th><td>canonical API <code>/clients/…</code> + unscoped routes; BFF <code>/bff/…</code> for the SPA — one OpenAPI 3 contract (<code>openapi.gen.json</code>, 12 shared components)</td></tr>
-    <tr><th>External</th><td>Photon (forward/reverse geocoding) · address verifier (Clef decision model via Ollama locally / OpenRouter in prod; none)</td></tr>
+    <tr><th>External</th><td>Photon (forward/reverse geocoding) · Google Maps (geocoding fallback, 30-day cache) · address verifier (Clef decision model via Ollama locally / OpenRouter in prod; none)</td></tr>
     <tr><th>Platform</th><td>OIDC login against FlowCatalyst · events via outbox → <code>fc-outbox-processor</code> · one scheduled job (<code>pinpoint-validate-master-locations</code>, every 5 min)</td></tr>
   </table></div>
 </section>

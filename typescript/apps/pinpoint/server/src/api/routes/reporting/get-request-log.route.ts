@@ -7,7 +7,7 @@ import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 import {
   CANONICAL_SURFACE,
   type ReportingSurface,
-  authorizeReporting,
+  authorizePartitionAccess,
   isVisible,
 } from './access.js';
 import { RequestLogSummarySchema, toSummary } from './request-log.schema.js';
@@ -44,7 +44,7 @@ export function registerGetRequestLogRoute(
       },
     },
     async (request, reply) => {
-      const access = await authorizeReporting(
+      const access = await authorizePartitionAccess(
         reply,
         appContext,
         PinpointPermission.ReportingRequestLogRead,

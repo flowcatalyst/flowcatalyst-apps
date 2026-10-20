@@ -11,6 +11,14 @@ export const ValidateMasterLocationCommandSchema = z.object({
 });
 export type ValidateMasterLocationCommand = z.infer<typeof ValidateMasterLocationCommandSchema>;
 
+/** Renew (or, past expiry, drop) a master's cached third-party geocode. */
+export const RefreshMasterLocationGeocodeCommandSchema = z.object({
+  masterLocationId: z.string().trim().min(1),
+});
+export type RefreshMasterLocationGeocodeCommand = z.infer<
+  typeof RefreshMasterLocationGeocodeCommandSchema
+>;
+
 /**
  * Confirm a GEOCODED master location as canonical. Transitions
  * * → VALIDATED, runs a spatial-feature lookup at the master's coords,

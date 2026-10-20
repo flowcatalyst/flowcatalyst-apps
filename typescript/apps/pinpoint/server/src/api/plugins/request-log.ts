@@ -5,16 +5,28 @@
  * response has gone out. Feeds the usage report and request inspection
  * (`api/routes/reporting`).
  *
- * Logged: the canonical API surface (`/clients/…`, `/geocode/…`, …). Not
- * logged: the SPA's BFF, auth, docs, health, platform job webhooks, static
- * files, unmatched routes, and the reporting routes themselves.
+ * Logged: every canonical API request (`/clients/…`, `/geocode/…`, …) —
+ * surface `API` — and the SPA's actions through the BFF (its POST / PUT /
+ * PATCH / DELETE, which run the same use cases) — surface `UI`. A BFF action
+ * is recorded under the canonical operation name (`bffCreateLocation` →
+ * `createLocation`), so usage counts an operation the same whichever surface
+ * ran it. Not logged: the SPA's page / list reads, auth, docs, health,
+ * platform job webhooks, static files, unmatched routes, and the reporting
+ * routes themselves.
+ *
+ * Google Maps coordinates may only be cached for 30 days, and request logs
+ * are kept far longer, so any object in a stored body that says its source
+ * is `GOOGLE_MAPS` has its latitude / longitude blanked.
  *
  * Writing never affects the request: it happens in `onResponse`, after the
  * reply is sent, and failures are reported to `onError` and dropped.
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ScopeStore } from '@pinpoint/framework';
-import type { RequestLogRepository } from '../../domain/reporting/request-log.repository.js';
+import type {
+  RequestLogRepository,
+  RequestSurface,
+} from '../../domain/reporting/request-log.repository.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -22,8 +34,10 @@ declare module 'fastify' {
   }
 }
 
+const BFF_PREFIX = '/bff';
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 const EXCLUDED_PREFIXES = [
-  '/bff',
   '/auth',
   '/docs',
   '/health',
@@ -41,10 +55,75 @@ export interface RequestLogPluginOptions {
   readonly onError?: (err: unknown) => void;
 }
 
-/** Whether a matched route (its pattern) is part of the logged API surface. */
-export function isLoggedRoute(routePattern: string | undefined): routePattern is string {
+function under(route: string, prefix: string): boolean {
+  return route === prefix || route.startsWith(`${prefix}/`);
+}
+
+/** The surface a route pattern belongs to. */
+export function surfaceOf(routePattern: string): RequestSurface {
+  return under(routePattern, BFF_PREFIX) ? 'UI' : 'API';
+}
+
+/**
+ * Whether a request is logged: any canonical API route, or a BFF action (not
+ * a read). Excluded prefixes apply to both surfaces (`/bff/reports` too).
+ */
+export function isLoggedRoute(
+  routePattern: string | undefined,
+  method = 'POST',
+): routePattern is string {
   if (!routePattern || routePattern === '*' || routePattern.startsWith('/*')) return false;
-  return !EXCLUDED_PREFIXES.some((p) => routePattern === p || routePattern.startsWith(`${p}/`));
+  const bff = under(routePattern, BFF_PREFIX);
+  if (bff && READ_METHODS.has(method.toUpperCase())) return false;
+  const path = bff ? routePattern.slice(BFF_PREFIX.length) || '/' : routePattern;
+  return !EXCLUDED_PREFIXES.some((p) => under(path, p));
+}
+
+/**
+ * BFF actions whose name differs from the canonical operation running the same
+ * use case (the BFF "validate" confirms; its "geocode" is the canonical
+ * `validateMasterLocation`, which geocodes).
+ */
+const BFF_OPERATION_ALIASES: Readonly<Record<string, string>> = {
+  bffValidateMasterLocation: 'confirmMasterLocation',
+  bffGeocodeMasterLocation: 'validateMasterLocation',
+  bffConfirmGeocode: 'confirmMasterLocationGeocode',
+  bffGrantAccess: 'grantPartitionAccess',
+  bffRevokeAccess: 'revokePartitionAccess',
+};
+
+/**
+ * A BFF operationId as the canonical one — `bffCreateLocation` →
+ * `createLocation` — so an operation counts the same from either surface.
+ */
+export function canonicalOperation(operationId: string): string {
+  const alias = BFF_OPERATION_ALIASES[operationId];
+  if (alias) return alias;
+  const m = /^bff([A-Z])(.*)$/.exec(operationId);
+  return m ? `${m[1]!.toLowerCase()}${m[2]}` : operationId;
+}
+
+const THIRD_PARTY_SOURCES = new Set(['GOOGLE_MAPS']);
+
+/**
+ * `value` with latitude / longitude blanked on every object whose `source` or
+ * `geocodeSource` is a third party whose coordinates we may not keep.
+ */
+export function withoutThirdPartyCoordinates(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutThirdPartyCoordinates);
+  if (value === null || typeof value !== 'object') return value;
+  const record = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [key, inner] of Object.entries(record)) out[key] = withoutThirdPartyCoordinates(inner);
+  const source = [record['source'], record['geocodeSource']].find(
+    (s): s is string => typeof s === 'string' && THIRD_PARTY_SOURCES.has(s),
+  );
+  if (source && ('latitude' in record || 'longitude' in record)) {
+    if ('latitude' in record) out['latitude'] = null;
+    if ('longitude' in record) out['longitude'] = null;
+    out['_coordinatesRedacted'] = source;
+  }
+  return out;
 }
 
 function stringField(source: unknown, key: string): string | null {
@@ -68,6 +147,7 @@ export function attributeRequest(input: {
   return {
     clientId:
       stringField(params, 'clientId') ??
+      stringField(params, 'cid') ??
       stringField(body, 'clientId') ??
       stringField(query, 'clientId') ??
       stringField(responseBody, 'clientId'),
@@ -116,7 +196,7 @@ export function registerRequestLog(
   // onSend still runs inside the request's ALS scope (bound in onRequest), so
   // the principal is read here; onResponse may run outside it.
   server.addHook('onSend', (request, _reply, payload, done) => {
-    if (isLoggedRoute(request.routeOptions.url)) {
+    if (isLoggedRoute(request.routeOptions.url, request.method)) {
       request.requestLogCapture = {
         responseBody: parsePayload(payload),
         principalId: ScopeStore.get()?.principalId ?? null,
@@ -128,28 +208,29 @@ export function registerRequestLog(
   server.addHook('onResponse', (request: FastifyRequest, reply: FastifyReply, done) => {
     const route = request.routeOptions.url;
     const capture = request.requestLogCapture;
-    if (isLoggedRoute(route) && capture) {
+    if (isLoggedRoute(route, request.method) && capture) {
       const { clientId, partitionId } = attributeRequest({
         params: request.params,
         query: request.query,
         body: request.body,
         responseBody: capture.responseBody,
       });
-      const operation =
-        (request.routeOptions.schema as { operationId?: string } | undefined)?.operationId ?? route;
+      const operationId = (request.routeOptions.schema as { operationId?: string } | undefined)
+        ?.operationId;
       options.repository
         .record({
+          surface: surfaceOf(route),
           clientId,
           partitionId,
           principalId: capture.principalId,
-          operation,
+          operation: operationId ? canonicalOperation(operationId) : route,
           method: request.method,
           route,
           url: request.url,
           statusCode: reply.statusCode,
           durationMs: Math.round(reply.elapsedTime),
           requestBody: boundedBody(request.body, maxBytes),
-          responseBody: boundedBody(capture.responseBody, maxBytes),
+          responseBody: boundedBody(withoutThirdPartyCoordinates(capture.responseBody), maxBytes),
         })
         .catch((err: unknown) => options.onError?.(err));
     }

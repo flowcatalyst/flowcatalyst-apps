@@ -26,6 +26,9 @@ import { createDrizzleLocationAttributeRepository } from './infrastructure/locat
 import { createCountryNameResolver } from './infrastructure/services/country-name-resolver.js';
 import { createPhotonGeocoder } from './infrastructure/services/photon-geocoder.js';
 import { createRateLimitedGeocoder } from './infrastructure/services/rate-limited-geocoder.js';
+import { createGoogleGeocoder } from './infrastructure/services/google-geocoder.js';
+import { createFallbackGeocoder } from './infrastructure/services/fallback-geocoder.js';
+import { GOOGLE_MAPS_MAX_CACHE_DAYS } from './domain/services/geocode-retention.js';
 import { createNoopVerifier } from './infrastructure/services/noop-verifier.js';
 import { createClefVerifier } from './infrastructure/services/clef-verifier.js';
 import { createSystemOneClient } from './infrastructure/services/systemone-client.js';
@@ -102,6 +105,7 @@ import { SetLayerPartitionsUseCase } from './operations/set-layer-partitions/set
 import { GrantPartitionAccessUseCase } from './operations/grant-partition-access/grant-partition-access.use-case.js';
 import { RevokePartitionAccessUseCase } from './operations/revoke-partition-access/revoke-partition-access.use-case.js';
 import { MatchMasterLocationFeaturesUseCase } from './operations/match-master-location-features/match-master-location-features.use-case.js';
+import { RefreshMasterLocationGeocodeUseCase } from './operations/refresh-master-location-geocode/refresh-master-location-geocode.use-case.js';
 import { ConfirmMasterLocationGeocodeUseCase } from './operations/confirm-master-location-geocode/confirm-master-location-geocode.use-case.js';
 import { DeleteMasterLocationUseCase } from './operations/delete-master-location/delete-master-location.use-case.js';
 
@@ -134,6 +138,7 @@ export interface AppContextRepositories {
 }
 
 export interface AppContextServices {
+  /** Photon, falling back to Google Maps when Photon has no house-level match (if configured). */
   readonly geocoder: GeocoderService;
   readonly addressVerifier: AddressVerifier;
 }
@@ -193,6 +198,7 @@ export interface AppContextUseCases {
   readonly replacePropertySetProperties: ReplacePropertySetPropertiesUseCase;
   readonly updateMatchingConfig: UpdateMatchingConfigUseCase;
   readonly validateMasterLocation: ValidateMasterLocationUseCase;
+  readonly refreshMasterLocationGeocode: RefreshMasterLocationGeocodeUseCase;
   readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
   readonly updateMasterLocation: UpdateMasterLocationUseCase;
   readonly rejectMasterLocation: RejectMasterLocationUseCase;
@@ -238,6 +244,15 @@ export interface AppContextConfig {
   readonly geocodingApiUrl: string;
   /** Sustained geocoder request rate (requests / second) — used by the rate-limited decorator. */
   readonly geocodingRateLimit: number;
+  /**
+   * Google Maps fallback — used when Photon has no house-level match. Unset =
+   * Photon only. Google coordinates are cached for `cacheDays` (≤ 30) at most.
+   */
+  readonly googleMaps?: {
+    readonly apiKey: string;
+    readonly rateLimit: number;
+    readonly cacheDays: number;
+  };
   /** LLM-backed address-verifier configuration. Default Noop keeps the matching pipeline cred-free. */
   readonly addressVerifier: AddressVerifierConfig;
   /**
@@ -287,9 +302,35 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     // country token at query time so `zaf` / `za` still resolve.
     resolveCountryName: createCountryNameResolver(countryRepo),
   });
-  const geocoder = createRateLimitedGeocoder(rawGeocoder, {
+  const photon = createRateLimitedGeocoder(rawGeocoder, {
     requestsPerSecond: config.geocodingRateLimit,
   });
+  const googleCacheDays = Math.min(
+    config.googleMaps?.cacheDays ?? GOOGLE_MAPS_MAX_CACHE_DAYS,
+    GOOGLE_MAPS_MAX_CACHE_DAYS,
+  );
+  const geocoder = config.googleMaps
+    ? createFallbackGeocoder(
+        photon,
+        createRateLimitedGeocoder(
+          createGoogleGeocoder({
+            apiKey: config.googleMaps.apiKey,
+            countryNames: createCountryNameResolver(countryRepo),
+          }),
+          { requestsPerSecond: config.googleMaps.rateLimit, key: 'pinpoint:google-maps' },
+        ),
+        {
+          onFallback: (reason) => console.info(`[geocoder] google fallback: ${reason}`),
+          onError: (err) =>
+            console.warn(
+              `[geocoder] google fallback failed: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+        },
+      )
+    : photon;
+  console.info(
+    `[geocoder] photon=${config.geocodingApiUrl} google=${config.googleMaps ? `on (cache ${googleCacheDays}d)` : 'off'}`,
+  );
   const addressVerifier = buildAddressVerifier(config.addressVerifier);
   registerClient(aggregateRegistry, clientRepo);
   registerPartition(aggregateRegistry, partitionRepo);
@@ -406,6 +447,14 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         aggregateRegistry,
         masterLocationRepo,
         geocoder,
+        googleCacheDays,
+      ),
+      refreshMasterLocationGeocode: new RefreshMasterLocationGeocodeUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
+        geocoder,
+        googleCacheDays,
       ),
       confirmMasterLocation: new ConfirmMasterLocationUseCase(
         uow,

@@ -20,11 +20,12 @@ function deny(reply: FastifyReply, code: string, message: string): null {
 }
 
 /**
- * Gate for the reporting routes: authenticated, holds `permission`, and may
+ * Gate for routes that read partition-scoped data (reports, the geocode
+ * routes' master-location check): authenticated, holds `permission`, and may
  * see any client / partition the request names. Returns the caller's access
  * (to scope the query with `visibilityOf`), or null once a 401 / 403 is sent.
  */
-export async function authorizeReporting(
+export async function authorizePartitionAccess(
   reply: FastifyReply,
   appContext: AppContext,
   permission: PinpointPermission,

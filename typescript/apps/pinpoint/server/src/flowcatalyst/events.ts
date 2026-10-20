@@ -38,6 +38,8 @@ import { LocationDeletedEventType } from '../domain/locations/events/location-de
 import { LocationRematchedEventType } from '../domain/locations/events/location-rematched.event.js';
 import { MasterLocationCreatedEventType } from '../domain/locations/events/master-location-created.event.js';
 import { MasterLocationGeocodedEventType } from '../domain/locations/events/master-location-geocoded.event.js';
+import { MasterLocationGeocodeRefreshedEventType } from '../domain/locations/events/master-location-geocode-refreshed.event.js';
+import { MasterLocationGeocodeExpiredEventType } from '../domain/locations/events/master-location-geocode-expired.event.js';
 import { MasterLocationValidatedEventType } from '../domain/locations/events/master-location-validated.event.js';
 import { MasterLocationUpdatedEventType } from '../domain/locations/events/master-location-updated.event.js';
 import { MasterLocationRejectedEventType } from '../domain/locations/events/master-location-rejected.event.js';
@@ -88,6 +90,8 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   LocationRematchedEventType,
   MasterLocationCreatedEventType,
   MasterLocationGeocodedEventType,
+  MasterLocationGeocodeRefreshedEventType,
+  MasterLocationGeocodeExpiredEventType,
   MasterLocationValidatedEventType,
   MasterLocationUpdatedEventType,
   MasterLocationRejectedEventType,

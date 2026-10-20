@@ -673,6 +673,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/refresh-cached-geocodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refreshCachedGeocodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bff/dashboard/stats": {
         parameters: {
             query?: never;
@@ -1287,6 +1303,8 @@ export interface components {
             status: string;
             latitude: number | null;
             longitude: number | null;
+            geocodeSource: "PHOTON" | "GOOGLE_MAPS" | "OPERATOR" | null;
+            geocodeExpiresAt: string | null;
             addressHash: string;
             /** Format: date-time */
             createdAt: string;
@@ -1525,6 +1543,7 @@ export interface operations {
                 clientId?: string;
                 partitionId?: string;
                 operation?: string;
+                surface?: "API" | "UI";
             };
             header?: never;
             path?: never;
@@ -1552,6 +1571,7 @@ export interface operations {
                             partitionId: string | null;
                             partitionCode: string | null;
                             operation: string;
+                            surface: "API" | "UI";
                             requests: number;
                             errors: number;
                         }[];
@@ -1595,6 +1615,7 @@ export interface operations {
                 clientId?: string;
                 partitionId?: string;
                 operation?: string;
+                surface?: "API" | "UI";
                 limit?: number;
                 offset?: number;
             };
@@ -1618,6 +1639,7 @@ export interface operations {
                             clientId: string | null;
                             partitionId: string | null;
                             principalId: string | null;
+                            surface: "API" | "UI";
                             operation: string;
                             method: string;
                             route: string;
@@ -1675,6 +1697,7 @@ export interface operations {
                         clientId: string | null;
                         partitionId: string | null;
                         principalId: string | null;
+                        surface: "API" | "UI";
                         operation: string;
                         method: string;
                         route: string;
@@ -1726,6 +1749,7 @@ export interface operations {
                 clientId?: string;
                 partitionId?: string;
                 operation?: string;
+                surface?: "API" | "UI";
             };
             header?: never;
             path?: never;
@@ -1753,6 +1777,7 @@ export interface operations {
                             partitionId: string | null;
                             partitionCode: string | null;
                             operation: string;
+                            surface: "API" | "UI";
                             requests: number;
                             errors: number;
                         }[];
@@ -1796,6 +1821,7 @@ export interface operations {
                 clientId?: string;
                 partitionId?: string;
                 operation?: string;
+                surface?: "API" | "UI";
                 limit?: number;
                 offset?: number;
             };
@@ -1819,6 +1845,7 @@ export interface operations {
                             clientId: string | null;
                             partitionId: string | null;
                             principalId: string | null;
+                            surface: "API" | "UI";
                             operation: string;
                             method: string;
                             route: string;
@@ -1876,6 +1903,7 @@ export interface operations {
                         clientId: string | null;
                         partitionId: string | null;
                         principalId: string | null;
+                        surface: "API" | "UI";
                         operation: string;
                         method: string;
                         route: string;
@@ -4200,6 +4228,10 @@ export interface operations {
                 "application/json": {
                     address: string;
                     countryCode?: string | null;
+                    /** @default false */
+                    forceGeocode?: boolean;
+                    clientId?: string;
+                    partitionId?: string;
                 };
             };
         };
@@ -4226,6 +4258,10 @@ export interface operations {
                         };
                         roadMatched: boolean | null;
                         query: string;
+                        source: "MASTER_LOCATIONS" | "PHOTON" | "GOOGLE_MAPS";
+                        masterLocationId: string | null;
+                        matchMethod: "EXACT_HASH" | "FUZZY" | null;
+                        geocodeSource: "PHOTON" | "GOOGLE_MAPS" | "OPERATOR" | null;
                     };
                 };
             };
@@ -4293,6 +4329,10 @@ export interface operations {
                     state?: string | null;
                     postalCode?: string | null;
                     country: string;
+                    /** @default false */
+                    forceGeocode?: boolean;
+                    clientId?: string;
+                    partitionId?: string;
                 };
             };
         };
@@ -4319,6 +4359,10 @@ export interface operations {
                         };
                         roadMatched: boolean | null;
                         query: string;
+                        source: "MASTER_LOCATIONS" | "PHOTON" | "GOOGLE_MAPS";
+                        masterLocationId: string | null;
+                        matchMethod: "EXACT_HASH" | "FUZZY" | null;
+                        geocodeSource: "PHOTON" | "GOOGLE_MAPS" | "OPERATOR" | null;
                     };
                 };
             };
@@ -4735,6 +4779,8 @@ export interface operations {
                         normalizedAddressLine: string | null;
                         latitude: number | null;
                         longitude: number | null;
+                        geocodeSource: "PHOTON" | "GOOGLE_MAPS" | "OPERATOR" | null;
+                        geocodeExpiresAt: string | null;
                         status: "PENDING" | "GEOCODED" | "VALIDATED" | "REJECTED";
                         /** Format: date-time */
                         createdAt: string;
@@ -4948,6 +4994,8 @@ export interface operations {
                             normalizedAddressLine: string | null;
                             latitude: number | null;
                             longitude: number | null;
+                            geocodeSource: "PHOTON" | "GOOGLE_MAPS" | "OPERATOR" | null;
+                            geocodeExpiresAt: string | null;
                             status: string;
                             /** Format: date-time */
                             createdAt: string;
@@ -5209,6 +5257,86 @@ export interface operations {
                         /** Format: date-time */
                         cutoff: string;
                         deleted: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            type: string;
+                            code: string;
+                            message: string;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            type: string;
+                            code: string;
+                            message: string;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            type: string;
+                            code: string;
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    refreshCachedGeocodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attempted: number;
+                        refreshed: number;
+                        expired: number;
+                        failed: number;
+                        failures: {
+                            masterLocationId: string;
+                            error: string;
+                        }[];
                     };
                 };
             };

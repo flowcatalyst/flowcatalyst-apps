@@ -11,12 +11,16 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { PinpointPermission } from '@pinpoint/shared';
 import type { AppContext } from '../../../app-context.js';
-import type { UsagePeriod } from '../../../domain/reporting/request-log.repository.js';
+import type {
+  RequestSurface,
+  UsagePeriod,
+} from '../../../domain/reporting/request-log.repository.js';
+import { RequestSurfaceSchema } from './request-log.schema.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 import {
   CANONICAL_SURFACE,
   type ReportingSurface,
-  authorizeReporting,
+  authorizePartitionAccess,
   isValidTimezone,
   visibilityOf,
 } from './access.js';
@@ -39,6 +43,8 @@ const UsageQuerySchema = Type.Object({
   partitionId: Type.Optional(Type.String({ minLength: 1 })),
   /** Narrow to one operationId, e.g. `createLocation`. */
   operation: Type.Optional(Type.String({ minLength: 1 })),
+  /** Narrow to requests from the API or the UI. */
+  surface: Type.Optional(RequestSurfaceSchema),
 });
 
 const UsageReportSchema = Type.Object({
@@ -55,6 +61,7 @@ const UsageReportSchema = Type.Object({
       partitionId: NullableString,
       partitionCode: NullableString,
       operation: Type.String(),
+      surface: RequestSurfaceSchema,
       requests: Type.Integer(),
       errors: Type.Integer(),
     }),
@@ -91,8 +98,9 @@ export function registerUsageReportRoute(
         clientId?: string;
         partitionId?: string;
         operation?: string;
+        surface?: RequestSurface;
       };
-      const access = await authorizeReporting(
+      const access = await authorizePartitionAccess(
         reply,
         appContext,
         PinpointPermission.ReportingUsageRead,
@@ -116,6 +124,7 @@ export function registerUsageReportRoute(
         clientId: q.clientId,
         partitionId: q.partitionId,
         operation: q.operation,
+        surface: q.surface,
       });
       return reply.code(200).send({
         period,

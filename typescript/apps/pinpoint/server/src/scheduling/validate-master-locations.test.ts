@@ -41,6 +41,8 @@ function master(overrides: Partial<MasterLocation> = {}): MasterLocation {
     normalizedAddressLine: null,
     latitude: -33.9,
     longitude: 18.4,
+    geocodeSource: 'PHOTON',
+    geocodeExpiresAt: null,
     status: 'GEOCODED',
     createdAt: NOW,
     updatedAt: NOW,

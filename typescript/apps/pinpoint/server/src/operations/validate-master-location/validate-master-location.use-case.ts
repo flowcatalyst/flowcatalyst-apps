@@ -31,6 +31,10 @@ import { addressDetailsFromMaster } from '../../domain/locations/events/address-
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { GeocoderService } from '../../domain/services/geocoder.js';
 import {
+  GOOGLE_MAPS_MAX_CACHE_DAYS,
+  geocodeExpiry,
+} from '../../domain/services/geocode-retention.js';
+import {
   isUnresolved,
   UNRESOLVED_COMPONENT,
   type NormalizedAddress,
@@ -45,6 +49,8 @@ export class ValidateMasterLocationUseCase {
     private readonly registry: AggregateRegistryImpl,
     private readonly masters: MasterLocationRepository,
     private readonly geocoder: GeocoderService,
+    /** Days a Google geocode may be kept (≤ 30) — see `geocode-retention.ts`. */
+    private readonly googleCacheDays: number = GOOGLE_MAPS_MAX_CACHE_DAYS,
   ) {}
 
   async execute(command: ValidateMasterLocationCommand): Promise<Result<MasterLocationGeocoded>> {
@@ -105,7 +111,12 @@ export class ValidateMasterLocationUseCase {
         : master;
     const updated = MasterLocation.geocoded(
       resolved,
-      { latitude: geocode.latitude, longitude: geocode.longitude },
+      {
+        latitude: geocode.latitude,
+        longitude: geocode.longitude,
+        source: geocode.source,
+        expiresAt: geocodeExpiry(geocode.source, now, this.googleCacheDays),
+      },
       now,
     );
 
@@ -117,6 +128,7 @@ export class ValidateMasterLocationUseCase {
       confidence: geocode.confidence,
       formattedAddress: geocode.formattedAddress,
       address: geocode.address,
+      source: geocode.source,
     });
 
     return commitAggregate(this.uow, this.registry, updated, event, command);

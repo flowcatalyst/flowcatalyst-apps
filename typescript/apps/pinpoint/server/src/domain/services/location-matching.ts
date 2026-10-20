@@ -156,7 +156,8 @@ function outcomeOf(verdict: VerificationResult | null): string {
   return verdict.match_confirmed ? 'confirmed' : 'rejected';
 }
 
-function candidateAddressLine(master: MasterLocation): string {
+/** The line a master is compared on: its stored line, else its components. */
+export function candidateAddressLine(master: MasterLocation): string {
   return (
     master.normalizedAddressLine ??
     toAddressLine({

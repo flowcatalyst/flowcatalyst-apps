@@ -6,6 +6,7 @@
  */
 import { Type } from '@sinclair/typebox';
 import { schemaRef } from '../../../plugins/schema-ref.js';
+import { MasterGeocodeFields } from '../../master-locations/geocode-source.schema.js';
 
 /** A master location as the BFF returns it (without feature associations). */
 export const BffMasterLocationSchema = Type.Object(
@@ -22,6 +23,7 @@ export const BffMasterLocationSchema = Type.Object(
     status: Type.String(),
     latitude: Type.Union([Type.Number(), Type.Null()]),
     longitude: Type.Union([Type.Number(), Type.Null()]),
+    ...MasterGeocodeFields,
     addressHash: Type.String(),
     createdAt: Type.String({ format: 'date-time' }),
   },

@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray, isNull, lt, or, sql, type SQL } fro
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { generateTsid } from '@flowcatalyst/sdk';
 import {
+  type RequestSurface,
   DEFAULT_USAGE_PERIODS,
   type NewRequestLogEntry,
   type RequestLogEntry,
@@ -36,6 +37,7 @@ function where(filter: RequestLogFilter): SQL | undefined {
     filter.clientId ? eq(requestLogs.clientId, filter.clientId) : undefined,
     filter.partitionId ? eq(requestLogs.partitionId, filter.partitionId) : undefined,
     filter.operation ? eq(requestLogs.operation, filter.operation) : undefined,
+    filter.surface ? eq(requestLogs.surface, filter.surface) : undefined,
   );
 }
 
@@ -46,6 +48,7 @@ function toEntry(row: RequestLogRow): RequestLogEntry {
     clientId: row.clientId,
     partitionId: row.partitionId,
     principalId: row.principalId,
+    surface: row.surface as RequestSurface,
     operation: row.operation,
     method: row.method,
     route: row.route,
@@ -94,6 +97,7 @@ export function createDrizzleRequestLogRepository(db: PostgresJsDatabase): Reque
           partitionId: requestLogs.partitionId,
           partitionCode: partitions.code,
           operation: requestLogs.operation,
+          surface: sql<RequestSurface>`${requestLogs.surface}`,
           requests: sql<number>`count(*)::int`,
           errors: sql<number>`(count(*) filter (where ${requestLogs.statusCode} >= 400))::int`,
         })
@@ -104,8 +108,8 @@ export function createDrizzleRequestLogRepository(db: PostgresJsDatabase): Reque
         // By position: every repetition of the period expression gets its own
         // bind parameters, so Postgres can't match a repeated expression to
         // the selected one.
-        .groupBy(sql`1`, sql`2`, sql`3`, sql`4`, sql`5`, sql`6`)
-        .orderBy(sql`1`, sql`3 nulls last`, sql`5 nulls last`, sql`6`);
+        .groupBy(sql`1`, sql`2`, sql`3`, sql`4`, sql`5`, sql`6`, sql`7`)
+        .orderBy(sql`1`, sql`3 nulls last`, sql`5 nulls last`, sql`6`, sql`7`);
       return { from, to: query.to ?? new Date(), rows };
     },
 
@@ -119,6 +123,7 @@ export function createDrizzleRequestLogRepository(db: PostgresJsDatabase): Reque
             clientId: requestLogs.clientId,
             partitionId: requestLogs.partitionId,
             principalId: requestLogs.principalId,
+            surface: sql<RequestSurface>`${requestLogs.surface}`,
             operation: requestLogs.operation,
             method: requestLogs.method,
             route: requestLogs.route,

@@ -3,12 +3,16 @@ import type { RequestLogEntry } from '../../../domain/reporting/request-log.repo
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 
+/** `API` (canonical API) or `UI` (the SPA, through the BFF). */
+export const RequestSurfaceSchema = Type.Union([Type.Literal('API'), Type.Literal('UI')]);
+
 export const RequestLogSummarySchema = Type.Object({
   id: Type.String(),
   createdAt: Type.String({ format: 'date-time' }),
   clientId: NullableString,
   partitionId: NullableString,
   principalId: NullableString,
+  surface: RequestSurfaceSchema,
   operation: Type.String(),
   method: Type.String(),
   route: Type.String(),
@@ -24,6 +28,7 @@ export function toSummary(entry: Omit<RequestLogEntry, 'requestBody' | 'response
     clientId: entry.clientId,
     partitionId: entry.partitionId,
     principalId: entry.principalId,
+    surface: entry.surface,
     operation: entry.operation,
     method: entry.method,
     route: entry.route,

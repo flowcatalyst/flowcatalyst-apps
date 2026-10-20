@@ -55,6 +55,11 @@ const PUBLIC_BASE_URL = process.env['PINPOINT_PUBLIC_BASE_URL'] ?? `http://local
 const DISPATCH_POOL_CODE = process.env['PINPOINT_DISPATCH_POOL'] ?? 'pinpoint-default';
 const GEOCODING_API_URL = process.env['PINPOINT_GEOCODING_API_URL'] ?? 'https://photon.komoot.io';
 const GEOCODING_RATE_LIMIT = Number(process.env['PINPOINT_GEOCODING_RATE_LIMIT'] ?? 5);
+/** Google Maps fallback (house-level geocodes Photon lacks). Unset = Photon only. */
+const GOOGLE_MAPS_API_KEY = process.env['PINPOINT_GOOGLE_MAPS_API_KEY'] ?? '';
+const GOOGLE_MAPS_RATE_LIMIT = Number(process.env['PINPOINT_GOOGLE_MAPS_RATE_LIMIT'] ?? 10);
+/** Days Google coordinates are kept before refresh / deletion (max 30, Google's terms). */
+const GOOGLE_MAPS_CACHE_DAYS = Number(process.env['PINPOINT_GOOGLE_MAPS_CACHE_DAYS'] ?? 30);
 /** Log every API request's input + output to `request_logs` (default on). */
 const REQUEST_LOG_ENABLED = process.env['PINPOINT_REQUEST_LOG_ENABLED'] !== 'false';
 /** Days of request logs the daily prune job keeps. */
@@ -306,6 +311,15 @@ export async function buildServer() {
     dispatchPoolCode: DISPATCH_POOL_CODE,
     geocodingApiUrl: GEOCODING_API_URL,
     geocodingRateLimit: GEOCODING_RATE_LIMIT,
+    ...(GOOGLE_MAPS_API_KEY
+      ? {
+          googleMaps: {
+            apiKey: GOOGLE_MAPS_API_KEY,
+            rateLimit: GOOGLE_MAPS_RATE_LIMIT,
+            cacheDays: GOOGLE_MAPS_CACHE_DAYS,
+          },
+        }
+      : {}),
     addressVerifier: buildAddressVerifierConfig((message) => server.log.error(message)),
     auth: loadAuthConfig(),
   });

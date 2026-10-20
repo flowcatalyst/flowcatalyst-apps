@@ -10,10 +10,11 @@ import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 import {
   CANONICAL_SURFACE,
   type ReportingSurface,
-  authorizeReporting,
+  authorizePartitionAccess,
   visibilityOf,
 } from './access.js';
-import { RequestLogSummarySchema, toSummary } from './request-log.schema.js';
+import type { RequestSurface } from '../../../domain/reporting/request-log.repository.js';
+import { RequestLogSummarySchema, RequestSurfaceSchema, toSummary } from './request-log.schema.js';
 
 const DEFAULT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -23,6 +24,7 @@ const ListQuerySchema = Type.Object({
   clientId: Type.Optional(Type.String({ minLength: 1 })),
   partitionId: Type.Optional(Type.String({ minLength: 1 })),
   operation: Type.Optional(Type.String({ minLength: 1 })),
+  surface: Type.Optional(RequestSurfaceSchema),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 50 })),
   offset: Type.Optional(Type.Integer({ minimum: 0, default: 0 })),
 });
@@ -57,10 +59,11 @@ export function registerListRequestLogsRoute(
         clientId?: string;
         partitionId?: string;
         operation?: string;
+        surface?: RequestSurface;
         limit?: number;
         offset?: number;
       };
-      const access = await authorizeReporting(
+      const access = await authorizePartitionAccess(
         reply,
         appContext,
         PinpointPermission.ReportingRequestLogRead,
@@ -80,6 +83,7 @@ export function registerListRequestLogsRoute(
         clientId: q.clientId,
         partitionId: q.partitionId,
         operation: q.operation,
+        surface: q.surface,
         limit,
         offset,
       });

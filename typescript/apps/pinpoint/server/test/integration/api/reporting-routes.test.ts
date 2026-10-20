@@ -150,6 +150,7 @@ describe('request log + reporting routes (integration)', () => {
       principalId: string;
     }) =>
       logs.record({
+        surface: 'API',
         ...fields,
         operation: 'createLocation',
         method: 'POST',
