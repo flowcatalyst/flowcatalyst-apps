@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asClientId, asPartitionId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
+import { LocationGeocodeFields, locationGeocodeFields } from './location-detail.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -10,7 +11,7 @@ const LocationSummarySchema = Type.Object({
   id: Type.String(),
   clientId: Type.String(),
   partitionId: NullableString,
-  masterLocationId: NullableString,
+  ...LocationGeocodeFields,
   externalId: NullableString,
   name: NullableString,
   rawAddressLine1: Type.String(),
@@ -81,6 +82,7 @@ export function registerListLocationsRoute(fastify: FastifyInstance, appContext:
       return {
         locations: result.locations.map((loc) => ({
           ...loc,
+          ...locationGeocodeFields(loc),
           createdAt: loc.createdAt.toISOString(),
           updatedAt: loc.updatedAt.toISOString(),
         })),

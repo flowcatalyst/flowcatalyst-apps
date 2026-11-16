@@ -13,6 +13,7 @@ import { asClientId, asPartitionId } from '../../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 import { BffLocationSummaryRef } from './location.schema.js';
+import { locationGeocodeFields } from '../../locations/location-detail.schema.js';
 
 const LocationSchema = BffLocationSummaryRef;
 
@@ -81,7 +82,7 @@ export function registerBffListLocationsRoute(
           city: l.rawCity,
           country: l.rawCountry,
           status: l.status,
-          masterLocationId: l.masterLocationId,
+          ...locationGeocodeFields(l),
           matchConfidence: l.matchConfidence,
           matchMethod: l.matchMethod,
           createdAt: l.createdAt.toISOString(),

@@ -34,7 +34,7 @@ const ResponseSchema = Type.Object({
   city: Type.String(),
   country: Type.String(),
   status: Type.String(),
-  masterLocationId: Type.Union([Type.String(), Type.Null()]),
+  sourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
   matchConfidence: Type.Union([Type.Number(), Type.Null()]),
   createdAt: Type.String({ format: 'date-time' }),
 });
@@ -103,7 +103,7 @@ export function registerBffCreateLocationRoute(
         city: location.rawCity,
         country: location.rawCountry,
         status: location.status,
-        masterLocationId: location.masterLocationId,
+        sourceMasterLocationId: location.sourceMasterLocationId,
         matchConfidence: location.matchConfidence,
         createdAt: location.createdAt.toISOString(),
       });

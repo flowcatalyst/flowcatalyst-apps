@@ -29,6 +29,12 @@ import type { TransactionContext } from './transaction.js';
 export interface UnitOfWorkOptions {
   /** Emit a SDK audit log per commit. Default: true (parity with Effect path). */
   readonly auditEnabled?: boolean;
+  /**
+   * FlowCatalyst application code stamped on outbox audit logs. The platform
+   * rejects audit logs from an application-scoped credential without one
+   * (400 "applicationCode is required").
+   */
+  readonly applicationCode?: string;
 }
 
 /**
@@ -41,7 +47,10 @@ export interface UnitOfWorkOptions {
 export function createUnitOfWork(manager: OutboxManager, options?: UnitOfWorkOptions): UnitOfWork {
   return new OutboxUnitOfWork({
     outboxManager: manager,
-    options: { auditEnabled: options?.auditEnabled ?? true },
+    options: {
+      auditEnabled: options?.auditEnabled ?? true,
+      ...(options?.applicationCode ? { applicationCode: options.applicationCode } : {}),
+    },
   });
 }
 

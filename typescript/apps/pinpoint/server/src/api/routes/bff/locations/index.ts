@@ -5,6 +5,8 @@ import { registerBffGetLocationRoute } from './get-location.route.js';
 import { registerBffCreateLocationRoute } from './create-location.route.js';
 import { registerBffDeleteLocationRoute } from './delete-location.route.js';
 import { registerBffRematchLocationRoute } from './rematch-location.route.js';
+import { BFF_SURFACE } from '../../../plugins/surface.js';
+import { registerLocationLifecycleRoutes } from '../../locations/lifecycle.routes.js';
 
 export function registerBffLocationRoutes(fastify: FastifyInstance, appContext: AppContext): void {
   registerBffListLocationsRoute(fastify, appContext);
@@ -12,4 +14,5 @@ export function registerBffLocationRoutes(fastify: FastifyInstance, appContext: 
   registerBffCreateLocationRoute(fastify, appContext);
   registerBffDeleteLocationRoute(fastify, appContext);
   registerBffRematchLocationRoute(fastify, appContext);
+  registerLocationLifecycleRoutes(fastify, appContext, BFF_SURFACE);
 }

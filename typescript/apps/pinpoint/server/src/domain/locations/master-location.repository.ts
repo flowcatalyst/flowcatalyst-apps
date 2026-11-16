@@ -17,21 +17,6 @@ export interface ListMasterLocationsResult {
   readonly total: number;
 }
 
-export interface ApplyConfirmedGeocodeInput {
-  readonly masterLocationId: MasterLocationId;
-  readonly normalizedHouseNumber: string | null;
-  readonly normalizedRoad: string | null;
-  readonly normalizedSuburb: string | null;
-  readonly normalizedCity: string;
-  readonly normalizedState: string | null;
-  readonly normalizedPostalCode: string | null;
-  readonly normalizedCountry: string;
-  readonly addressHash: string;
-  readonly normalizedAddressLine: string;
-  readonly latitude: number;
-  readonly longitude: number;
-}
-
 /**
  * Which masters a cross-client lookup may consider (the geocode endpoints'
  * master check). `visibleTo` null = every client; otherwise masters in the
@@ -81,7 +66,6 @@ export interface MasterLocationRepository {
   count(): Promise<number>;
   listByStatus(status: MasterLocationStatus, limit: number): Promise<readonly MasterLocation[]>;
   findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult>;
-  applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void>;
   /** VALIDATED master with this address hash, within the lookup scope. */
   findValidatedByHashIn(scope: MasterLookupScope, addressHash: string): Promise<MasterLocation | null>;
   /** Closest VALIDATED masters by trigram similarity, within the lookup scope. */
@@ -91,6 +75,4 @@ export interface MasterLocationRepository {
     threshold: number,
     limit: number,
   ): Promise<readonly MasterLocation[]>;
-  /** Masters whose cached third-party geocode expires before `cutoff`, soonest first. */
-  listGeocodesExpiringBefore(cutoff: Date, limit: number): Promise<readonly MasterLocation[]>;
 }

@@ -1,4 +1,4 @@
-import type { MasterLocationId } from './ids.js';
+import type { LocationId, MasterLocationId } from './ids.js';
 
 /**
  * Well-known processing-log step names. The write side is constrained to
@@ -19,13 +19,27 @@ export const ProcessingStep = {
   SpatialMatched: 'spatial_matched',
   Edited: 'edited',
   ConfirmGeocode: 'confirm-geocode',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  GeocodeRefreshed: 'geocode_refreshed',
+  GeocodeExpired: 'geocode_expired',
+  Captured: 'captured',
+  CaptureDisagrees: 'capture_disagrees',
+  MasterCreated: 'master_created',
+  Completed: 'completed',
 } as const;
 
 export type ProcessingStep = (typeof ProcessingStep)[keyof typeof ProcessingStep];
 
+/** Whose trail an entry belongs to: a master location or a location. */
+export type ProcessingLogSubject =
+  | { readonly masterLocationId: MasterLocationId }
+  | { readonly locationId: LocationId };
+
 export interface ProcessingLogEntry {
   readonly id: string;
-  readonly masterLocationId: MasterLocationId;
+  readonly masterLocationId: MasterLocationId | null;
+  readonly locationId: LocationId | null;
   readonly step: string;
   readonly data: Readonly<Record<string, unknown>>;
   readonly createdAt: Date;
@@ -33,10 +47,10 @@ export interface ProcessingLogEntry {
 
 export interface ProcessingLogRepository {
   append(
-    masterLocationId: MasterLocationId,
+    subject: ProcessingLogSubject,
     step: ProcessingStep,
     data: Readonly<Record<string, unknown>>,
   ): Promise<void>;
 
-  listByMaster(masterLocationId: MasterLocationId): Promise<readonly ProcessingLogEntry[]>;
+  list(subject: ProcessingLogSubject): Promise<readonly ProcessingLogEntry[]>;
 }

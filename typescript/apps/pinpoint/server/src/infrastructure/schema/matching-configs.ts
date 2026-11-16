@@ -28,6 +28,8 @@ export const matchingConfigs = pgTable(
     stateThreshold: doublePrecision('state_threshold').notNull().default(0.9),
     addressNameThreshold: doublePrecision('address_name_threshold').notNull().default(0.8),
     overallThreshold: doublePrecision('overall_threshold').notNull().default(0.85),
+    /** Minimum geocode confidence for a GEOCODED location to be approved without review. */
+    autoApproveThreshold: doublePrecision('auto_approve_threshold').notNull().default(0.9),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),
   },

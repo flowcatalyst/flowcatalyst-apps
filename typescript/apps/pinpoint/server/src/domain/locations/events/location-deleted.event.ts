@@ -5,7 +5,7 @@ import type { Scope } from '@pinpoint/framework';
 export const LocationDeletedDataSchema = Type.Object({
   locationId: Type.String(),
   clientId: Type.String(),
-  masterLocationId: Type.Union([Type.String(), Type.Null()]),
+  sourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
 });
 
 export type LocationDeletedData = Static<typeof LocationDeletedDataSchema>;

@@ -90,17 +90,8 @@ export function isValidTimezone(timezone: string): boolean {
  * Where a reporting route is mounted: the canonical API, or the SPA's BFF
  * (`/bff/...`, operationIds prefixed `bff`). Same handlers on both.
  */
-export interface ReportingSurface {
-  readonly basePath: '' | '/bff';
-  operationId(name: string): string;
-}
-
-export const CANONICAL_SURFACE: ReportingSurface = {
-  basePath: '',
-  operationId: (name) => name,
-};
-
-export const BFF_SURFACE: ReportingSurface = {
-  basePath: '/bff',
-  operationId: (name) => `bff${name.charAt(0).toUpperCase()}${name.slice(1)}`,
-};
+export {
+  BFF_SURFACE,
+  CANONICAL_SURFACE,
+  type Surface as ReportingSurface,
+} from '../../plugins/surface.js';

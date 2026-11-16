@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../../../app-context.js';
-import { registerValidateMasterLocationRoute } from './validate-master-location.route.js';
-import { registerConfirmMasterLocationRoute } from './confirm-master-location.route.js';
+import { CANONICAL_SURFACE } from '../../plugins/surface.js';
+import { registerCompleteMasterLocationRoute } from './complete-master-location.route.js';
 import { registerGetMasterLocationRoute } from './get-master-location.route.js';
 import { registerListMasterLocationsRoute } from './list-master-locations.route.js';
 import { registerRejectMasterLocationRoute } from './reject-master-location.route.js';
@@ -13,8 +13,7 @@ export function registerMasterLocationRoutes(
   fastify: FastifyInstance,
   appContext: AppContext,
 ): void {
-  registerValidateMasterLocationRoute(fastify, appContext);
-  registerConfirmMasterLocationRoute(fastify, appContext);
+  registerCompleteMasterLocationRoute(fastify, appContext, CANONICAL_SURFACE);
   registerGetMasterLocationRoute(fastify, appContext);
   registerListMasterLocationsRoute(fastify, appContext);
   registerUpdateMasterLocationRoute(fastify, appContext);

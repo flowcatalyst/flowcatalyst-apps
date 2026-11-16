@@ -27,6 +27,12 @@ export interface MatchingConfig {
   readonly stateThreshold: number;
   readonly addressNameThreshold: number;
   readonly overallThreshold: number;
+  /**
+   * Minimum geocode confidence for a GEOCODED location to be approved without
+   * review (it must also be on the requested road, at the house when the
+   * address names one).
+   */
+  readonly autoApproveThreshold: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -38,6 +44,7 @@ export const MATCHING_CONFIG_DEFAULTS = {
   stateThreshold: 0.9,
   addressNameThreshold: 0.8,
   overallThreshold: 0.6,
+  autoApproveThreshold: 0.9,
 } as const;
 
 export interface MatchingConfigThresholdUpdate {
@@ -47,6 +54,7 @@ export interface MatchingConfigThresholdUpdate {
   readonly stateThreshold?: number | undefined;
   readonly addressNameThreshold?: number | undefined;
   readonly overallThreshold?: number | undefined;
+  readonly autoApproveThreshold?: number | undefined;
 }
 
 export interface CreateMatchingConfigInput {
@@ -78,6 +86,8 @@ export const MatchingConfig = {
         input.thresholds.addressNameThreshold ?? MATCHING_CONFIG_DEFAULTS.addressNameThreshold,
       overallThreshold:
         input.thresholds.overallThreshold ?? MATCHING_CONFIG_DEFAULTS.overallThreshold,
+      autoApproveThreshold:
+        input.thresholds.autoApproveThreshold ?? MATCHING_CONFIG_DEFAULTS.autoApproveThreshold,
       createdAt: input.now,
       updatedAt: input.now,
     };
@@ -96,6 +106,7 @@ export const MatchingConfig = {
       stateThreshold: update.stateThreshold ?? prior.stateThreshold,
       addressNameThreshold: update.addressNameThreshold ?? prior.addressNameThreshold,
       overallThreshold: update.overallThreshold ?? prior.overallThreshold,
+      autoApproveThreshold: update.autoApproveThreshold ?? prior.autoApproveThreshold,
       updatedAt: now,
     };
   },

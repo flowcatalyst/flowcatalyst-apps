@@ -80,7 +80,8 @@ PickPackage
   picking in any sequence remains allowed. The generator synthesises
   deterministic aisles per (store, sku).
 - **Images**: `line.imageUrl` renders with an initial-letter placeholder
-  when missing or failing to load (generator seeds picsum URLs per sku).
+  when missing or failing to load (the generator seeds an inline SVG
+  product tile: a matching emoji on a temperature-tinted square).
 
 ## Line locations & pick sort (BUILT 2026-07-12)
 

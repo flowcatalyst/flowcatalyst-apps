@@ -12,18 +12,14 @@
  *      if needed).
  *
  * With no verifier configured (Noop returns null) only exact duplicates match.
- * Every verifier verdict is recorded on the candidate's processing log.
+ * Every verdict is returned (`verdicts`) for the caller to record on the
+ * location's processing trail once the location row exists.
  */
 import type { ClientId, PartitionId } from '../tenancy/ids.js';
 import type { LocationId } from '../locations/ids.js';
 import type { MatchMethod } from '../locations/location.js';
 import type { MasterLocation } from '../locations/master-location.js';
-import type { LocationRepository } from '../locations/location.repository.js';
 import type { MasterLocationRepository } from '../locations/master-location.repository.js';
-import {
-  ProcessingStep,
-  type ProcessingLogRepository,
-} from '../locations/processing-log.repository.js';
 import type { AddressVerifier, VerificationResult } from './address-verifier.js';
 import { toAddressLine } from './address-normalizer.js';
 
@@ -34,9 +30,7 @@ const CANDIDATES_VERIFIED = 5;
 
 export interface LocationMatchDeps {
   readonly masters: MasterLocationRepository;
-  readonly locations: LocationRepository;
   readonly verifier: AddressVerifier;
-  readonly processingLog: ProcessingLogRepository;
 }
 
 export interface LocationMatchInput {
@@ -47,12 +41,20 @@ export interface LocationMatchInput {
   readonly addressHash: string;
   /** The location's name, compared against the candidates' location names. */
   readonly name: string | null;
-  /** The location being matched — logged, and excluded from candidate names. */
+  /** The location being matched. */
   readonly locationId: LocationId;
   /** Minimum verifier confidence for a confirmed match to win. */
   readonly threshold: number;
-  /** Extra fields on every processing-log entry, e.g. `{ trigger: 'rematch' }`. */
-  readonly trail?: Readonly<Record<string, unknown>>;
+}
+
+/** One candidate the verifier was asked about — for the location's trail. */
+export interface CandidateVerdict {
+  readonly masterLocationId: string;
+  readonly candidateAddress: string;
+  readonly outcome: 'confirmed' | 'rejected' | 'no_opinion';
+  readonly matchConfirmed: boolean | null;
+  readonly confidence: number | null;
+  readonly reasoning: string | null;
 }
 
 export interface LocationMatch {
@@ -67,6 +69,7 @@ export interface LocationMatchOutcome {
   readonly candidatesChecked: number;
   /** Candidates the verifier explicitly rejected. */
   readonly rejectedMasterIds: readonly string[];
+  readonly verdicts: readonly CandidateVerdict[];
 }
 
 export async function matchLocation(
@@ -83,6 +86,7 @@ export async function matchLocation(
       match: { master: hashHit, method: 'EXACT_HASH', confidence: 1 },
       candidatesChecked: 0,
       rejectedMasterIds: [],
+      verdicts: [],
     };
   }
 
@@ -101,10 +105,7 @@ export async function matchLocation(
   const checked = await Promise.all(
     candidates.map(async (candidate) => {
       const candidateLine = candidateAddressLine(candidate);
-      const candidateNames = (await deps.locations.listByMaster(candidate.id))
-        .filter((l) => l.id !== input.locationId)
-        .map((l) => l.name)
-        .filter((n): n is string => n !== null);
+      const candidateNames = candidate.name ? [candidate.name] : [];
       const verdict = await deps.verifier.verify(input.addressLine, candidateLine, {
         inputName: input.name,
         candidateNames,
@@ -112,26 +113,6 @@ export async function matchLocation(
       return { candidate, candidateLine, verdict };
     }),
   );
-
-  // Trail writes run sequentially on the caller's transaction, after the
-  // parallel verifier calls. Fire-and-forget: a log failure must not block.
-  for (const { candidate, candidateLine, verdict } of checked) {
-    try {
-      await deps.processingLog.append(candidate.id, ProcessingStep.LlmVerified, {
-        input_address: input.addressLine,
-        candidate_address: candidateLine,
-        location_id: input.locationId,
-        outcome: outcomeOf(verdict),
-        match_confirmed: verdict?.match_confirmed ?? null,
-        confidence: verdict?.confidence ?? null,
-        reasoning: verdict?.reasoning ?? null,
-        threshold: input.threshold,
-        ...input.trail,
-      });
-    } catch {
-      // swallow
-    }
-  }
 
   const best = checked
     .filter(
@@ -148,10 +129,18 @@ export async function matchLocation(
     rejectedMasterIds: checked
       .filter((c) => c.verdict !== null && !c.verdict.match_confirmed)
       .map((c) => c.candidate.id),
+    verdicts: checked.map(({ candidate, candidateLine, verdict }) => ({
+      masterLocationId: candidate.id,
+      candidateAddress: candidateLine,
+      outcome: outcomeOf(verdict),
+      matchConfirmed: verdict?.match_confirmed ?? null,
+      confidence: verdict?.confidence ?? null,
+      reasoning: verdict?.reasoning ?? null,
+    })),
   };
 }
 
-function outcomeOf(verdict: VerificationResult | null): string {
+function outcomeOf(verdict: VerificationResult | null): CandidateVerdict['outcome'] {
   if (verdict === null) return 'no_opinion';
   return verdict.match_confirmed ? 'confirmed' : 'rejected';
 }

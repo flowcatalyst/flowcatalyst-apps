@@ -100,7 +100,6 @@ export async function answerFromMasters(
   const match = await lookupMasterLocation(
     {
       masters: appContext.repositories.masterLocations,
-      locations: appContext.repositories.locations,
       verifier: appContext.services.addressVerifier,
     },
     {

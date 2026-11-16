@@ -20,9 +20,9 @@ export const RematchLocationBodyRef = schemaRef(RematchLocationBodySchema);
 export const RematchLocationResponseSchema = Type.Object(
   {
     locationId: Type.String(),
-    masterLocationId: Type.String(),
-    previousMasterLocationId: Type.Union([Type.String(), Type.Null()]),
-    previousMasterDeleted: Type.Boolean(),
+    /** The master the location now copies (null: no match, PENDING for geocoding). */
+    sourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
+    previousSourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
     status: Type.String(),
   },
   { $id: 'RematchLocationResponse' },

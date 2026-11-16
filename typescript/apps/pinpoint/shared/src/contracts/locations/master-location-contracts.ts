@@ -1,41 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Validate (geocode) a PENDING master location. Resolves lat/lon via
- * the configured geocoder and transitions PENDING → GEOCODED. Despite
- * the name, this is the geocoding step — `confirm-master-location`
- * does the canonical-validation cascade.
- */
-export const ValidateMasterLocationCommandSchema = z.object({
-  masterLocationId: z.string().trim().min(1),
-});
-export type ValidateMasterLocationCommand = z.infer<typeof ValidateMasterLocationCommandSchema>;
-
-/** Renew (or, past expiry, drop) a master's cached third-party geocode. */
-export const RefreshMasterLocationGeocodeCommandSchema = z.object({
-  masterLocationId: z.string().trim().min(1),
-});
-export type RefreshMasterLocationGeocodeCommand = z.infer<
-  typeof RefreshMasterLocationGeocodeCommandSchema
->;
-
-/**
- * Confirm a GEOCODED master location as canonical. Transitions
- * * → VALIDATED, runs a spatial-feature lookup at the master's coords,
- * writes per-child location_feature_associations rows, and emits
- * LocationValidated for every non-validated child location.
- */
-export const ConfirmMasterLocationCommandSchema = z.object({
-  masterLocationId: z.string().trim().min(1),
-  clientId: z.string().trim().min(1),
-});
-export type ConfirmMasterLocationCommand = z.infer<typeof ConfirmMasterLocationCommandSchema>;
-
-/**
- * Manually edit a master location's normalized components. Used by the
- * BFF "edit master" form when a human fixes what the geocoder resolved.
- * Recomputes `addressHash` + `normalizedAddressLine` from the new
- * components so future matches dedupe correctly.
+ * Manually edit a master location's normalized components (the BFF "edit
+ * master" form). Recomputes `addressHash` + `normalizedAddressLine` from the
+ * new components so future matches dedupe correctly. Status is unchanged.
  *
  * `city` + `country` are required (matcher invariants); the rest are
  * optional+nullable to match the underlying type.
@@ -66,9 +34,8 @@ export const RejectMasterLocationCommandSchema = z.object({
 export type RejectMasterLocationCommand = z.infer<typeof RejectMasterLocationCommandSchema>;
 
 /**
- * Delete a master location. This is a CASCADE: it first deletes every child
- * location linked to this master (each cascading its own association rows), then
- * the master location itself (and its processing-log rows via DB FK).
+ * Delete a master location (and its processing trail). Locations that copied
+ * its data keep their copy — they only referenced it.
  */
 export const DeleteMasterLocationCommandSchema = z.object({
   masterLocationId: z.string().trim().min(1),
@@ -76,27 +43,12 @@ export const DeleteMasterLocationCommandSchema = z.object({
 });
 export type DeleteMasterLocationCommand = z.infer<typeof DeleteMasterLocationCommandSchema>;
 
-export const MatchMasterLocationFeaturesCommandSchema = z.object({
-  clientId: z.string().trim().min(1),
-  masterLocationId: z.string().trim().min(1),
+/**
+ * Capture the address of a DRAFT master location properly (it came from a
+ * delivery capture, with only a reverse-geocoded address): DRAFT → VALIDATED,
+ * usable for matching. Same component fields as the update.
+ */
+export const CompleteMasterLocationCommandSchema = UpdateMasterLocationCommandSchema.extend({
+  name: z.string().trim().optional().nullable(),
 });
-export type MatchMasterLocationFeaturesCommand = z.infer<
-  typeof MatchMasterLocationFeaturesCommandSchema
->;
-
-export const ConfirmMasterLocationGeocodeCommandSchema = z.object({
-  clientId: z.string().trim().min(1),
-  masterLocationId: z.string().trim().min(1),
-  houseNumber: z.string().trim().optional().nullable(),
-  road: z.string().trim().optional().nullable(),
-  suburb: z.string().trim().optional().nullable(),
-  city: z.string().trim().min(1),
-  state: z.string().trim().optional().nullable(),
-  postalCode: z.string().trim().optional().nullable(),
-  country: z.string().trim().min(1),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
-});
-export type ConfirmMasterLocationGeocodeCommand = z.infer<
-  typeof ConfirmMasterLocationGeocodeCommandSchema
->;
+export type CompleteMasterLocationCommand = z.infer<typeof CompleteMasterLocationCommandSchema>;

@@ -4,7 +4,7 @@ export {
   type RefreshCachedGeocodesBatchResult,
 } from './refresh-cached-geocodes.js';
 export {
-  runValidateMasterLocationsBatch,
-  type ValidateMasterLocationsBatchResult,
-  type ValidateMasterLocationsBatchConfig,
-} from './validate-master-locations.js';
+  isAutoApprovable,
+  runApproveGeocodedLocationsBatch,
+  type ApproveGeocodedLocationsBatchResult,
+} from './approve-geocoded-locations.js';

@@ -38,7 +38,10 @@ const CreateLocationBodySchema = Type.Object({
 
 const CreateLocationResponseSchema = Type.Object({
   locationId: Type.String(),
-  masterLocationId: Type.String(),
+  /** The master location whose data the location copied (null: no match — geocoded on its own). */
+  sourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
+  /** VALIDATED when it matched a master location, else PENDING. */
+  status: Type.String(),
   /** The partition the location landed in — the client's default one when none was sent. */
   partitionId: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.String({ format: 'date-time' }),
@@ -94,7 +97,8 @@ export function registerCreateLocationRoute(
       const data = event.getData();
       return reply.code(201).send({
         locationId: data.locationId,
-        masterLocationId: data.masterLocationId ?? '',
+        sourceMasterLocationId: data.sourceMasterLocationId,
+        status: data.status,
         partitionId: data.partitionId ?? null,
         createdAt: event.time.toISOString(),
       });

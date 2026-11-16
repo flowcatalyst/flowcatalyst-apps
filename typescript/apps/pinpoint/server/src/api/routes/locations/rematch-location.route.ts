@@ -61,9 +61,8 @@ export function registerRematchLocationRoute(
       const data = result.value.getData();
       return reply.code(200).send({
         locationId: data.locationId,
-        masterLocationId: data.masterLocationId,
-        previousMasterLocationId: data.previousMasterLocationId,
-        previousMasterDeleted: data.previousMasterDeleted,
+        sourceMasterLocationId: data.sourceMasterLocationId,
+        previousSourceMasterLocationId: data.previousSourceMasterLocationId,
         status: data.status,
       });
     },

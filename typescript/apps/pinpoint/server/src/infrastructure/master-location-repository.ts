@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { containsPattern } from './search-pattern.js';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { resolveDb, type TransactionContext } from '@flowcatalyst-apps/app-framework';
@@ -8,14 +8,18 @@ import {
   type ClientId,
   type PartitionId,
 } from '../domain/tenancy/ids.js';
-import { asMasterLocationId, type MasterLocationId } from '../domain/locations/ids.js';
+import {
+  asLocationId,
+  asMasterLocationId,
+  type MasterLocationId,
+} from '../domain/locations/ids.js';
 import type {
   MasterGeocodeSource,
   MasterLocation,
   MasterLocationStatus,
+  MasterOrigin,
 } from '../domain/locations/master-location.js';
 import type {
-  ApplyConfirmedGeocodeInput,
   FindUnvalidatedQuery,
   FindUnvalidatedResult,
   ListMasterLocationsQuery,
@@ -34,6 +38,7 @@ function toDomain(row: MasterLocationRow): MasterLocation {
     id: asMasterLocationId(row.id),
     clientId: asClientId(row.clientId),
     partitionId: row.partitionId ? asPartitionId(row.partitionId) : null,
+    name: row.name,
     normalizedHouseNumber: row.normalizedHouseNumber,
     normalizedRoad: row.normalizedRoad,
     normalizedSuburb: row.normalizedSuburb,
@@ -46,7 +51,10 @@ function toDomain(row: MasterLocationRow): MasterLocation {
     latitude: row.latitude,
     longitude: row.longitude,
     geocodeSource: row.geocodeSource as MasterGeocodeSource | null,
-    geocodeExpiresAt: row.geocodeExpiresAt,
+    origin: row.origin as MasterOrigin,
+    originLocationId: row.originLocationId ? asLocationId(row.originLocationId) : null,
+    captureAccuracyM: row.captureAccuracyM,
+    capturedAt: row.capturedAt,
     status: row.status as MasterLocationStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -89,6 +97,7 @@ export function createDrizzleMasterLocationRepository(
           id: aggregate.id,
           clientId: aggregate.clientId,
           partitionId: aggregate.partitionId,
+          name: aggregate.name,
           normalizedHouseNumber: aggregate.normalizedHouseNumber,
           normalizedRoad: aggregate.normalizedRoad,
           normalizedSuburb: aggregate.normalizedSuburb,
@@ -102,7 +111,10 @@ export function createDrizzleMasterLocationRepository(
           longitude: aggregate.longitude,
           point: pointExpr as never,
           geocodeSource: aggregate.geocodeSource,
-          geocodeExpiresAt: aggregate.geocodeExpiresAt,
+          origin: aggregate.origin,
+          originLocationId: aggregate.originLocationId,
+          captureAccuracyM: aggregate.captureAccuracyM,
+          capturedAt: aggregate.capturedAt,
           status: aggregate.status,
           createdAt: aggregate.createdAt,
           updatedAt: aggregate.updatedAt,
@@ -123,8 +135,8 @@ export function createDrizzleMasterLocationRepository(
             latitude: aggregate.latitude,
             longitude: aggregate.longitude,
             point: pointExpr as never,
+            name: aggregate.name,
             geocodeSource: aggregate.geocodeSource,
-            geocodeExpiresAt: aggregate.geocodeExpiresAt,
             status: aggregate.status,
             updatedAt: aggregate.updatedAt,
             validatedAt: aggregate.validatedAt,
@@ -248,29 +260,6 @@ export function createDrizzleMasterLocationRepository(
       return rows.map(toDomain);
     },
 
-    async applyConfirmedGeocode(input: ApplyConfirmedGeocodeInput): Promise<void> {
-      const point = sql`ST_SetSRID(ST_MakePoint(${input.longitude}::double precision, ${input.latitude}::double precision), 4326)`;
-      await db
-        .update(masterLocations)
-        .set({
-          normalizedHouseNumber: input.normalizedHouseNumber,
-          normalizedRoad: input.normalizedRoad,
-          normalizedSuburb: input.normalizedSuburb,
-          normalizedCity: input.normalizedCity,
-          normalizedState: input.normalizedState,
-          normalizedPostalCode: input.normalizedPostalCode,
-          normalizedCountry: input.normalizedCountry,
-          addressHash: input.addressHash,
-          normalizedAddressLine: input.normalizedAddressLine,
-          latitude: input.latitude,
-          longitude: input.longitude,
-          point: point as never,
-          geocodeSource: 'OPERATOR',
-          geocodeExpiresAt: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(masterLocations.id, input.masterLocationId));
-    },
 
     async findValidatedByHashIn(scope, addressHash): Promise<MasterLocation | null> {
       const [row] = await db
@@ -311,20 +300,6 @@ export function createDrizzleMasterLocationRepository(
       return rows.map(toDomain);
     },
 
-    async listGeocodesExpiringBefore(cutoff, limit): Promise<readonly MasterLocation[]> {
-      const rows = await db
-        .select()
-        .from(masterLocations)
-        .where(
-          and(
-            isNotNull(masterLocations.geocodeExpiresAt),
-            lt(masterLocations.geocodeExpiresAt, cutoff),
-          ),
-        )
-        .orderBy(asc(masterLocations.geocodeExpiresAt))
-        .limit(limit);
-      return rows.map(toDomain);
-    },
 
     async findUnvalidated(query: FindUnvalidatedQuery): Promise<FindUnvalidatedResult> {
       // status != 'VALIDATED' plus optional clientId / partitionId IN-clauses.

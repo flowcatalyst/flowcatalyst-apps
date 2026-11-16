@@ -26,6 +26,7 @@ function toDomain(row: MatchingConfigRow): MatchingConfig {
     stateThreshold: row.stateThreshold,
     addressNameThreshold: row.addressNameThreshold,
     overallThreshold: row.overallThreshold,
+    autoApproveThreshold: row.autoApproveThreshold,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -49,6 +50,7 @@ export function createDrizzleMatchingConfigRepository(
           stateThreshold: aggregate.stateThreshold,
           addressNameThreshold: aggregate.addressNameThreshold,
           overallThreshold: aggregate.overallThreshold,
+          autoApproveThreshold: aggregate.autoApproveThreshold,
           createdAt: aggregate.createdAt,
           updatedAt: aggregate.updatedAt,
         })
@@ -61,6 +63,7 @@ export function createDrizzleMatchingConfigRepository(
             stateThreshold: aggregate.stateThreshold,
             addressNameThreshold: aggregate.addressNameThreshold,
             overallThreshold: aggregate.overallThreshold,
+            autoApproveThreshold: aggregate.autoApproveThreshold,
             updatedAt: aggregate.updatedAt,
           },
         })

@@ -10,6 +10,7 @@
  */
 import {
   type AnyPgColumn,
+  boolean,
   doublePrecision,
   index,
   pgTable,
@@ -21,7 +22,7 @@ import { sql, type SQL } from 'drizzle-orm';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { clients } from './clients.js';
 import { partitions } from './partitions.js';
-import { masterLocations } from './master-locations.js';
+import { geometry } from './types/geometry.js';
 
 export const locations = pgTable(
   'locations',
@@ -31,7 +32,11 @@ export const locations = pgTable(
       .notNull()
       .references(() => clients.id),
     partitionId: text('partition_id').references(() => partitions.id),
-    masterLocationId: text('master_location_id').references(() => masterLocations.id),
+    /**
+     * The master location this location's data was copied from, if it matched
+     * one. A reference only — no FK: masters are reference data, not parents.
+     */
+    sourceMasterLocationId: text('source_master_location_id'),
     externalId: text('external_id'),
     name: text('name'),
 
@@ -60,13 +65,40 @@ export const locations = pgTable(
     matchConfidence: doublePrecision('match_confidence'),
     matchMethod: text('match_method'),
 
+    /** The location's own coordinates (point written via ST_MakePoint, see master-locations). */
+    latitude: doublePrecision('latitude'),
+    longitude: doublePrecision('longitude'),
+    point: geometry('point'),
+    /** MASTER_LOCATIONS | PHOTON | GOOGLE_MAPS | OPERATOR. */
+    geocodeSource: varchar('geocode_source', { length: 20 }),
+    geocodeConfidence: doublePrecision('geocode_confidence'),
+    geocodeRoadMatched: boolean('geocode_road_matched'),
+    /** Cached third-party (Google) coordinates must be refreshed or dropped by then. */
+    geocodeExpiresAt: timestampColumn('geocode_expires_at'),
+    geocodedAt: timestampColumn('geocoded_at'),
+    validatedAt: timestampColumn('validated_at'),
+
+    /** A delivery capture that disagreed with these coordinates (DRAFT master + distance). */
+    captureMasterLocationId: text('capture_master_location_id'),
+    captureDistanceM: doublePrecision('capture_distance_m'),
+    captureReview: varchar('capture_review', { length: 20 }),
+
     status: varchar('status', { length: 20 }).notNull().default('PENDING'),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),
   },
   (t) => [
     index('idx_locations_client').on(t.clientId),
-    index('idx_locations_master').on(t.masterLocationId),
+    index('idx_locations_source_master').on(t.sourceMasterLocationId),
+    index('idx_locations_point').using('gist', t.point),
+    index('idx_locations_geocode_expires')
+      .on(t.geocodeExpiresAt)
+      .where(sql`${t.geocodeExpiresAt} IS NOT NULL`),
+    // Fuzzy lookup of a client's locations by address (delivery capture).
+    index('idx_locations_match_address_trgm').using(
+      'gist',
+      sql`lower(${t.matchAddress}) gist_trgm_ops`,
+    ),
     index('idx_locations_hash').on(t.addressHash),
     index('idx_locations_status').on(t.status),
     // Free-text search (BFF `q`) — see `locationSearchText` below.

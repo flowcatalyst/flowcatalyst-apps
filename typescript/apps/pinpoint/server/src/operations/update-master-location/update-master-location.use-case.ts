@@ -4,10 +4,8 @@
  * Recomputes `addressHash` + `normalizedAddressLine` from the new
  * components so future matches dedupe correctly.
  *
- * Editing a master is "fixing" it, so the status is reset to PENDING (it flows
- * back through geocode/validate). The emitted event carries the IDs of every
- * location currently linked to this master, so downstream consumers know which
- * locations the fix affects.
+ * Status and coordinates are unchanged. Locations that copied the master's
+ * data earlier keep their copy — masters have no child locations.
  */
 import {
   Result,
@@ -25,9 +23,8 @@ import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
 import { MasterLocationUpdated } from '../../domain/locations/events/master-location-updated.event.js';
 import { toAddressLine } from '../../domain/services/address-normalizer.js';
-import { addressLineHash } from '../../domain/services/address-line.js';
+import { addressLineHash, tidyAddressLine } from '../../domain/services/address-line.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
-import type { LocationRepository } from '../../domain/locations/location.repository.js';
 import type { UpdateMasterLocationCommand } from './update-master-location.command.js';
 
 export class UpdateMasterLocationUseCase {
@@ -37,7 +34,6 @@ export class UpdateMasterLocationUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly masters: MasterLocationRepository,
-    private readonly locations: LocationRepository,
   ) {}
 
   async execute(command: UpdateMasterLocationCommand): Promise<Result<MasterLocationUpdated>> {
@@ -82,13 +78,11 @@ export class UpdateMasterLocationUseCase {
       postalCode: command.normalizedPostalCode?.trim() || null,
       country: command.normalizedCountry.trim(),
     };
-    const newAddressLine = toAddressLine(normalized);
+    const newAddressLine = tidyAddressLine(toAddressLine(normalized));
     const newHash = addressLineHash(newAddressLine);
 
-    // Editing a master is "fixing" it → reset to PENDING so it flows back
-    // through geocode/validate.
-    const updated: MasterLocation = {
-      ...MasterLocation.updated(existing, {
+    // An address correction; status and coordinates are unchanged.
+    const updated: MasterLocation = MasterLocation.updated(existing, {
         normalizedHouseNumber: normalized.houseNumber,
         normalizedRoad: normalized.road,
         normalizedSuburb: normalized.suburb,
@@ -99,18 +93,13 @@ export class UpdateMasterLocationUseCase {
         addressHash: newHash,
         normalizedAddressLine: newAddressLine,
         now: new Date(),
-      }),
-      status: 'PENDING',
-    };
-
-    const linked = await this.locations.listByMaster(masterLocationId);
+      });
 
     const event = new MasterLocationUpdated(scope, {
       masterLocationId: updated.id,
       clientId: updated.clientId,
       addressHash: updated.addressHash,
       status: updated.status,
-      linkedLocationIds: linked.map((l) => l.id),
     });
 
     return commitAggregate(this.uow, this.registry, updated, event, command);

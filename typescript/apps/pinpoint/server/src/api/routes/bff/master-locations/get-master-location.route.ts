@@ -19,7 +19,12 @@ const FeatureSchema = BffFeatureAssociationRef;
 
 const ResponseSchema = Type.Intersect([
   BffMasterLocationRef,
-  Type.Object({ features: Type.Array(FeatureSchema) }),
+  Type.Object({
+    /** Layer features at the master's point. */
+    features: Type.Array(FeatureSchema),
+    /** How many locations copied this master's data (reference only). */
+    copiedByLocations: Type.Integer({ minimum: 0 }),
+  }),
 ]);
 
 export function registerBffGetMasterLocationRoute(
@@ -63,18 +68,21 @@ export function registerBffGetMasterLocationRoute(
         });
       }
 
-      // Feature associations live on locations, not masters. The set is
-      // identical across all child locations of a VALIDATED master, so
-      // we just read from the first child.
-      const children = await appContext.repositories.locations.listByMaster(mid);
       const features =
-        children.length > 0
-          ? await appContext.repositories.layerFeatures.findFeatureAssociations(children[0]!.id)
+        master.latitude !== null && master.longitude !== null
+          ? await appContext.repositories.layerFeatures.findFeaturesContainingPoint({
+              clientId: master.clientId,
+              partitionId: master.partitionId,
+              latitude: master.latitude,
+              longitude: master.longitude,
+            })
           : [];
+      const copiedBy = await appContext.repositories.locations.listBySourceMaster(mid);
 
       return reply.code(200).send({
         ...toBffMasterLocationResponse(master),
         features: [...features],
+        copiedByLocations: copiedBy.length,
       });
     },
   );

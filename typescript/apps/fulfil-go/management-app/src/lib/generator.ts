@@ -112,6 +112,86 @@ function locationFor(storeRef: string, sku: string) {
   };
 }
 
+/**
+ * Product tile: an emoji matching the product on a temperature-tinted square,
+ * as an inline SVG data URI — deterministic, offline-safe, and recognisable
+ * on the pick screen (random stock photos read as nonsense next to "Butter").
+ * Most specific keywords first ('peanut butter' before 'butter').
+ */
+const PRODUCT_EMOJI: readonly (readonly [string, string])[] = [
+  ['toilet paper', '🧻'],
+  ['dishwashing', '🧴'],
+  ['peanut butter', '🥜'],
+  ['butter chicken', '🍛'],
+  ['ice cream', '🍨'],
+  ['ice lollies', '🍧'],
+  ['fresh cream', '🥛'],
+  ['milk', '🥛'],
+  ['yoghurt', '🥄'],
+  ['butter', '🧈'],
+  ['cheese', '🧀'],
+  ['feta', '🧀'],
+  ['custard', '🍮'],
+  ['salmon', '🐟'],
+  ['fish', '🐟'],
+  ['chicken mayo', '🥪'],
+  ['chicken', '🍗'],
+  ['mince', '🥩'],
+  ['boerewors', '🌭'],
+  ['boerie', '🌭'],
+  ['ham', '🥓'],
+  ['pie', '🥧'],
+  ['pizza', '🍕'],
+  ['chips', '🍟'],
+  ['peas', '🫛'],
+  ['berries', '🫐'],
+  ['pastry', '🥐'],
+  ['baked beans', '🥫'],
+  ['rice', '🍚'],
+  ['spaghetti', '🍝'],
+  ['flour', '🌾'],
+  ['sugar', '🍬'],
+  ['spice', '🧂'],
+  ['chutney', '🫙'],
+  ['tomato', '🍅'],
+  ['oil', '🌻'],
+  ['corn flakes', '🥣'],
+  ['rusks', '🍪'],
+  ['chocolate', '🍫'],
+  ['peanuts', '🥜'],
+  ['coffee', '☕'],
+  ['cappuccino', '☕'],
+  ['flat white', '☕'],
+  ['rooibos', '🍵'],
+  ['orange juice', '🧃'],
+  ['sparkling water', '💧'],
+  ['sparkling wine', '🍾'],
+  ['sauvignon', '🥂'],
+  ['wine', '🍷'],
+  ['lager', '🍺'],
+  ['cider', '🍏'],
+  ['gin', '🍸'],
+  ['brandy', '🥃'],
+  ['whisky', '🥃'],
+];
+
+const TILE_COLOURS: Record<string, string> = {
+  ambient: '#fef3c7',
+  chilled: '#dbeafe',
+  frozen: '#cffafe',
+};
+
+function productImage(description: string, temperatureClass: string): string {
+  const name = description.toLowerCase();
+  const emoji = PRODUCT_EMOJI.find(([keyword]) => name.includes(keyword))?.[1] ?? '🛒';
+  const fill = TILE_COLOURS[temperatureClass] ?? TILE_COLOURS['ambient'];
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">` +
+    `<rect width="96" height="96" fill="${fill}"/>` +
+    `<text x="48" y="66" font-size="52" text-anchor="middle">${emoji}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
   const lines = sampleProducts(Math.floor(between(1, 7))).map((product, index) =>
     Object.assign(
@@ -120,8 +200,7 @@ function buildPart(store: Store): CreateFulfilmentCommand['parts'][number] {
         sku: product.sku,
         gtin: product.gtin,
         description: product.description,
-        // Seeded per-sku placeholder image (offline: the app falls back).
-        imageUrl: `https://picsum.photos/seed/${product.sku}/96/96`,
+        imageUrl: productImage(product.description, product.temperatureClass),
         quantity: Math.floor(between(1, 5)),
         volumetric: product.volumetric,
         temperatureClass: product.temperatureClass as 'ambient' | 'chilled' | 'frozen',

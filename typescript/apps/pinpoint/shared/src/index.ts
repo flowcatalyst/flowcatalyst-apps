@@ -29,15 +29,11 @@ export {
   type AttributeValue,
 } from './contracts/locations/location-contracts.js';
 export {
-  ValidateMasterLocationCommandSchema,
-  RefreshMasterLocationGeocodeCommandSchema,
-  ConfirmMasterLocationCommandSchema,
   UpdateMasterLocationCommandSchema,
   RejectMasterLocationCommandSchema,
   DeleteMasterLocationCommandSchema,
-  type ValidateMasterLocationCommand,
-  type RefreshMasterLocationGeocodeCommand,
-  type ConfirmMasterLocationCommand,
+  CompleteMasterLocationCommandSchema,
+  type CompleteMasterLocationCommand,
   type UpdateMasterLocationCommand,
   type RejectMasterLocationCommand,
   type DeleteMasterLocationCommand,
@@ -93,8 +89,20 @@ export {
   type RevokePartitionAccessCommand,
 } from './contracts/tenancy/partition-contracts.js';
 export {
-  MatchMasterLocationFeaturesCommandSchema,
-  ConfirmMasterLocationGeocodeCommandSchema,
-  type MatchMasterLocationFeaturesCommand,
-  type ConfirmMasterLocationGeocodeCommand,
-} from './contracts/locations/master-location-contracts.js';
+  GeocodeLocationCommandSchema,
+  RefreshLocationGeocodeCommandSchema,
+  ApproveLocationCommandSchema,
+  ConfirmLocationGeocodeCommandSchema,
+  RejectLocationCommandSchema,
+  MatchLocationFeaturesCommandSchema,
+  ClearLocationCaptureReviewCommandSchema,
+  CaptureLocationCoordinatesCommandSchema,
+  type GeocodeLocationCommand,
+  type RefreshLocationGeocodeCommand,
+  type ApproveLocationCommand,
+  type ConfirmLocationGeocodeCommand,
+  type RejectLocationCommand,
+  type MatchLocationFeaturesCommand,
+  type ClearLocationCaptureReviewCommand,
+  type CaptureLocationCoordinatesCommand,
+} from './contracts/locations/location-review-contracts.js';

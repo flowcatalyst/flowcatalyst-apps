@@ -7,7 +7,7 @@
 # compose `context: ../..` resolves to the TS workspace root.)
 
 # Stage 1 ── install + build ───────────────────────────────────────
-FROM node:24-alpine AS build
+FROM node:24.22.1-alpine AS build
 # git is needed because @flowcatalyst/sdk resolves via github:flowcatalyst/typescript-sdk
 # — pnpm `git ls-remote`s the tags during install + deploy.
 RUN apk add --no-cache git \
@@ -44,7 +44,7 @@ RUN pnpm config set block-exotic-subdeps false --location project \
     && pnpm --filter @pinpoint/server --prod --legacy deploy /deploy/server
 
 # Stage 2 ── runtime ────────────────────────────────────────────────
-FROM node:24-alpine AS runtime
+FROM node:24.22.1-alpine AS runtime
 RUN addgroup -S pinpoint && adduser -S -G pinpoint pinpoint
 WORKDIR /app
 

@@ -34,8 +34,9 @@ export const pinpointRoles: readonly sync.RoleDefinition[] = [
     name: 'operator',
     displayName: 'Pinpoint Operator',
     description:
-      'Day-to-day address and matching work: create locations and drive the ' +
-      'master-location lifecycle. No tenancy, layer, or matching-config administration.',
+      'Day-to-day address and matching work: create, geocode, review and approve ' +
+      'locations, and maintain master locations (complete delivery captures). No ' +
+      'tenancy, layer, or matching-config administration.',
     permissions: [
       P.ReferenceCountryRead,
       P.TenancyClientRead,
@@ -44,9 +45,11 @@ export const pinpointRoles: readonly sync.RoleDefinition[] = [
       P.LocationsLocationRead,
       P.LocationsLocationUpdate,
       P.LocationsLocationDelete,
+      P.LocationsLocationGeocode,
+      P.LocationsLocationApprove,
+      P.LocationsLocationReject,
       P.LocationsMasterLocationRead,
-      P.LocationsMasterLocationValidate,
-      P.LocationsMasterLocationConfirm,
+      P.LocationsMasterLocationComplete,
       P.LocationsMasterLocationUpdate,
       P.LocationsMasterLocationReject,
       P.LocationsMasterLocationDelete,
@@ -56,6 +59,15 @@ export const pinpointRoles: readonly sync.RoleDefinition[] = [
       P.LayersFeatureRead,
       P.LayersPropertySetRead,
     ],
+    clientManaged: true,
+  },
+  {
+    name: 'delivery-capture',
+    displayName: 'Pinpoint Delivery Capture',
+    description:
+      'Service role for delivery apps: submit the coordinates a vehicle captured at an ' +
+      'address (creates DRAFT master locations for an operator to complete).',
+    permissions: [P.LocationsCaptureCreate, P.LocationsLocationRead],
     clientManaged: true,
   },
   {

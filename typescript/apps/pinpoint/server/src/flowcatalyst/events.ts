@@ -36,11 +36,16 @@ import { LocationCreatedEventType } from '../domain/locations/events/location-cr
 import { LocationValidatedEventType } from '../domain/locations/events/location-validated.event.js';
 import { LocationDeletedEventType } from '../domain/locations/events/location-deleted.event.js';
 import { LocationRematchedEventType } from '../domain/locations/events/location-rematched.event.js';
+import { LocationGeocodedEventType } from '../domain/locations/events/location-geocoded.event.js';
+import { LocationGeocodeRefreshedEventType } from '../domain/locations/events/location-geocode-refreshed.event.js';
+import { LocationGeocodeExpiredEventType } from '../domain/locations/events/location-geocode-expired.event.js';
+import { LocationGeocodeConfirmedEventType } from '../domain/locations/events/location-geocode-confirmed.event.js';
+import { LocationRejectedEventType } from '../domain/locations/events/location-rejected.event.js';
+import { LocationCaptureDisagreesEventType } from '../domain/locations/events/location-capture-disagrees.event.js';
+import { LocationCaptureReviewClearedEventType } from '../domain/locations/events/location-capture-review-cleared.event.js';
+import { MasterLocationCapturedEventType } from '../domain/locations/events/master-location-captured.event.js';
+import { MasterLocationCompletedEventType } from '../domain/locations/events/master-location-completed.event.js';
 import { MasterLocationCreatedEventType } from '../domain/locations/events/master-location-created.event.js';
-import { MasterLocationGeocodedEventType } from '../domain/locations/events/master-location-geocoded.event.js';
-import { MasterLocationGeocodeRefreshedEventType } from '../domain/locations/events/master-location-geocode-refreshed.event.js';
-import { MasterLocationGeocodeExpiredEventType } from '../domain/locations/events/master-location-geocode-expired.event.js';
-import { MasterLocationValidatedEventType } from '../domain/locations/events/master-location-validated.event.js';
 import { MasterLocationUpdatedEventType } from '../domain/locations/events/master-location-updated.event.js';
 import { MasterLocationRejectedEventType } from '../domain/locations/events/master-location-rejected.event.js';
 import { MasterLocationDeletedEventType } from '../domain/locations/events/master-location-deleted.event.js';
@@ -50,8 +55,6 @@ import { LayerFeatureStatusChangedEventType } from '../domain/layers/events/laye
 import { LayerPartitionsSetEventType } from '../domain/layers/events/layer-partitions-set.event.js';
 import { PartitionAccessGrantedEventType } from '../domain/tenancy/events/partition-access-granted.event.js';
 import { PartitionAccessRevokedEventType } from '../domain/tenancy/events/partition-access-revoked.event.js';
-import { MasterLocationFeaturesMatchedEventType } from '../domain/locations/events/master-location-features-matched.event.js';
-import { MasterLocationGeocodeConfirmedEventType } from '../domain/locations/events/master-location-geocode-confirmed.event.js';
 
 /**
  * A pinpoint event type — the SDK's `EventTypeDefinition` shape plus a
@@ -88,11 +91,16 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   LocationValidatedEventType,
   LocationDeletedEventType,
   LocationRematchedEventType,
+  LocationGeocodedEventType,
+  LocationGeocodeRefreshedEventType,
+  LocationGeocodeExpiredEventType,
+  LocationGeocodeConfirmedEventType,
+  LocationRejectedEventType,
+  LocationCaptureDisagreesEventType,
+  LocationCaptureReviewClearedEventType,
+  MasterLocationCapturedEventType,
+  MasterLocationCompletedEventType,
   MasterLocationCreatedEventType,
-  MasterLocationGeocodedEventType,
-  MasterLocationGeocodeRefreshedEventType,
-  MasterLocationGeocodeExpiredEventType,
-  MasterLocationValidatedEventType,
   MasterLocationUpdatedEventType,
   MasterLocationRejectedEventType,
   MasterLocationDeletedEventType,
@@ -102,6 +110,4 @@ export const pinpointEventTypes: readonly PinpointEventTypeDefinition[] = [
   PartitionAccessRevokedEventType,
   LayerPartitionsSetEventType,
   LayerFeatureStatusChangedEventType,
-  MasterLocationFeaturesMatchedEventType,
-  MasterLocationGeocodeConfirmedEventType,
 ];

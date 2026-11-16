@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { asMasterLocationId } from '../../../domain/locations/ids.js';
 import type { AppContext } from '../../../app-context.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
-import { MasterGeocodeFields } from './geocode-source.schema.js';
+import { MasterGeocodeFields, masterGeocodeFields } from './geocode-source.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -26,8 +26,7 @@ const MasterLocationResponseSchema = Type.Object({
   longitude: NullableNumber,
   ...MasterGeocodeFields,
   status: Type.Union([
-    Type.Literal('PENDING'),
-    Type.Literal('GEOCODED'),
+    Type.Literal('DRAFT'),
     Type.Literal('VALIDATED'),
     Type.Literal('REJECTED'),
   ]),
@@ -72,7 +71,7 @@ export function registerGetMasterLocationRoute(
         createdAt: master.createdAt.toISOString(),
         updatedAt: master.updatedAt.toISOString(),
         validatedAt: master.validatedAt ? master.validatedAt.toISOString() : null,
-        geocodeExpiresAt: master.geocodeExpiresAt?.toISOString() ?? null,
+        ...masterGeocodeFields(master),
       };
     },
   );

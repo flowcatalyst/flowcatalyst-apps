@@ -6,6 +6,7 @@
  */
 import { Type } from '@sinclair/typebox';
 import { schemaRef } from '../../../plugins/schema-ref.js';
+import { LocationGeocodeFields } from '../../locations/location-detail.schema.js';
 
 export const BffLocationSummarySchema = Type.Object(
   {
@@ -16,7 +17,7 @@ export const BffLocationSummarySchema = Type.Object(
     city: Type.String(),
     country: Type.String(),
     status: Type.String(),
-    masterLocationId: Type.Union([Type.String(), Type.Null()]),
+    ...LocationGeocodeFields,
     matchConfidence: Type.Union([Type.Number(), Type.Null()]),
     /** How the master was matched: EXACT_HASH | FUZZY | null (no match). */
     matchMethod: Type.Union([Type.String(), Type.Null()]),

@@ -38,13 +38,13 @@ export type LayerPropertyAssignment = Static<typeof LayerPropertyAssignmentSchem
 export const LocationValidatedDataSchema = Type.Object({
   locationId: Type.String(),
   clientId: Type.String(),
-  masterLocationId: Type.String(),
+  /** The master location the data was copied from, if it matched one. Reference only. */
+  sourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
   latitude: Type.Number(),
   longitude: Type.Number(),
-  /**
-   * Canonical normalized components of the matched master location's
-   * address — the address these coordinates resolved to.
-   */
+  /** Where the coordinates came from: MASTER_LOCATIONS | PHOTON | GOOGLE_MAPS | OPERATOR. */
+  geocodeSource: Type.String(),
+  /** The location's resolved address components — what the coordinates refer to. */
   address: AddressDetailsSchema,
   layerProperties: Type.Array(LayerPropertyAssignmentSchema),
 });

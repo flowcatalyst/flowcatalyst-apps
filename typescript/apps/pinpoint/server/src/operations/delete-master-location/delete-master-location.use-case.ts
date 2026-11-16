@@ -3,7 +3,6 @@ import {
   ScopeStore,
   UseCaseError,
   commitDelete,
-  isFailure,
   type AggregateRegistryImpl,
   type Scope,
   type UnitOfWork,
@@ -12,19 +11,13 @@ import { PinpointPermission } from '@pinpoint/shared';
 
 import { asClientId } from '../../domain/tenancy/ids.js';
 import { asMasterLocationId } from '../../domain/locations/ids.js';
-import { LocationDeleted } from '../../domain/locations/events/location-deleted.event.js';
 import { MasterLocationDeleted } from '../../domain/locations/events/master-location-deleted.event.js';
-import type { LocationRepository } from '../../domain/locations/location.repository.js';
 import type { MasterLocationRepository } from '../../domain/locations/master-location.repository.js';
 import type { DeleteMasterLocationCommand } from './delete-master-location.command.js';
 
 /**
- * Delete a master location AND its child locations (a cascade). The
- * `locations.master_location_id` FK is NOT `ON DELETE CASCADE`, so the child
- * locations must be deleted explicitly first — each one cascades its own
- * feature/attribute/layer association rows at the DB level. The master
- * location's processing-log rows then cascade via their own FK. Everything runs
- * inside the caller's single `runWrite` transaction, so it's atomic.
+ * Delete a master location (its processing trail cascades). Locations that
+ * copied its data keep their copy — they only referenced it.
  */
 export class DeleteMasterLocationUseCase {
   static readonly requiredPermission = PinpointPermission.LocationsMasterLocationDelete;
@@ -33,7 +26,6 @@ export class DeleteMasterLocationUseCase {
     private readonly uow: UnitOfWork,
     private readonly registry: AggregateRegistryImpl,
     private readonly masterLocations: MasterLocationRepository,
-    private readonly locations: LocationRepository,
   ) {}
 
   async execute(command: DeleteMasterLocationCommand): Promise<Result<MasterLocationDeleted>> {
@@ -68,24 +60,9 @@ export class DeleteMasterLocationUseCase {
       );
     }
 
-    // Cascade: delete every child location first (each cascades its own
-    // associations via DB FK). Short-circuit on the first failure — the whole
-    // tx rolls back.
-    const children = await this.locations.listByMaster(masterLocationId);
-    for (const child of children) {
-      const childEvent = new LocationDeleted(scope, {
-        locationId: child.id,
-        clientId: child.clientId,
-        masterLocationId: child.masterLocationId,
-      });
-      const childResult = await commitDelete(this.uow, this.registry, child, childEvent, command);
-      if (isFailure(childResult)) return childResult;
-    }
-
     const event = new MasterLocationDeleted(scope, {
       masterLocationId: existing.id,
       clientId: existing.clientId,
-      locationsDeleted: children.length,
     });
 
     return commitDelete(this.uow, this.registry, existing, event, command);

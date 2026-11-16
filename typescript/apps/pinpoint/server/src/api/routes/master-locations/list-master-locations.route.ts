@@ -2,7 +2,7 @@ import { Type } from '@sinclair/typebox';
 import type { FastifyInstance } from 'fastify';
 import { asClientId } from '../../../domain/tenancy/ids.js';
 import type { AppContext } from '../../../app-context.js';
-import { MasterGeocodeFields } from './geocode-source.schema.js';
+import { MasterGeocodeFields, masterGeocodeFields } from './geocode-source.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -71,7 +71,7 @@ export function registerListMasterLocationsRoute(
           createdAt: m.createdAt.toISOString(),
           updatedAt: m.updatedAt.toISOString(),
           validatedAt: m.validatedAt ? m.validatedAt.toISOString() : null,
-          geocodeExpiresAt: m.geocodeExpiresAt?.toISOString() ?? null,
+          ...masterGeocodeFields(m),
         })),
         total: result.total,
         limit,

@@ -18,6 +18,7 @@ import type {
 } from '../../../../domain/locations/master-location.js';
 import type { AppContext } from '../../../../app-context.js';
 import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
+import { masterGeocodeFields } from '../../master-locations/geocode-source.schema.js';
 import { BffMasterLocationRef } from './master-location.schema.js';
 
 const StatusEnum = Type.Union([
@@ -55,8 +56,12 @@ export function toBffMasterLocationResponse(ml: MasterLocation): {
   status: string;
   latitude: number | null;
   longitude: number | null;
+  name: string | null;
   geocodeSource: MasterLocation['geocodeSource'];
-  geocodeExpiresAt: string | null;
+  origin: MasterLocation['origin'];
+  originLocationId: string | null;
+  captureAccuracyM: number | null;
+  capturedAt: string | null;
   addressHash: string;
   createdAt: string;
 } {
@@ -78,8 +83,7 @@ export function toBffMasterLocationResponse(ml: MasterLocation): {
     status: ml.status,
     latitude: ml.latitude,
     longitude: ml.longitude,
-    geocodeSource: ml.geocodeSource,
-    geocodeExpiresAt: ml.geocodeExpiresAt?.toISOString() ?? null,
+    ...masterGeocodeFields(ml),
     addressHash: ml.addressHash,
     createdAt: ml.createdAt.toISOString(),
   };

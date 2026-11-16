@@ -58,7 +58,7 @@ export class DeleteLocationUseCase {
     const event = new LocationDeleted(scope, {
       locationId: existing.id,
       clientId: existing.clientId,
-      masterLocationId: existing.masterLocationId,
+      sourceMasterLocationId: existing.sourceMasterLocationId,
     });
 
     return commitDelete(this.uow, this.registry, existing, event, command);

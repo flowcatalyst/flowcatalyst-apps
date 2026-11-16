@@ -9,11 +9,12 @@ export const LocationCreatedDataSchema = Type.Object({
   clientId: Type.String(),
   partitionId: NullableString,
   /**
-   * Master the location matched to (or freshly created). Always present
-   * in the Slice 8 pipeline; the field is on the event so downstream
-   * consumers don't need to refetch the location row to learn it.
+   * The master location whose data the location copied, when it matched one
+   * (reference only). Null: no match — the location is geocoded on its own.
    */
-  masterLocationId: Type.String(),
+  sourceMasterLocationId: NullableString,
+  /** VALIDATED when it matched a master, else PENDING. */
+  status: Type.String(),
   externalId: NullableString,
   rawCity: Type.String(),
   rawCountry: Type.String(),

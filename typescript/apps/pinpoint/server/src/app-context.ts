@@ -96,17 +96,21 @@ import { UpdatePropertySetUseCase } from './operations/update-property-set/updat
 import { DeletePropertySetUseCase } from './operations/delete-property-set/delete-property-set.use-case.js';
 import { ReplacePropertySetPropertiesUseCase } from './operations/replace-property-set-properties/replace-property-set-properties.use-case.js';
 import { UpdateMatchingConfigUseCase } from './operations/update-matching-config/update-matching-config.use-case.js';
-import { ValidateMasterLocationUseCase } from './operations/validate-master-location/validate-master-location.use-case.js';
-import { ConfirmMasterLocationUseCase } from './operations/confirm-master-location/confirm-master-location.use-case.js';
+import { GeocodeLocationUseCase } from './operations/geocode-location/geocode-location.use-case.js';
+import { ApproveLocationUseCase } from './operations/approve-location/approve-location.use-case.js';
+import { ConfirmLocationGeocodeUseCase } from './operations/confirm-location-geocode/confirm-location-geocode.use-case.js';
+import { RejectLocationUseCase } from './operations/reject-location/reject-location.use-case.js';
+import { MatchLocationFeaturesUseCase } from './operations/match-location-features/match-location-features.use-case.js';
+import { ClearLocationCaptureReviewUseCase } from './operations/clear-location-capture-review/clear-location-capture-review.use-case.js';
+import { RefreshLocationGeocodeUseCase } from './operations/refresh-location-geocode/refresh-location-geocode.use-case.js';
+import { CaptureLocationCoordinatesUseCase } from './operations/capture-location-coordinates/capture-location-coordinates.use-case.js';
+import { CompleteMasterLocationUseCase } from './operations/complete-master-location/complete-master-location.use-case.js';
 import { UpdateMasterLocationUseCase } from './operations/update-master-location/update-master-location.use-case.js';
 import { RejectMasterLocationUseCase } from './operations/reject-master-location/reject-master-location.use-case.js';
 import { SetLayerFeatureStatusUseCase } from './operations/set-layer-feature-status/set-layer-feature-status.use-case.js';
 import { SetLayerPartitionsUseCase } from './operations/set-layer-partitions/set-layer-partitions.use-case.js';
 import { GrantPartitionAccessUseCase } from './operations/grant-partition-access/grant-partition-access.use-case.js';
 import { RevokePartitionAccessUseCase } from './operations/revoke-partition-access/revoke-partition-access.use-case.js';
-import { MatchMasterLocationFeaturesUseCase } from './operations/match-master-location-features/match-master-location-features.use-case.js';
-import { RefreshMasterLocationGeocodeUseCase } from './operations/refresh-master-location-geocode/refresh-master-location-geocode.use-case.js';
-import { ConfirmMasterLocationGeocodeUseCase } from './operations/confirm-master-location-geocode/confirm-master-location-geocode.use-case.js';
 import { DeleteMasterLocationUseCase } from './operations/delete-master-location/delete-master-location.use-case.js';
 
 /**
@@ -140,6 +144,8 @@ export interface AppContextRepositories {
 export interface AppContextServices {
   /** Photon, falling back to Google Maps when Photon has no house-level match (if configured). */
   readonly geocoder: GeocoderService;
+  /** Photon only — for anything that becomes our own data (delivery-capture reverse geocode). */
+  readonly photon: GeocoderService;
   readonly addressVerifier: AddressVerifier;
 }
 
@@ -197,17 +203,21 @@ export interface AppContextUseCases {
   readonly deletePropertySet: DeletePropertySetUseCase;
   readonly replacePropertySetProperties: ReplacePropertySetPropertiesUseCase;
   readonly updateMatchingConfig: UpdateMatchingConfigUseCase;
-  readonly validateMasterLocation: ValidateMasterLocationUseCase;
-  readonly refreshMasterLocationGeocode: RefreshMasterLocationGeocodeUseCase;
-  readonly confirmMasterLocation: ConfirmMasterLocationUseCase;
+  readonly geocodeLocation: GeocodeLocationUseCase;
+  readonly approveLocation: ApproveLocationUseCase;
+  readonly confirmLocationGeocode: ConfirmLocationGeocodeUseCase;
+  readonly rejectLocation: RejectLocationUseCase;
+  readonly matchLocationFeatures: MatchLocationFeaturesUseCase;
+  readonly clearLocationCaptureReview: ClearLocationCaptureReviewUseCase;
+  readonly refreshLocationGeocode: RefreshLocationGeocodeUseCase;
+  readonly captureLocationCoordinates: CaptureLocationCoordinatesUseCase;
+  readonly completeMasterLocation: CompleteMasterLocationUseCase;
   readonly updateMasterLocation: UpdateMasterLocationUseCase;
   readonly rejectMasterLocation: RejectMasterLocationUseCase;
   readonly setLayerFeatureStatus: SetLayerFeatureStatusUseCase;
   readonly setLayerPartitions: SetLayerPartitionsUseCase;
   readonly grantPartitionAccess: GrantPartitionAccessUseCase;
   readonly revokePartitionAccess: RevokePartitionAccessUseCase;
-  readonly matchMasterLocationFeatures: MatchMasterLocationFeaturesUseCase;
-  readonly confirmMasterLocationGeocode: ConfirmMasterLocationGeocodeUseCase;
   readonly deleteMasterLocation: DeleteMasterLocationUseCase;
 }
 
@@ -378,6 +388,7 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
     },
     services: {
       geocoder,
+      photon,
       addressVerifier,
     },
     useCases: {
@@ -442,33 +453,70 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
         partitionRepo,
         matchingConfigRepo,
       ),
-      validateMasterLocation: new ValidateMasterLocationUseCase(
+      geocodeLocation: new GeocodeLocationUseCase(
         uow,
         aggregateRegistry,
-        masterLocationRepo,
+        locationRepo,
         geocoder,
+        processingLogRepo,
         googleCacheDays,
       ),
-      refreshMasterLocationGeocode: new RefreshMasterLocationGeocodeUseCase(
+      approveLocation: new ApproveLocationUseCase(
         uow,
         aggregateRegistry,
+        locationRepo,
         masterLocationRepo,
-        geocoder,
-        googleCacheDays,
+        layerFeatureRepo,
+        processingLogRepo,
       ),
-      confirmMasterLocation: new ConfirmMasterLocationUseCase(
+      confirmLocationGeocode: new ConfirmLocationGeocodeUseCase(
         uow,
         aggregateRegistry,
-        masterLocationRepo,
+        locationRepo,
+        processingLogRepo,
+      ),
+      rejectLocation: new RejectLocationUseCase(uow, aggregateRegistry, locationRepo, processingLogRepo),
+      matchLocationFeatures: new MatchLocationFeaturesUseCase(
+        uow,
         locationRepo,
         layerFeatureRepo,
+        processingLogRepo,
+      ),
+      clearLocationCaptureReview: new ClearLocationCaptureReviewUseCase(
+        uow,
+        aggregateRegistry,
+        locationRepo,
+      ),
+      refreshLocationGeocode: new RefreshLocationGeocodeUseCase(
+        uow,
+        aggregateRegistry,
+        locationRepo,
+        layerFeatureRepo,
+        geocoder,
+        processingLogRepo,
+        googleCacheDays,
+      ),
+      captureLocationCoordinates: new CaptureLocationCoordinatesUseCase(
+        uow,
+        aggregateRegistry,
+        clientRepo,
+        partitionRepo,
+        locationRepo,
+        matchingConfigRepo,
+        processingLogRepo,
+        addressVerifier,
+        photon,
+      ),
+      completeMasterLocation: new CompleteMasterLocationUseCase(
+        uow,
+        aggregateRegistry,
+        masterLocationRepo,
         processingLogRepo,
       ),
       updateMasterLocation: new UpdateMasterLocationUseCase(
         uow,
         aggregateRegistry,
         masterLocationRepo,
-        locationRepo,
       ),
       rejectMasterLocation: new RejectMasterLocationUseCase(
         uow,
@@ -484,23 +532,10 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
       setLayerPartitions: new SetLayerPartitionsUseCase(uow, layerRepo, partitionRepo),
       grantPartitionAccess: new GrantPartitionAccessUseCase(uow, partitionRepo, principalRepo),
       revokePartitionAccess: new RevokePartitionAccessUseCase(uow, partitionRepo, principalRepo),
-      matchMasterLocationFeatures: new MatchMasterLocationFeaturesUseCase(
-        uow,
-        masterLocationRepo,
-        locationRepo,
-        layerFeatureRepo,
-      ),
-      confirmMasterLocationGeocode: new ConfirmMasterLocationGeocodeUseCase(
-        uow,
-        aggregateRegistry,
-        masterLocationRepo,
-        processingLogRepo,
-      ),
       deleteMasterLocation: new DeleteMasterLocationUseCase(
         uow,
         aggregateRegistry,
         masterLocationRepo,
-        locationRepo,
       ),
     },
     auth: {

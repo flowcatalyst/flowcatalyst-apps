@@ -5,8 +5,6 @@ import type { Scope } from '@pinpoint/framework';
 export const MasterLocationDeletedDataSchema = Type.Object({
   masterLocationId: Type.String(),
   clientId: Type.String(),
-  /** Number of child locations deleted as part of this cascade. */
-  locationsDeleted: Type.Integer({ minimum: 0 }),
 });
 
 export type MasterLocationDeletedData = Static<typeof MasterLocationDeletedDataSchema>;

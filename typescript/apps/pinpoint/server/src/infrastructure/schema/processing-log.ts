@@ -1,5 +1,6 @@
 /**
- * Per-master-location audit trail for the matching pipeline.
+ * Processing trail for a master location or a location (matching, geocoding,
+ * approval).
  * Verbatim port of Rust migration 014. Each step the pipeline runs
  * (normalize, matched, created, validated, …) appends one row with
  * JSONB payload — kept separate from `master_locations` so the
@@ -11,14 +12,17 @@
 import { index, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 import { timestampColumn } from '@flowcatalyst-apps/app-framework';
 import { masterLocations } from './master-locations.js';
+import { locations } from './locations.js';
 
 export const processingLog = pgTable(
   'processing_log',
   {
     id: text('id').primaryKey(),
-    masterLocationId: text('master_location_id')
-      .notNull()
-      .references(() => masterLocations.id, { onDelete: 'cascade' }),
+    /** The trail belongs to a master location or to a location (exactly one is set). */
+    masterLocationId: text('master_location_id').references(() => masterLocations.id, {
+      onDelete: 'cascade',
+    }),
+    locationId: text('location_id').references(() => locations.id, { onDelete: 'cascade' }),
     step: text('step').notNull(),
     data: jsonb('data').notNull().default({}),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
@@ -26,6 +30,7 @@ export const processingLog = pgTable(
   (t) => [
     index('idx_processing_log_master').on(t.masterLocationId),
     index('idx_processing_log_step').on(t.masterLocationId, t.step),
+    index('idx_processing_log_location').on(t.locationId),
   ],
 );
 

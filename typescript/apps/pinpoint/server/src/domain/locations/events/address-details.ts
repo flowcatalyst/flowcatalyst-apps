@@ -11,6 +11,8 @@
 import { Type, type Static } from '@sinclair/typebox';
 
 import type { MasterLocation } from '../master-location.js';
+import type { Location } from '../location.js';
+import { UNRESOLVED_COMPONENT } from '../../services/address-normalizer.js';
 
 export const AddressDetailsSchema = Type.Object({
   houseNumber: Type.Union([Type.String(), Type.Null()]),
@@ -39,5 +41,18 @@ export function addressDetailsFromMaster(master: MasterLocation): AddressDetails
     state: master.normalizedState,
     postalCode: master.normalizedPostalCode,
     country: master.normalizedCountry,
+  };
+}
+
+/** A location's resolved components in the event-payload shape. */
+export function addressDetailsFromLocation(location: Location): AddressDetails {
+  return {
+    houseNumber: location.normalizedHouseNumber,
+    road: location.normalizedRoad,
+    suburb: location.normalizedSuburb,
+    city: location.normalizedCity ?? UNRESOLVED_COMPONENT,
+    state: location.normalizedState,
+    postalCode: location.normalizedPostalCode,
+    country: location.normalizedCountry ?? location.rawCountry,
   };
 }

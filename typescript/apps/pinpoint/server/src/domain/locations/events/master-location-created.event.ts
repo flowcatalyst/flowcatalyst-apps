@@ -9,6 +9,14 @@ export const MasterLocationCreatedDataSchema = Type.Object({
   addressHash: Type.String(),
   normalizedCity: Type.String(),
   normalizedCountry: Type.String(),
+  /** LOCATION_APPROVAL (from an approved location) — captures emit `master_location:captured`. */
+  origin: Type.String(),
+  /** The approved location it was created from. */
+  originLocationId: Type.Union([Type.String(), Type.Null()]),
+  latitude: Type.Number(),
+  longitude: Type.Number(),
+  /** PHOTON | OPERATOR — never a third party. */
+  geocodeSource: Type.String(),
 });
 
 export type MasterLocationCreatedData = Static<typeof MasterLocationCreatedDataSchema>;

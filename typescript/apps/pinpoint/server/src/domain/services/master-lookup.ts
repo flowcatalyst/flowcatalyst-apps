@@ -9,7 +9,6 @@
  * Read-only: nothing is written, not even the processing trail.
  */
 import type { MasterLocation } from '../locations/master-location.js';
-import type { LocationRepository } from '../locations/location.repository.js';
 import type {
   MasterLocationRepository,
   MasterLookupScope,
@@ -25,7 +24,6 @@ const CANDIDATES_VERIFIED = 5;
 
 export interface MasterLookupDeps {
   readonly masters: MasterLocationRepository;
-  readonly locations: LocationRepository;
   readonly verifier: AddressVerifier;
 }
 
@@ -58,9 +56,7 @@ export async function lookupMasterLocation(
   );
   const checked = await Promise.all(
     candidates.map(async (master) => {
-      const candidateNames = (await deps.locations.listByMaster(master.id))
-        .map((l) => l.name)
-        .filter((n): n is string => n !== null);
+      const candidateNames = master.name ? [master.name] : [];
       const verdict = await deps.verifier.verify(line, candidateAddressLine(master), {
         inputName: null,
         candidateNames,

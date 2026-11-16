@@ -1,5 +1,6 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { FlowCatalystClient } from '@flowcatalyst/sdk';
+import { FULFILGO_APPLICATION_CODE } from './flowcatalyst/index.js';
 import { resolveClientSettings, type ResolvedPickStoreSettings } from '@fulfil-go/shared';
 import {
   buildOutboxManager,
@@ -364,7 +365,10 @@ export async function createAppContext(config: AppContextConfig): Promise<AppCon
   // One OutboxManager backs the UoW so events + local audit logs ride the
   // same ALS-bound Drizzle tx as the aggregate writes.
   const outboxManager = buildOutboxManager({ clientId });
-  const uow: UnitOfWork = createUnitOfWork(outboxManager);
+  // Audit logs must name the registered application or the platform 400s them.
+  const uow: UnitOfWork = createUnitOfWork(outboxManager, {
+    applicationCode: FULFILGO_APPLICATION_CODE,
+  });
 
   const runWrite = async <A>(thunk: () => Promise<Result<A>>): Promise<Result<A>> =>
     transactionManager.inTransaction((tx) => TransactionStore.run(tx, thunk));

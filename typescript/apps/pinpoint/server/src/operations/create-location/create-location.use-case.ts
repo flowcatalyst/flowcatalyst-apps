@@ -9,9 +9,13 @@
  *   4. Match against VALIDATED masters (`matchLocation`): exact hash, else the
  *      closest candidates checked by the address verifier, best confirmed
  *      match at or above the config's `overallThreshold`.
- *   5a. Match → create Location pointing at the matched master + LocationValidated.
- *   5b. No match → create new MasterLocation (PENDING, geocoded later) + Location.
- *   6. processing_log rows throughout (fire-and-forget).
+ *   5a. Match → the location copies the master's coordinates + components
+ *       (`geocodeSource: MASTER_LOCATIONS`, master id kept as a reference),
+ *       VALIDATED at once with features at its own point + LocationValidated.
+ *   5b. No match → the location stays PENDING; it is geocoded and approved
+ *       on its own (`geocode-location`, `approve-location`). No master is
+ *       created — masters come only from approved, non-third-party geocodes.
+ *   6. processing trail on the location (fire-and-forget).
  *   7. Persist attributes if the command carried any.
  *
  * Repo deps + UoW + registry come via constructor; the address verifier sits
@@ -31,28 +35,26 @@ import {
 } from '@pinpoint/framework';
 import { PinpointPermission } from '@pinpoint/shared';
 
-import { MasterLocation } from '../../domain/locations/master-location.js';
 import {
   asLocationAttributeId,
   asLocationId,
-  asMasterLocationId,
   LOCATION_ATTRIBUTE_ID_PREFIX,
   LOCATION_ID_PREFIX,
-  MASTER_LOCATION_ID_PREFIX,
 } from '../../domain/locations/ids.js';
 import type { LocationAttribute } from '../../domain/locations/location-attribute.js';
 import { asClientId, asPartitionId, PARTITION_ID_PREFIX } from '../../domain/tenancy/ids.js';
 import { DEFAULT_PARTITION_CODE, Partition } from '../../domain/tenancy/partition.js';
 import { PartitionCreated } from '../../domain/tenancy/events/partition-created.event.js';
 import { LocationCreated } from '../../domain/locations/events/location-created.event.js';
-import { MasterLocationCreated } from '../../domain/locations/events/master-location-created.event.js';
-import { LocationValidated } from '../../domain/locations/events/location-validated.event.js';
-import { addressDetailsFromMaster } from '../../domain/locations/events/address-details.js';
-import { hitToAssociation, hitToProperty } from '../../domain/services/spatial-hit-mappers.js';
+import {
+  associateLocationFeatures,
+  locationValidatedEvent,
+} from '../../domain/services/location-features.js';
+import { recordMatchTrail } from '../../domain/services/match-trail.js';
 import { UNRESOLVED_COMPONENT } from '../../domain/services/address-normalizer.js';
 import { addressLineHash, tidyAddressLine } from '../../domain/services/address-line.js';
 import { matchLocation } from '../../domain/services/location-matching.js';
-import type { Location } from '../../domain/locations/location.js';
+import { Location } from '../../domain/locations/location.js';
 import type { AddressVerifier } from '../../domain/services/address-verifier.js';
 import type { ClientRepository } from '../../domain/tenancy/client.repository.js';
 import type { PartitionRepository } from '../../domain/tenancy/partition.repository.js';
@@ -61,10 +63,7 @@ import type { MasterLocationRepository } from '../../domain/locations/master-loc
 import type { MatchingConfigRepository } from '../../domain/matching/matching-config.repository.js';
 import type { LayerFeatureRepository } from '../../domain/layers/layer-feature.repository.js';
 import type { LocationAttributeRepository } from '../../domain/locations/location-attribute.repository.js';
-import {
-  ProcessingStep,
-  type ProcessingLogRepository,
-} from '../../domain/locations/processing-log.repository.js';
+import type { ProcessingLogRepository } from '../../domain/locations/processing-log.repository.js';
 import type { CreateLocationCommand } from './create-location.command.js';
 
 export class CreateLocationUseCase {
@@ -189,15 +188,7 @@ export class CreateLocationUseCase {
     if (externalId) {
       const existing = await this.locations.findByExternalId(clientId, partitionId, externalId);
       if (existing) {
-        const event = new LocationCreated(scope, {
-          locationId: existing.id,
-          clientId: existing.clientId,
-          partitionId: existing.partitionId,
-          masterLocationId: existing.masterLocationId ?? '',
-          externalId: existing.externalId,
-          rawCity: existing.rawCity,
-          rawCountry: existing.rawCountry,
-        });
+        const event = createdEvent(scope, existing);
         return commitAggregate(this.uow, this.registry, existing, event, command);
       }
     }
@@ -213,14 +204,9 @@ export class CreateLocationUseCase {
     const now = new Date();
     const locationId = asLocationId(`${LOCATION_ID_PREFIX}_${generateTsid()}`);
 
-    // Step 4: match.
+    // Step 4: match against our VALIDATED master locations.
     const outcome = await matchLocation(
-      {
-        masters: this.masters,
-        locations: this.locations,
-        verifier: this.addressVerifier,
-        processingLog: this.processingLog,
-      },
+      { masters: this.masters, verifier: this.addressVerifier },
       {
         clientId,
         partitionId,
@@ -231,225 +217,40 @@ export class CreateLocationUseCase {
         threshold: config.overallThreshold,
       },
     );
-    const matchResult = outcome.match;
 
-    const unparsed = {
-      rawSuburb: null,
-      rawCity: UNRESOLVED_COMPONENT,
-      rawState: null,
-      rawPostalCode: null,
-      rawCountry: country,
-      normalizedHouseNumber: null,
-      normalizedRoad: null,
-      normalizedSuburb: null,
-      normalizedCity: null,
-      normalizedState: null,
-      normalizedPostalCode: null,
-      normalizedCountry: countryCode ? country : null,
-    } as const;
-
-    if (matchResult !== null) {
-      const matchedMaster = matchResult.master;
-
-      // processing_log writes are fire-and-forget — log failures must
-      // not block the pipeline.
-      try {
-        await this.processingLog.append(matchedMaster.id, ProcessingStep.Matched, {
-          method: matchResult.method,
-          confidence: matchResult.confidence,
-          location_id: locationId,
-          address_line: addressLine,
-        });
-      } catch {
-        // swallow
-      }
-
-      // Candidates are VALIDATED-only (see matchLocation).
-      const masterValidated = matchedMaster.status === 'VALIDATED';
-
-      const location: Location = {
+    const received: Location = {
+      ...Location.create({
         id: locationId,
         clientId,
         partitionId,
-        masterLocationId: matchedMaster.id,
         externalId,
         name,
         rawAddressLine1: address,
-        matchAddress: address,
         rawAddressLine2: null,
-        ...unparsed,
-        addressHash,
-        matchConfidence: matchResult.confidence,
-        matchMethod: matchResult.method,
-        status: masterValidated ? 'VALIDATED' : 'PENDING',
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      const createdEvent = new LocationCreated(scope, {
-        locationId: location.id,
-        clientId: location.clientId,
-        partitionId: location.partitionId,
-        masterLocationId: matchedMaster.id,
-        externalId: location.externalId,
-        rawCity: location.rawCity,
-        rawCountry: location.rawCountry,
-      });
-
-      const primary = await commitAggregate(
-        this.uow,
-        this.registry,
-        location,
-        createdEvent,
-        command,
-      );
-      if (isFailure(primary)) return primary;
-
-      if (attributeInputs.length > 0) {
-        const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
-          id: asLocationAttributeId(`${LOCATION_ATTRIBUTE_ID_PREFIX}_${generateTsid()}`),
-          locationId: location.id,
-          key: a.key.trim(),
-          value: a.value,
-          createdAt: now,
-          updatedAt: now,
-        }));
-        // Bind the attribute write to the current UoW tx so the FK to
-        // the just-created (still-uncommitted) location resolves.
-        const tx = TransactionStore.require();
-        await this.locationAttributes.insertMany(attrs, tx);
-      }
-
-      if (masterValidated && matchedMaster.latitude !== null && matchedMaster.longitude !== null) {
-        const lat = matchedMaster.latitude;
-        const lon = matchedMaster.longitude;
-        const hits = await this.layerFeatures.spatialLookup({
-          clientId,
-          partitionId,
-          latitude: lat,
-          longitude: lon,
-          layerCodes: null,
-        });
-        await this.layerFeatures.replaceLocationFeatureAssociations(
-          location.id,
-          hits.map(hitToAssociation),
-          TransactionStore.get(),
-        );
-
-        const validatedEvent = new LocationValidated(scope, {
-          locationId: location.id,
-          clientId: location.clientId,
-          masterLocationId: matchedMaster.id,
-          latitude: lat,
-          longitude: lon,
-          address: addressDetailsFromMaster(matchedMaster),
-          layerProperties: hits.map(hitToProperty),
-        });
-        const validatedResult = await commitAggregate(
-          this.uow,
-          this.registry,
-          location,
-          validatedEvent,
-          command,
-        );
-        // Reconstruct the failure so the return type matches the outer
-        // Result<LocationCreated> instead of Result<LocationValidated>.
-        if (isFailure(validatedResult)) return Result.failure(validatedResult.error);
-      }
-
-      return primary;
-    }
-
-    // ──── No-match path ─────────────────────────────────────────────
-    const masterId = asMasterLocationId(`${MASTER_LOCATION_ID_PREFIX}_${generateTsid()}`);
-    const master = MasterLocation.create({
-      id: masterId,
-      clientId,
-      partitionId,
-      normalizedHouseNumber: null,
-      normalizedRoad: null,
-      normalizedSuburb: null,
-      normalizedCity: UNRESOLVED_COMPONENT,
-      normalizedState: null,
-      normalizedPostalCode: null,
-      normalizedCountry: country,
+        rawSuburb: null,
+        rawCity: UNRESOLVED_COMPONENT,
+        rawState: null,
+        rawPostalCode: null,
+        rawCountry: country,
+        now,
+      }),
       addressHash,
-      normalizedAddressLine: addressLine,
-      now,
-    });
+      normalizedCountry: countryCode ? country : null,
+    };
+    // A match copies the master's data onto the location (VALIDATED at once);
+    // no match leaves it PENDING, to be geocoded and approved on its own.
+    const location = outcome.match
+      ? Location.matchedFrom(received, outcome.match.master, outcome.match, now)
+      : received;
 
-    const masterEvent = new MasterLocationCreated(scope, {
-      masterLocationId: masterId,
-      clientId,
-      partitionId,
-      addressHash,
-      normalizedCity: UNRESOLVED_COMPONENT,
-      normalizedCountry: country,
-    });
-    const masterCommit = await commitAggregate(
+    const created = await commitAggregate(
       this.uow,
       this.registry,
-      master,
-      masterEvent,
+      location,
+      createdEvent(scope, location),
       command,
     );
-    // Reconstruct the failure so the return type matches the outer
-    // Result<LocationCreated> instead of Result<MasterLocationCreated>.
-    if (isFailure(masterCommit)) return Result.failure(masterCommit.error);
-
-    // Trail entries append AFTER the master commit — the FK to the
-    // master row is checked per-statement even inside the shared tx.
-    try {
-      await this.processingLog.append(masterId, ProcessingStep.Normalized, {
-        input: address,
-        address_line: addressLine,
-        address_hash: addressHash,
-        country_hint: countryCode,
-      });
-    } catch {
-      // swallow
-    }
-    try {
-      await this.processingLog.append(masterId, ProcessingStep.Created, {
-        reason: outcome.rejectedMasterIds.length > 0 ? 'verifier_rejected' : 'no_match',
-        candidates_checked: outcome.candidatesChecked,
-        rejected_master_location_ids: outcome.rejectedMasterIds,
-      });
-    } catch {
-      // swallow
-    }
-
-    const location: Location = {
-      id: locationId,
-      clientId,
-      partitionId,
-      masterLocationId: masterId,
-      externalId,
-      name,
-      rawAddressLine1: address,
-      matchAddress: address,
-      rawAddressLine2: null,
-      ...unparsed,
-      addressHash,
-      matchConfidence: null,
-      matchMethod: null,
-      status: 'PENDING',
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const locationEvent = new LocationCreated(scope, {
-      locationId: location.id,
-      clientId: location.clientId,
-      partitionId: location.partitionId,
-      masterLocationId: masterId,
-      externalId: location.externalId,
-      rawCity: location.rawCity,
-      rawCountry: location.rawCountry,
-    });
-
-    const sealed = await commitAggregate(this.uow, this.registry, location, locationEvent, command);
-    if (isFailure(sealed)) return sealed;
+    if (isFailure(created)) return created;
 
     if (attributeInputs.length > 0) {
       const attrs: LocationAttribute[] = attributeInputs.map((a) => ({
@@ -460,14 +261,53 @@ export class CreateLocationUseCase {
         createdAt: now,
         updatedAt: now,
       }));
-      const tx = TransactionStore.require();
-      await this.locationAttributes.insertMany(attrs, tx);
+      // Bind the attribute write to the current UoW tx so the FK to the
+      // just-created (still-uncommitted) location resolves.
+      await this.locationAttributes.insertMany(attrs, TransactionStore.require());
     }
 
-    return sealed;
+    // Trail entries go on the location, after its row exists.
+    await recordMatchTrail(this.processingLog, location.id, {
+      addressLine,
+      addressHash,
+      countryHint: countryCode,
+      outcome,
+    });
+
+    if (outcome.match) {
+      const hits = await associateLocationFeatures(
+        this.layerFeatures,
+        location,
+        TransactionStore.get(),
+      );
+      const validated = await commitAggregate(
+        this.uow,
+        this.registry,
+        location,
+        locationValidatedEvent(scope, location, hits),
+        command,
+      );
+      // Reconstruct the failure so the return type stays Result<LocationCreated>.
+      if (isFailure(validated)) return Result.failure(validated.error);
+    }
+
+    return created;
   }
 
   private authorize(scope: Scope): boolean {
     return scope.permissions.has(CreateLocationUseCase.requiredPermission);
   }
+}
+
+function createdEvent(scope: Scope, location: Location): LocationCreated {
+  return new LocationCreated(scope, {
+    locationId: location.id,
+    clientId: location.clientId,
+    partitionId: location.partitionId,
+    sourceMasterLocationId: location.sourceMasterLocationId,
+    status: location.status,
+    externalId: location.externalId,
+    rawCity: location.rawCity,
+    rawCountry: location.rawCountry,
+  });
 }

@@ -6,11 +6,11 @@ export const LocationRematchedDataSchema = Type.Object({
   locationId: Type.String(),
   clientId: Type.String(),
   matchAddress: Type.String(),
-  previousMasterLocationId: Type.Union([Type.String(), Type.Null()]),
-  masterLocationId: Type.String(),
+  /** The master the location's data was copied from before the rematch (reference). */
+  previousSourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
+  /** The master it matched now — null: no match, back to PENDING to be geocoded. */
+  sourceMasterLocationId: Type.Union([Type.String(), Type.Null()]),
   status: Type.String(),
-  /** True when the previous (PENDING, now-orphaned) master was deleted as part of this rematch. */
-  previousMasterDeleted: Type.Boolean(),
 });
 
 export type LocationRematchedData = Static<typeof LocationRematchedDataSchema>;

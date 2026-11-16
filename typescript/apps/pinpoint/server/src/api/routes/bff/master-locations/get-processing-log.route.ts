@@ -47,9 +47,9 @@ export function registerBffGetProcessingLogRoute(
         clientId: string;
         masterLocationId: string;
       };
-      const entries = await appContext.repositories.processingLog.listByMaster(
-        asMasterLocationId(masterLocationId),
-      );
+      const entries = await appContext.repositories.processingLog.list({
+        masterLocationId: asMasterLocationId(masterLocationId),
+      });
 
       return reply.code(200).send(
         entries.map((e) => ({

@@ -44,6 +44,8 @@ export const masterLocations = pgTable(
       .notNull()
       .references(() => clients.id),
     partitionId: text('partition_id').references(() => partitions.id),
+    /** Name of the location it came from (the verifier's name rule). */
+    name: text('name'),
 
     normalizedHouseNumber: text('normalized_house_number'),
     normalizedRoad: text('normalized_road'),
@@ -65,12 +67,16 @@ export const masterLocations = pgTable(
      * `docs/spatial-queries.md` for the established pattern.
      */
     point: geometry('point'),
-    /** PHOTON | GOOGLE_MAPS | OPERATOR — who produced the coordinates. */
+    /** PHOTON | OPERATOR | DELIVERY_CAPTURE — never a third party. */
     geocodeSource: varchar('geocode_source', { length: 20 }),
-    /** Cached third-party coordinates must be refreshed or dropped by then. */
-    geocodeExpiresAt: timestampColumn('geocode_expires_at'),
+    /** LOCATION_APPROVAL | DELIVERY_CAPTURE | MIGRATED. */
+    origin: varchar('origin', { length: 20 }).notNull().default('MIGRATED'),
+    /** The approved location it was created from. No FK — locations may be deleted. */
+    originLocationId: text('origin_location_id'),
+    captureAccuracyM: doublePrecision('capture_accuracy_m'),
+    capturedAt: timestampColumn('captured_at'),
 
-    status: varchar('status', { length: 20 }).notNull().default('PENDING'),
+    status: varchar('status', { length: 20 }).notNull().default('DRAFT'),
     createdAt: timestampColumn('created_at').notNull().defaultNow(),
     updatedAt: timestampColumn('updated_at').notNull().defaultNow(),
     validatedAt: timestampColumn('validated_at'),

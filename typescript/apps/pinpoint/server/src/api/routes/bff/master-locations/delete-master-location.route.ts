@@ -14,7 +14,6 @@ import { ErrorResponseRef } from '../../../plugins/error-response.schema.js';
 
 const ResponseSchema = Type.Object({
   success: Type.Literal(true),
-  locationsDeleted: Type.Integer({ minimum: 0 }),
 });
 
 export function registerBffDeleteMasterLocationRoute(
@@ -65,7 +64,6 @@ export function registerBffDeleteMasterLocationRoute(
       }
       return reply.code(200).send({
         success: true,
-        locationsDeleted: result.value.getData().locationsDeleted,
       });
     },
   );

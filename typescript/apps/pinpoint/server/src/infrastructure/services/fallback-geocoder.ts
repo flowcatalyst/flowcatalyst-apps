@@ -26,20 +26,9 @@ export interface FallbackGeocoderOptions {
   readonly onError?: (err: unknown) => void;
 }
 
-/** A leading number token: `16`, `16a`, `16-18`. */
-const HOUSE_NUMBER = /^\d+[a-z]?\b/i;
+export { lineWantsHouse, wantsHouse } from '../../domain/services/house-number.js';
 
-/** Structured input wants a house: a house number, or a road like "16 Curvy". */
-export function wantsHouse(address: NormalizedAddress): boolean {
-  if (address.houseNumber?.trim()) return true;
-  return HOUSE_NUMBER.test(address.road?.trim() ?? '');
-}
-
-/** Free text wants a house when its first segment starts with a number. */
-export function lineWantsHouse(line: string): boolean {
-  const first = line.split(',')[0]?.trim() ?? '';
-  return HOUSE_NUMBER.test(first);
-}
+import { lineWantsHouse, wantsHouse } from '../../domain/services/house-number.js';
 
 export function createFallbackGeocoder(
   primary: GeocoderService,

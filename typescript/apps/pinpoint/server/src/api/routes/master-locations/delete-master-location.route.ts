@@ -8,7 +8,6 @@ import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
 
 const DeleteMasterLocationResponseSchema = Type.Object({
   masterLocationId: Type.String(),
-  locationsDeleted: Type.Integer({ minimum: 0 }),
   deletedAt: Type.String({ format: 'date-time' }),
 });
 
@@ -65,7 +64,6 @@ export function registerDeleteMasterLocationRoute(
       const data = event.getData();
       return reply.code(200).send({
         masterLocationId: data.masterLocationId,
-        locationsDeleted: data.locationsDeleted,
         deletedAt: event.time.toISOString(),
       });
     },

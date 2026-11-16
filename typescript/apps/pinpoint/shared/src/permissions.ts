@@ -42,16 +42,25 @@ export const PinpointPermission = {
   MatchingConfigRead: 'pinpoint:matching:config:read',
   MatchingConfigManage: 'pinpoint:matching:config:manage',
   MatchingSpatialLookup: 'pinpoint:matching:spatial:lookup',
+  /** Geocode a PENDING location (PENDING → GEOCODED). */
+  LocationsLocationGeocode: 'pinpoint:locations:location:geocode',
+  /**
+   * Approve a location (GEOCODED → VALIDATED, features), confirm an operator
+   * geocode, re-run its feature match, dismiss a capture disagreement.
+   */
+  LocationsLocationApprove: 'pinpoint:locations:location:approve',
+  /** Mark a location REJECTED. */
+  LocationsLocationReject: 'pinpoint:locations:location:reject',
+  /** Submit delivery-vehicle coordinate captures (creates DRAFT master locations). */
+  LocationsCaptureCreate: 'pinpoint:locations:capture:create',
   LocationsMasterLocationRead: 'pinpoint:locations:master_location:read',
-  /** Geocode-only step (PENDING → GEOCODED). Despite the name, this is the geocoding gate. */
-  LocationsMasterLocationValidate: 'pinpoint:locations:master_location:validate',
-  /** Canonicalization step (GEOCODED → VALIDATED). Cascades to child locations. */
-  LocationsMasterLocationConfirm: 'pinpoint:locations:master_location:confirm',
+  /** Capture a DRAFT master's address properly (DRAFT → VALIDATED). */
+  LocationsMasterLocationComplete: 'pinpoint:locations:master_location:complete',
   /** Manually edit normalized components of a master location (BFF). */
   LocationsMasterLocationUpdate: 'pinpoint:locations:master_location:update',
   /** Manually mark a master location as REJECTED (junk, duplicate, etc.). */
   LocationsMasterLocationReject: 'pinpoint:locations:master_location:reject',
-  /** Delete a master location. Cascades to its child locations + processing log. */
+  /** Delete a master location (locations that copied it keep their copy). */
   LocationsMasterLocationDelete: 'pinpoint:locations:master_location:delete',
   /** Request counts per client / partition / operation / period. */
   ReportingUsageRead: 'pinpoint:reporting:usage:read',

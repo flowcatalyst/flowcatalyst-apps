@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { asLocationId } from '../../../domain/locations/ids.js';
 import type { AppContext } from '../../../app-context.js';
 import { ErrorResponseRef } from '../../plugins/error-response.schema.js';
+import { LocationGeocodeFields, locationGeocodeFields } from './location-detail.schema.js';
 
 const NullableString = Type.Union([Type.String(), Type.Null()]);
 const NullableNumber = Type.Union([Type.Number(), Type.Null()]);
@@ -11,7 +12,7 @@ const LocationResponseSchema = Type.Object({
   id: Type.String(),
   clientId: Type.String(),
   partitionId: NullableString,
-  masterLocationId: NullableString,
+  ...LocationGeocodeFields,
   externalId: NullableString,
   name: NullableString,
   rawAddressLine1: Type.String(),
@@ -60,6 +61,7 @@ export function registerGetLocationRoute(fastify: FastifyInstance, appContext: A
       }
       return {
         ...loc,
+        ...locationGeocodeFields(loc),
         createdAt: loc.createdAt.toISOString(),
         updatedAt: loc.updatedAt.toISOString(),
       };
